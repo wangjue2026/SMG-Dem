@@ -1,0 +1,1028 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DEM-首页 - 全网体验监控指挥中心</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="../assets/css/css-overrides.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/collapse@3.x.x/dist/cdn.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <script src="../assets/js/ai-dem-data.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="../assets/js/tailwind-config.js"></script>
+  <link rel="stylesheet" href="../assets/css/ai-dem.css" />
+
+  <!-- 集中维护的公共 Shell 框架 -->
+  <script src="../assets/js/dem-shell.js?v=4.0"></script>
+
+  <style>
+    /* -------------------------------------------------------------
+       @comp-select 规范下拉选择框
+       ------------------------------------------------------------- */
+    .dem-select {
+      height: 32px;
+      font-size: 12px;
+      color: #2F3540;
+      background-color: #FFFFFF;
+      border: 1px solid #D3D7DE;
+      border-radius: 2px;
+      padding-left: 12px;
+      padding-right: 28px; /* 8px 边距 */
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23A1A7B3'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 8px center;
+      background-size: 14px 14px;
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .dem-select:hover, .dem-select:focus {
+      border-color: #1C6EFF;
+      outline: none;
+    }
+
+    /* 端到端链路高亮特效 */
+    @keyframes pulse-red-subtle {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.35); }
+      50% { box-shadow: 0 0 0 5px rgba(239, 68, 68, 0); }
+    }
+    .alert-node-pulse {
+      animation: pulse-red-subtle 2s infinite;
+    }
+
+    /* 告警卡片紧凑精细化样式 */
+    .dem-alert-card {
+      background: #FFFFFF;
+      border: 1px solid #E2E8F0;
+      border-radius: 4px;
+      transition: all 0.15s ease-in-out;
+    }
+    .dem-alert-card:hover {
+      border-color: #1C6EFF;
+      box-shadow: 0 3px 8px -2px rgba(28, 110, 255, 0.08);
+    }
+
+    /* 列表末尾分页器规范 */
+    .dem-pagination-bar {
+      height: 44px;
+      background: #FFFFFF;
+      border-top: 1px solid #E2E8F0;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      padding: 0 16px;
+      gap: 16px;
+      font-size: 12px;
+      color: var(--color-graphite-d10, #5C6270);
+    }
+
+    .dem-page-btn {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 12px;
+      color: #2F3540;
+      transition: all 0.15s;
+    }
+
+    .dem-page-btn:hover {
+      border: 1px solid #1C6EFF;
+      color: #1C6EFF;
+    }
+
+    .dem-page-btn.active {
+      background-color: #1C6EFF;
+      color: #FFFFFF;
+      font-weight: 500;
+    }
+
+    .dem-page-btn.disabled {
+      cursor: not-allowed;
+      color: #C0C4CC;
+    }
+
+    [x-cloak] { display: none !important; }
+  </style>
+
+  <script>
+    function demHomeTabState() {
+      return {
+        ...window.demAppState('首页', 'm_0_0_1'),
+        alerts: [],
+        searchQuery: '',
+        selectedLevel: 'all',
+        selectedDimension: 'all',
+        currentPage: 1,
+        pageSize: 10,
+        jumpPageInput: '',
+        dateShortcut: '今天',
+        dateRange: '2026-06-04 00:00:00 ~ 2026-06-04 23:59:59',
+
+        // AI 排障 Agent 抽屉状态
+        showAiDrawer1: false,
+        showAiDrawer2: false,
+        aiInput: '',
+        isThinking: false,
+        chatMessages: [
+          {
+            role: 'ai',
+            time: '09:14:00',
+            content: '您好！我是 DEM AI 智能排障 Agent。我可以实时联调全路径五段拓扑探针与日志数据，帮助您秒级定位网络丢包、应用卡顿与分支体验下降问题。\n\n请在下方输入您的访问异常，或直接点击推荐指令：',
+            quickPrompts: [
+              '上海分支 CRM 访问卡顿与丢包分析',
+              '北京总部 VIP 用户视频会议延迟排障',
+              '广州数据中心 Web 应用响应慢根因定位'
+            ],
+            hasAnalysisChain: false
+          }
+        ],
+
+        init() {
+          if (window.initDemClusteredAlerts) {
+            this.alerts = window.initDemClusteredAlerts();
+          }
+        },
+
+        get filteredAlerts() {
+          const levelOrder = { '高优': 0, '中优': 1, '低优': 2 };
+          return this.alerts.filter(a => {
+            const query = this.searchQuery.trim().toLowerCase();
+            const matchSearch = !query || 
+              a.title.toLowerCase().includes(query) ||
+              a.description.toLowerCase().includes(query) ||
+              a.scope.appName.toLowerCase().includes(query);
+
+            const matchLevel = this.selectedLevel === 'all' || a.level === this.selectedLevel;
+            const matchDim = this.selectedDimension === 'all' || a.dimension === this.selectedDimension;
+
+            return matchSearch && matchLevel && matchDim;
+          }).sort((a, b) => {
+            // 第一排序：高优 > 中优 > 低优
+            const lvDiff = (levelOrder[a.level] ?? 9) - (levelOrder[b.level] ?? 9);
+            if (lvDiff !== 0) return lvDiff;
+            // 第二排序：同级按时间倒序（最近发生的在前）
+            return (b.time || '').localeCompare(a.time || '');
+          });
+        },
+
+        get paginatedAlerts() {
+          const start = (this.currentPage - 1) * this.pageSize;
+          return this.filteredAlerts.slice(start, start + this.pageSize);
+        },
+
+        get totalPages() {
+          return Math.ceil(this.filteredAlerts.length / this.pageSize) || 1;
+        },
+
+        get metrics() {
+          const total = this.alerts.length;
+          const highCount = this.alerts.filter(a => a.level === '高优').length;
+          const medCount = this.alerts.filter(a => a.level === '中优').length;
+          const lowCount = this.alerts.filter(a => a.level === '低优').length;
+
+          return {
+            total,
+            highCount,
+            medCount,
+            lowCount,
+            branchStats: { total: 24, normal: 19, fair: 3, poor: 2 },
+            userStats: { total: 1250, normal: 1180, fair: 42, poor: 28 },
+            appStats: { total: 36, normal: 29, fair: 4, poor: 3 }
+          };
+        },
+
+        getLevelBadgeClass(lvl) {
+          if (lvl === '高优') return 'bg-[#CF171D]/10 text-[#CF171D] rounded-[2px] font-normal border-0 w-[36px] h-5 inline-flex items-center justify-center text-xs';
+          if (lvl === '中优') return 'bg-[#FA721B]/10 text-[#FA721B] rounded-[2px] font-normal border-0 w-[36px] h-5 inline-flex items-center justify-center text-xs';
+          return 'bg-[#6F7785]/10 text-[#2F3540] rounded-[2px] font-normal border-0 w-[36px] h-5 inline-flex items-center justify-center text-xs';
+        },
+
+        changePage(p) {
+          if (p < 1 || p > this.totalPages) return;
+          this.currentPage = p;
+        },
+
+        handleJumpPage() {
+          const p = parseInt(this.jumpPageInput);
+          if (p >= 1 && p <= this.totalPages) {
+            this.currentPage = p;
+            this.jumpPageInput = '';
+          }
+        },
+
+        sendAiMessage(text) {
+          if (!text || !text.trim()) return;
+          const userText = text.trim();
+          const now = new Date().toLocaleTimeString('zh-CN', { hour12: false, hour: '2-digit', minute: '2-digit' });
+          this.chatMessages.push({
+            role: 'user',
+            time: now,
+            content: userText
+          });
+          this.aiInput = '';
+          this.isThinking = true;
+
+          setTimeout(() => {
+            this.isThinking = false;
+            this.chatMessages.push({
+              role: 'ai',
+              time: new Date().toLocaleTimeString('zh-CN', { hour12: false, hour: '2-digit', minute: '2-digit' }),
+              content: `针对您输入的排障分析请求【${userText}】，DEM AI 智能 Agent 已完成全路径多维感知探针数据与关键日志的实时调取推导：\n\n1. 根因定位：发现上海 SD-WAN 出口节点 (Node-SH-02) 出现跨境 Bottleneck 丢包 (14.2%) 与高延时。\n2. 受损影响：涉及 3 个分支办公区、共 48 名员工，CRM 核心应用 RTT 升高至 185ms。\n3. 推导结论：属 SD-WAN 专线出口队列拥塞与 ISP 路由瓶颈，后端应用服务器正常。`,
+              hasAnalysisChain: true
+            });
+            this.$nextTick(() => {
+              const body = document.getElementById('ai-chat-body');
+              if (body) body.scrollTop = body.scrollHeight;
+            });
+          }, 600);
+        },
+
+        openAlertDetail(item) {
+          this.showAiDrawer1 = true;
+          this.sendAiMessage(`对告警项【${item.title}】进行 AI 排障定位与根因举证分析`);
+        }
+      };
+    }
+  </script>
+</head>
+<body class="bg-[#F4F6F9] text-text font-sans w-screen h-screen overflow-hidden">
+
+  <div id="dem-svgs"></div>
+
+  <div class="flex flex-col w-full h-full relative" x-data="demHomeTabState()">
+    <!-- 顶部主 Header (固定在最上层) -->
+    <header id="dem-header" class="h-[56px] min-h-[56px] bg-white border-b border-bg-line flex items-center px-4 flex-shrink-0 z-30"></header>
+
+    <div class="flex-1 flex overflow-hidden">
+      <!-- 左侧 Sider 导航 -->
+      <aside id="dem-sider" class="at-sider flex flex-col flex-shrink-0 select-none"></aside>
+
+      <!-- 右侧主界面 (页头固定，下方 main 区域滚动) -->
+      <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
+        <!-- 体验监控 Tab 页头 (固定在顶部，含最右侧共用 AI排障定位 入口) -->
+        <div id="dem-sub-header" class="flex-shrink-0 z-20"></div>
+
+        <!-- 主内容区域 (独立滚动，不会滚走顶部页头) -->
+        <main class="flex-1 bg-[#F4F6F9] px-4 py-2 flex flex-col gap-2 overflow-y-auto custom-scrollbar">
+
+          <!-- 1. 时间日期筛选 (@comp-date-picker 规范) -->
+          <div class="flex items-center justify-end flex-shrink-0 select-none">
+            
+            <div class="inline-flex items-center h-8 bg-white border border-[#D3D7DE] rounded-[2px] hover:border-[#1C6EFF] transition-colors text-xs">
+              <!-- 左侧快捷选择区 -->
+              <div class="relative bg-[#F7F9FC] h-full px-2 flex items-center justify-between border-r border-[#D3D7DE] min-w-[88px] cursor-pointer group">
+                <select x-model="dateShortcut" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full text-xs">
+                  <option value="今天">今天</option>
+                  <option value="近24小时">近24小时</option>
+                  <option value="近3天">近3天</option>
+                  <option value="近7天">近7天</option>
+                  <option value="近30天">近30天</option>
+                  <option value="自定义">自定义</option>
+                </select>
+                <span class="text-[#2F3540] font-normal text-xs" x-text="dateShortcut || '今天'"></span>
+                <svg class="w-3.5 h-3.5 text-[#A1A7B3] ml-2 group-hover:text-[#1C6EFF] transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                </svg>
+              </div>
+
+              <!-- 右侧日期范围展示区 -->
+              <div class="h-full pl-3 pr-2 flex items-center justify-between cursor-pointer whitespace-nowrap">
+                <span class="font-mono text-xs text-[#2F3540] whitespace-nowrap" x-text="dateRange || '2026-06-04 00:00:00 ~ 2026-06-04 23:59:59'"></span>
+                <svg class="w-3.5 h-3.5 text-[#A1A7B3] flex-shrink-0 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                </svg>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- 2. 全局概览合体容器 (4合1，轻量tag样式等宽展示，去掉“全网”) -->
+          <div class="bg-white border border-[#E2E8F0] p-3.5 rounded-[4px] shadow-2xs flex-shrink-0">
+            <div class="grid grid-cols-1 md:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-[#E2E8F0]">
+              
+              <!-- 概览 1: 体验问题告警 -->
+              <div class="pr-0 md:pr-4 py-2 md:py-0 flex flex-col justify-between">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs text-[#64748B] font-medium">体验问题告警</span>
+                </div>
+                <div class="mt-2">
+                  <div class="flex items-baseline gap-1.5">
+                    <span class="text-2xl font-bold text-[#CF171D] font-outfit" x-text="metrics.total"></span>
+                    <span class="text-xs text-[#64748B]">起</span>
+                  </div>
+                  <div class="flex items-center gap-2 mt-2">
+                    <span class="w-[76px] h-5 inline-flex items-center justify-center rounded-[3px] text-[11px] font-normal bg-[#FFF5F5] text-[#E53E3E] border border-[#FED7D7]">高优先级 <span class="ml-1 font-normal" x-text="metrics.highCount"></span></span>
+                    <span class="w-[76px] h-5 inline-flex items-center justify-center rounded-[3px] text-[11px] font-normal bg-[#FFFAF0] text-[#DD6B20] border border-[#FEEBC8]">中优先级 <span class="ml-1 font-normal" x-text="metrics.medCount"></span></span>
+                    <span class="w-[76px] h-5 inline-flex items-center justify-center rounded-[3px] text-[11px] font-normal bg-[#F8FAFC] text-[#64748B] border border-[#E2E8F0]">低优先级 <span class="ml-1 font-normal" x-text="metrics.lowCount"></span></span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 概览 2: 分支体验 -->
+              <div class="px-0 md:px-4 py-2 md:py-0 flex flex-col justify-between">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs text-[#64748B] font-medium">分支体验</span>
+                </div>
+                <div class="mt-2">
+                  <div class="flex items-baseline gap-1.5">
+                    <span class="text-2xl font-bold text-[#1E293B] font-outfit" x-text="metrics.branchStats.total"></span>
+                    <span class="text-xs text-[#64748B]">个分支站点</span>
+                  </div>
+                  <div class="flex items-center gap-2 mt-2">
+                    <span class="w-[76px] h-5 inline-flex items-center justify-center rounded-[3px] text-[11px] font-normal bg-[#F0FDF4] text-[#16A34A] border border-[#DCFCE7]">正常 <span class="ml-1 font-normal" x-text="metrics.branchStats.normal"></span></span>
+                    <span class="w-[76px] h-5 inline-flex items-center justify-center rounded-[3px] text-[11px] font-normal bg-[#FFFAF0] text-[#DD6B20] border border-[#FEEBC8]">一般 <span class="ml-1 font-normal" x-text="metrics.branchStats.fair"></span></span>
+                    <span class="w-[76px] h-5 inline-flex items-center justify-center rounded-[3px] text-[11px] font-normal bg-[#FFF5F5] text-[#E53E3E] border border-[#FED7D7]">差 <span class="ml-1 font-normal" x-text="metrics.branchStats.poor"></span></span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 概览 3: 用户体验 -->
+              <div class="px-0 md:px-4 py-2 md:py-0 flex flex-col justify-between">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs text-[#64748B] font-medium">用户体验</span>
+                </div>
+                <div class="mt-2">
+                  <div class="flex items-baseline gap-1.5">
+                    <span class="text-2xl font-bold text-[#1E293B] font-outfit" x-text="metrics.userStats.total.toLocaleString()"></span>
+                    <span class="text-xs text-[#64748B]">名接入用户</span>
+                  </div>
+                  <div class="flex items-center gap-2 mt-2">
+                    <span class="w-[76px] h-5 inline-flex items-center justify-center rounded-[3px] text-[11px] font-normal bg-[#F0FDF4] text-[#16A34A] border border-[#DCFCE7]">正常 <span class="ml-1 font-normal" x-text="metrics.userStats.normal.toLocaleString()"></span></span>
+                    <span class="w-[76px] h-5 inline-flex items-center justify-center rounded-[3px] text-[11px] font-normal bg-[#FFFAF0] text-[#DD6B20] border border-[#FEEBC8]">一般 <span class="ml-1 font-normal" x-text="metrics.userStats.fair"></span></span>
+                    <span class="w-[76px] h-5 inline-flex items-center justify-center rounded-[3px] text-[11px] font-normal bg-[#FFF5F5] text-[#E53E3E] border border-[#FED7D7]">差 <span class="ml-1 font-normal" x-text="metrics.userStats.poor"></span></span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 概览 4: 应用体验 -->
+              <div class="pl-0 md:pl-4 py-2 md:py-0 flex flex-col justify-between">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs text-[#64748B] font-medium">应用体验</span>
+                </div>
+                <div class="mt-2">
+                  <div class="flex items-baseline gap-1.5">
+                    <span class="text-2xl font-bold text-[#1E293B] font-outfit" x-text="metrics.appStats.total"></span>
+                    <span class="text-xs text-[#64748B]">个纳管应用</span>
+                  </div>
+                  <div class="flex items-center gap-2 mt-2">
+                    <span class="w-[76px] h-5 inline-flex items-center justify-center rounded-[3px] text-[11px] font-normal bg-[#F0FDF4] text-[#16A34A] border border-[#DCFCE7]">正常 <span class="ml-1 font-normal" x-text="metrics.appStats.normal"></span></span>
+                    <span class="w-[76px] h-5 inline-flex items-center justify-center rounded-[3px] text-[11px] font-normal bg-[#FFFAF0] text-[#DD6B20] border border-[#FEEBC8]">一般 <span class="ml-1 font-normal" x-text="metrics.appStats.fair"></span></span>
+                    <span class="w-[76px] h-5 inline-flex items-center justify-center rounded-[3px] text-[11px] font-normal bg-[#FFF5F5] text-[#E53E3E] border border-[#FED7D7]">差 <span class="ml-1 font-normal" x-text="metrics.appStats.poor"></span></span>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- 3. 聚类体验告警卡片列表主体容器 -->
+          <div class="bg-white border border-[#E2E8F0] rounded-[4px] shadow-2xs">
+
+            <!-- 顶部工具栏 (无底边线，下距卡片 8px) -->
+            <div class="p-2.5 px-3 pb-0 flex items-center justify-end gap-3 flex-wrap bg-white">
+              
+              <!-- 告警等级下拉 (默认灰色 #A1A7B3，选择后正常黑色) -->
+              <select x-model="selectedLevel" 
+                      @change="currentPage = 1" 
+                      class="dem-select w-32 font-normal transition-colors"
+                      :class="selectedLevel === 'all' ? '!text-[#A1A7B3]' : '!text-[#2F3540]'">
+                <option value="all" class="text-[#2F3540]">全量告警等级</option>
+                <option value="高优" class="text-[#2F3540]">高优</option>
+                <option value="中优" class="text-[#2F3540]">中优</option>
+                <option value="低优" class="text-[#2F3540]">低优</option>
+              </select>
+
+              <!-- 受损维度下拉 (默认灰色 #A1A7B3，选择后正常黑色) -->
+              <select x-model="selectedDimension" 
+                      @change="currentPage = 1" 
+                      class="dem-select w-32 font-normal transition-colors"
+                      :class="selectedDimension === 'all' ? '!text-[#A1A7B3]' : '!text-[#2F3540]'">
+                <option value="all" class="text-[#2F3540]">全量受损维度</option>
+                <option value="分支问题" class="text-[#2F3540]">分支问题</option>
+                <option value="用户问题" class="text-[#2F3540]">用户问题</option>
+                <option value="应用问题" class="text-[#2F3540]">应用问题</option>
+                <option value="网络链路" class="text-[#2F3540]">网络链路</option>
+              </select>
+
+              <!-- 搜索框 -->
+              <div class="relative w-64 flex-shrink-0">
+                <input type="text" 
+                       x-model="searchQuery" 
+                       @input="currentPage = 1"
+                       placeholder="搜索告警标题 / 影响用户 / 应用..." 
+                       class="w-full h-8 pl-8 pr-3 text-xs bg-white border border-[#D3D7DE] rounded-[2px] focus:outline-none focus:border-[#1C6EFF] transition-colors text-[#2F3540] placeholder-[#A1A7B3]" />
+                <svg class="w-3.5 h-3.5 text-[#A1A7B3] absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                </svg>
+              </div>
+
+            </div>
+
+            <!-- 告警卡片列表展示区 (与工具栏间距精确 8px) -->
+            <div class="p-3 pt-2 space-y-2 bg-white">
+              
+              <template x-for="item in paginatedAlerts" :key="item.id">
+                <div class="dem-alert-card rounded-[4px] border border-[#E2E8F0] overflow-hidden relative bg-white transition-all hover:border-[#1C6EFF] hover:shadow-xs">
+                  
+                  <!-- 40px 顶部紧急程度渐变点缀 (内联 style 确保颜色可靠渲染) -->
+                  <div class="absolute top-0 left-0 right-0 h-[40px] pointer-events-none"
+                       :style="item.level === '高优'
+                         ? 'background: linear-gradient(to bottom, rgba(207,23,29,0.08) 0%, transparent 100%)'
+                         : item.level === '中优'
+                           ? 'background: linear-gradient(to bottom, rgba(250,114,27,0.07) 0%, transparent 100%)'
+                           : 'background: linear-gradient(to bottom, rgba(100,116,139,0.05) 0%, transparent 100%)'
+                       "></div>
+
+                  <div class="p-3 relative z-10">
+                    
+                    <!-- 40px 高度卡片头部: Tag + 标题 + 时间 & 查看详情按钮 -->
+                    <div class="h-[40px] -mt-3 -mx-3 px-3 flex items-center justify-between border-b border-[#F1F5F9]/80">
+                      <div class="flex items-center gap-2 flex-1 min-w-0 pr-4">
+                        <!-- 等级 Tag (高优 / 中优 / 低优) -->
+                        <span :class="getLevelBadgeClass(item.level)" x-text="item.level"></span>
+                        <!-- 聚类收敛标题 -->
+                        <h3 class="text-xs font-semibold text-[#1E293B] truncate hover:text-[#1C6EFF] cursor-pointer transition-colors" x-text="item.title"></h3>
+                      </div>
+
+                      <!-- 时间 & 查看详情文本按钮 (无右侧箭头) -->
+                      <div class="flex items-center gap-3 flex-shrink-0">
+                        <span class="text-[11px] text-[#94A3B8] font-mono whitespace-nowrap" x-text="item.time"></span>
+                        <button @click="openAlertDetail(item)" class="text-xs text-[#1C6EFF] hover:text-[#0052D9] font-medium cursor-pointer transition-colors whitespace-nowrap">查看详情</button>
+                      </div>
+                    </div>
+
+                    <!-- 简要辅助诊断说明 -->
+                    <div class="mt-2.5 text-xs text-[#475569] leading-relaxed bg-[#F8FAFC] px-2.5 py-1.5 border border-[#F1F5F9] rounded-[2px]">
+                      <span class="font-medium text-[#1E293B]">诊断分析: </span>
+                      <span x-text="item.description"></span>
+                    </div>
+
+                    <!-- 影响范围徽章 (Scope Badges) -->
+                    <div class="mt-2 flex items-center gap-2.5 text-[11px] text-[#475569]">
+                      <span class="inline-flex items-center gap-1 bg-[#F1F5F9] border border-[#E2E8F0] px-2 py-0.5 rounded-[2px]">
+                        <svg class="w-3 h-3 text-[#64748B]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+                        <span>涉及 <strong class="text-[#1E293B] font-medium" x-text="item.scope.branchCount"></strong> 个分支</span>
+                      </span>
+                      <span class="inline-flex items-center gap-1 bg-[#F1F5F9] border border-[#E2E8F0] px-2 py-0.5 rounded-[2px]">
+                        <svg class="w-3 h-3 text-[#64748B]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                        <span>影响 <strong class="text-[#CF171D] font-semibold" x-text="item.scope.userCount"></strong> 名员工</span>
+                      </span>
+                      <span class="inline-flex items-center bg-[#F1F5F9] border border-[#E2E8F0] px-2 py-0.5 rounded-[2px]">
+                        <span>应用: <strong class="text-[#1E293B] font-medium" x-text="item.scope.appName"></strong></span>
+                      </span>
+                    </div>
+
+                    <!-- 端到端可视链路与问题高亮定位 (大圆角矩形节点，预留足够顶部 Padding 规避 Badge 遮挡) -->
+                    <div class="mt-2 bg-[#F8FAFC] px-2.5 pt-1.5 pb-2 rounded-[2px] border border-[#E2E8F0] overflow-visible">
+                      <div class="text-[11px] text-[#64748B] font-medium mt-1.5 mb-1 select-none">
+                        <span>端到端拓扑链路</span>
+                      </div>
+
+                      <!-- 5 节点连线拓扑图 (pt-3.5 确保 -top-3 高亮 Badge 完整展示无遮挡) -->
+                      <div class="flex items-center justify-between gap-1 overflow-x-auto pt-3 pb-1 px-1">
+                        <template x-for="(node, nIdx) in item.nodes" :key="nIdx">
+                          <div class="flex items-center flex-1 min-w-[115px]">
+                            
+                            <!-- 节点卡片 (大圆角矩形 rounded-lg) -->
+                            <div class="flex-1 px-2 py-1.5 rounded-lg border text-center transition-all relative select-none"
+                                 :class="{
+                                   'bg-white border-[#CBD5E1] shadow-2xs': node.status === 'normal',
+                                   'bg-[#FEF2F2] border-[#EF4444] border-2 alert-node-pulse shadow-xs': node.status === 'error',
+                                   'bg-[#FFFBEB] border-[#F59E0B] border-2 shadow-xs': node.status === 'warning'
+                                 }">
+                              <!-- 异常高亮数值 Badge (在 pt-3.5 保证下不遮挡) -->
+                              <template x-if="node.metric">
+                                <span class="absolute -top-3 left-1/2 -translate-x-1/2 px-1.5 py-0.2 rounded-full text-[10px] font-semibold whitespace-nowrap shadow-sm z-10"
+                                      :class="node.status === 'error' ? 'bg-[#EF4444] text-white border border-red-300' : 'bg-[#F59E0B] text-white border border-amber-300'"
+                                      x-text="node.metric"></span>
+                              </template>
+
+                              <div class="text-[11px] font-medium truncate"
+                                   :class="{
+                                     'text-[#1E293B]': node.status === 'normal',
+                                     'text-[#DC2626] font-bold': node.status === 'error',
+                                     'text-[#D97706] font-bold': node.status === 'warning'
+                                   }"
+                                   x-text="node.name"></div>
+                              <div class="text-[9px] text-[#64748B] truncate mt-0.5 font-mono" x-text="node.sub"></div>
+                            </div>
+
+                            <!-- 节点间连接线与矢量箭头 -->
+                            <template x-if="nIdx < item.nodes.length - 1">
+                              <div class="flex items-center px-1 flex-shrink-0">
+                                <div class="w-2.5 md:w-4 h-[2px]"
+                                     :class="(node.status === 'error' || item.nodes[nIdx+1].status === 'error') ? 'bg-[#EF4444]' : 'bg-[#CBD5E1]'"></div>
+                                <svg class="w-2.5 h-2.5 -ml-1"
+                                     :class="(node.status === 'error' || item.nodes[nIdx+1].status === 'error') ? 'text-[#EF4444]' : 'text-[#94A3B8]'"
+                                     fill="currentColor" viewBox="0 0 20 20">
+                                  <path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                                </svg>
+                              </div>
+                            </template>
+
+                          </div>
+                        </template>
+                      </div>
+                    </div>
+
+                  </div>
+                </div>
+              </template>
+
+              <!-- 空状态展示 -->
+              <template x-if="paginatedAlerts.length === 0">
+                <div class="bg-white border border-[#E2E8F0] p-12 text-center text-text-mute rounded-[4px]">
+                  <svg class="w-12 h-12 mx-auto text-[#10B981] mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                  </svg>
+                  <p class="text-sm font-medium text-text-title">当前时间段未发现高风险体验异常</p>
+                </div>
+              </template>
+
+            </div>
+
+            <!-- 分页器 (放在列表最后跟随整页滚动，默认 10 条一页) -->
+            <div class="dem-pagination-bar select-none">
+              <!-- 总条数 -->
+              <span>共 <strong class="text-text-title font-medium" x-text="filteredAlerts.length"></strong> 起告警问题</span>
+
+              <!-- 单页条数设置 -->
+              <div class="flex items-center gap-1">
+                <span>每页显示</span>
+                <select x-model.number="pageSize" @change="currentPage = 1" class="h-6 text-xs bg-gray-50 border border-bg-line rounded-none px-1 focus:outline-none cursor-pointer">
+                  <option :value="5">5 条</option>
+                  <option :value="10">10 条</option>
+                  <option :value="20">20 条</option>
+                </select>
+              </div>
+
+              <!-- 页码与上下翻页 -->
+              <div class="flex items-center gap-1">
+                <!-- 上一页 -->
+                <button class="dem-page-btn" 
+                        :class="currentPage === 1 && 'disabled'" 
+                        @click="changePage(currentPage - 1)">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                  </svg>
+                </button>
+
+                <!-- 页码列表 -->
+                <template x-for="p in totalPages" :key="p">
+                  <button class="dem-page-btn" 
+                          :class="currentPage === p && 'active'" 
+                          @click="changePage(p)" 
+                          x-text="p"></button>
+                </template>
+
+                <!-- 下一页 -->
+                <button class="dem-page-btn" 
+                        :class="currentPage === totalPages && 'disabled'" 
+                        @click="changePage(currentPage + 1)">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                  </svg>
+                </button>
+              </div>
+
+              <!-- 快速跳转 -->
+              <div class="flex items-center gap-1">
+                <span>前往</span>
+                <input type="number" 
+                       x-model="jumpPageInput" 
+                       @keyup.enter="handleJumpPage()" 
+                       min="1" 
+                       :max="totalPages" 
+                       class="w-12 h-6 text-center text-xs bg-gray-50 border border-[#E2E8F0] rounded-none focus:outline-none focus:border-[#1C6EFF]" />
+                <span>页</span>
+              </div>
+            </div>
+
+          </div>
+
+        </main>
+      </div>
+    </div>
+
+    <!-- 1st Level AI Drawer: 对话窗口抽屉 (宽度 800px，蓝绿淡色系顶部) -->
+    <div x-show="showAiDrawer1" 
+         x-cloak
+         class="fixed inset-0 z-50 overflow-hidden" 
+         style="display: none;">
+      <!-- Backdrop -->
+      <div x-show="showAiDrawer1" 
+           x-transition:enter="transition-opacity ease-out duration-300"
+           x-transition:enter-start="opacity-0"
+           x-transition:enter-end="opacity-100"
+           x-transition:leave="transition-opacity ease-in duration-200"
+           x-transition:leave-start="opacity-100"
+           x-transition:leave-end="opacity-0"
+           @click="showAiDrawer1 = false" 
+           class="fixed inset-0 bg-slate-900/30 backdrop-blur-xs"></div>
+
+      <!-- Drawer Container (800px) -->
+      <div class="fixed inset-y-0 right-0 max-w-full flex pl-10">
+        <div x-show="showAiDrawer1"
+             x-transition:enter="transform transition ease-out duration-300"
+             x-transition:enter-start="translate-x-full"
+             x-transition:enter-end="translate-x-0"
+             x-transition:leave="transform transition ease-in duration-200"
+             x-transition:leave-start="translate-x-0"
+             x-transition:leave-end="translate-x-full"
+             class="w-[800px] max-w-full bg-white shadow-2xl flex flex-col relative border-l border-[#CCFBF1]">
+          
+          <!-- Drawer Header (蓝绿淡色系) -->
+          <div class="p-4 bg-gradient-to-r from-[#E6F4FF] via-[#E6FFFA] to-[#F0FDF4] border-b border-[#CCFBF1] flex items-center justify-between shadow-xs">
+            <div class="flex items-center gap-3">
+              <div class="w-8 h-8 rounded-lg bg-[#00A896] flex items-center justify-center shadow-inner">
+                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                </svg>
+              </div>
+              <div>
+                <h3 class="text-sm font-semibold text-[#095859] flex items-center gap-2">
+                  <span>DEM AI 智能排障 Agent</span>
+                  <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] bg-[#00A896]/15 text-[#095859] border border-[#00A896]/30">
+                    <span class="w-1.5 h-1.5 rounded-full bg-[#00A896] animate-ping mr-1"></span>
+                    在线诊断中
+                  </span>
+                </h3>
+                <p class="text-[11px] text-[#006666]/70">多维探针感知 · 全路径实时定位</p>
+              </div>
+            </div>
+            
+            <button @click="showAiDrawer1 = false" class="text-[#095859]/60 hover:text-[#095859] transition-colors p-1.5 rounded-md hover:bg-white/60 cursor-pointer">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+              </svg>
+            </button>
+          </div>
+
+          <!-- Drawer Chat Area -->
+          <div class="flex-1 overflow-y-auto p-5 space-y-4 bg-[#F7FAFC] custom-scrollbar" id="ai-chat-body">
+            
+            <template x-for="(msg, index) in chatMessages" :key="index">
+              <div>
+                <!-- AI Message -->
+                <template x-if="msg.role === 'ai'">
+                  <div class="flex gap-3 items-start">
+                    <div class="w-7 h-7 rounded bg-[#00A896] flex items-center justify-center text-white text-xs flex-shrink-0 shadow-sm font-bold">
+                      AI
+                    </div>
+                    <div class="flex-1 bg-white border border-slate-200 rounded-lg p-4 shadow-xs text-xs text-slate-800 space-y-3">
+                      <div class="flex items-center justify-between text-[11px] text-slate-400 pb-1.5 border-b border-slate-100">
+                        <span class="font-semibold text-[#095859]">AI 智能 Agent</span>
+                        <span x-text="msg.time"></span>
+                      </div>
+                      
+                      <div class="leading-relaxed whitespace-pre-line text-slate-700 text-xs" x-text="msg.content"></div>
+
+                      <!-- Quick prompts inside initial AI message -->
+                      <template x-if="msg.quickPrompts && msg.quickPrompts.length > 0">
+                        <div class="pt-1 flex flex-col gap-1.5">
+                          <span class="text-[11px] text-slate-400 font-medium">推荐快捷排障指令:</span>
+                          <template x-for="(qp, qpIdx) in msg.quickPrompts" :key="qpIdx">
+                            <button @click="sendAiMessage(qp)" 
+                                    class="text-left text-xs bg-[#F0FDF4] hover:bg-[#DCFCE7] border border-[#BBF7D0] text-[#095859] px-3 py-2 rounded-md transition-all cursor-pointer flex items-center justify-between group">
+                              <span x-text="qp"></span>
+                              <svg class="w-3.5 h-3.5 text-[#00A896] opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
+                              </svg>
+                            </button>
+                          </template>
+                        </div>
+                      </template>
+
+                      <!-- Analysis Chain Entry Button inside AI response -->
+                      <template x-if="msg.hasAnalysisChain">
+                        <div class="pt-2 border-t border-slate-100">
+                          <button @click="showAiDrawer2 = true" 
+                                  class="w-full inline-flex items-center justify-center gap-2 px-3.5 py-2.5 bg-gradient-to-r from-[#00A896] via-[#0284C7] to-[#2563EB] hover:from-[#00897B] hover:to-[#1D4ED8] text-white rounded-md font-medium text-xs transition-all shadow-sm group cursor-pointer">
+                            <svg class="w-3.5 h-3.5 text-cyan-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                            <span>查看详细分析链与逻辑举证</span>
+                            <svg class="w-3.5 h-3.5 transform group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                            </svg>
+                          </button>
+                        </div>
+                      </template>
+
+                    </div>
+                  </div>
+                </template>
+
+                <!-- User Message -->
+                <template x-if="msg.role === 'user'">
+                  <div class="flex gap-3 items-start justify-end">
+                    <div class="max-w-[85%] bg-[#00A896] text-white rounded-lg p-3 shadow-xs text-xs space-y-1">
+                      <div class="text-[10px] text-teal-100 text-right" x-text="msg.time"></div>
+                      <div class="leading-relaxed" x-text="msg.content"></div>
+                    </div>
+                    <div class="w-7 h-7 rounded bg-slate-700 flex items-center justify-center text-white text-xs flex-shrink-0 font-bold">
+                      我
+                    </div>
+                  </div>
+                </template>
+              </div>
+            </template>
+
+            <!-- AI Thinking Indicator -->
+            <template x-if="isThinking">
+              <div class="flex gap-3 items-start">
+                <div class="w-7 h-7 rounded bg-[#00A896] flex items-center justify-center text-white text-xs flex-shrink-0 animate-pulse font-bold">
+                  AI
+                </div>
+                <div class="bg-white border border-slate-200 rounded-lg p-3 shadow-xs text-xs text-slate-500 flex items-center gap-2">
+                  <svg class="w-4 h-4 text-[#00A896] animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <span>AI Agent 正在关联五段拓扑探针与关键日志推导中...</span>
+                </div>
+              </div>
+            </template>
+
+          </div>
+
+          <!-- Drawer Footer Input -->
+          <div class="p-3.5 bg-white border-t border-slate-200">
+            <div class="flex items-center gap-2">
+              <input type="text" 
+                     x-model="aiInput" 
+                     @keyup.enter="sendAiMessage(aiInput)" 
+                     placeholder="输入您的访问问题，例如：上海 CRM 访问卡顿..." 
+                     class="flex-1 h-9 px-3.5 text-xs bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:border-[#00A896] focus:bg-white transition-colors text-slate-800" />
+              <button @click="sendAiMessage(aiInput)" 
+                      class="h-9 px-5 bg-[#00A896] hover:bg-[#00897B] text-white font-medium text-xs rounded-md transition-colors flex items-center gap-1 cursor-pointer">
+                <span>发送</span>
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9-7-7-7-7 7 9 7z"></path>
+                </svg>
+              </button>
+            </div>
+            <div class="mt-1.5 flex items-center justify-between text-[10px] text-slate-400 px-0.5">
+              <span>支持自然语言排障提问</span>
+              <span>按 Enter 发送</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- 2nd Level AI Drawer: 详细分析链与举证 (宽度 800px，蓝绿淡色系顶部) -->
+    <div x-show="showAiDrawer2" 
+         x-cloak
+         class="fixed inset-0 z-50 overflow-hidden" 
+         style="display: none;">
+      <!-- Backdrop -->
+      <div x-show="showAiDrawer2" 
+           x-transition:enter="transition-opacity ease-out duration-300"
+           x-transition:enter-start="opacity-0"
+           x-transition:enter-end="opacity-100"
+           x-transition:leave="transition-opacity ease-in duration-200"
+           x-transition:leave-start="opacity-100"
+           x-transition:leave-end="opacity-0"
+           @click="showAiDrawer2 = false" 
+           class="fixed inset-0 bg-slate-900/40 backdrop-blur-xs"></div>
+
+      <div class="fixed inset-y-0 right-0 max-w-full flex pl-10">
+        <div x-show="showAiDrawer2"
+             x-transition:enter="transform transition ease-out duration-300"
+             x-transition:enter-start="translate-x-full"
+             x-transition:enter-end="translate-x-0"
+             x-transition:leave="transform transition ease-in duration-200"
+             x-transition:leave-start="translate-x-0"
+             x-transition:leave-end="translate-x-full"
+             class="w-[800px] max-w-full bg-white shadow-2xl flex flex-col relative border-l border-[#CCFBF1]">
+          
+          <!-- Drawer 2 Header (蓝绿淡色系) -->
+          <div class="p-4 bg-gradient-to-r from-[#E6F4FF] via-[#E6FFFA] to-[#F0FDF4] border-b border-[#CCFBF1] flex items-center justify-between shadow-xs">
+            <div class="flex items-center gap-3">
+              <button @click="showAiDrawer2 = false" class="text-[#095859] hover:text-[#00A896] transition-colors flex items-center gap-1 text-xs cursor-pointer font-medium">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                </svg>
+                <span>返回对话</span>
+              </button>
+              <div class="h-4 w-[1px] bg-[#B5F5EC]"></div>
+              <div>
+                <h3 class="text-sm font-semibold text-[#095859] flex items-center gap-2">
+                  <span>AI 完整分析链与多维逻辑举证</span>
+                  <span class="px-2 py-0.5 rounded text-[10px] bg-[#00A896]/15 text-[#095859] border border-[#00A896]/30">深度可解释归因</span>
+                </h3>
+              </div>
+            </div>
+
+            <button @click="showAiDrawer2 = false" class="text-[#095859]/60 hover:text-[#095859] transition-colors p-1.5 rounded-md hover:bg-white/60 cursor-pointer">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+              </svg>
+            </button>
+          </div>
+
+          <!-- Drawer 2 Content Area -->
+          <div class="flex-1 overflow-y-auto p-6 space-y-6 bg-[#F7FAFC] custom-scrollbar">
+            
+            <!-- Summary Alert Badge Box -->
+            <div class="bg-white p-4 rounded-lg border border-slate-200 shadow-xs">
+              <div class="flex items-center justify-between border-b border-slate-100 pb-2.5 mb-3">
+                <span class="text-xs font-bold text-slate-800 flex items-center gap-2">
+                  <span class="w-2 h-2 rounded-full bg-red-500"></span>
+                  当前聚焦诊断项：上海分支 CRM 应用访问卡顿与丢包异常
+                </span>
+                <span class="text-[11px] font-mono text-slate-400">分析生成于 2026-06-04 09:14:10</span>
+              </div>
+              <p class="text-xs text-slate-600 leading-relaxed">
+                AI 排障 Agent 已通过多维感知探针完成全路径因果推导，定位问题根因集中在 <strong class="text-red-600 font-semibold">上海 SD-WAN 专线出口（Node-SH-02）</strong>。下表列出完整的 4 步逻辑推理链与 2 项关键举证数据。
+              </p>
+            </div>
+
+            <!-- Section 1: AI 整体分析步骤与推理逻辑 -->
+            <div class="space-y-3">
+              <h4 class="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                <span class="w-1.5 h-3.5 bg-[#00A896] rounded-full"></span>
+                一、 AI 整体分析步骤与推理逻辑链 (Step-by-Step Reasoning)
+              </h4>
+
+              <div class="relative pl-6 space-y-4 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-[2px] before:bg-teal-100">
+                
+                <!-- Step 1 -->
+                <div class="relative bg-white p-3.5 rounded-lg border border-slate-200 shadow-xs">
+                  <div class="absolute -left-[21px] top-3.5 w-4 h-4 rounded-full bg-[#00A896] text-white text-[10px] font-bold flex items-center justify-center ring-4 ring-white">1</div>
+                  <div class="flex items-center justify-between mb-1">
+                    <h5 class="text-xs font-bold text-slate-800">步骤 1: 多源告警感知与协同聚类 (Alert Aggregation)</h5>
+                    <span class="text-[10px] font-mono text-[#095859] bg-[#E6FFFA] px-1.5 py-0.5 rounded">耗时 120ms</span>
+                  </div>
+                  <p class="text-xs text-slate-600 leading-relaxed">
+                    实时接收来自上海办公区的 48 笔终端体验告警，算法检测到受损维度均指向同一目标域名 <code class="text-[#095859] bg-[#E6FFFA] px-1 font-mono">crm.company.com</code>，收敛生成聚类事件，排除单机故障。
+                  </p>
+                </div>
+
+                <!-- Step 2 -->
+                <div class="relative bg-white p-3.5 rounded-lg border border-slate-200 shadow-xs">
+                  <div class="absolute -left-[21px] top-3.5 w-4 h-4 rounded-full bg-[#00A896] text-white text-[10px] font-bold flex items-center justify-center ring-4 ring-white">2</div>
+                  <div class="flex items-center justify-between mb-1">
+                    <h5 class="text-xs font-bold text-slate-800">步骤 2: 端到端五段式拓扑探针数据关联 (Topology Telemetry)</h5>
+                    <span class="text-[10px] font-mono text-[#095859] bg-[#E6FFFA] px-1.5 py-0.5 rounded">耗时 240ms</span>
+                  </div>
+                  <p class="text-xs text-slate-600 leading-relaxed">
+                    沿 [客户端] -&gt; [LAN 网关] -&gt; [SD-WAN 边缘] -&gt; [ISP 骨干网] -&gt; [DC 应用服务器] 提取五段探针基线：发现前三段延迟正常(&lt;2ms)，专线段丢包突增至 <strong class="text-red-600 font-mono">14.2%</strong>，后端服务器 RTT 正常。
+                  </p>
+                </div>
+
+                <!-- Step 3 -->
+                <div class="relative bg-white p-3.5 rounded-lg border border-slate-200 shadow-xs">
+                  <div class="absolute -left-[21px] top-3.5 w-4 h-4 rounded-full bg-[#00A896] text-white text-[10px] font-bold flex items-center justify-center ring-4 ring-white">3</div>
+                  <div class="flex items-center justify-between mb-1">
+                    <h5 class="text-xs font-bold text-slate-800">步骤 3: 归因图谱模型推导与概率量化 (Root Cause Attribution)</h5>
+                    <span class="text-[10px] font-mono text-[#095859] bg-[#E6FFFA] px-1.5 py-0.5 rounded">耗时 180ms</span>
+                  </div>
+                  <p class="text-xs text-slate-600 leading-relaxed">
+                    对 DNS 解析、TCP 建连、TLS 握手、HTTP 响应及网络层丢包实施贝叶斯推导。ISP 专线拥塞与路由卡顿的匹配概率达到 <strong class="text-emerald-600 font-semibold">96.8%</strong>，排除了应用端代码崩塌或数据库锁表可能。
+                  </p>
+                </div>
+
+                <!-- Step 4 -->
+                <div class="relative bg-white p-3.5 rounded-lg border border-slate-200 shadow-xs">
+                  <div class="absolute -left-[21px] top-3.5 w-4 h-4 rounded-full bg-[#00A896] text-white text-[10px] font-bold flex items-center justify-center ring-4 ring-white">4</div>
+                  <div class="flex items-center justify-between mb-1">
+                    <h5 class="text-xs font-bold text-slate-800">步骤 4: 建议处置方案输出 (Actionable Mitigation)</h5>
+                    <span class="text-[10px] font-mono text-[#095859] bg-[#E6FFFA] px-1.5 py-0.5 rounded">完成</span>
+                  </div>
+                  <p class="text-xs text-slate-600 leading-relaxed">
+                    生成流量流控建议：推荐自动触发 SD-WAN 选路策略，将上海 CRM 流量临时重定向至备用 MPLS 专线或 BGP 多线出口。
+                  </p>
+                </div>
+
+              </div>
+            </div>
+
+            <!-- Section 2: 关键举证信息 (Key Proof Data) -->
+            <div class="space-y-3">
+              <h4 class="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                <span class="w-1.5 h-3.5 bg-blue-600 rounded-full"></span>
+                二、 关键举证信息 (Key Proof & Evidences)
+              </h4>
+
+              <!-- 举证 1: 探针指标异常举证 -->
+              <div class="bg-white p-4 rounded-lg border border-slate-200 shadow-xs space-y-2">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    <span class="px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 font-mono text-[10px]">举证 1</span>
+                    <span>五段拓扑链路探针关键指标对比</span>
+                  </span>
+                  <span class="text-[11px] text-slate-400">实时遥测数据</span>
+                </div>
+                
+                <div class="overflow-x-auto">
+                  <table class="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr class="bg-slate-50 text-slate-500 border-b border-slate-200">
+                        <th class="p-2 font-medium">拓扑节点</th>
+                        <th class="p-2 font-medium">节点名称</th>
+                        <th class="p-2 font-medium">平均延迟</th>
+                        <th class="p-2 font-medium">丢包率</th>
+                        <th class="p-2 font-medium">状态评级</th>
+                      </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 text-slate-700 font-mono text-[11px]">
+                      <tr>
+                        <td class="p-2">Client</td>
+                        <td class="p-2 font-sans">上海分公司-员工PC群</td>
+                        <td class="p-2">0.4ms</td>
+                        <td class="p-2 text-emerald-600">0.0%</td>
+                        <td class="p-2 font-sans"><span class="px-1.5 py-0.5 bg-emerald-50 text-emerald-600 rounded">正常</span></td>
+                      </tr>
+                      <tr>
+                        <td class="p-2">LAN</td>
+                        <td class="p-2 font-sans">SH-Core-Switch-01</td>
+                        <td class="p-2">1.1ms</td>
+                        <td class="p-2 text-emerald-600">0.0%</td>
+                        <td class="p-2 font-sans"><span class="px-1.5 py-0.5 bg-emerald-50 text-emerald-600 rounded">正常</span></td>
+                      </tr>
+                      <tr class="bg-red-50/50">
+                        <td class="p-2 font-bold text-red-600">SD-WAN</td>
+                        <td class="p-2 font-sans font-bold text-red-600">Node-SH-02 (专线出口)</td>
+                        <td class="p-2 font-bold text-red-600">185.4ms ↑</td>
+                        <td class="p-2 font-bold text-red-600">14.2% ↑</td>
+                        <td class="p-2 font-sans"><span class="px-1.5 py-0.5 bg-red-100 text-red-700 rounded font-bold">异常定位点</span></td>
+                      </tr>
+                      <tr>
+                        <td class="p-2">ISP</td>
+                        <td class="p-2 font-sans">ChinaTelecom-BGP-Core</td>
+                        <td class="p-2">24.5ms</td>
+                        <td class="p-2 text-emerald-600">0.1%</td>
+                        <td class="p-2 font-sans"><span class="px-1.5 py-0.5 bg-emerald-50 text-emerald-600 rounded">正常</span></td>
+                      </tr>
+                      <tr>
+                        <td class="p-2">App Server</td>
+                        <td class="p-2 font-sans">CRM-DC-Pod-08</td>
+                        <td class="p-2">8.2ms</td>
+                        <td class="p-2 text-emerald-600">0.0%</td>
+                        <td class="p-2 font-sans"><span class="px-1.5 py-0.5 bg-emerald-50 text-emerald-600 rounded">正常</span></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <!-- 举证 2: 抓包与 TCP 抓取日志举证 -->
+              <div class="bg-white p-4 rounded-lg border border-slate-200 shadow-xs space-y-2">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    <span class="px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 font-mono text-[10px]">举证 2</span>
+                    <span>TCP Retransmission & Packet Log 片段</span>
+                  </span>
+                  <span class="text-[11px] text-slate-400">自动抓包分析</span>
+                </div>
+
+                <div class="bg-slate-900 text-slate-200 p-3 rounded font-mono text-[11px] leading-relaxed space-y-1 overflow-x-auto">
+                  <div class="text-slate-400"># Node-SH-02 (10.120.4.1) Telemetry Probe Log</div>
+                  <div>[09:13:58.201] TCP Out-of-Order: seq 1420801:1422240, ack 80401 [SYN_SENT]</div>
+                  <div class="text-red-400 font-bold">[09:13:58.540] [WARNING] Retransmission timeout (RTO=300ms) on src 10.120.4.88:51024 -&gt; dst 172.16.20.10:443</div>
+                  <div class="text-amber-300">[09:13:58.845] Fast Retransmit triggered! Duplicate ACKs count = 4</div>
+                  <div>[09:13:59.102] Path MTU Discovery: Node-SH-02 queue length &gt; 92% (Bottleneck detected)</div>
+                </div>
+              </div>
+
+            </div>
+
+          </div>
+
+          <!-- Drawer 2 Footer -->
+          <div class="p-3.5 bg-white border-t border-slate-200 flex items-center justify-between">
+            <span class="text-xs text-slate-500">已自动完成归因归档与日志取证</span>
+            <div class="flex items-center gap-2">
+              <button @click="showAiDrawer2 = false" class="px-3.5 py-1.5 border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs rounded-md transition-colors cursor-pointer">
+                关闭
+              </button>
+              <button @click="alert('诊断分析报告与全链路举证日志已成功导出！'); showAiDrawer2 = false;" class="px-3.5 py-1.5 bg-[#00A896] hover:bg-[#00897B] text-white font-medium text-xs rounded-md transition-colors cursor-pointer flex items-center gap-1">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                </svg>
+                <span>导出排障报告</span>
+              </button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</body>
+</html>

@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI DEM - 访问体验监控</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="../assets/css/css-overrides.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/collapse@3.x.x/dist/cdn.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <script src="../assets/js/ai-dem-data.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="../assets/js/tailwind-config.js"></script>
+  <link rel="stylesheet" href="../assets/css/ai-dem.css" />
+
+  <!-- 集中维护的公共 Shell 框架 -->
+  <script src="../assets/js/dem-shell.js?v=4.0"></script>
+</head>
+<body class="bg-bg-light text-text font-sans overflow-hidden w-screen h-screen">
+
+  <div id="dem-svgs"></div>
+
+  <div class="flex flex-col w-full h-full" x-data="demAppState('首页', 'm_0_0_1')">
+    <header id="dem-header" class="h-[56px] min-h-[56px] bg-white border-b border-bg-line flex items-center px-4 flex-shrink-0 z-30"></header>
+
+    <div class="flex-1 flex overflow-hidden">
+      <aside id="dem-sider" class="at-sider flex flex-col flex-shrink-0 select-none"></aside>
+
+      <div class="flex-1 flex flex-col overflow-hidden">
+        <!-- 体验监控专属页头 (Tab 型页头: 首页 / 分支 / 用户 / 应用) -->
+        <div id="dem-sub-header"></div>
+
+        <main class="flex-1 bg-bg-light p-4 flex flex-col overflow-hidden">
+          <!-- 清爽重构容器 (已清除历史演示代码，路由与框架保持不变) -->
+          <div class="bg-white rounded-container border border-bg-line p-8 shadow-sm flex-1 flex flex-col items-center justify-center text-center">
+            <div class="w-14 h-14 rounded-full bg-brand/10 text-brand flex items-center justify-center mb-4">
+              <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 00-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 0 001 1m-6 0h6"></path>
+              </svg>
+            </div>
+            <h2 class="text-xl font-bold text-text-title">AI DEM 模块容器</h2>
+            <p class="text-xs text-text-mute mt-2 max-w-md leading-relaxed">路由关系与 Shell 框架已完整保留。您可以在此区域编写【首页】重构代码。</p>
+          </div>
+        </main>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

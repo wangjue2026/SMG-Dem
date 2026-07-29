@@ -1,328 +1,364 @@
-function initIssues() {
-      const list = [
-        {
-          id: "EXP-202606-000",
-          title: "北京总部 - 市场部 访问 SaaS Salesforce 出现时延严重抖动",
-          type: "SaaS访问",
-          severity: "低",
-          status: "已优化",
-          time: "3分钟前",
-          timestamp: Date.now() - 3 * 60 * 1000,
-          scope: "北京总部 (约8人受影响)",
-          targetApp: "SaaS Salesforce (https://salesforce.com)",
-          currentExp: "正常 (RTT 28ms)",
-          problem: "中继骨干节点突发拥堵，造成北京至 SaaS 服务端丢包率达 8.5%。",
-          impact: "市场部销售经理无法提交客户数据，业务协同受阻。",
-          rootCause: "智能网关检测到主专线质量劣化，自动决策将流量无感重路由至备用联通专线。",
-          linkLeftTitle: "市场部终端",
-          linkLeftStatus: "健康 (2ms)",
-          linkLeftClass: "text-success",
-          linkLeftBarText: "已切换专线",
-          linkLeftBarClass: "bg-success",
-          linkMiddleTitle: "智能网关",
-          linkMiddleStatus: "自动重路由",
-          linkMiddleClass: "text-success",
-          linkMiddleBarText: "连通良好",
-          linkMiddleBarClass: "bg-success",
-          linkRightTitle: "目标应用",
-          linkRightStatus: "Salesforce",
-          aiCause: "基于北京总部市场网段监测到访问 Salesforce 丢包率突然升至 8%，AI 分析判定为主路由节点突发故障。",
-          aiAction: "AI 已经于 3 分钟前自动执行“专线紧急切换路由策略”，目前专线连通度已恢复正常，无需人工干预。",
-          actionType: "auto",
-          activeIssueId: 0,
-          drawerScopeTag: "全局流量调度/切换",
-          drawerScopeDesc: "全网监测发现该园区网段对目标应用的链路有全局性延迟偏高，受影响用户有多人，判定非个例，需全局流量调度。",
-          drawerScopeIsGlobal: true,
-          drawerNodeTerminal: "normal", drawerNodeGateway: "normal", drawerNodeLink: "risk", drawerNodeApp: "warning",
-          drawerSegmentFault: "链路",
-          drawerSegmentDesc: "经过智能拨测和链路分段分析，终端至接入侧时延正常，但网关出口出公网段的主动拨测链路产生丢包拥堵。",
-          drawerOverlayStatus: "risk",
-          drawerOverlayDetail: "• 虚拟隧道丢包率：8.5%\n• 业务建连质量：严重超时\n• 隧道连接：重传握手包",
-          drawerUnderlayDetail: "• 裸光纤物理链路：正常\n• 本地专线基线RTT：22ms\n• 物理端口拥堵：无",
-          drawerLayerConclusion: "Underlay 物理层连通度良好，但因为主路由段对应的 Overlay 逻辑隧道产生异常，造成承载的业务层严重堵塞。",
-          drawerOwner: "外部主干网络运营商 / 专线组",
-          drawerEvidenceDesc: "已智能抓取故障发生时的丢包日志及 PC 网络栈虚拟网关数据，打包装入排障证据包。"
-        },
-        {
-          id: "EXP-202606-001",
-          title: "财务部 - 张经理 登录零信任安全客户端报错",
-          type: "零信任登录",
-          severity: "高",
-          status: "未优化",
-          time: "1分钟前",
-          timestamp: Date.now() - 1 * 60 * 1000,
-          scope: "财务部 (1人受阻 - 张经理)",
-          targetApp: "集团协同 OA 门户 (https://oa.group.com)",
-          currentExp: "隧道断开 (RTT -)",
-          currentExpNormal: "正常 (RTT 15ms)",
-          problem: "客户端网络网关底层通道无法开启，证书/驱动阻碍握手。",
-          impact: "财务部网段 1 用户无法登录 OA 协同应用，工作受阻。",
-          rootCause: "本地安装的第三方安全卫士拦截了 aTrust 客户端虚拟网络驱动流量。",
-          linkLeftTitle: "终端 (张经理)",
-          linkLeftStatus: "驱动拦截",
-          linkLeftClass: "text-risk",
-          linkLeftStatusNormal: "安全接入",
-          linkLeftClassNormal: "text-success",
-          linkLeftBarText: "断开",
-          linkLeftBarTextNormal: "已连通",
-          linkLeftBarClass: "border-t border-dashed border-risk",
-          linkLeftBarClassNormal: "bg-success",
-          linkMiddleTitle: "接入网关",
-          linkMiddleStatus: "连通良好",
-          linkMiddleClass: "text-success",
-          linkMiddleBarText: "正常",
-          linkMiddleBarClass: "bg-success",
-          linkRightTitle: "目标应用",
-          linkRightStatus: "集团 OA",
-          aiCause: "基于用户（34352）访问 OA 发生“证书/驱动阻碍握手”的现象，以及安全防护日志的分析整体判定本次体验问题原因是第三方杀毒软件拦截了虚拟网卡流量。",
-          aiAction: "向该终端用户下发特定的安全卫士排除白名单策略，并对客户端执行 Agent 虚拟网关及驱动一键重置。",
-          actionType: "remediate",
-          remediateBtnText: "一键推送拦截排除策略",
-          remediatedBtnText: "已完成拦截排除",
-          remediatingText: "策略分发中...",
-          activeIssueId: 1,
-          drawerScopeTag: "单点深入排查",
-          drawerScopeDesc: "财务部张经理个人账号登录报错，且同网段其他用户登录及访问均正常，锁定为单端故障，无需全局调度。",
-          drawerScopeIsGlobal: false,
-          drawerNodeTerminal: "risk", drawerNodeGateway: "normal", drawerNodeLink: "normal", drawerNodeApp: "normal",
-          drawerSegmentFault: "终端",
-          drawerSegmentDesc: "数据包仅停留在本地终端，网卡驱动握手未被接入网关接收，故障点直接卡在终端自身安全模块段。",
-          drawerOverlayStatus: "risk",
-          drawerOverlayDetail: "• 零信任隧道状态：未建立\n• 客户端接口调用：超时\n• 虚拟驱动服务：无响应",
-          drawerUnderlayDetail: "• 本地 Wi-Fi 信号：极佳\n• 网关 IP 物理可达：是\n• 以太网网卡硬件：正常",
-          drawerLayerConclusion: "Underlay 物理网络信号通畅，故障仅在 Overlay 层的零信任网卡驱动中被本地安全软件拦截所致。",
-          drawerOwner: "桌面终端运维组 / 安全管理组",
-          drawerEvidenceDesc: "已智能抓取故障发生时的丢包日志及 PC 网络栈虚拟网关数据，打包装入排障证据包。"
-        },
-        {
-          id: "EXP-202606-002",
-          title: "华东分公司 - 研发部 访问核心 GitLab 平台响应极慢",
-          type: "内部系统",
-          severity: "中",
-          status: "未优化",
-          time: "10分钟前",
-          timestamp: Date.now() - 10 * 60 * 1000,
-          scope: "华东分公司 (约15人受阻)",
-          targetApp: "内网 GitLab 代码托管 (10.2.2.5)",
-          currentExp: "严重卡顿 (RTT 450ms)",
-          currentExpNormal: "正常 (RTT 22ms)",
-          problem: "SD-WAN 分支专线出口时延抖动剧烈，存在严重包重传。",
-          impact: "研发部约 15 名员工拉取/提交代码响应极慢，阻碍交付进度。",
-          rootCause: "分支大文件（大数据备份）瞬间吞没出口专线，流控策略未生效。",
-          linkLeftTitle: "分支终端",
-          linkLeftStatus: "时延良好 (2ms)",
-          linkLeftClass: "text-success",
-          linkLeftBarText: "拥堵 (丢包12%)",
-          linkLeftBarTextNormal: "已分流",
-          linkLeftBarClass: "border-t border-dashed border-warning",
-          linkLeftBarClassNormal: "bg-success",
-          linkMiddleTitle: "分支专线",
-          linkMiddleStatus: "带宽占满 98%",
-          linkMiddleClass: "text-warning",
-          linkMiddleStatusNormal: "专线恢复",
-          linkMiddleClassNormal: "text-success",
-          linkMiddleBarText: "正常",
-          linkMiddleBarClass: "bg-success",
-          linkRightTitle: "目标应用",
-          linkRightStatus: "GitLab",
-          aiCause: "基于华东分支研发网段监测到访问 GitLab 时延偏高至 450ms 且丢包率达 12%，判定为出口专线带宽被大文件备份占满。",
-          aiAction: "自动调配备用 BGP 专线进行流量分流，将 GitLab 流量提升至 QOS 黄金优先级，限制备份流量。",
-          actionType: "remediate",
-          remediateBtnText: "一键切换备用出口专线",
-          remediatedBtnText: "专线切换成功",
-          remediatingText: "备用专线激活中...",
-          activeIssueId: 2,
-          drawerScopeTag: "全局流量调度/切换",
-          drawerScopeDesc: "华东分公司分支专线出口带宽占用超 98%，影响该站点内所有正在访问 GitLab 平台的用户，判定为站点级故障。",
-          drawerScopeIsGlobal: true,
-          drawerNodeTerminal: "normal", drawerNodeGateway: "warning", drawerNodeLink: "risk", drawerNodeApp: "normal",
-          drawerSegmentFault: "链路",
-          drawerSegmentDesc: "华东专线网关出口处的带宽吞吐流量产生堆积，故障点卡在网关出口及对应的分支专线链路段。",
-          drawerOverlayStatus: "risk",
-          drawerOverlayDetail: "• GitLab 业务时延：450ms\n• Git拉取包重传：12%\n• 业务会话状态：堵塞",
-          drawerUnderlayDetail: "• 物理专线接口：UP\n• 带宽物理上限：已铺满\n• 光纤裸链路时延：正常",
-          drawerLayerConclusion: "Underlay 物理专线因大文件备份流量满载，反向拖累了 Overlay 业务流量的传输质量。",
-          drawerOwner: "分支网络运维组",
-          drawerEvidenceDesc: "已智能抓取故障发生时的带宽占用日志及 TCP 重传报文，打包装入排障证据包。"
-        },
-        {
-          id: "EXP-202606-003",
-          title: "华南分公司 - 销售团队 访问企业核心 SaaS Portal 存在性能劣化风险",
-          type: "SaaS访问",
-          severity: "低",
-          status: "未优化",
-          time: "30分钟前",
-          timestamp: Date.now() - 30 * 60 * 1000,
-          scope: "华南销售部 (约6人受影响)",
-          targetApp: "SaaS CRM Portal (企业核心SaaS)",
-          currentExp: "基线偏离 (DNS延迟高)",
-          currentExpNormal: "正常 (TTFB 120ms)",
-          problem: "监测到 LocalDNS 延迟从 20ms 偏离至 180ms，预测质量将劣化。",
-          impact: "预计高峰期销售访问 SaaS CRM 首包时延达 1.8s+，操作将严重卡顿。",
-          rootCause: "移动端 LocalDNS 触发基线偏离，域名解析被错误引导至北方节点。",
-          linkLeftTitle: "销售终端",
-          linkLeftStatus: "安全接入",
-          linkLeftClass: "text-success",
-          linkLeftBarText: "偏离 (180ms)",
-          linkLeftBarTextNormal: "已映射",
-          linkLeftBarClass: "border-t border-dashed border-warning",
-          linkLeftBarClassNormal: "bg-success",
-          linkMiddleTitle: "LocalDNS",
-          linkMiddleStatus: "绕行北方节点",
-          linkMiddleClass: "text-warning",
-          linkMiddleStatusNormal: "连通良好",
-          linkMiddleClassNormal: "text-success",
-          linkMiddleBarText: "预测 1.8s+",
-          linkMiddleBarTextNormal: "正常",
-          linkMiddleBarClass: "bg-warning",
-          linkMiddleBarClassNormal: "bg-success",
-          linkRightTitle: "目标应用",
-          linkRightStatus: "SaaS 体验",
-          aiCause: "基于华南销售端监测到 LocalDNS 基线延迟从 20ms 飙升至 180ms，AI 自动判定发生了跨运营商 DNS 解析绕行。",
-          aiAction: "向华南移动端分发定制的解析重映射规则，绑定至近端本地加速网关，避免绕行。",
-          actionType: "remediate",
-          remediateBtnText: "一键分发DNS解析重映射策略",
-          remediatedBtnText: "DNS已优化",
-          remediatingText: "策略部署中...",
-          activeIssueId: 3,
-          drawerScopeTag: "局部范围问题",
-          drawerScopeDesc: "华南销售部约6人受影响，仅针对 SaaS CRM Portal 出现基线偏离，其他应用访问正常，属于该站点该应用的局部性问题。",
-          drawerScopeIsGlobal: false,
-          drawerNodeTerminal: "normal", drawerNodeGateway: "warning", drawerNodeLink: "normal", drawerNodeApp: "normal",
-          drawerSegmentFault: "接入",
-          drawerSegmentDesc: "终端至 LocalDNS 网关段的解析时间严重拉长，响应时间达到 180ms，判定异常发生在 LocalDNS 段。",
-          drawerOverlayStatus: "warning",
-          drawerOverlayDetail: "• CRM Portal首包：1.8s\n• HTTPS建连延迟：偏高\n• 业务数据加载：卡顿",
-          drawerUnderlayDetail: "• 宽带运营商出口：正常\n• 目标 CDN 物理建连：是\n• IP路由寻址：已建立",
-          drawerLayerConclusion: "物理承载层正常，由于 LocalDNS 物理域名映射重导向错误，Overlay 接入层被迫绕行。",
-          drawerOwner: "系统/DNS架构运维组",
-          drawerEvidenceDesc: "已智能抓取故障时段 of DNS 解析日志及 LocalDNS 绕行追踪数据，打包装入排障证据包。"
-        },
-        {
-          id: "EXP-202606-004",
-          title: "广州分公司 - 运营团队 访问企业内部 ERP 系统频繁超时",
-          type: "内部系统",
-          severity: "中",
-          status: "未优化",
-          time: "45分钟前",
-          timestamp: Date.now() - 45 * 60 * 1000,
-          scope: "广州运营部 (约11人受阻)",
-          targetApp: "企业内部 ERP (10.10.20.30)",
-          currentExp: "频繁超时 (RTT 320ms)",
-          currentExpNormal: "正常 (RTT 35ms)",
-          problem: "广州至 ERP 系统的专线链路丢包率达 15%，TCP 握手多次重传，系统操作响应异常缓慢。",
-          impact: "运营团队约 11 名成员无法正常提交订单及审批工单，业务流程严重受阻。",
-          rootCause: "广州运营商出口节点发生路由策略变更，流量被重定向至非就近节点，链路拉远导致时延阻隔。",
-          linkLeftTitle: "运营终端",
-          linkLeftStatus: "安全接入",
-          linkLeftClass: "text-success",
-          linkLeftBarText: "丢包 15%",
-          linkLeftBarTextNormal: "连通良好",
-          linkLeftBarClass: "border-t border-dashed border-warning",
-          linkLeftBarClassNormal: "bg-success",
-          linkMiddleTitle: "智能网关",
-          linkMiddleStatus: "路由绕行",
-          linkMiddleClass: "text-warning",
-          linkMiddleStatusNormal: "运行正常",
-          linkMiddleClassNormal: "text-success",
-          linkMiddleBarText: "时延高",
-          linkMiddleBarTextNormal: "正常",
-          linkMiddleBarClass: "bg-warning",
-          linkMiddleBarClassNormal: "bg-success",
-          linkRightTitle: "目标应用",
-          linkRightStatus: "ERP",
-          aiCause: "基于广州运营网段的链路质量监测，发现 TCP 丢包率从基线 0.1% 飙升至 15%，结合路由追踪数据判定为出口运营商路由变更导致流量绕行至非就近 POP 节点。",
-          aiAction: "自动切换广州出口至备用华为云专线通道，同时向运营商发起路由恢复申诉工单，并提升 ERP 流量 QoS 优先级。",
-          actionType: "remediate",
-          remediateBtnText: "一键切换备用出口专线",
-          remediatedBtnText: "专线切换已完成",
-          remediatingText: "切换中...",
-          activeIssueId: 4,
-          drawerScopeTag: "局部范围问题",
-          drawerScopeDesc: "广州运营部约 11 人受阻，仅影响访问内部 ERP 系统的流量，其他应用访问正常，锁定为特定站点特定应用的局部性故障。",
-          drawerScopeIsGlobal: false,
-          drawerNodeTerminal: "warning",
-          drawerNodeGateway: "warning",
-          drawerNodeLink: "risk",
-          drawerNodeApp: "normal",
-          drawerSegmentFault: "链路",
-          drawerSegmentDesc: "终端至接入侧时延正常，故障发生在智能网关出口至 ERP 专线链路段，拨测 ICMP 丢包率 15%，TCP SYN 重传超时明显。",
-          drawerOverlayStatus: "risk",
-          drawerOverlayDetail: "• ERP 业务时延：320ms\n• TCP 握手重传：15%\n• 会话连接：大量等待超时",
-          drawerUnderlayDetail: "• 出口专线物理接口：UP\n• 运营商裸链路 RTT：30ms\n• 物理设备状态：正常",
-          drawerLayerConclusion: "Underlay 物理链路通畅但运营商 BGP 路由策略变更导致 Overlay 虚拟隧道绕行非就近节点，Overlay 层丢包率异常。",
-          drawerOwner: "分支网络运维组 / 运营商协调组",
-          drawerEvidenceDesc: "已抓取故障时段的路由追踪日志、TCP 重传报文及出口 BGP 路由变更记录，装入排障证据包。"
-        }
-      ];
-
-      const types = ["SaaS访问", "零信任登录", "内部系统"];
-      const severities = ["高", "中", "低"];
-      const branches = ["北京研发分支", "深圳财务网段", "成都运营中心", "上海市场网段", "广州销售分部", "西安研发网段"];
-      const apps = ["内网 GitLab (10.20.104.5)", "企业内部 ERP (10.10.20.30)", "SaaS 飞书 (https://feishu.cn)", "SaaS 腾讯会议", "公有云业务门户"];
-
-      for (let i = 5; i < 25; i++) {
-        const type = types[i % types.length];
-        const severity = severities[i % severities.length];
-        const branch = branches[i % branches.length];
-        const app = apps[i % apps.length];
-        const hoursAgo = i;
-        list.push({
-          id: `EXP-202606-0${i < 10 ? '0' + i : i}`,
-          title: `${branch} 访问 ${app} 性能检测偏低`,
-          type: type,
-          severity: severity,
-          status: "未优化",
-          time: `${hoursAgo}小时前`,
-          timestamp: Date.now() - hoursAgo * 3600 * 1000,
-          scope: `${branch} (约${(i*3)%10+2}人受影响)`,
-          targetApp: app,
-          currentExp: `响应延迟较高 (${(i*15)+100}ms)`,
-          currentExpNormal: `恢复正常 (RTT ${(i*5)+15}ms)`,
-          problem: `检测到 ${branch} 至目标应用的网络端口丢包或握手超时。`,
-          impact: `导致部分员工使用该业务应用时感觉加载极慢或时有失败。`,
-          rootCause: `公网段ISP轻微抖动，或者是LocalDNS域名解析返回非就近节点。`,
-          linkLeftTitle: "用户终端",
-          linkLeftStatus: "安全接入",
-          linkLeftClass: "text-success",
-          linkLeftBarText: `时延 ${(i*8)+30}ms`,
-          linkLeftBarTextNormal: "连通良好",
-          linkLeftBarClass: "border-t border-dashed border-warning",
-          linkLeftBarClassNormal: "bg-success",
-          linkMiddleTitle: i % 2 === 0 ? "LocalDNS" : "智能网关",
-          linkMiddleStatus: i % 2 === 0 ? "解析绕行" : "轻度拥堵",
-          linkMiddleClass: "text-warning",
-          linkMiddleStatusNormal: "连通良好",
-          linkMiddleClassNormal: "text-success",
-          linkMiddleBarText: "性能一般",
-          linkMiddleBarTextNormal: "正常",
-          linkMiddleBarClass: "bg-warning",
-          linkMiddleBarClassNormal: "bg-success",
-          linkRightTitle: "目标应用",
-          linkRightStatus: i % 2 === 0 ? "SaaS" : "应用端",
-          aiCause: `通过对 ${branch} 的拨测指标分析，判定该体验问题主要是由于解析路由较远或接入端丢包所致。`,
-          aiAction: `下发优化的解析策略或智能调度备用路由规则。`,
-          actionType: "remediate",
-          remediateBtnText: "一键执行策略调优",
-          remediatedBtnText: "已完成调优",
-          remediatingText: "调优中...",
-          activeIssueId: i,
-          drawerScopeTag: i % 2 === 0 ? "全局流量调度" : "局部范围问题",
-          drawerScopeDesc: `${branch} 的拨测链路产生异常，影响约 ${(i*3)%10+2} 名用户访问 ${app}，已结合多站点对比确认为局部性非全局故障。`,
-          drawerScopeIsGlobal: i % 2 === 0,
-          drawerNodeTerminal: "normal",
-          drawerNodeGateway: i % 3 === 0 ? "warning" : "normal",
-          drawerNodeLink: "warning",
-          drawerNodeApp: "normal",
-          drawerSegmentFault: i % 2 === 0 ? "链路" : "接入",
-          drawerSegmentDesc: `通过对 ${branch} 的多段拨测分析，终端至接入侧时延正常，故障发生在接入至目标应用的公网链路段，丢包率偏高。`,
-          drawerOverlayStatus: "warning",
-          drawerOverlayDetail: `• 业务时延：${(i*15)+100}ms\n• 数据包重传率：${i % 5 + 2}%\n• 会话建立：偶发超时`,
-          drawerUnderlayDetail: `• 出口物理接口：UP\n• 基线 RTT：${(i*2)+10}ms\n• 物理设备状态：正常`,
-          drawerLayerConclusion: "Underlay 物理层链路健康，Overlay 业务层因 ISP 路由绕行或 DNS 映射偏差导致性能劣化。",
-          drawerOwner: i % 2 === 0 ? "外部网络运营商 / 系统运维组" : "分支网络运维组",
-          drawerEvidenceDesc: `已智能抓取 ${branch} 故障时段 of 拨测日志及路由追踪数据，打包装入排障证据包。`
-        });
-      }
-      return list;
+(function() {
+  window.initDemPerformanceData = function () {
+    const list = [];
+    const apps = ["Salesforce CRM", "企业内部 ERP", "SaaS 飞书平台", "内网 GitLab", "腾讯会议 System"];
+    const ips = ["114.242.10.15", "61.152.12.19", "183.14.2.8", "113.108.20.12", "222.90.8.45"];
+    
+    for (let i = 1; i <= 20; i++) {
+      list.push({
+        id: `perf_${i}`,
+        time: `2026-06-04 14:${i < 10 ? '0' + i : i}:00`,
+        appName: apps[i % apps.length],
+        userIp: ips[i % ips.length],
+        dnsTime: (Math.random() * 15 + 5).toFixed(1) + 'ms',
+        tcpTime: (Math.random() * 25 + 10).toFixed(1) + 'ms',
+        sslTime: (Math.random() * 30 + 15).toFixed(1) + 'ms',
+        ttfb: (Math.random() * 120 + 40).toFixed(1) + 'ms',
+        totalResponse: (Math.random() * 300 + 100).toFixed(1) + 'ms',
+        status: i % 4 === 0 ? "差" : (i % 3 === 0 ? "一般" : "正常")
+      });
     }
+    return list;
+  };
+
+  window.initDemAlarmData = function () {
+    const list = [];
+    const titles = [
+      "西安研发中心访问 Harbor 镜像仓库丢包率超标 (4.2%)",
+      "武汉分公司访问仓储 WMS 系统响应时长告警 (>800ms)",
+      "广州分公司 Salesforce 拨测超时",
+      "北京总部访问内网 GitLab TCP 握手异常"
+    ];
+    for (let i = 1; i <= 15; i++) {
+      list.push({
+        id: `alm_${i}`,
+        time: `2026-06-04 13:${i * 4}:22`,
+        title: titles[i % titles.length],
+        level: i % 3 === 0 ? "高危" : (i % 2 === 0 ? "中危" : "低危"),
+        target: i % 2 === 0 ? "应用层" : "网络层",
+        status: i % 2 === 0 ? "待处理" : "已恢复"
+      });
+    }
+    return list;
+  };
+
+  window.initDemDiagnosticData = function () {
+    const branches = ["西安研发中心", "武汉分公司", "广州分公司", "深圳分公司", "上海分公司"];
+    const apps = ["Harbor 镜像仓库", "仓储 WMS 系统", "Salesforce", "内网 GitLab", "金蝶云 ERP"];
+    const list = [];
+    for (let i = 1; i <= 10; i++) {
+      const branch = branches[i % branches.length];
+      const app = apps[i % apps.length];
+      list.push({
+        id: `diag_${i}`,
+        time: `2026-06-04 14:${i * 5}:00`,
+        branchName: branch,
+        appName: app,
+        faultLocation: i % 2 === 0 ? "Overlay 业务网络 (ISP 节点绕行)" : "Underlay 物理出口 (包重传)",
+        rootCause: i % 2 === 0 ? "ISP 运营商跨网节点丢包升高" : "分支出口防火墙 NAT 转换瓶颈",
+        suggestion: "建议开启 SASE 智能路由避障，优化 POP 节点选路。",
+        drawerTitle: `${branch} 访问 ${app} 诊断报告`,
+        drawerOverlayDetail: `• 业务时延：${(i*15)+100}ms\n• 数据包重传率：${i % 5 + 2}%\n• 会话建立：偶发超时`,
+        drawerUnderlayDetail: `• 出口物理接口：UP\n• 基线 RTT：${(i*2)+10}ms\n• 物理设备状态：正常`,
+        drawerLayerConclusion: "Underlay 物理层链路健康，Overlay 业务层因 ISP 路由绕行或 DNS 映射偏差导致性能劣化。",
+        drawerOwner: i % 2 === 0 ? "外部网络运营商 / 系统运维组" : "分支网络运维组",
+        drawerEvidenceDesc: `已智能抓取 ${branch} 故障时段 of 拨测日志及路由追踪数据，打包装入排障证据包。`
+      });
+    }
+    return list;
+  };
+
+  window.initDemUserData = function () {
+    const users = [
+      { id: "usr_001", userName: "张伟 (zhangwei)", department: "集团总部 / 研发中心 / 架构组", terminals: ["MacBook Pro", "iPhone 15"], ipLocation: "114.242.10.15 (北京-朝阳)", pop: "华北-北京POP01", experience: "差", appCount: 14, degradedApps: ["Salesforce", "企业内部 ERP", "自研 CRM 系统"], city: "北京", orgTop: "研发中心" },
+      { id: "usr_002", userName: "李娜 (lina)", department: "上海分公司 / 市场部 / 品牌组", terminals: ["Windows 11 PC"], ipLocation: "61.152.12.19 (上海-浦东)", pop: "华东-上海POP02", experience: "差", appCount: 8, degradedApps: ["内网 GitLab", "SaaS 飞书", "腾讯会议"], city: "上海", orgTop: "市场部" },
+      { id: "usr_003", userName: "王强 (wangqiang)", department: "深圳分公司 / 财务部 / 结算组", terminals: ["ThinkPad X1", "iPad Air"], ipLocation: "183.14.2.8 (广东-深圳)", pop: "华南-深圳POP01", experience: "差", appCount: 22, degradedApps: ["金蝶云 ERP", "用友财务系统", "OA审批平台"], city: "深圳", orgTop: "财务部" },
+      { id: "usr_004", userName: "赵敏 (zhaomin)", department: "集团总部 / 运维中心 / 网络组", terminals: ["MacBook Air"], ipLocation: "114.242.10.88 (北京-海淀)", pop: "华北-北京POP01", experience: "一般", appCount: 19, degradedApps: ["Zabbix 监控平台"], city: "北京", orgTop: "运维中心" },
+      { id: "usr_005", userName: "孙杰 (sunjie)", department: "成都运营中心 / 客户服务部", terminals: ["Dell Desktop", "Android Phone"], ipLocation: "218.17.158.20 (四川-成都)", pop: "西南-成都POP01", experience: "一般", appCount: 11, degradedApps: ["呼叫中心平台", "工单流转系统"], city: "成都", orgTop: "客户服务部" },
+      { id: "usr_006", userName: "周明 (zhouming)", department: "集团总部 / 研发中心 / 前端组", terminals: ["MacBook Pro"], ipLocation: "114.242.11.30 (北京-朝阳)", pop: "华北-北京POP01", experience: "正常", appCount: 16, degradedApps: [], city: "北京", orgTop: "研发中心" },
+      { id: "usr_007", userName: "钱芳 (qianfang)", department: "广州分公司 / 销售部 / 华南大区", terminals: ["ThinkPad T14", "Mate 60 Pro"], ipLocation: "113.108.20.12 (广东-广州)", pop: "华南-广州POP01", experience: "差", appCount: 9, degradedApps: ["Salesforce", "智能客服系统"], city: "广州", orgTop: "销售部" },
+      { id: "usr_008", userName: "吴刚 (wugang)", department: "西安研发中心 / 云计算部", terminals: ["Ubuntu Workstation"], ipLocation: "222.90.8.45 (陕西-西安)", pop: "西北-西安POP01", experience: "差", appCount: 15, degradedApps: ["K8s 集群控制台", "Harbor 镜像仓库", "Grafana 平台"], city: "西安", orgTop: "研发中心" },
+      { id: "usr_009", userName: "郑洋 (zhengyang)", department: "南京分公司 / 人力资源部", terminals: ["HP EliteBook"], ipLocation: "221.226.5.88 (江苏-南京)", pop: "华东-南京POP01", experience: "一般", appCount: 7, degradedApps: ["北森 HR 平台"], city: "南京", orgTop: "人力资源部" },
+      { id: "usr_010", userName: "陈磊 (chenlei)", department: "武汉分公司 / 供应链管理部", terminals: ["Windows 10 PC", "Xiaomi Pad"], ipLocation: "59.173.18.66 (湖北-武汉)", pop: "华中-武汉POP01", experience: "差", appCount: 18, degradedApps: ["仓储 WMS 系统", "物流 TMS 系统"], city: "武汉", orgTop: "供应链部" }
+    ];
+
+    const firstNames = ["伟", "芳", "娜", "秀英", "敏", "静", "丽", "强", "磊", "军", "洋", "勇", "艳", "杰", "娟", "涛", "明", "超", "秀兰", "霞"];
+    const lastNames = ["张", "李", "王", "赵", "陈", "刘", "杨", "黄", "吴", "周", "徐", "孙", "马", "朱", "胡", "郭", "何", "高", "林", "罗"];
+    const pyNames = ["zhang", "li", "wang", "zhao", "chen", "liu", "yang", "huang", "wu", "zhou", "xu", "sun", "ma", "zhu", "hu", "guo", "he", "gao", "lin", "luo"];
+    const depts = [
+      { path: "集团总部 / 研发中心 / 后端组", top: "研发中心" },
+      { path: "集团总部 / 研发中心 / 测试组", top: "研发中心" },
+      { path: "上海分公司 / 市场部 / 策划组", top: "市场部" },
+      { path: "北京总部 / 安全中心 / 零信任组", top: "安全中心" },
+      { path: "深圳分公司 / 销售部 / 华东组", top: "销售部" },
+      { path: "成都运营中心 / 交付部", top: "交付部" },
+      { path: "杭州分公司 / 电商业务部", top: "电商部" }
+    ];
+    const cities = [
+      { name: "北京", ip: "114.242.", pop: "华北-北京POP01" },
+      { name: "上海", ip: "61.152.", pop: "华东-上海POP02" },
+      { name: "深圳", ip: "183.14.", pop: "华南-深圳POP01" },
+      { name: "广州", ip: "113.108.", pop: "华南-广州POP01" },
+      { name: "杭州", ip: "60.191.", pop: "华东-杭州POP01" },
+      { name: "成都", ip: "218.17.", pop: "西南-成都POP01" }
+    ];
+    const terminalList = [["MacBook Pro"], ["Windows 11 PC"], ["ThinkPad X1", "iPhone 14"], ["Dell Latitude", "iPad"], ["MacBook Air", "Galaxy S24"]];
+
+    for (let i = 11; i <= 48; i++) {
+      const ln = lastNames[i % lastNames.length];
+      const fn = firstNames[(i * 3) % firstNames.length];
+      const py = pyNames[i % pyNames.length] + (i % 99);
+      const d = depts[i % depts.length];
+      const c = cities[i % cities.length];
+      const exp = i % 5 === 0 ? "差" : (i % 3 === 0 ? "一般" : "正常");
+      let dApps = [];
+      if (exp === "差") {
+        dApps = ["Salesforce", "内网 CRM", "自研 ERP 系统"].slice(0, (i % 3) + 1);
+      } else if (exp === "一般") {
+        dApps = ["SaaS 飞书平台"];
+      }
+
+      users.push({
+        id: `usr_0${i < 10 ? '0' + i : i}`,
+        userName: `${ln}${fn} (${py})`,
+        department: d.path,
+        terminals: terminalList[i % terminalList.length],
+        ipLocation: `${c.ip}${(i * 7) % 250 + 1}.${(i * 13) % 250 + 1} (${c.name})`,
+        pop: c.pop,
+        experience: exp,
+        appCount: (i * 4) % 20 + 5,
+        degradedApps: dApps,
+        city: c.name,
+        orgTop: d.top
+      });
+    }
+    return users;
+  };
+
+  // -------------------------------------------------------------
+  // 应用 Tab 假数据生成器 (window.initDemAppData)
+  // -------------------------------------------------------------
+  window.initDemAppData = function () {
+    const baseApps = [
+      { id: "app_001", appName: "Salesforce CRM", domain: "crm.salesforce.com", appType: "SaaS 办公", experience: "差", activeUsers: 348, degradedUsers: 42, avgResponseTime: "480 ms", packetLoss: "3.5%", rtt: "88 ms", pop: "北京" },
+      { id: "app_002", appName: "企业内部 ERP", domain: "erp.internal.net", appType: "内网自研", experience: "差", activeUsers: 290, degradedUsers: 28, avgResponseTime: "390 ms", packetLoss: "2.8%", rtt: "65 ms", pop: "上海" },
+      { id: "app_003", appName: "Harbor 镜像仓库", domain: "registry.internal.net", appType: "基础设施", experience: "差", activeUsers: 160, degradedUsers: 24, avgResponseTime: "520 ms", packetLoss: "4.2%", rtt: "110 ms", pop: "西安" },
+      { id: "app_004", appName: "内网 GitLab", domain: "git.internal.net", appType: "内网自研", experience: "差", activeUsers: 410, degradedUsers: 19, avgResponseTime: "310 ms", packetLoss: "2.1%", rtt: "54 ms", pop: "深圳" },
+      { id: "app_005", appName: "仓储 WMS 系统", domain: "wms.supplychain.net", appType: "内网自研", experience: "差", activeUsers: 115, degradedUsers: 14, avgResponseTime: "640 ms", packetLoss: "3.8%", rtt: "92 ms", pop: "武汉" },
+      { id: "app_006", appName: "SaaS 飞书平台", domain: "feishu.cn", appType: "SaaS 办公", experience: "一般", activeUsers: 580, degradedUsers: 12, avgResponseTime: "180 ms", packetLoss: "0.9%", rtt: "32 ms", pop: "北京" },
+      { id: "app_007", appName: "腾讯会议 System", domain: "meeting.tencent.com", appType: "SaaS 办公", experience: "一般", activeUsers: 420, degradedUsers: 9, avgResponseTime: "160 ms", packetLoss: "0.8%", rtt: "28 ms", pop: "广州" },
+      { id: "app_008", appName: "Zabbix 监控平台", domain: "zabbix.ops.net", appType: "运维工具", experience: "一般", activeUsers: 85, degradedUsers: 5, avgResponseTime: "220 ms", packetLoss: "1.2%", rtt: "40 ms", pop: "北京" },
+      { id: "app_009", appName: "金蝶云 ERP", domain: "cloud.kingdee.com", appType: "SaaS 办公", experience: "正常", activeUsers: 210, degradedUsers: 0, avgResponseTime: "95 ms", packetLoss: "0.1%", rtt: "18 ms", pop: "深圳" },
+      { id: "app_010", appName: "用友财务系统", domain: "yonyou.internal.net", appType: "内网自研", experience: "正常", activeUsers: 175, degradedUsers: 0, avgResponseTime: "110 ms", packetLoss: "0.2%", rtt: "22 ms", pop: "上海" }
+    ];
+
+    const types = ["SaaS 办公", "内网自研", "基础设施", "运维工具"];
+    const cities = ["北京", "上海", "深圳", "广州", "成都", "西安", "南京", "武汉", "杭州"];
+
+    for (let i = 11; i <= 36; i++) {
+      const exp = i % 6 === 0 ? "差" : (i % 4 === 0 ? "一般" : "正常");
+      const activeU = (i * 17) % 400 + 60;
+      const degU = exp === "差" ? Math.floor(activeU * 0.15) + 3 : (exp === "一般" ? Math.floor(activeU * 0.04) + 1 : 0);
+      const resp = exp === "差" ? `${(i * 19) % 300 + 350} ms` : (exp === "一般" ? `${(i * 11) % 100 + 180} ms` : `${(i * 7) % 60 + 60} ms`);
+      const loss = exp === "差" ? `${((i % 4) + 2.1).toFixed(1)}%` : (exp === "一般" ? `${((i % 2) + 0.6).toFixed(1)}%` : '0.1%');
+      const rttVal = exp === "差" ? `${(i * 3) % 50 + 65} ms` : `${(i * 2) % 30 + 15} ms`;
+
+      baseApps.push({
+        id: `app_0${i < 10 ? '0' + i : i}`,
+        appName: `核心应用服务_${i}`,
+        domain: `app-service-${i}.internal.net`,
+        appType: types[i % types.length],
+        experience: exp,
+        activeUsers: activeU,
+        degradedUsers: degU,
+        avgResponseTime: resp,
+        packetLoss: loss,
+        rtt: rttVal,
+        pop: cities[i % cities.length]
+      });
+    }
+
+    return baseApps;
+  };
+
+  // -------------------------------------------------------------
+  // 分支 Tab 假数据生成器 (window.initDemBranchData)
+  // -------------------------------------------------------------
+  window.initDemBranchData = function () {
+    const baseBranches = [
+      { id: "br_001", branchName: "西安研发中心", region: "西北区域", egressIp: "222.90.8.45", city: "西安", activeUsers: 125, degradedUsers: 24, experience: "差", pop: "西安", degradedApps: ["K8s 集群控制台", "Harbor 镜像仓库", "Grafana 平台"] },
+      { id: "br_002", branchName: "武汉分公司", region: "华中区域", egressIp: "59.173.18.66", city: "武汉", activeUsers: 110, degradedUsers: 18, experience: "差", pop: "武汉", degradedApps: ["仓储 WMS 系统", "物流 TMS 系统"] },
+      { id: "br_003", branchName: "广州分公司", region: "华南区域", egressIp: "113.108.20.12", city: "广州", activeUsers: 95, degradedUsers: 14, experience: "差", pop: "广州", degradedApps: ["Salesforce CRM", "智能客服系统"] },
+      { id: "br_004", branchName: "深圳分公司", region: "华南区域", egressIp: "183.14.2.8", city: "深圳", activeUsers: 210, degradedUsers: 12, experience: "一般", pop: "深圳", degradedApps: ["金蝶云 ERP"] },
+      { id: "br_005", branchName: "上海分公司", region: "华东区域", egressIp: "61.152.12.19", city: "上海", activeUsers: 340, degradedUsers: 8, experience: "一般", pop: "上海", degradedApps: ["内网 GitLab"] },
+      { id: "br_006", branchName: "集团总部 (北京)", region: "华北区域", egressIp: "114.242.10.15", city: "北京", activeUsers: 520, degradedUsers: 5, experience: "正常", pop: "北京", degradedApps: [] },
+      { id: "br_007", branchName: "成都运营中心", region: "西南区域", egressIp: "218.17.158.20", city: "成都", activeUsers: 180, degradedUsers: 0, experience: "正常", pop: "成都", degradedApps: [] },
+      { id: "br_008", branchName: "南京分公司", region: "华东区域", egressIp: "221.226.5.88", city: "南京", activeUsers: 85, degradedUsers: 0, experience: "正常", pop: "南京", degradedApps: [] }
+    ];
+
+    const regions = ["华东区域", "华北区域", "华南区域", "西北区域", "西南区域", "华中区域"];
+    const cities = ["北京", "上海", "深圳", "广州", "成都", "西安", "南京", "武汉", "杭州", "天津", "重庆", "青岛"];
+
+    for (let i = 9; i <= 24; i++) {
+      const exp = i % 5 === 0 ? "差" : (i % 3 === 0 ? "一般" : "正常");
+      const activeU = (i * 13) % 200 + 40;
+      const degU = exp === "差" ? Math.floor(activeU * 0.18) + 2 : (exp === "一般" ? Math.floor(activeU * 0.05) + 1 : 0);
+      const c = cities[i % cities.length];
+      const r = regions[i % regions.length];
+      let dApps = [];
+      if (exp === "差") {
+        dApps = ["Salesforce CRM", "内网 ERP", "Jira 系统"].slice(0, (i % 2) + 1);
+      } else if (exp === "一般") {
+        dApps = ["SaaS 飞书平台"];
+      }
+
+      baseBranches.push({
+        id: `br_0${i < 10 ? '0' + i : i}`,
+        branchName: `${c}第${i}分支职场`,
+        region: r,
+        egressIp: `${(i * 11) % 200 + 10}.${(i * 17) % 200 + 20}.${(i * 3) % 250 + 1}.${(i * 7) % 250 + 1}`,
+        city: c,
+        activeUsers: activeU,
+        degradedUsers: degU,
+        experience: exp,
+        pop: c,
+        degradedApps: dApps
+      });
+    }
+
+    return baseBranches;
+  };
+
+  // -------------------------------------------------------------
+  // 新增: 首页 Tab 聚类体验告警假数据生成器 (window.initDemClusteredAlerts)
+  // -------------------------------------------------------------
+  window.initDemClusteredAlerts = function () {
+    const alerts = [
+      {
+        id: "cl_001",
+        level: "高优",
+        dimension: "分支问题",
+        title: "西安研发中心 等 23 名用户访问 Harbor 镜像仓库 丢包率超标 (4.2%) 异常",
+        time: "2026-06-04 14:32:10",
+        description: "基于 Overlay 拨测与基线对比分析，ISP 运营商跨网节点出现 4.2% 丢包绕行，Underlay 物理出口及终端侧状态健康。",
+        scope: { branchCount: 2, userCount: 23, appCount: 1, appName: "Harbor 镜像仓库" },
+        nodes: [
+          { name: "用户终端", sub: "23 台 PC", status: "normal" },
+          { name: "分支出口", sub: "西安出口 (222.90.8.45)", status: "normal" },
+          { name: "运营商/WAN", sub: "ISP 跨网节点", status: "error", metric: "丢包率 4.2%" },
+          { name: "SASE POP", sub: "西安 POP01", status: "normal" },
+          { name: "Harbor 镜像仓库", sub: "10.200.4.12:443", status: "normal" }
+        ]
+      },
+      {
+        id: "cl_002",
+        level: "高优",
+        dimension: "用户问题",
+        title: "张伟、李娜 等 42 名用户访问 Salesforce CRM 拨测响应超时 (>600ms) 异常",
+        time: "2026-06-04 14:28:45",
+        description: "应用端 HTTP 响应延迟升至 640ms (基线 120ms)，解析 DNS 路由与 POP 代理转发耗时均在正常范围内。",
+        scope: { branchCount: 3, userCount: 42, appCount: 1, appName: "Salesforce CRM" },
+        nodes: [
+          { name: "用户终端", sub: "42 名用户", status: "normal" },
+          { name: "分支出口", sub: "多分支出口", status: "normal" },
+          { name: "运营商/WAN", sub: "骨干网", status: "normal" },
+          { name: "SASE POP", sub: "北京 POP01", status: "normal" },
+          { name: "Salesforce CRM", sub: "crm.salesforce.com", status: "error", metric: "响应 640ms (超时)" }
+        ]
+      },
+      {
+        id: "cl_003",
+        level: "高优",
+        dimension: "应用问题",
+        title: "武汉分公司 18 名员工访问 仓储 WMS 系统 TCP 握手超时 异常",
+        time: "2026-06-04 14:20:15",
+        description: "分支出口防火墙 NAT 转换瓶颈导致并发会话数达到上限，大量 TCP SYN 报文在分支出口处产生积压丢失。",
+        scope: { branchCount: 1, userCount: 18, appCount: 1, appName: "仓储 WMS 系统" },
+        nodes: [
+          { name: "用户终端", sub: "18 台 PC", status: "normal" },
+          { name: "分支出口", sub: "武汉出口防火墙", status: "error", metric: "NAT 会话满载 (98%)" },
+          { name: "运营商/WAN", sub: "湖北电信", status: "normal" },
+          { name: "SASE POP", sub: "武汉 POP01", status: "normal" },
+          { name: "仓储 WMS 系统", sub: "wms.supplychain.net", status: "normal" }
+        ]
+      },
+      {
+        id: "cl_004",
+        level: "中优",
+        dimension: "分支问题",
+        title: "广州分公司 14 名员工访问 智能客服系统 产生抖动与延迟增加",
+        time: "2026-06-04 14:15:30",
+        description: "广州 POP 节点轻度负载拥塞，导致双向 RTT 时延从 25ms 波动增加至 110ms。",
+        scope: { branchCount: 1, userCount: 14, appCount: 1, appName: "智能客服系统" },
+        nodes: [
+          { name: "用户终端", sub: "14 台 PC", status: "normal" },
+          { name: "分支出口", sub: "广州出口", status: "normal" },
+          { name: "运营商/WAN", sub: "广东联通", status: "normal" },
+          { name: "SASE POP", sub: "广州 POP01", status: "warning", metric: "RTT 110ms (抖动)" },
+          { name: "智能客服系统", sub: "cs.internal.net", status: "normal" }
+        ]
+      },
+      {
+        id: "cl_005",
+        level: "中优",
+        dimension: "应用问题",
+        title: "深圳分公司 12 名员工访问 金蝶云 ERP 偶发 HTTP 502 错误",
+        time: "2026-06-04 14:02:00",
+        description: "云端应用代理 Gateway 在高并发下偶发断连，引发 502 Bad Gateway 响应。",
+        scope: { branchCount: 1, userCount: 12, appCount: 1, appName: "金蝶云 ERP" },
+        nodes: [
+          { name: "用户终端", sub: "12 名用户", status: "normal" },
+          { name: "分支出口", sub: "深圳出口", status: "normal" },
+          { name: "运营商/WAN", sub: "深圳电信", status: "normal" },
+          { name: "SASE POP", sub: "深圳 POP01", status: "normal" },
+          { name: "金蝶云 ERP", sub: "cloud.kingdee.com", status: "warning", metric: "HTTP 502 偶发" }
+        ]
+      }
+    ];
+
+    const appNames = ["内网 GitLab", "SaaS 飞书平台", "用友财务系统", "K8s 集群控制台", "Zabbix 监控平台", "北森 HR 平台", "物流 TMS 系统", "腾讯会议 System", "SonarQube 平台", "Jira 缺陷跟踪"];
+    const branchNames = ["北京总部", "上海分公司", "成都运营中心", "南京分公司", "杭州分公司", "天津办事处", "青岛分公司", "长沙运营中心", "合肥办事处", "福州分公司"];
+    const levels = ["高优", "中优", "低优"];
+    const dimensions = ["分支问题", "用户问题", "应用问题", "网络链路"];
+    const errorTypes = [
+      { text: "DNS 解析超时 (>300ms)", nodeIdx: 1, metric: "DNS 超时 340ms" },
+      { text: "跨省 ISP 骨干网拥塞", nodeIdx: 2, metric: "RTT 140ms (高延迟)" },
+      { text: "POP 选路绕路异常", nodeIdx: 3, metric: "跨网绕行 +45ms" },
+      { text: "后端 API 响应缓慢", nodeIdx: 4, metric: "TTFB 850ms" }
+    ];
+
+    for (let i = 6; i <= 18; i++) {
+      const b = branchNames[i % branchNames.length];
+      const a = appNames[i % appNames.length];
+      const lvl = levels[i % levels.length];
+      const dim = dimensions[i % dimensions.length];
+      const err = errorTypes[i % errorTypes.length];
+      const uCount = (i * 7) % 30 + 5;
+
+      const nodes = [
+        { name: "用户终端", sub: `${uCount} 台`, status: "normal" },
+        { name: "分支出口", sub: `${b}出口`, status: err.nodeIdx === 1 ? "warning" : "normal" },
+        { name: "运营商/WAN", sub: "骨干网链路", status: err.nodeIdx === 2 ? "error" : "normal" },
+        { name: "SASE POP", sub: "区域 POP 节点", status: err.nodeIdx === 3 ? "warning" : "normal" },
+        { name: "目标应用", sub: a, status: err.nodeIdx === 4 ? "error" : "normal" }
+      ];
+      if (err.nodeIdx < nodes.length) {
+        nodes[err.nodeIdx].metric = err.metric;
+      }
+
+      alerts.push({
+        id: `cl_0${i < 10 ? '0' + i : i}`,
+        level: lvl,
+        dimension: dim,
+        title: `${b} 等 ${uCount} 名用户访问 ${a} ${err.text} 异常`,
+        time: `2026-06-04 13:${(i * 3) % 60}:00`,
+        description: `基于流量基线拨测，${nodes[err.nodeIdx].name} 节点检测到 ${err.metric}，其余节点通信正常。`,
+        scope: { branchCount: (i % 2) + 1, userCount: uCount, appCount: 1, appName: a },
+        nodes: nodes
+      });
+    }
+
+    return alerts;
+  };
+
+})();

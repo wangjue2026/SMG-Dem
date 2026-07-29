@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DEM-用户 - 访问体验监控</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="../assets/css/css-overrides.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/collapse@3.x.x/dist/cdn.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <script src="../assets/js/ai-dem-data.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="../assets/js/tailwind-config.js"></script>
+  <link rel="stylesheet" href="../assets/css/ai-dem.css" />
+
+  <!-- 集中维护的公共 Shell 框架 -->
+  <script src="../assets/js/dem-shell.js?v=4.0"></script>
+
+  <style>
+    /* -------------------------------------------------------------
+       @comp-select 规范下拉选择框
+       ------------------------------------------------------------- */
+    .dem-select {
+      height: 32px;
+      font-size: 12px;
+      color: #2F3540;
+      background-color: #FFFFFF;
+      border: 1px solid #D3D7DE;
+      border-radius: 2px;
+      padding-left: 12px;
+      padding-right: 28px; /* 确保右侧图标有 8px 边距 */
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23A1A7B3'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 8px center;
+      background-size: 14px 14px;
+      cursor: pointer;
+      transition: border-color 0.15s;
+    }
+    .dem-select:hover, .dem-select:focus {
+      border-color: #1C6EFF;
+      outline: none;
+    }
+
+    /* -------------------------------------------------------------
+       @comp-table 表格组件核心规范样式
+       ------------------------------------------------------------- */
+    .dem-table-container {
+      border: 1px solid var(--color-bg-line, #E1E5EB);
+      border-radius: 0px !important; /* 强制直角 */
+      background: #ffffff;
+    }
+
+    .dem-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+    }
+
+    /* 表头吸顶 (sticky top-0) 固定 32px 高度 */
+    .dem-table thead tr {
+      height: 32px;
+    }
+
+    .dem-table th {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      height: 32px;
+      padding: 0 12px;
+      font-size: 12px;
+      font-weight: 400;
+      color: #454C59;
+      background-color: #EDF1F7;
+      white-space: nowrap;
+      text-align: left;
+      border-bottom: 1px solid #E1E5EB;
+      box-shadow: inset 0 -1px 0 #E1E5EB;
+      user-select: none;
+    }
+
+    /* 表头轻量分割线 (最后一列除外) */
+    .dem-table th:not(:last-child)::after {
+      content: "";
+      position: absolute;
+      right: 0;
+      top: 8px;
+      height: 16px;
+      width: 1px;
+      background-color: #E1E5EB;
+    }
+
+    /* 数据行样式 - 40px 高度 (单行), 无纵向分割线 */
+    .dem-table tbody tr {
+      height: 40px;
+      transition: background-color 0.15s ease;
+      border-bottom: 1px solid #F0F2F5;
+    }
+
+    .dem-table tbody tr:hover {
+      background-color: #F7F9FC;
+    }
+
+    .dem-table td {
+      padding: 4px 12px;
+      font-size: 12px;
+      color: #2F3540;
+      vertical-align: middle;
+      border-bottom: 1px solid #E1E5EB;
+    }
+
+    /* 数字列右对齐 */
+    .dem-table th.num-col,
+    .dem-table td.num-col {
+      text-align: right;
+    }
+
+    /* 操作列文字 - var(--color-blue) #1C6EFF */
+    .dem-table-action-link {
+      color: #1C6EFF;
+      font-size: 12px;
+      cursor: pointer;
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+
+    .dem-table-action-link:hover {
+      color: #4FA1FF;
+    }
+
+    /* 最右侧更多列 - 固定 40px */
+    .dem-table-col-more {
+      width: 40px;
+      min-width: 40px;
+      max-width: 40px;
+      text-align: center !important;
+    }
+
+    /* 吸底分页器规范 */
+    .dem-pagination-bar {
+      height: 40px;
+      background: #FFFFFF;
+      border-top: 1px solid #E1E5EB;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      padding: 0 16px;
+      gap: 16px;
+      font-size: 12px;
+      color: var(--color-graphite-d10, #5C6270);
+    }
+
+    .dem-page-btn {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 12px;
+      color: #2F3540;
+      transition: all 0.15s;
+    }
+
+    .dem-page-btn:hover {
+      border: 1px solid #1C6EFF;
+      color: #1C6EFF;
+    }
+
+    .dem-page-btn.active {
+      background-color: #1C6EFF;
+      color: #FFFFFF;
+      font-weight: 500;
+    }
+
+    .dem-page-btn.disabled {
+      cursor: not-allowed;
+      color: #C0C4CC;
+    }
+
+    .dem-page-btn.disabled:hover {
+      border: none;
+      color: #C0C4CC;
+    }
+  </style>
+
+  <script>
+    function demUserTabState() {
+      return {
+        ...window.demAppState('用户', 'm_0_0_1'),
+        users: [],
+        searchQuery: '',
+        selectedExperience: 'all',
+        selectedPop: 'all',
+        currentPage: 1,
+        pageSize: 20,
+        dimensionTab: 'org', // 'org' | 'location'
+        jumpPageInput: '',
+        dateShortcut: '今天',
+        dateRange: '2026-06-04 00:00:00 ~ 2026-06-04 23:59:59',
+
+        init() {
+          if (window.initDemUserData) {
+            this.users = window.initDemUserData();
+          }
+        },
+
+        get filteredUsers() {
+          // 表格默认排序: 体验差的排在最前面 ('差':1, '一般':2, '正常':3)
+          const expOrder = { '差': 1, '一般': 2, '正常': 3 };
+
+          const list = this.users.filter(u => {
+            const query = this.searchQuery.trim().toLowerCase();
+            const matchSearch = !query || 
+              u.userName.toLowerCase().includes(query) ||
+              u.department.toLowerCase().includes(query) ||
+              u.ipLocation.toLowerCase().includes(query) ||
+              u.terminals.some(t => t.toLowerCase().includes(query));
+
+            const matchExp = this.selectedExperience === 'all' || u.experience === this.selectedExperience;
+            const matchPop = this.selectedPop === 'all' || u.pop === this.selectedPop || this.formatCityName(u.pop) === this.selectedPop;
+
+            return matchSearch && matchExp && matchPop;
+          });
+
+          return list.sort((a, b) => (expOrder[a.experience] || 99) - (expOrder[b.experience] || 99));
+        },
+
+        get paginatedUsers() {
+          const start = (this.currentPage - 1) * this.pageSize;
+          return this.filteredUsers.slice(start, start + this.pageSize);
+        },
+
+        get totalPages() {
+          return Math.ceil(this.filteredUsers.length / this.pageSize) || 1;
+        },
+
+        get metrics() {
+          const total = this.users.length;
+          const poorUsers = this.users.filter(u => u.experience === '差');
+          const fairUsers = this.users.filter(u => u.experience === '一般');
+          const normalUsers = this.users.filter(u => u.experience === '正常');
+
+          // 按组织聚合 Top 2
+          const orgCounts = {};
+          poorUsers.forEach(u => {
+            orgCounts[u.orgTop] = (orgCounts[u.orgTop] || 0) + 1;
+          });
+          const sortedOrgs = Object.entries(orgCounts).sort((a, b) => b[1] - a[1]);
+          const top2Orgs = sortedOrgs.slice(0, 2).map(item => ({
+            name: item[0],
+            count: item[1],
+            percent: poorUsers.length ? Math.min(100, Math.round((item[1] / poorUsers.length) * 100)) : 0
+          }));
+
+          // 按城市/地区聚合 Top 2
+          const cityCounts = {};
+          poorUsers.forEach(u => {
+            cityCounts[u.city] = (cityCounts[u.city] || 0) + 1;
+          });
+          const sortedCities = Object.entries(cityCounts).sort((a, b) => b[1] - a[1]);
+          const top2Cities = sortedCities.slice(0, 2).map(item => ({
+            name: `${item[0]}地区`,
+            count: item[1],
+            percent: poorUsers.length ? Math.min(100, Math.round((item[1] / poorUsers.length) * 100)) : 0
+          }));
+
+          const totalDegradedAccesses = poorUsers.reduce((acc, u) => acc + (u.degradedApps.length * 18 + 6), 0);
+
+          return {
+            total,
+            poorCount: poorUsers.length,
+            fairCount: fairUsers.length,
+            normalCount: normalUsers.length,
+            poorPercent: total ? ((poorUsers.length / total) * 100).toFixed(1) : '0',
+            fairPercent: total ? ((fairUsers.length / total) * 100).toFixed(1) : '0',
+            normalPercent: total ? ((normalUsers.length / total) * 100).toFixed(1) : '0',
+            top2Orgs,
+            top2Cities,
+            degradedAccesses: totalDegradedAccesses
+          };
+        },
+
+        // @comp-tag 规范浅色标签样式 (等宽 36px 居中)
+        getExpBadgeClass(exp) {
+          if (exp === '差') return 'bg-[#CF171D]/10 text-[#CF171D] rounded-[2px] font-normal border-0 w-[36px] h-5 inline-flex items-center justify-center';
+          if (exp === '一般') return 'bg-[#FA721B]/10 text-[#FA721B] rounded-[2px] font-normal border-0 w-[36px] h-5 inline-flex items-center justify-center';
+          return 'bg-[#12A679]/10 text-[#12A679] rounded-[2px] font-normal border-0 w-[36px] h-5 inline-flex items-center justify-center';
+        },
+
+        formatIpLocation(ipLoc) {
+          if (!ipLoc) return { ip: '-', location: '' };
+          const parts = ipLoc.split(' ');
+          const ip = parts[0] || '-';
+          const location = parts[1] ? parts[1].replace('(', '').replace(')', '') : '';
+          return { ip, location };
+        },
+
+        formatCityName(popStr) {
+          if (!popStr) return '-';
+          const match = popStr.match(/(北京|上海|深圳|广州|成都|西安|南京|武汉|杭州)/);
+          return match ? match[0] : popStr.replace(/POP\d*/gi, '').replace(/^[^\s-]+-/, '');
+        },
+
+        formatDegradedApps(apps) {
+          if (!apps || apps.length === 0) return { isDegraded: false, count: 0, textPrefix: '', showMore: false, fullText: '' };
+          if (apps.length <= 2) {
+            return { isDegraded: true, count: apps.length, textPrefix: apps.join('、'), showMore: false, fullText: apps.join('、') };
+          }
+          return { 
+            isDegraded: true, 
+            count: apps.length, 
+            textPrefix: `${apps[0]}、${apps[1]} 等 `, 
+            showMore: true, 
+            fullText: apps.join('、') 
+          };
+        },
+
+        changePage(p) {
+          if (p < 1 || p > this.totalPages) return;
+          this.currentPage = p;
+        },
+
+        handleJumpPage() {
+          const p = parseInt(this.jumpPageInput);
+          if (p >= 1 && p <= this.totalPages) {
+            this.currentPage = p;
+            this.jumpPageInput = '';
+          }
+        },
+
+        goToUserDetail(user) {
+          // 下钻独立页面 (DEM-用户详情.html)
+          window.location.href = `./DEM-用户详情.html?userId=${user.id}`;
+        }
+      };
+    }
+  </script>
+</head>
+<body class="bg-bg-light text-text font-sans overflow-hidden w-screen h-screen">
+
+  <div id="dem-svgs"></div>
+
+  <div class="flex flex-col w-full h-full" x-data="demUserTabState()">
+    <!-- 顶部主 Header -->
+    <header id="dem-header" class="h-[56px] min-h-[56px] bg-white border-b border-bg-line flex items-center px-4 flex-shrink-0 z-30"></header>
+
+    <div class="flex-1 flex overflow-hidden">
+      <!-- 左侧 Sider 导航 -->
+      <aside id="dem-sider" class="at-sider flex flex-col flex-shrink-0 select-none"></aside>
+
+      <div class="flex-1 flex flex-col overflow-hidden">
+        <!-- 体验监控 Tab 页头 -->
+        <div id="dem-sub-header"></div>
+
+        <!-- 主内容区域 -->
+        <main class="flex-1 bg-[#F5F7FA] px-4 py-2 flex flex-col overflow-y-auto space-y-2">
+
+          <!-- 1. 时间日期筛选置于内容区域右上角，上下间距 4px -->
+          <div class="flex items-center justify-end flex-shrink-0 select-none my-[4px]">
+            <div class="inline-flex items-center h-8 bg-white border border-[#D3D7DE] rounded-[2px] hover:border-[#1C6EFF] transition-colors text-xs">
+              <!-- 左侧快捷选择区 -->
+              <div class="relative bg-[#F7F9FC] h-full px-2 flex items-center justify-between border-r border-[#D3D7DE] min-w-[88px] cursor-pointer group">
+                <select x-model="dateShortcut" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full text-xs">
+                  <option value="今天">今天</option>
+                  <option value="近24小时">近24小时</option>
+                  <option value="近3天">近3天</option>
+                  <option value="近7天">近7天</option>
+                  <option value="近30天">近30天</option>
+                  <option value="自定义">自定义</option>
+                </select>
+                <span class="text-[#2F3540] font-normal text-xs" x-text="dateShortcut || '今天'"></span>
+                <svg class="w-3.5 h-3.5 text-[#A1A7B3] ml-2 group-hover:text-[#1C6EFF] transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                </svg>
+              </div>
+
+              <!-- 右侧日期范围展示区 -->
+              <div class="h-full pl-3 pr-2 flex items-center justify-between cursor-pointer whitespace-nowrap">
+                <span class="font-mono text-xs text-[#2F3540] whitespace-nowrap" x-text="dateRange || '2026-06-04 00:00:00 ~ 2026-06-04 23:59:59'"></span>
+                <svg class="w-3.5 h-3.5 text-[#A1A7B3] flex-shrink-0 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <!-- 2. 概览四个卡片整合到一个容器卡片内 -->
+          <div class="bg-white border border-bg-line p-4 rounded-none shadow-xs flex-shrink-0">
+            <div class="grid grid-cols-1 md:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-bg-line">
+              
+              <!-- 概览 1: 活跃用户总数 -->
+              <div class="pr-0 md:pr-4 py-2 md:py-0 flex flex-col justify-between">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs text-text-mute font-medium">活跃用户总数</span>
+                </div>
+                <div class="mt-3">
+                  <div class="flex items-baseline gap-2">
+                    <span class="text-2xl font-bold text-text-title font-outfit" x-text="metrics.total.toLocaleString()"></span>
+                    <span class="text-xs text-text-mute">人</span>
+                  </div>
+                  <p class="text-[11px] text-text-mute mt-2">当前筛选时间段内全网产生访问行为的用户数</p>
+                </div>
+              </div>
+
+              <!-- 概览 2: 体验分布概览 (要求：Tag 必须严格等宽 w-[36px] 居中) -->
+              <div class="px-0 md:px-4 py-2 md:py-0 flex flex-col justify-between">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs text-text-mute font-medium">体验分布概览</span>
+                </div>
+                <div class="flex items-center gap-4 mt-2">
+                  <!-- 环形图 SVG Doughnut -->
+                  <div class="relative w-16 h-16 flex-shrink-0 flex items-center justify-center">
+                    <svg viewBox="0 0 36 36" class="w-full h-full transform -rotate-90">
+                      <!-- 正常 (Emerald) -->
+                      <circle cx="18" cy="18" r="15.9155" fill="none" stroke="#12A679" stroke-width="3.8"
+                              :stroke-dasharray="`${metrics.normalPercent} ${100 - metrics.normalPercent}`" stroke-dashoffset="0"></circle>
+                      <!-- 一般 (Amber) -->
+                      <circle cx="18" cy="18" r="15.9155" fill="none" stroke="#FA721B" stroke-width="3.8"
+                              :stroke-dasharray="`${metrics.fairPercent} ${100 - metrics.fairPercent}`" 
+                              :stroke-dashoffset="`-${metrics.normalPercent}`"></circle>
+                      <!-- 差 (Red) -->
+                      <circle cx="18" cy="18" r="15.9155" fill="none" stroke="#CF171D" stroke-width="3.8"
+                              :stroke-dasharray="`${metrics.poorPercent} ${100 - metrics.poorPercent}`" 
+                              :stroke-dashoffset="`-${parseFloat(metrics.normalPercent) + parseFloat(metrics.fairPercent)}`"></circle>
+                    </svg>
+                    <!-- 环形图中心文案 -->
+                    <div class="absolute inset-0 flex flex-col items-center justify-center text-center">
+                      <span class="text-[10px] text-text-mute scale-90">受损</span>
+                      <span class="text-xs font-bold text-[#CF171D] font-outfit" x-text="metrics.poorPercent + '%'"></span>
+                    </div>
+                  </div>
+
+                  <!-- Tag 强行等宽 w-[36px] (36px 固宽居中)，右侧数字对齐 -->
+                  <div class="flex flex-col gap-1.5 text-xs w-28">
+                    <div class="flex items-center justify-between">
+                      <span class="inline-flex items-center justify-center w-[36px] h-5 rounded-[2px] text-xs font-normal bg-[#CF171D]/10 text-[#CF171D]">差</span>
+                      <span class="text-xs font-normal text-[#2F3540] font-outfit" x-text="metrics.poorCount"></span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                      <span class="inline-flex items-center justify-center w-[36px] h-5 rounded-[2px] text-xs font-normal bg-[#FA721B]/10 text-[#FA721B]">一般</span>
+                      <span class="text-xs font-normal text-[#2F3540] font-outfit" x-text="metrics.fairCount"></span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                      <span class="inline-flex items-center justify-center w-[36px] h-5 rounded-[2px] text-xs font-normal bg-[#12A679]/10 text-[#12A679]">正常</span>
+                      <span class="text-xs font-normal text-[#2F3540] font-outfit" x-text="metrics.normalCount"></span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 概览 3: 主要受损群体/地区 -->
+              <div class="px-0 md:px-4 py-2 md:py-0 flex flex-col justify-between">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs text-text-mute font-medium">主要受损群体/地区</span>
+                  <div class="flex items-center text-[11px] bg-gray-100 p-0.5 rounded">
+                    <button class="px-1.5 py-0.5 rounded font-medium transition-colors"
+                            :class="dimensionTab === 'org' ? 'bg-white text-brand shadow-xs' : 'text-text-mute'"
+                            @click="dimensionTab = 'org'">组织</button>
+                    <button class="px-1.5 py-0.5 rounded font-medium transition-colors"
+                            :class="dimensionTab === 'location' ? 'bg-white text-brand shadow-xs' : 'text-text-mute'"
+                            @click="dimensionTab = 'location'">地区</button>
+                  </div>
+                </div>
+
+                <!-- 2条淡橙色进度条展示 -->
+                <div class="mt-2.5 space-y-2">
+                  <template x-for="(item, idx) in (dimensionTab === 'org' ? metrics.top2Orgs : metrics.top2Cities)" :key="idx">
+                    <div>
+                      <div class="flex items-center justify-between text-xs mb-1">
+                        <span class="text-text-title font-normal text-xs truncate max-w-[130px]" x-text="item.name"></span>
+                        <span class="text-text-title font-normal text-xs" x-text="item.count + ' 人受损'"></span>
+                      </div>
+                      <div class="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">
+                        <div class="bg-amber-400 h-full rounded-full transition-all duration-300" :style="`width: ${item.percent}%`"></div>
+                      </div>
+                    </div>
+                  </template>
+                </div>
+              </div>
+
+              <!-- 概览 4: 体验受阻应用访问人次 -->
+              <div class="pl-0 md:pl-4 py-2 md:py-0 flex flex-col justify-between">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs text-text-mute font-medium">体验受阻应用访问</span>
+                </div>
+                <div class="mt-3">
+                  <div class="flex items-baseline gap-2">
+                    <span class="text-2xl font-bold text-text-title font-outfit" x-text="metrics.degradedAccesses"></span>
+                    <span class="text-xs text-text-mute">人次</span>
+                  </div>
+                  <p class="text-[11px] text-text-mute mt-2 truncate">高频受损应用: Salesforce, ERP, CRM</p>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- 3. 表格与筛选控制主体容器 (吸底分页) -->
+          <div class="bg-white border border-bg-line flex-1 flex flex-col min-h-0 dem-table-container">
+
+            <!-- 顶部工具栏 -->
+            <div class="p-3 flex items-center justify-end gap-3 flex-wrap flex-shrink-0 bg-white">
+              
+              <!-- POP 节点下拉 -->
+              <select x-model="selectedPop" @change="currentPage = 1" class="dem-select w-32">
+                <option value="all">全量 POP 节点</option>
+                <option value="北京">北京</option>
+                <option value="上海">上海</option>
+                <option value="深圳">深圳</option>
+                <option value="广州">广州</option>
+                <option value="成都">成都</option>
+              </select>
+
+              <!-- 访问体验下拉 -->
+              <select x-model="selectedExperience" @change="currentPage = 1" class="dem-select w-32">
+                <option value="all">全量体验</option>
+                <option value="差">差</option>
+                <option value="一般">一般</option>
+                <option value="正常">正常</option>
+              </select>
+
+              <!-- 搜索框 -->
+              <div class="relative w-64 flex-shrink-0">
+                <input type="text" 
+                       x-model="searchQuery" 
+                       @input="currentPage = 1"
+                       placeholder="搜索用户 / 组织 / IP / 终端..." 
+                       class="w-full h-8 pl-8 pr-3 text-xs bg-white border border-[#D3D7DE] rounded-[2px] focus:outline-none focus:border-[#1C6EFF] transition-colors text-[#2F3540]" />
+                <svg class="w-3.5 h-3.5 text-[#A1A7B3] absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                </svg>
+              </div>
+
+            </div>
+
+            <!-- 数据表格区 (@comp-table 规范) -->
+            <div class="flex-1 overflow-auto custom-scrollbar">
+              <table class="dem-table">
+                <thead>
+                  <tr>
+                    <th class="w-48">用户</th>
+                    <th class="w-60">所属组织架构</th>
+                    <th class="w-48">使用终端</th>
+                    <th class="w-48">IP 归属地</th>
+                    <th class="w-36">接入 POP</th>
+                    <th class="w-28">访问体验</th>
+                    <th class="w-28 num-col">访问应用数</th>
+                    <th class="w-64">体验受损应用</th>
+                    <th class="w-24">操作</th>
+                    <th class="dem-table-col-more">...</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <template x-for="user in paginatedUsers" :key="user.id">
+                    <tr>
+                      <!-- 1. 用户 -->
+                      <td>
+                        <span class="font-normal text-text-title text-xs" x-text="user.userName"></span>
+                      </td>
+
+                      <!-- 2. 所属组织架构 -->
+                      <td>
+                        <span class="text-text-mute truncate block max-w-[230px]" :title="user.department" x-text="user.department"></span>
+                      </td>
+
+                      <!-- 3. 使用终端 (多标签换行间距2px, td padding 4px, @comp-tag 浅色灰色标签) -->
+                      <td>
+                        <div class="flex flex-wrap gap-1 items-center">
+                          <template x-for="(t, idx) in user.terminals" :key="idx">
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-[2px] text-[11px] font-normal bg-[#6F7785]/10 text-[#2F3540] border-0" x-text="t"></span>
+                          </template>
+                        </div>
+                      </td>
+
+                      <!-- 4. IP 归属地 (上面IP下面归属地) -->
+                      <td>
+                        <div class="font-mono text-xs text-text-title leading-tight" x-text="formatIpLocation(user.ipLocation).ip"></div>
+                        <div class="text-[11px] text-text-mute leading-tight mt-0.5" x-text="formatIpLocation(user.ipLocation).location"></div>
+                      </td>
+
+                      <!-- 5. 接入 POP (只显示城市名称) -->
+                      <td>
+                        <span class="text-text-title font-normal text-xs" x-text="formatCityName(user.pop)"></span>
+                      </td>
+
+                      <!-- 6. 访问体验 (@comp-tag 浅色标签规范：强行等宽 36px 居中) -->
+                      <td>
+                        <span :class="getExpBadgeClass(user.experience)">
+                          <span x-text="user.experience"></span>
+                        </span>
+                      </td>
+
+                      <!-- 7. 访问应用数 -->
+                      <td class="num-col font-outfit font-normal text-text-title" x-text="user.appCount"></td>
+
+                      <!-- 8. 体验受损应用 (普通灰色文本，仅数字标红) -->
+                      <td>
+                        <div class="truncate max-w-[240px]" :title="formatDegradedApps(user.degradedApps).fullText">
+                          <template x-if="!formatDegradedApps(user.degradedApps).isDegraded">
+                            <span class="text-[#5C6270]">-</span>
+                          </template>
+                          <template x-if="formatDegradedApps(user.degradedApps).isDegraded">
+                            <span class="text-[#5C6270] font-normal text-xs">
+                              <span x-text="formatDegradedApps(user.degradedApps).textPrefix"></span>
+                              <template x-if="formatDegradedApps(user.degradedApps).showMore">
+                                <span><span class="text-red-600 font-semibold" x-text="formatDegradedApps(user.degradedApps).count"></span> 个</span>
+                              </template>
+                            </span>
+                          </template>
+                        </div>
+                      </td>
+
+                      <!-- 9. 操作 (查看详情 - 独立下钻页面) -->
+                      <td>
+                        <a href="javascript:void(0)" 
+                           @click="goToUserDetail(user)"
+                           class="dem-table-action-link">查看详情</a>
+                      </td>
+
+                      <!-- 10. 更多列 (固定 40px 空白) -->
+                      <td class="dem-table-col-more"></td>
+                    </tr>
+                  </template>
+
+                  <!-- 空状态展示 -->
+                  <template x-if="paginatedUsers.length === 0">
+                    <tr>
+                      <td colspan="10" class="text-center py-12 text-text-mute">
+                        <svg class="w-10 h-10 mx-auto text-gray-300 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path>
+                        </svg>
+                        <span>没有匹配的用户体验数据</span>
+                      </td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- 3. 常规型吸底分页器 (@comp-table 分页规范) -->
+            <div class="dem-pagination-bar select-none">
+              <!-- 总条数 -->
+              <span>共 <strong class="text-text-title font-medium" x-text="filteredUsers.length"></strong> 条数据</span>
+
+              <!-- 单页条数设置 -->
+              <div class="flex items-center gap-1">
+                <span>每页显示</span>
+                <select x-model.number="pageSize" @change="currentPage = 1" class="h-6 text-xs bg-gray-50 border border-bg-line rounded-none px-1 focus:outline-none">
+                  <option :value="10">10 条</option>
+                  <option :value="20">20 条</option>
+                  <option :value="50">50 条</option>
+                  <option :value="100">100 条</option>
+                </select>
+              </div>
+
+              <!-- 页码与上下翻页 -->
+              <div class="flex items-center gap-1">
+                <!-- 上一页 -->
+                <button class="dem-page-btn" 
+                        :class="currentPage === 1 && 'disabled'" 
+                        @click="changePage(currentPage - 1)">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                  </svg>
+                </button>
+
+                <!-- 页码列表 -->
+                <template x-for="p in totalPages" :key="p">
+                  <button class="dem-page-btn" 
+                          :class="currentPage === p && 'active'" 
+                          @click="changePage(p)" 
+                          x-text="p"></button>
+                </template>
+
+                <!-- 下一页 -->
+                <button class="dem-page-btn" 
+                        :class="currentPage === totalPages && 'disabled'" 
+                        @click="changePage(currentPage + 1)">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                  </svg>
+                </button>
+              </div>
+
+              <!-- 快速跳转 -->
+              <div class="flex items-center gap-1">
+                <span>前往</span>
+                <input type="number" 
+                       x-model="jumpPageInput" 
+                       @keyup.enter="handleJumpPage()" 
+                       min="1" 
+                       :max="totalPages" 
+                       class="w-12 h-6 text-center text-xs bg-gray-50 border border-bg-line rounded-none focus:outline-none focus:border-brand" />
+                <span>页</span>
+              </div>
+            </div>
+
+          </div>
+
+        </main>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>
