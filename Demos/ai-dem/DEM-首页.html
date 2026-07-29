@@ -127,6 +127,7 @@
         jumpPageInput: '',
         dateShortcut: '今天',
         dateRange: '2026-06-04 00:00:00 ~ 2026-06-04 23:59:59',
+        showOverview: true,
 
         // AI 排障 Agent 抽屉状态
         showAiDrawer1: false,
@@ -197,7 +198,7 @@
             lowCount,
             branchStats: { total: 24, normal: 19, fair: 3, poor: 2 },
             userStats: { total: 1250, normal: 1180, fair: 42, poor: 28 },
-            appStats: { total: 36, normal: 29, fair: 4, poor: 3 }
+            appStats: { total: 36, internal: 30, saas: 6, normal: 29, fair: 4, poor: 3 }
           };
         },
 
@@ -275,8 +276,8 @@
         <!-- 主内容区域 (独立滚动，不会滚走顶部页头) -->
         <main class="flex-1 bg-[#F4F6F9] px-4 py-2 flex flex-col gap-2 overflow-y-auto custom-scrollbar">
 
-          <!-- 1. 时间日期筛选 (@comp-date-picker 规范) -->
-          <div class="flex items-center justify-end flex-shrink-0 select-none">
+          <!-- 1. 时间日期筛选 (@comp-date-picker 规范) 及收起/展开概览按钮 -->
+          <div class="flex items-center justify-end flex-shrink-0 select-none gap-2">
             
             <div class="inline-flex items-center h-8 bg-white border border-[#D3D7DE] rounded-[2px] hover:border-[#1C6EFF] transition-colors text-xs">
               <!-- 左侧快捷选择区 -->
@@ -304,10 +305,19 @@
               </div>
             </div>
 
+            <!-- 收起/展开概览按钮 (间距 8px) -->
+            <button @click="showOverview = !showOverview" 
+                    class="h-8 px-2.5 bg-white border border-[#D3D7DE] rounded-[2px] hover:border-[#1C6EFF] hover:text-[#1C6EFF] transition-colors text-xs text-[#2F3540] inline-flex items-center gap-1 cursor-pointer select-none">
+              <span x-text="showOverview ? '收起概览' : '展开概览'"></span>
+              <svg class="w-3.5 h-3.5 text-[#A1A7B3] transition-transform duration-200" :class="!showOverview && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path>
+              </svg>
+            </button>
+
           </div>
 
-          <!-- 2. 全局概览合体容器 (4合1，轻量tag样式等宽展示，去掉“全网”) -->
-          <div class="bg-white border border-[#E2E8F0] p-3.5 rounded-[4px] shadow-2xs flex-shrink-0">
+          <!-- 2. 全局概览合体容器 (4合1，支持展开/收起) -->
+          <div x-show="showOverview" x-collapse class="bg-white border border-[#E2E8F0] p-3.5 rounded-[4px] shadow-2xs flex-shrink-0">
             <div class="grid grid-cols-1 md:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-[#E2E8F0]">
               
               <!-- 概览 1: 体验问题告警 -->
@@ -364,15 +374,22 @@
                 </div>
               </div>
 
-              <!-- 概览 4: 应用体验 -->
+              <!-- 概览 4: 应用体验 (上面主数字拆分为内网应用与SaaS应用，下方保留正常/一般/差统计tag) -->
               <div class="pl-0 md:pl-4 py-2 md:py-0 flex flex-col justify-between">
                 <div class="flex items-center justify-between">
                   <span class="text-xs text-[#64748B] font-medium">应用体验</span>
                 </div>
                 <div class="mt-2">
-                  <div class="flex items-baseline gap-1.5">
-                    <span class="text-2xl font-bold text-[#1E293B] font-outfit" x-text="metrics.appStats.total"></span>
-                    <span class="text-xs text-[#64748B]">个纳管应用</span>
+                  <div class="flex items-baseline gap-2.5 flex-wrap">
+                    <div class="flex items-baseline gap-1">
+                      <span class="text-2xl font-bold text-[#1E293B] font-outfit" x-text="metrics.appStats.internal"></span>
+                      <span class="text-xs text-[#64748B]">个内网应用</span>
+                    </div>
+                    <div class="w-[1px] h-3 bg-[#CBD5E1] self-center"></div>
+                    <div class="flex items-baseline gap-1">
+                      <span class="text-2xl font-bold text-[#1E293B] font-outfit" x-text="metrics.appStats.saas"></span>
+                      <span class="text-xs text-[#64748B]">个SaaS应用</span>
+                    </div>
                   </div>
                   <div class="flex items-center gap-2 mt-2">
                     <span class="w-[76px] h-5 inline-flex items-center justify-center rounded-[3px] text-[11px] font-normal bg-[#F0FDF4] text-[#16A34A] border border-[#DCFCE7]">正常 <span class="ml-1 font-normal" x-text="metrics.appStats.normal"></span></span>
@@ -437,10 +454,10 @@
                   <!-- 40px 顶部紧急程度渐变点缀 (内联 style 确保颜色可靠渲染) -->
                   <div class="absolute top-0 left-0 right-0 h-[40px] pointer-events-none"
                        :style="item.level === '高优'
-                         ? 'background: linear-gradient(to bottom, rgba(207,23,29,0.08) 0%, transparent 100%)'
+                         ? 'background: linear-gradient(to bottom, rgba(207,23,29,0.056) 0%, transparent 100%)'
                          : item.level === '中优'
-                           ? 'background: linear-gradient(to bottom, rgba(250,114,27,0.07) 0%, transparent 100%)'
-                           : 'background: linear-gradient(to bottom, rgba(100,116,139,0.05) 0%, transparent 100%)'
+                           ? 'background: linear-gradient(to bottom, rgba(250,114,27,0.05) 0%, transparent 100%)'
+                           : 'background: linear-gradient(to bottom, rgba(100,116,139,0.035) 0%, transparent 100%)'
                        "></div>
 
                   <div class="p-3 relative z-10">

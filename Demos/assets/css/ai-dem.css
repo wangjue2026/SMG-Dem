@@ -273,3 +273,28 @@
       0%, 100% { transform: translateY(0); }
       50% { transform: translateY(-5px); }
     }
+
+    /* ── 页面切换：浏览器原生 View Transitions (Cross-Document) ── */
+    @view-transition {
+      navigation: auto;
+    }
+
+    /* 淡出旧页面 */
+    ::view-transition-old(root) {
+      animation: 160ms ease-in both dem-vt-fade-out;
+    }
+
+    /* 淡入新页面 */
+    ::view-transition-new(root) {
+      animation: 200ms ease-out both dem-vt-fade-in;
+    }
+
+    @keyframes dem-vt-fade-out {
+      from { opacity: 1; }
+      to   { opacity: 0; }
+    }
+
+    @keyframes dem-vt-fade-in {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
