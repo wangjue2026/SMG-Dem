@@ -1,0 +1,492 @@
+<!-- [PROJECT META] 方案类型：方案二 (一期方案) | 路径：Demos/02-方案二(一期)/DEM-体验预警.html -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>【方案二-一期】DEM - 体验预警 - 线上线下双底座</title>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Alpine.js + Collapse 插件 -->
+  <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/collapse@3.x.x/dist/cdn.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+  <!-- 公共数据 & 公共样式 -->
+  <script src="../assets/js/ai-dem-data.js"></script>
+  <link rel="stylesheet" href="../assets/css/ai-dem.css" />
+
+  <!-- 方案二公共底座样式（修改此文件即可同步所有页面框架样式） -->
+  <link rel="stylesheet" href="./_shell/shell.css" />
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ["Inter", "PingFang SC", "sans-serif"], outfit: ["Outfit", "sans-serif"] },
+          colors: {
+            brand: { DEFAULT: "var(--color-blue, #1C6EFF)", hover: "var(--color-blue-l10, #387EFF)", active: "var(--color-blue-d10, #0056EB)" },
+            text: { DEFAULT: "var(--color-graphite-d40, #272E38)", title: "var(--color-graphite-d30, #454C59)", mute: "var(--color-graphite, #A1A7B3)" },
+            border: "var(--color-graphite-l20, #C0C8D6)",
+            bg: { light: "var(--color-graphite-l50, #F4F6F9)", line: "var(--color-graphite-l30, #E1E5EB)" }
+          }
+        }
+      }
+    }
+  </script>
+</head>
+
+<body class="bg-bg-light text-text font-sans overflow-hidden w-screen h-screen">
+
+  <!-- 双底座根容器 — activePage 传入 '体验预警' 用于菜单高亮 -->
+  <div class="flex flex-col w-full h-full" x-data="dualShellAppStore('体验预警')">
+
+    <!-- 底座切换浮层（由 shell.js 注入） -->
+    <div id="shell-switcher"></div>
+
+    <!-- =====================================================
+         MODE 1: aTrust 线下底座框架
+         ===================================================== -->
+    <div x-show="shell === 'atrust'" class="flex flex-col w-full h-full">
+      <!-- aTrust Header（由 shell.js 注入） -->
+      <div id="shell-atrust-header"></div>
+
+      <!-- aTrust 下方主体：左侧 Sider + 右侧 Workspace -->
+      <div class="flex-1 flex overflow-hidden">
+        <!-- aTrust Sider（由 shell.js 注入） -->
+        <div id="shell-atrust-sider"></div>
+
+        <!-- aTrust 右侧 Workspace -->
+        <div class="flex-1 bg-bg-light flex flex-col overflow-hidden">
+          <div class="flex-1 bg-[#F4F6F9] flex flex-col overflow-hidden" id="atrust-workspace">
+            <!-- 页面专属内容占位，由下方模板填充 -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- =====================================================
+         MODE 2: SASE 线上云底座框架
+         ===================================================== -->
+    <div x-show="shell === 'sase'" class="flex w-full h-full overflow-hidden">
+      <!-- SASE Sider（由 shell.js 注入） -->
+      <div id="shell-sase-sider"></div>
+
+      <!-- SASE 右侧 Workspace -->
+      <div class="flex-1 bg-bg-light flex flex-col overflow-hidden">
+        <div class="flex-1 bg-[#F4F6F9] flex flex-col overflow-hidden" id="sase-workspace">
+          <!-- 页面专属内容占位，由下方模板填充 -->
+        </div>
+      </div>
+    </div>
+
+    <!-- =====================================================
+         体验预警 Workspace 模板（同时填充到 aTrust 和 SASE）
+         ===================================================== -->
+    <template id="page-content-template">
+      <div class="flex flex-col w-full h-full overflow-hidden">
+
+        <!-- 页头 -->
+        <div class="h-[48px] min-h-[48px] max-h-[48px] bg-white border-b border-[#E2E8F0] px-6 flex items-center justify-between flex-shrink-0 select-none z-20">
+          <div class="flex items-center h-full">
+            <span class="text-[14px] font-semibold text-[#1E293B]">体验监控</span>
+            <div class="w-[1px] h-[16px] mx-[16px] bg-[#E1E5EB]"></div>
+            <div class="flex items-center h-full gap-6 relative">
+              <!-- Tab: 体验预警（当前页） -->
+              <div class="relative h-full flex items-center cursor-pointer select-none" @click="navigateTo('体验预警')">
+                <span class="text-[14px] text-[#1C6EFF] font-semibold">体验预警</span>
+                <div class="absolute bottom-0 left-0 right-0 h-[2px] bg-[#1C6EFF]"></div>
+              </div>
+              <!-- Tab: 排障定位（跳转） -->
+              <div class="relative h-full flex items-center cursor-pointer select-none group" @click="navigateTo('排障定位')">
+                <span class="text-[14px] text-[#2F3540] font-normal group-hover:text-[#1C6EFF]">排障定位</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 页头右侧：时间筛选 & 收起/展开概览 -->
+          <div class="flex items-center select-none gap-2">
+            <div class="inline-flex items-center h-7 bg-white border border-[#D3D7DE] rounded-[2px] hover:border-[#1C6EFF] transition-colors text-xs">
+              <div class="relative bg-[#F7F9FC] h-full px-2 flex items-center justify-between border-r border-[#D3D7DE] min-w-[80px] cursor-pointer group">
+                <select x-model="dateShortcut" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full text-xs">
+                  <option value="今天">今天</option>
+                  <option value="近24小时">近24小时</option>
+                  <option value="近3天">近3天</option>
+                  <option value="近7天">近7天</option>
+                  <option value="近30天">近30天</option>
+                </select>
+                <span class="text-[#2F3540] font-normal text-xs" x-text="dateShortcut || '今天'"></span>
+                <svg class="w-3.5 h-3.5 text-[#A1A7B3] ml-2 group-hover:text-[#1C6EFF] transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+              </div>
+              <div class="h-full pl-2.5 pr-2 flex items-center justify-between cursor-pointer whitespace-nowrap">
+                <span class="font-mono text-xs text-[#2F3540] whitespace-nowrap" x-text="dateRange"></span>
+                <svg class="w-3.5 h-3.5 text-[#A1A7B3] flex-shrink-0 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+              </div>
+            </div>
+
+            <button @click="showOverview = !showOverview"
+                    class="h-7 px-2 bg-white border border-[#D3D7DE] rounded-[2px] hover:border-[#1C6EFF] hover:text-[#1C6EFF] transition-colors text-xs text-[#2F3540] inline-flex items-center gap-1 cursor-pointer select-none">
+              <span x-text="showOverview ? '收起概览' : '展开概览'"></span>
+              <svg class="w-3.5 h-3.5 text-[#A1A7B3] transition-transform duration-200" :class="!showOverview && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- 体验预警主体滚动区 -->
+        <div class="flex-1 px-4 py-2 flex flex-col gap-2.5 overflow-y-auto custom-scrollbar">
+
+          <!-- 三大核心看板 -->
+          <div x-show="showOverview" x-collapse class="bg-white border border-[#E2E8F0] p-3.5 rounded-[4px] shadow-2xs flex-shrink-0">
+            <div class="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-[#E2E8F0]">
+
+              <!-- 看板 1: 体验问题告警 -->
+              <div class="pr-0 md:pr-4 py-2 md:py-0 flex flex-col justify-between">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs text-[#64748B] font-medium">体验问题告警</span>
+                </div>
+                <div class="mt-2">
+                  <div class="flex items-baseline gap-1.5">
+                    <span class="text-2xl font-bold text-[#CF171D] font-outfit" x-text="metrics.total"></span>
+                    <span class="text-xs text-[#64748B]">起预警事件</span>
+                  </div>
+                  <div class="grid grid-cols-3 gap-2 mt-2">
+                    <span class="h-6 inline-flex items-center justify-center rounded-[3px] text-[11px] font-normal bg-[#FFF5F5] text-[#E53E3E] border border-[#FED7D7] whitespace-nowrap px-1">高优先级 <span class="ml-1 font-semibold" x-text="metrics.highCount"></span></span>
+                    <span class="h-6 inline-flex items-center justify-center rounded-[3px] text-[11px] font-normal bg-[#FFFAF0] text-[#DD6B20] border border-[#FEEBC8] whitespace-nowrap px-1">中优先级 <span class="ml-1 font-semibold" x-text="metrics.medCount"></span></span>
+                    <span class="h-6 inline-flex items-center justify-center rounded-[3px] text-[11px] font-normal bg-[#F8FAFC] text-[#64748B] border border-[#E2E8F0] whitespace-nowrap px-1">低优先级 <span class="ml-1 font-semibold" x-text="metrics.lowCount"></span></span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 看板 2: VIP对象访问体验 -->
+              <div class="px-0 md:px-4 py-2 md:py-0 flex flex-col justify-between">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs text-[#1E293B] font-semibold">VIP对象访问体验</span>
+                </div>
+                <div class="mt-2">
+                  <div class="grid grid-cols-2 gap-2">
+                    <div class="bg-[#FFFDF5] border border-amber-100 p-2 rounded-[3px]">
+                      <div class="text-[11px] text-[#78350F]">VIP用户体验受损</div>
+                      <div class="mt-1 flex items-baseline gap-1">
+                        <span class="text-xl font-bold text-[#D97706] font-outfit">3</span>
+                        <span class="text-[11px] text-[#A1A7B3]">/ 50 名</span>
+                      </div>
+                    </div>
+                    <div class="bg-[#FFFDF5] border border-amber-100 p-2 rounded-[3px]">
+                      <div class="text-[11px] text-[#78350F]">VIP业务体验受损</div>
+                      <div class="mt-1 flex items-baseline gap-1">
+                        <span class="text-xl font-bold text-[#DC2626] font-outfit">2</span>
+                        <span class="text-[11px] text-[#A1A7B3]">/ 8 个</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 看板 3: 问题定位情况概览 -->
+              <div class="pl-0 md:pl-4 py-2 md:py-0 flex flex-col justify-between">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs text-[#1E293B] font-semibold">问题定位情况概览</span>
+                </div>
+                <div class="mt-2">
+                  <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                    <div class="bg-[#F8FAFC] border border-[#E2E8F0] p-1.5 rounded-[3px] flex flex-col justify-between">
+                      <div class="text-[10px] text-[#64748B] truncate">POP节点/SDWAN</div>
+                      <div class="mt-1 flex items-baseline gap-0.5">
+                        <span class="text-base font-bold text-[#1C6EFF] font-outfit">45%</span>
+                        <span class="text-[9px] text-[#A1A7B3] font-mono">(5起)</span>
+                      </div>
+                      <div class="w-full h-1 bg-slate-200 rounded-full mt-1 overflow-hidden">
+                        <div class="h-full bg-[#1C6EFF]" style="width: 45%"></div>
+                      </div>
+                    </div>
+                    <div class="bg-[#F8FAFC] border border-[#E2E8F0] p-1.5 rounded-[3px] flex flex-col justify-between">
+                      <div class="text-[10px] text-[#64748B] truncate">运营商网络</div>
+                      <div class="mt-1 flex items-baseline gap-0.5">
+                        <span class="text-base font-bold text-[#D97706] font-outfit">30%</span>
+                        <span class="text-[9px] text-[#A1A7B3] font-mono">(3起)</span>
+                      </div>
+                      <div class="w-full h-1 bg-slate-200 rounded-full mt-1 overflow-hidden">
+                        <div class="h-full bg-[#D97706]" style="width: 30%"></div>
+                      </div>
+                    </div>
+                    <div class="bg-[#F8FAFC] border border-[#E2E8F0] p-1.5 rounded-[3px] flex flex-col justify-between">
+                      <div class="text-[10px] text-[#64748B] truncate">终端 Wi-Fi</div>
+                      <div class="mt-1 flex items-baseline gap-0.5">
+                        <span class="text-base font-bold text-[#9333EA] font-outfit">15%</span>
+                        <span class="text-[9px] text-[#A1A7B3] font-mono">(2起)</span>
+                      </div>
+                      <div class="w-full h-1 bg-slate-200 rounded-full mt-1 overflow-hidden">
+                        <div class="h-full bg-[#9333EA]" style="width: 15%"></div>
+                      </div>
+                    </div>
+                    <div class="bg-[#F8FAFC] border border-[#E2E8F0] p-1.5 rounded-[3px] flex flex-col justify-between">
+                      <div class="text-[10px] text-[#64748B] truncate">应用服务端</div>
+                      <div class="mt-1 flex items-baseline gap-0.5">
+                        <span class="text-base font-bold text-[#16A34A] font-outfit">10%</span>
+                        <span class="text-[9px] text-[#A1A7B3] font-mono">(1起)</span>
+                      </div>
+                      <div class="w-full h-1 bg-slate-200 rounded-full mt-1 overflow-hidden">
+                        <div class="h-full bg-[#16A34A]" style="width: 10%"></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- 聚类体验告警卡片列表 -->
+          <div class="bg-white border border-[#E2E8F0] rounded-[4px] shadow-2xs">
+            <div class="p-2.5 px-3 pb-0 flex items-center justify-end gap-3 flex-wrap bg-white">
+              <select x-model="selectedLevel" @change="currentPage = 1" class="dem-select w-32 font-normal transition-colors" :class="selectedLevel === 'all' ? '!text-[#A1A7B3]' : '!text-[#2F3540]'">
+                <option value="all" class="text-[#2F3540]">全量告警等级</option>
+                <option value="高优" class="text-[#2F3540]">高优</option>
+                <option value="中优" class="text-[#2F3540]">中优</option>
+                <option value="低优" class="text-[#2F3540]">低优</option>
+              </select>
+
+              <select x-model="selectedDimension" @change="currentPage = 1" class="dem-select w-32 font-normal transition-colors" :class="selectedDimension === 'all' ? '!text-[#A1A7B3]' : '!text-[#2F3540]'">
+                <option value="all" class="text-[#2F3540]">全量受损维度</option>
+                <option value="分支问题" class="text-[#2F3540]">分支问题</option>
+                <option value="用户问题" class="text-[#2F3540]">用户问题</option>
+                <option value="应用问题" class="text-[#2F3540]">应用问题</option>
+                <option value="网络链路" class="text-[#2F3540]">网络链路</option>
+              </select>
+
+              <div class="relative w-64 flex-shrink-0">
+                <input type="text" x-model="searchQuery" @input="currentPage = 1" placeholder="搜索预警标题 / 影响用户 / 应用..." class="w-full h-8 pl-8 pr-3 text-xs bg-white border border-[#D3D7DE] rounded-[2px] focus:outline-none focus:border-[#1C6EFF] transition-colors text-[#2F3540] placeholder-[#A1A7B3]" />
+                <svg class="w-3.5 h-3.5 text-[#A1A7B3] absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+              </div>
+            </div>
+
+            <div class="p-3 pt-2 space-y-2 bg-white">
+              <template x-for="(item, idx) in paginatedAlerts" :key="item.id">
+                <div class="dem-alert-card rounded-[4px] border border-[#E2E8F0] overflow-hidden relative bg-white transition-all hover:border-[#1C6EFF]">
+                  <div class="absolute top-0 left-0 right-0 h-[40px] pointer-events-none"
+                       :style="item.level === '高优' ? 'background: linear-gradient(to bottom, rgba(207,23,29,0.056) 0%, transparent 100%)' : item.level === '中优' ? 'background: linear-gradient(to bottom, rgba(250,114,27,0.05) 0%, transparent 100%)' : 'background: linear-gradient(to bottom, rgba(100,116,139,0.035) 0%, transparent 100%)'"></div>
+
+                  <div class="p-3 relative z-10">
+                    <div class="h-[40px] -mt-3 -mx-3 px-3 flex items-center justify-between border-b border-[#F1F5F9]/80">
+                      <div class="flex items-center gap-2 flex-1 min-w-0 pr-4">
+                        <span :class="getLevelBadgeClass(item.level)" x-text="item.level"></span>
+                        <template x-if="idx % 2 === 0">
+                          <span class="px-1.5 py-0.5 bg-[#F1F5F9] text-[#475569] text-[10px] font-medium border border-[#E2E8F0] rounded flex-shrink-0">VIP 体验预警</span>
+                        </template>
+                        <template x-if="idx % 2 !== 0">
+                          <span class="px-1.5 py-0.5 bg-[#F1F5F9] text-[#475569] text-[10px] font-medium border border-[#E2E8F0] rounded flex-shrink-0">群体体验事件</span>
+                        </template>
+                        <h3 class="text-xs font-semibold text-[#1E293B] truncate hover:text-[#1C6EFF] cursor-pointer transition-colors" x-text="item.title"></h3>
+                      </div>
+                      <div class="flex items-center gap-3 flex-shrink-0">
+                        <span class="text-[11px] text-[#94A3B8] font-mono whitespace-nowrap" x-text="item.time"></span>
+                        <button @click="goTroubleshoot(item.title)" class="text-xs text-[#1C6EFF] hover:text-[#0052D9] font-medium cursor-pointer transition-colors whitespace-nowrap">查看详情</button>
+                      </div>
+                    </div>
+
+                    <div class="mt-2.5 text-xs text-[#475569] leading-relaxed bg-[#F8FAFC] px-2.5 py-1.5 border border-[#F1F5F9] rounded-[2px]">
+                      <span class="font-medium text-[#1E293B]">诊断归因: </span>
+                      <span x-text="item.description"></span>
+                    </div>
+
+                    <div class="mt-2 flex items-center gap-2.5 text-[11px] text-[#475569]">
+                      <span class="inline-flex items-center gap-1 bg-[#F1F5F9] border border-[#E2E8F0] px-2 py-0.5 rounded-[2px]">
+                        <span>分支: <strong class="text-[#1E293B] font-medium" x-text="item.scope.branchCount"></strong> 个</span>
+                      </span>
+                      <span class="inline-flex items-center gap-1 bg-[#F1F5F9] border border-[#E2E8F0] px-2 py-0.5 rounded-[2px]">
+                        <span>受影响员工: <strong class="text-[#CF171D] font-semibold" x-text="item.scope.userCount"></strong> 名</span>
+                      </span>
+                      <span class="inline-flex items-center bg-[#F1F5F9] border border-[#E2E8F0] px-2 py-0.5 rounded-[2px]">
+                        <span>关联应用: <strong class="text-[#1E293B] font-medium" x-text="item.scope.appName"></strong></span>
+                      </span>
+                    </div>
+
+                    <!-- 五段拓扑链路 -->
+                    <div class="mt-2 bg-[#F8FAFC] px-2.5 pt-1.5 pb-2 rounded-[2px] border border-[#E2E8F0] overflow-visible">
+                      <div class="text-[11px] text-[#64748B] font-medium mt-1.5 mb-1 select-none"><span>端到端拓扑链路瓶颈</span></div>
+                      <div class="flex items-center justify-between gap-1 overflow-x-auto pt-3 pb-1 px-1">
+                        <template x-for="(node, nIdx) in item.nodes" :key="nIdx">
+                          <div class="flex items-center flex-1 min-w-[115px]">
+                            <div class="flex-1 px-2 py-1.5 rounded-lg border text-center transition-all relative select-none"
+                                 :class="{ 'bg-white border-[#CBD5E1] shadow-2xs': node.status === 'normal', 'bg-[#FEF2F2] border-[#EF4444] border-2 alert-node-pulse shadow-xs': node.status === 'error', 'bg-[#FFFBEB] border-[#F59E0B] border-2 shadow-xs': node.status === 'warning' }">
+                              <template x-if="node.metric">
+                                <span class="absolute -top-3 left-1/2 -translate-x-1/2 px-1.5 py-0.2 rounded-full text-[10px] font-semibold whitespace-nowrap shadow-sm z-10"
+                                      :class="node.status === 'error' ? 'bg-[#EF4444] text-white border border-red-300' : 'bg-[#F59E0B] text-white border border-amber-300'"
+                                      x-text="node.metric"></span>
+                              </template>
+                              <div class="text-[11px] font-medium truncate" :class="{ 'text-[#1E293B]': node.status === 'normal', 'text-[#DC2626] font-bold': node.status === 'error', 'text-[#D97706] font-bold': node.status === 'warning' }" x-text="node.name"></div>
+                              <div class="text-[9px] text-[#64748B] truncate mt-0.5 font-mono" x-text="node.sub"></div>
+                            </div>
+                            <template x-if="nIdx < item.nodes.length - 1">
+                              <div class="flex items-center px-1 flex-shrink-0">
+                                <div class="w-2.5 md:w-4 h-[2px]" :class="(node.status === 'error' || item.nodes[nIdx+1].status === 'error') ? 'bg-[#EF4444]' : 'bg-[#CBD5E1]'"></div>
+                                <svg class="w-2.5 h-2.5 -ml-1" :class="(node.status === 'error' || item.nodes[nIdx+1].status === 'error') ? 'text-[#EF4444]' : 'text-[#94A3B8]'" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>
+                              </div>
+                            </template>
+                          </div>
+                        </template>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </template>
+            </div>
+
+            <!-- 分页栏 -->
+            <div class="dem-pagination-bar select-none">
+              <span>共 <strong class="text-text-title font-medium" x-text="filteredAlerts.length"></strong> 起 VIP / 群体预警</span>
+              <div class="flex items-center gap-1">
+                <span>每页显示</span>
+                <select x-model.number="pageSize" @change="currentPage = 1" class="h-6 text-xs bg-gray-50 border border-bg-line rounded-none px-1 focus:outline-none cursor-pointer">
+                  <option :value="5">5 条</option>
+                  <option :value="10">10 条</option>
+                </select>
+              </div>
+              <div class="flex items-center gap-1">
+                <button class="dem-page-btn" :class="currentPage === 1 && 'disabled'" @click="changePage(currentPage - 1)">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                </button>
+                <template x-for="p in totalPages" :key="p">
+                  <button class="dem-page-btn" :class="currentPage === p && 'active'" @click="changePage(p)" x-text="p"></button>
+                </template>
+                <button class="dem-page-btn" :class="currentPage === totalPages && 'disabled'" @click="changePage(currentPage + 1)">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+
+        </div><!-- end 主体滚动区 -->
+      </div><!-- end 页面模板 -->
+    </template>
+
+  </div><!-- end x-data 根容器 -->
+
+  <!-- ========================================================
+       方案二公共底座脚本（修改此文件即可同步所有页面框架）
+       ======================================================== -->
+  <script src="./_shell/shell.js"></script>
+
+  <!-- 体验预警页面专属 Alpine 逻辑 -->
+  <script>
+    // 立即同步解包模板到 workspace
+    (function injectAlertTemplate() {
+      const tpl = document.getElementById('page-content-template');
+      if (!tpl) return;
+      ['atrust-workspace', 'sase-workspace'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+          el.innerHTML = '';
+          el.appendChild(tpl.content.cloneNode(true));
+        }
+      });
+    })();
+
+    // ⚠️ 注意：不能用 Object.assign 扩展，因为 Object.assign 会把 getter
+    // 转成固定值，破坏 Alpine 响应式计算属性。必须定义完整独立函数。
+    window.dualShellAppStore = function (activePage) {
+      // ── 从 shell.js 复用的公共底座辅助函数 ──
+      function safeGet(key, def) {
+        try { const v = localStorage.getItem(key); return v !== null ? v : def; } catch(e) { return def; }
+      }
+      function safeSet(key, val) {
+        try { localStorage.setItem(key, val); } catch(e) {}
+      }
+
+      return {
+        // ── 底座切换状态（必须包含，来自 shell.js 的公共部分）──
+        shell: safeGet('demoShell_v2', 'atrust'),
+        activePage: activePage || '体验预警',
+        atrustExpandedL2: 'dem',
+        saseExpandedL1Keys: ['dem-monitoring'],
+
+        setShell(s) { this.shell = s; safeSet('demoShell_v2', s); },
+        navigateTo(page) { const url = window.DEM_ROUTES_V2?.[page]; if (url) window.location.href = url; },
+        toggleAtrustL2(key) { this.atrustExpandedL2 = this.atrustExpandedL2 === key ? '' : key; },
+        toggleSaseL1(key) { this.saseExpandedL1Keys.includes(key) ? (this.saseExpandedL1Keys = this.saseExpandedL1Keys.filter(k => k !== key)) : this.saseExpandedL1Keys.push(key); },
+        isSaseExpanded(key) { return this.saseExpandedL1Keys.includes(key); },
+
+        // ── 日期筛选 ──
+        dateShortcut: '今天',
+        dateRange: '2026-06-04 00:00:00 ~ 2026-06-04 23:59:59',
+
+        // 概览收起/展开
+        showOverview: true,
+
+        // 告警列表数据源
+        alerts: [],
+
+        // 筛选与分页
+        searchQuery: '',
+        selectedLevel: 'all',
+        selectedDimension: 'all',
+        currentPage: 1,
+        pageSize: 10,
+
+        init() {
+          if (window.initDemClusteredAlerts) this.alerts = window.initDemClusteredAlerts();
+        },
+
+        // 跳转到排障定位并传入告警标题
+        goTroubleshoot(title) {
+          sessionStorage.setItem('dem_troubleshoot_title', title);
+          window.location.href = window.DEM_ROUTES_V2['排障定位'];
+        },
+
+        get filteredAlerts() {
+          const levelOrder = { '高优': 0, '中优': 1, '低优': 2 };
+          return this.alerts.filter(a => {
+            const query = this.searchQuery.trim().toLowerCase();
+            const matchSearch = !query ||
+              a.title.toLowerCase().includes(query) ||
+              a.description.toLowerCase().includes(query) ||
+              a.scope.appName.toLowerCase().includes(query);
+            const matchLevel = this.selectedLevel === 'all' || a.level === this.selectedLevel;
+            const matchDim = this.selectedDimension === 'all' || a.dimension === this.selectedDimension;
+            return matchSearch && matchLevel && matchDim;
+          }).sort((a, b) => {
+            const lvDiff = (levelOrder[a.level] ?? 9) - (levelOrder[b.level] ?? 9);
+            if (lvDiff !== 0) return lvDiff;
+            return (b.time || '').localeCompare(a.time || '');
+          });
+        },
+
+        get paginatedAlerts() {
+          const start = (this.currentPage - 1) * this.pageSize;
+          return this.filteredAlerts.slice(start, start + this.pageSize);
+        },
+
+        get totalPages() {
+          return Math.ceil(this.filteredAlerts.length / this.pageSize) || 1;
+        },
+
+        get metrics() {
+          const total = this.alerts.length;
+          const highCount = this.alerts.filter(a => a.level === '高优').length;
+          const medCount = this.alerts.filter(a => a.level === '中优').length;
+          const lowCount = this.alerts.filter(a => a.level === '低优').length;
+          return { total, highCount, medCount, lowCount };
+        },
+
+        getLevelBadgeClass(lvl) {
+          if (lvl === '高优') return 'bg-[#CF171D]/10 text-[#CF171D] rounded-[2px] font-normal border-0 w-[36px] h-5 inline-flex items-center justify-center text-xs';
+          if (lvl === '中优') return 'bg-[#FA721B]/10 text-[#FA721B] rounded-[2px] font-normal border-0 w-[36px] h-5 inline-flex items-center justify-center text-xs';
+          return 'bg-[#6F7785]/10 text-[#2F3540] rounded-[2px] font-normal border-0 w-[36px] h-5 inline-flex items-center justify-center text-xs';
+        },
+
+        changePage(p) {
+          if (p < 1 || p > this.totalPages) return;
+          this.currentPage = p;
+        }
+      };
+    };
+  </script>
+
+</body>
+</html>

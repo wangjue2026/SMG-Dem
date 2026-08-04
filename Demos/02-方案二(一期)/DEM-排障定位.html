@@ -1,0 +1,955 @@
+<!-- [PROJECT META] 方案类型：方案二 (一期方案) | 路径：Demos/02-方案二(一期)/DEM-排障定位.html -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>【方案二-一期】DEM - 排障定位 - 线上线下双底座</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/collapse@3.x.x/dist/cdn.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+  <script src="../assets/js/ai-dem-data.js"></script>
+  <link rel="stylesheet" href="../assets/css/ai-dem.css" />
+
+  <!-- 方案二公共底座样式 -->
+  <link rel="stylesheet" href="./_shell/shell.css" />
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ["Inter", "PingFang SC", "sans-serif"], outfit: ["Outfit", "sans-serif"] },
+          colors: {
+            brand: { DEFAULT: "var(--color-blue, #1C6EFF)", hover: "#387EFF", active: "#0056EB" },
+            text: { DEFAULT: "var(--color-graphite-d40, #272E38)", title: "var(--color-graphite-d30, #454C59)", mute: "var(--color-graphite, #A1A7B3)" },
+            border: "var(--color-graphite-l20, #C0C8D6)",
+            bg: { light: "var(--color-graphite-l50, #F4F6F9)", line: "var(--color-graphite-l30, #E1E5EB)" }
+          }
+        }
+      }
+    }
+  </script>
+</head>
+
+<body class="bg-bg-light text-text font-sans overflow-hidden w-screen h-screen">
+
+  <div class="flex flex-col w-full h-full" x-data="dualShellAppStore('排障定位')">
+
+    <div id="shell-switcher"></div>
+
+    <!-- aTrust 框架 -->
+    <div x-show="shell === 'atrust'" class="flex flex-col w-full h-full">
+      <div id="shell-atrust-header"></div>
+      <div class="flex-1 flex overflow-hidden">
+        <div id="shell-atrust-sider"></div>
+        <div class="flex-1 bg-bg-light flex flex-col overflow-hidden">
+          <div class="flex-1 bg-[#F4F6F9] flex flex-col overflow-hidden" id="atrust-workspace"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SASE 框架 -->
+    <div x-show="shell === 'sase'" class="flex w-full h-full overflow-hidden">
+      <div id="shell-sase-sider"></div>
+      <div class="flex-1 bg-bg-light flex flex-col overflow-hidden">
+        <div class="flex-1 bg-[#F4F6F9] flex flex-col overflow-hidden" id="sase-workspace"></div>
+      </div>
+    </div>
+
+    <!-- 排障定位 Workspace 内容模板 -->
+    <template id="page-content-template">
+      <div class="flex flex-col w-full h-full overflow-hidden">
+
+        <!-- 页头 -->
+        <div class="h-[48px] min-h-[48px] max-h-[48px] bg-white border-b border-[#E2E8F0] px-6 flex items-center justify-between flex-shrink-0 select-none z-20">
+
+          <!-- 未下钻：Tab 页头 -->
+          <div x-show="!showDetailedReport" class="flex items-center justify-between w-full h-full">
+            <div class="flex items-center h-full">
+              <span class="text-[14px] font-semibold text-[#1E293B]">体验监控</span>
+              <div class="w-[1px] h-[16px] mx-[16px] bg-[#E1E5EB]"></div>
+              <div class="flex items-center h-full gap-6 relative">
+                <!-- Tab: 体验预警（跳转） -->
+                <div class="relative h-full flex items-center cursor-pointer select-none group" @click="navigateTo('体验预警')">
+                  <span class="text-[14px] text-[#2F3540] font-normal group-hover:text-[#1C6EFF]">体验预警</span>
+                </div>
+                <!-- Tab: 排障定位（当前页） -->
+                <div class="relative h-full flex items-center cursor-pointer select-none">
+                  <span class="text-[14px] text-[#1C6EFF] font-semibold">排障定位</span>
+                  <div class="absolute bottom-0 left-0 right-0 h-[2px] bg-[#1C6EFF]"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 下钻：面包屑页头 -->
+          <div x-show="showDetailedReport" class="flex items-center justify-between w-full h-full" x-cloak>
+            <div class="flex items-center gap-2 text-xs">
+              <button @click="showDetailedReport = false" class="hover:bg-slate-100 px-2 py-1 rounded text-[#5E6573] hover:text-[#1C6EFF] transition-colors flex items-center gap-1 font-medium cursor-pointer">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                <span>返回排障列表</span>
+              </button>
+              <span class="text-slate-300">/</span>
+              <span class="text-[#5E6573]">排障定位</span>
+              <span class="text-slate-300">/</span>
+              <span class="text-[#1E293B] font-bold">详细排障分析报告</span>
+              <span class="px-2 py-0.5 bg-blue-50 text-[#1C6EFF] font-mono text-[11px] rounded border border-blue-100 ml-1.5" x-text="analysisResult?.qualitative?.diagTime || '2026-06-04 14:22'"></span>
+            </div>
+            <div class="flex items-center gap-2">
+              <button @click="window.print()" class="h-7 px-3 bg-white border border-[#D3D7DE] hover:border-[#1C6EFF] hover:text-[#1C6EFF] text-[#334155] rounded-[2px] text-xs font-medium inline-flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs">
+                <svg class="w-3.5 h-3.5 text-[#5E6573]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+                <span>导出 PDF 报告</span>
+              </button>
+              <button @click="showDetailedReport = false" class="h-7 px-3 bg-[#F1F5F9] hover:bg-[#E2E8F0] border border-[#CBD5E1] text-[#334155] rounded-[2px] text-xs font-medium inline-flex items-center gap-1 transition-colors cursor-pointer">
+                <span>关闭</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 排障定位主体滚动区 -->
+        <div class="flex-1 px-4 py-2 flex flex-col gap-2 overflow-y-auto custom-scrollbar">
+
+          <!-- View 1: 排障定位主视图 -->
+          <div x-show="!showDetailedReport" class="flex flex-col gap-2 w-full">
+
+            <!-- AI 排障输入面板 -->
+            <div class="bg-white border border-[#E2E8F0] p-4 rounded-[4px] shadow-2xs flex flex-col gap-2.5">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2 text-xs font-semibold text-[#1E293B]">
+                  <div class="w-5 h-5 rounded bg-brand text-white flex items-center justify-center font-bold text-[10px]">AI</div>
+                  <span>体验现象智能分析与排障</span>
+                </div>
+                <div class="flex items-center gap-2 select-none">
+                  <!-- 日期选择器 -->
+                  <div class="inline-flex items-center h-7 bg-white border border-[#D3D7DE] rounded-[2px] hover:border-[#1C6EFF] transition-colors text-xs">
+                    <div class="relative bg-[#F7F9FC] h-full px-2 flex items-center justify-between border-r border-[#D3D7DE] min-w-[76px] cursor-pointer group">
+                      <select x-model="troubleshootDateShortcut" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full text-xs">
+                        <option value="今天">今天</option>
+                        <option value="近24小时">近24小时</option>
+                        <option value="近3天">近3天</option>
+                        <option value="近7天">近7天</option>
+                        <option value="近30天">近30天</option>
+                      </select>
+                      <span class="text-[#2F3540] font-normal text-xs" x-text="troubleshootDateShortcut"></span>
+                      <svg class="w-3.5 h-3.5 text-[#A1A7B3] ml-1 group-hover:text-[#1C6EFF] transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                    </div>
+                    <div class="h-full px-2 flex items-center justify-between cursor-pointer whitespace-nowrap">
+                      <span class="font-mono text-[11px] text-[#5E6573]" x-text="troubleshootDateRange"></span>
+                      <svg class="w-3.5 h-3.5 text-[#A1A7B3] flex-shrink-0 ml-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                    </div>
+                  </div>
+
+                  <!-- 查看排障历史 -->
+                  <button @click="showHistoryDrawer = true" class="h-7 px-2.5 bg-[#F1F5F9] hover:bg-[#E2E8F0] border border-[#CBD5E1] rounded-[2px] text-xs text-[#334155] font-medium inline-flex items-center gap-1.5 transition-colors cursor-pointer">
+                    <svg class="w-3.5 h-3.5 text-[#64748B]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    <span>排障历史</span>
+                    <span class="w-4 h-4 rounded-full bg-[#E2E8F0] text-[#64748B] text-[9px] font-bold font-mono inline-flex items-center justify-center" x-text="troubleshootHistory.length"></span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- 自然语言输入区 -->
+              <div class="relative">
+                <textarea x-model="troubleshootInput"
+                          @focus="onTroubleshootFocus()"
+                          @blur="onTroubleshootBlur()"
+                          @input="agentWarningMessage = ''"
+                          rows="3"
+                          class="w-full p-3 pr-28 text-xs bg-[#F8FAFC] border border-[#CBD5E1] rounded-[4px] min-h-[82px] focus:outline-none focus:border-[#1C6EFF] focus:bg-white transition-all resize-none leading-relaxed"
+                          :class="(troubleshootInput && (troubleshootInput.startsWith('1.') || troubleshootInput.startsWith('示例：'))) ? 'text-[#64748B]' : 'text-[#1E293B]'"></textarea>
+
+                <button @click="startTroubleshootAnalysis()"
+                        :disabled="isAnalyzing"
+                        class="absolute right-2.5 bottom-3.5 h-8 px-4 bg-[#1C6EFF] hover:bg-[#0056EB] disabled:opacity-50 text-white rounded-[3px] text-xs font-medium transition-all shadow-xs flex items-center gap-1.5 cursor-pointer">
+                  <div x-show="!isAnalyzing" class="flex items-center gap-1.5">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                    <span>开始分析</span>
+                  </div>
+                  <div x-show="isAnalyzing" class="flex items-center gap-1.5" x-cloak>
+                    <svg class="w-3.5 h-3.5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                    <span>分析中...</span>
+                  </div>
+                </button>
+              </div>
+
+              <!-- Agent 拦截提示 -->
+              <div x-show="agentWarningMessage" x-transition class="flex items-center gap-1.5 text-xs text-[#D97706] bg-[#FEF3C7] border border-[#FCD34D] px-3 py-1.5 rounded-[3px] select-none" x-cloak>
+                <svg class="w-4 h-4 text-[#D97706] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                <span class="font-medium" x-text="agentWarningMessage"></span>
+              </div>
+
+              <!-- Prompt 案例快捷输入 -->
+              <div class="flex items-center gap-2 overflow-x-auto whitespace-nowrap custom-scrollbar flex-nowrap text-xs select-none py-0.5">
+                <button @click="troubleshootInput = '今天 14:20，研发中心 VIP 用户张伟 (zhangwei) 反馈在访问 Harbor 镜像仓库拉取基础镜像时，出现频繁连接超时与 4.2% 的丢包卡顿现象'; agentWarningMessage = '';" class="px-2.5 py-1 bg-[#F1F5F9] hover:bg-[#E2E8F0] text-[#334155] rounded-[3px] text-[11px] transition-colors border border-[#E2E8F0] whitespace-nowrap flex-shrink-0">
+                  案例 1 - 个体报障：用户张伟访问 Harbor 镜像仓库超时丢包
+                </button>
+                <button @click="troubleshootInput = '2026-06-04 13:45，上海分公司与苏州研发办多名员工均反馈访问内网 GitLab 提交代码与销售 CRM 构建迟钝'; agentWarningMessage = '';" class="px-2.5 py-1 bg-[#F1F5F9] hover:bg-[#E2E8F0] text-[#334155] rounded-[3px] text-[11px] transition-colors border border-[#E2E8F0] whitespace-nowrap flex-shrink-0">
+                  案例 2 - 群体报障：上海分公司与苏州办员工反馈访问 GitLab/CRM 均卡慢
+                </button>
+                <button @click="troubleshootInput = '今天 10:15，广州分公司 HR 部多名员工反馈在进行 SaaS 飞书多人视频会议时连通性偶发中断'; agentWarningMessage = '';" class="px-2.5 py-1 bg-[#F1F5F9] hover:bg-[#E2E8F0] text-[#334155] rounded-[3px] text-[11px] transition-colors border border-[#E2E8F0] whitespace-nowrap flex-shrink-0">
+                  案例 3 - 多对一报障：广州 HR 部多名员工访问 SaaS 飞书视频会议卡顿
+                </button>
+              </div>
+
+              <!-- AI 分析 Loading -->
+              <div x-show="isAnalyzing" class="mt-1 bg-gradient-to-r from-blue-50/70 via-indigo-50/50 to-slate-50 border border-blue-200/80 p-4 rounded-[4px] space-y-3" x-cloak>
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2 text-xs font-semibold text-[#1C6EFF]">
+                    <svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                    <span>DEM AI 排障引擎正在计算五段拓扑链路与调取端探针数据...</span>
+                  </div>
+                  <span class="text-[11px] font-mono text-[#1C6EFF] font-semibold" x-text="`${analysisStep * 33}%`"></span>
+                </div>
+                <div class="grid grid-cols-3 gap-2">
+                  <div class="h-1.5 rounded-full overflow-hidden bg-slate-200"><div class="h-full bg-[#1C6EFF] transition-all duration-300" :style="analysisStep >= 1 ? 'width: 100%' : 'width: 0%'"></div></div>
+                  <div class="h-1.5 rounded-full overflow-hidden bg-slate-200"><div class="h-full bg-[#1C6EFF] transition-all duration-300" :style="analysisStep >= 2 ? 'width: 100%' : 'width: 0%'"></div></div>
+                  <div class="h-1.5 rounded-full overflow-hidden bg-slate-200"><div class="h-full bg-[#1C6EFF] transition-all duration-300" :style="analysisStep >= 3 ? 'width: 100%' : 'width: 0%'"></div></div>
+                </div>
+                <div class="text-[11px] text-[#475569] font-mono space-y-1">
+                  <div x-show="analysisStep >= 1" class="flex items-center gap-1.5 text-emerald-700">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                    <span>[Step 1] 已拉取终端客户端拨测日志与出口 SD-WAN 节点性能指标...</span>
+                  </div>
+                  <div x-show="analysisStep >= 2" class="flex items-center gap-1.5 text-emerald-700">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                    <span>[Step 2] 关联运营商跨网 POP 选路路由，碰撞出 14.2% 大包丢包瓶颈...</span>
+                  </div>
+                  <div x-show="analysisStep >= 3" class="flex items-center gap-1.5 text-blue-700 font-semibold">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                    <span>[Step 3] AI 智能根因结论生成完毕。</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 分析摘要卡片 -->
+              <div x-show="analysisResult" class="mt-1 bg-white border-2 border-[#1C6EFF] p-4 rounded-[4px] shadow-xs space-y-3" x-cloak>
+                <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+                  <div class="flex items-center gap-2.5 flex-wrap">
+                    <span class="text-xs font-bold text-[#1E293B]" x-text="analysisResult?.title"></span>
+                    <button @click="openDetailedReport()" class="px-2.5 py-0.5 bg-[#EFF6FF] hover:bg-[#DBEAFE] text-[#1C6EFF] border border-[#BFDBFE] rounded-[2px] text-xs font-medium inline-flex items-center gap-1 transition-colors cursor-pointer">
+                      <span>查看详细排障报告</span>
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+                    </button>
+                  </div>
+                  <button @click="analysisResult = null" class="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded transition-colors cursor-pointer ml-auto" title="关闭摘要">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                  </button>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs text-[#334155]">
+                  <div class="bg-[#F8FAFC] p-3 rounded border border-[#E2E8F0] space-y-1.5">
+                    <div class="flex items-center justify-between">
+                      <span class="font-bold text-slate-900 text-[12px]">1. 总结定性</span>
+                      <span class="px-1.5 py-0.2 bg-red-100 text-[#DC2626] font-semibold text-[10px] rounded" x-text="analysisResult?.qualitative?.responsibilityDomain"></span>
+                    </div>
+                    <div class="text-[#DC2626] font-semibold leading-relaxed" x-text="analysisResult?.qualitative?.summary"></div>
+                    <div class="text-[11px] text-[#64748B] flex items-center justify-between pt-1 border-t border-slate-200/60">
+                      <span x-text="`诊断状态: ${analysisResult?.qualitative?.status}`"></span>
+                      <span class="font-mono text-[#16A34A]" x-text="`置信度 ${analysisResult?.qualitative?.confidence}`"></span>
+                    </div>
+                  </div>
+                  <div class="bg-[#F8FAFC] p-3 rounded border border-[#E2E8F0] space-y-1.5">
+                    <div class="font-bold text-slate-900 text-[12px]">2. 影响面分析</div>
+                    <div class="space-y-1 text-[11px]">
+                      <div><span class="text-[#64748B]">受影响人员:</span> <span class="font-medium text-slate-800" x-text="analysisResult?.impact?.affectedUsers"></span></div>
+                      <div><span class="text-[#64748B]">受影响分支:</span> <span class="font-medium text-slate-800" x-text="analysisResult?.impact?.affectedBranches"></span></div>
+                      <div><span class="text-[#64748B]">受影响应用:</span> <span class="font-medium text-slate-800" x-text="analysisResult?.impact?.affectedApps"></span></div>
+                    </div>
+                  </div>
+                  <div class="bg-[#F8FAFC] p-3 rounded border border-[#E2E8F0] space-y-1.5">
+                    <div class="font-bold text-slate-900 text-[12px]">3. 问题定位</div>
+                    <div class="space-y-1 text-[11px]">
+                      <div><span class="text-[#64748B]">瓶颈分段:</span> <span class="font-semibold text-[#DC2626]" x-text="analysisResult?.location?.bottleneck"></span></div>
+                      <div><span class="text-[#64748B]">关键指标:</span> <span class="font-mono text-slate-800" x-text="analysisResult?.location?.metrics"></span></div>
+                      <div><span class="text-[#64748B]">已排除项:</span> <span class="text-[#16A34A]" x-text="analysisResult?.location?.excluded"></span></div>
+                    </div>
+                  </div>
+                  <div class="bg-[#F8FAFC] p-3 rounded border border-[#E2E8F0] space-y-1.5">
+                    <div class="font-bold text-slate-900 text-[12px]">4. 处置建议</div>
+                    <div class="text-[#16A34A] font-medium leading-relaxed text-[11px]" x-text="analysisResult?.recommendation?.action"></div>
+                    <div class="text-[11px] text-[#64748B] pt-1 border-t border-slate-200/60"><span>处理对象: SD-WAN 运维组</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 分支/用户/应用 子 Tab 表格 -->
+            <div class="bg-white border border-[#E2E8F0] rounded-[4px] shadow-2xs select-none">
+              <div class="px-4 pt-3 pb-0 border-b border-[#E2E8F0] flex items-center justify-between bg-white">
+                <div class="flex items-center gap-6">
+                  <button @click="troubleshootSubTab = 'branch'" class="pb-2.5 text-xs font-medium border-b-2 transition-all cursor-pointer flex items-center gap-1.5" :class="troubleshootSubTab === 'branch' ? 'border-[#1C6EFF] text-[#1C6EFF] font-semibold' : 'border-transparent text-[#64748B] hover:text-[#1E293B]'">分支体验</button>
+                  <button @click="troubleshootSubTab = 'user'" class="pb-2.5 text-xs font-medium border-b-2 transition-all cursor-pointer flex items-center gap-1.5" :class="troubleshootSubTab === 'user' ? 'border-[#1C6EFF] text-[#1C6EFF] font-semibold' : 'border-transparent text-[#64748B] hover:text-[#1E293B]'">用户体验</button>
+                  <button @click="troubleshootSubTab = 'app'" class="pb-2.5 text-xs font-medium border-b-2 transition-all cursor-pointer flex items-center gap-1.5" :class="troubleshootSubTab === 'app' ? 'border-[#1C6EFF] text-[#1C6EFF] font-semibold' : 'border-transparent text-[#64748B] hover:text-[#1E293B]'">应用体验</button>
+                </div>
+              </div>
+
+              <!-- 分支表格 -->
+              <div x-show="troubleshootSubTab === 'branch'" class="p-3 w-full">
+                <div class="flex items-center justify-end pb-3 gap-3 flex-wrap w-full">
+                  <select x-model="branchRegion" @change="branchPage = 1" class="dem-select w-32 transition-colors font-normal" :class="branchRegion === 'all' ? '!text-[#A1A7B3]' : '!text-[#2F3540]'">
+                    <option value="all">全量区域</option>
+                    <option value="华北区">华北区</option>
+                    <option value="华东区">华东区</option>
+                    <option value="华南区">华南区</option>
+                    <option value="西南区">西南区</option>
+                    <option value="西北区">西北区</option>
+                  </select>
+                  <select x-model="branchExp" @change="branchPage = 1" class="dem-select w-32 transition-colors font-normal" :class="branchExp === 'all' ? '!text-[#A1A7B3]' : '!text-[#2F3540]'">
+                    <option value="all">全量体验状态</option>
+                    <option value="差">差</option>
+                    <option value="一般">一般</option>
+                    <option value="正常">正常</option>
+                  </select>
+                  <div class="relative w-64 flex-shrink-0">
+                    <input type="text" x-model="branchSearch" @input="branchPage = 1" placeholder="搜索分支 / 城市 / IP..." class="w-full h-8 pl-8 pr-3 text-xs border border-[#D3D7DE] rounded-[2px] focus:outline-none focus:border-[#1C6EFF] text-[#2F3540] placeholder-[#A1A7B3]" />
+                    <svg class="w-3.5 h-3.5 text-[#A1A7B3] absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                  </div>
+                </div>
+                <div class="overflow-x-auto border border-[#E2E8F0] rounded-[2px] w-full">
+                  <table class="dem-table w-full">
+                    <thead><tr>
+                      <th class="w-48">分支名称</th><th class="w-32">所属区域</th><th class="w-48">出口 IP / 城市</th>
+                      <th class="w-32 num-col">活跃接入用户</th><th class="w-32 num-col">体验受损用户数</th>
+                      <th class="w-28">主用接入 POP</th><th class="w-64">受阻高频应用</th>
+                      <th class="w-24">操作</th><th class="dem-table-col-more">...</th>
+                    </tr></thead>
+                    <tbody>
+                      <template x-for="branch in paginatedBranches" :key="branch.id">
+                        <tr>
+                          <td><span class="font-normal text-text-title text-xs" x-text="branch.branchName"></span></td>
+                          <td><span class="text-text-mute truncate block max-w-[120px]" x-text="branch.region"></span></td>
+                          <td>
+                            <div class="font-mono text-xs text-text-title leading-tight" x-text="branch.egressIp"></div>
+                            <div class="text-[11px] text-text-mute leading-tight mt-0.5" x-text="branch.city"></div>
+                          </td>
+                          <td class="num-col font-outfit font-normal text-text-title" x-text="branch.activeUsers"></td>
+                          <td class="num-col font-outfit"><span :class="branch.degradedUsers > 0 ? 'text-red-600 font-semibold' : 'text-text-mute'" x-text="branch.degradedUsers"></span></td>
+                          <td><span class="text-text-title font-normal text-xs" x-text="formatCityName(branch.pop)"></span></td>
+                          <td>
+                            <div class="truncate max-w-[240px]" :title="formatDegradedApps(branch.degradedApps).fullText">
+                              <template x-if="!formatDegradedApps(branch.degradedApps).isDegraded"><span class="text-[#5C6270]">-</span></template>
+                              <template x-if="formatDegradedApps(branch.degradedApps).isDegraded">
+                                <span class="text-[#5C6270] font-normal text-xs">
+                                  <span x-text="formatDegradedApps(branch.degradedApps).textPrefix"></span>
+                                  <template x-if="formatDegradedApps(branch.degradedApps).showMore"><span><span class="text-red-600 font-semibold" x-text="formatDegradedApps(branch.degradedApps).count"></span> 个</span></template>
+                                </span>
+                              </template>
+                            </div>
+                          </td>
+                          <td><button @click="startAnalysisFromTarget('分支', branch.branchName)" class="dem-table-action-link cursor-pointer border-0 bg-transparent p-0">查看详情</button></td>
+                          <td class="dem-table-col-more"></td>
+                        </tr>
+                      </template>
+                    </tbody>
+                  </table>
+                </div>
+                <div class="dem-pagination-bar select-none mt-2">
+                  <span>共 <strong class="text-text-title font-medium" x-text="filteredBranches.length"></strong> 条数据</span>
+                  <div class="flex items-center gap-1">
+                    <span>每页显示</span>
+                    <select x-model.number="branchPageSize" @change="branchPage = 1" class="h-6 text-xs bg-gray-50 border border-bg-line rounded-none px-1 focus:outline-none cursor-pointer">
+                      <option :value="10">10 条</option><option :value="20">20 条</option>
+                    </select>
+                  </div>
+                  <div class="flex items-center gap-1">
+                    <button class="dem-page-btn" :class="branchPage === 1 && 'disabled'" @click="branchPage = Math.max(1, branchPage - 1)"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg></button>
+                    <span class="px-2 text-xs font-mono text-text-title" x-text="`${branchPage} / ${Math.ceil(filteredBranches.length/branchPageSize)||1}`"></span>
+                    <button class="dem-page-btn" :class="branchPage >= Math.ceil(filteredBranches.length/branchPageSize) && 'disabled'" @click="branchPage = branchPage + 1"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg></button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 用户表格 -->
+              <div x-show="troubleshootSubTab === 'user'" class="p-3 w-full" x-cloak>
+                <div class="flex items-center justify-end pb-3 gap-3 flex-wrap w-full">
+                  <select x-model="userExp" @change="userPage = 1" class="dem-select w-32 transition-colors font-normal" :class="userExp === 'all' ? '!text-[#A1A7B3]' : '!text-[#2F3540]'">
+                    <option value="all">全量体验状态</option><option value="差">差</option><option value="一般">一般</option><option value="正常">正常</option>
+                  </select>
+                  <div class="relative w-64 flex-shrink-0">
+                    <input type="text" x-model="userSearch" @input="userPage = 1" placeholder="搜索用户名 / 账号 / IP..." class="w-full h-8 pl-8 pr-3 text-xs border border-[#D3D7DE] rounded-[2px] focus:outline-none focus:border-[#1C6EFF] text-[#2F3540] placeholder-[#A1A7B3]" />
+                    <svg class="w-3.5 h-3.5 text-[#A1A7B3] absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                  </div>
+                </div>
+                <div class="overflow-x-auto border border-[#E2E8F0] rounded-[2px] w-full">
+                  <table class="dem-table w-full">
+                    <thead><tr>
+                      <th class="w-48">用户</th><th class="w-60">所属组织架构</th><th class="w-48">使用终端</th>
+                      <th class="w-48">IP 归属地</th><th class="w-36">接入 POP</th>
+                      <th class="w-28 num-col">访问应用数</th><th class="w-64">体验受损应用</th>
+                      <th class="w-24">操作</th><th class="dem-table-col-more">...</th>
+                    </tr></thead>
+                    <tbody>
+                      <template x-for="user in paginatedUsers" :key="user.id">
+                        <tr>
+                          <td>
+                            <div class="font-normal text-text-title text-xs" x-text="user.userName"></div>
+                            <div class="text-[11px] text-text-mute font-mono leading-tight" x-text="user.account ? `(${user.account})` : ''"></div>
+                          </td>
+                          <td><span class="text-text-mute truncate block max-w-[230px]" :title="user.department" x-text="user.department"></span></td>
+                          <td>
+                            <div class="flex flex-wrap gap-1 items-center">
+                              <template x-for="(t, idx) in user.terminals" :key="idx">
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-[2px] text-[11px] font-normal bg-[#6F7785]/10 text-[#2F3540] border-0" x-text="t"></span>
+                              </template>
+                            </div>
+                          </td>
+                          <td>
+                            <div class="font-mono text-xs text-text-title leading-tight" x-text="formatIpLocation(user.ipLocation).ip"></div>
+                            <div class="text-[11px] text-text-mute leading-tight mt-0.5" x-text="formatIpLocation(user.ipLocation).location"></div>
+                          </td>
+                          <td><span class="text-text-title font-normal text-xs" x-text="formatCityName(user.pop)"></span></td>
+                          <td class="num-col font-outfit font-normal text-text-title" x-text="user.accessAppCount || 14"></td>
+                          <td>
+                            <div class="truncate max-w-[240px]" :title="formatDegradedApps(user.degradedApps).fullText">
+                              <template x-if="!formatDegradedApps(user.degradedApps).isDegraded"><span class="text-[#5C6270]">-</span></template>
+                              <template x-if="formatDegradedApps(user.degradedApps).isDegraded">
+                                <span class="text-[#5C6270] font-normal text-xs">
+                                  <span x-text="formatDegradedApps(user.degradedApps).textPrefix"></span>
+                                  <template x-if="formatDegradedApps(user.degradedApps).showMore"><span><span class="text-red-600 font-semibold" x-text="formatDegradedApps(user.degradedApps).count"></span> 个</span></template>
+                                </span>
+                              </template>
+                            </div>
+                          </td>
+                          <td><button @click="startAnalysisFromTarget('用户', user.userName)" class="dem-table-action-link cursor-pointer border-0 bg-transparent p-0">查看详情</button></td>
+                          <td class="dem-table-col-more"></td>
+                        </tr>
+                      </template>
+                    </tbody>
+                  </table>
+                </div>
+                <div class="dem-pagination-bar select-none mt-2">
+                  <span>共 <strong class="text-text-title font-medium" x-text="filteredUsers.length"></strong> 条数据</span>
+                  <div class="flex items-center gap-1"><span>每页显示</span><select x-model.number="userPageSize" @change="userPage = 1" class="h-6 text-xs bg-gray-50 border border-bg-line rounded-none px-1 focus:outline-none cursor-pointer"><option :value="10">10 条</option><option :value="20">20 条</option></select></div>
+                  <div class="flex items-center gap-1">
+                    <button class="dem-page-btn" :class="userPage === 1 && 'disabled'" @click="userPage = Math.max(1, userPage - 1)"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg></button>
+                    <span class="px-2 text-xs font-mono text-text-title" x-text="`${userPage} / ${Math.ceil(filteredUsers.length/userPageSize)||1}`"></span>
+                    <button class="dem-page-btn" :class="userPage >= Math.ceil(filteredUsers.length/userPageSize) && 'disabled'" @click="userPage = userPage + 1"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg></button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 应用表格 -->
+              <div x-show="troubleshootSubTab === 'app'" class="p-3 w-full" x-cloak>
+                <div class="flex items-center justify-end pb-3 gap-3 flex-wrap w-full">
+                  <select x-model="appType" @change="appPage = 1" class="dem-select w-32 transition-colors font-normal" :class="appType === 'all' ? '!text-[#A1A7B3]' : '!text-[#2F3540]'">
+                    <option value="all">全量应用类型</option><option value="内网自研">内网自研</option><option value="SaaS 办公">SaaS 办公</option><option value="基础设施">基础设施</option>
+                  </select>
+                  <select x-model="appExp" @change="appPage = 1" class="dem-select w-32 transition-colors font-normal" :class="appExp === 'all' ? '!text-[#A1A7B3]' : '!text-[#2F3540]'">
+                    <option value="all">全量体验</option><option value="差">差</option><option value="一般">一般</option><option value="正常">正常</option>
+                  </select>
+                  <div class="relative w-64 flex-shrink-0">
+                    <input type="text" x-model="appSearch" @input="appPage = 1" placeholder="搜索应用名称 / 域名 / 所属分类..." class="w-full h-8 pl-8 pr-3 text-xs border border-[#D3D7DE] rounded-[2px] focus:outline-none focus:border-[#1C6EFF] text-[#2F3540] placeholder-[#A1A7B3]" />
+                    <svg class="w-3.5 h-3.5 text-[#A1A7B3] absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                  </div>
+                </div>
+                <div class="overflow-x-auto border border-[#E2E8F0] rounded-[2px] w-full">
+                  <table class="dem-table w-full">
+                    <thead><tr>
+                      <th class="w-56">应用名称</th><th class="w-36">应用类型</th><th class="w-32 num-col">活跃访问用户数</th>
+                      <th class="w-32 num-col">体验受损用户数</th><th class="w-32 num-col">平均响应时长</th>
+                      <th class="w-36">丢包率 / RTT 延迟</th><th class="w-28">主要接入 POP</th>
+                      <th class="w-24">操作</th><th class="dem-table-col-more">...</th>
+                    </tr></thead>
+                    <tbody>
+                      <template x-for="app in paginatedApps" :key="app.id">
+                        <tr>
+                          <td>
+                            <div class="font-normal text-text-title text-xs" x-text="app.appName"></div>
+                            <div class="text-[11px] text-text-mute font-mono leading-tight" x-text="app.domain"></div>
+                          </td>
+                          <td><span class="inline-flex items-center px-2 py-0.5 rounded-[2px] text-[11px] font-normal bg-[#6F7785]/10 text-[#2F3540] border-0" x-text="app.appType"></span></td>
+                          <td class="num-col font-outfit font-normal text-text-title" x-text="app.activeUsers"></td>
+                          <td class="num-col font-outfit"><span :class="app.degradedUsers > 0 ? 'text-red-600 font-semibold' : 'text-text-mute'" x-text="app.degradedUsers"></span></td>
+                          <td class="num-col font-outfit font-normal text-text-title" x-text="app.avgResponseTime"></td>
+                          <td>
+                            <div class="text-xs font-mono" :class="parseFloat(app.packetLoss) > 2.0 ? 'text-red-600 font-medium' : 'text-text-title'" x-text="'丢包: ' + app.packetLoss"></div>
+                            <div class="text-[11px] text-text-mute font-mono mt-0.5" x-text="'RTT: ' + app.rtt"></div>
+                          </td>
+                          <td><span class="text-text-title font-normal text-xs" x-text="formatCityName(app.pop)"></span></td>
+                          <td><button @click="startAnalysisFromTarget('应用', app.appName)" class="dem-table-action-link cursor-pointer border-0 bg-transparent p-0">查看详情</button></td>
+                          <td class="dem-table-col-more"></td>
+                        </tr>
+                      </template>
+                    </tbody>
+                  </table>
+                </div>
+                <div class="dem-pagination-bar select-none mt-2">
+                  <span>共 <strong class="text-text-title font-medium" x-text="filteredApps.length"></strong> 条数据</span>
+                  <div class="flex items-center gap-1"><span>每页显示</span><select x-model.number="appPageSize" @change="appPage = 1" class="h-6 text-xs bg-gray-50 border border-bg-line rounded-none px-1 focus:outline-none cursor-pointer"><option :value="10">10 条</option><option :value="20">20 条</option></select></div>
+                  <div class="flex items-center gap-1">
+                    <button class="dem-page-btn" :class="appPage === 1 && 'disabled'" @click="appPage = Math.max(1, appPage - 1)"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg></button>
+                    <span class="px-2 text-xs font-mono text-text-title" x-text="`${appPage} / ${Math.ceil(filteredApps.length/appPageSize)||1}`"></span>
+                    <button class="dem-page-btn" :class="appPage >= Math.ceil(filteredApps.length/appPageSize) && 'disabled'" @click="appPage = appPage + 1"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg></button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- View 2: 下钻详细排障报告 -->
+          <div x-show="showDetailedReport" class="flex flex-col gap-3 w-full bg-white border border-[#E2E8F0] p-4 rounded-[4px] shadow-xs" x-cloak>
+            <!-- 排障总览大卡片 -->
+            <div class="bg-[#F8FAFC] border border-[#E2E8F0] p-4 rounded-[4px] space-y-3 select-none">
+              <div class="flex items-center justify-between pb-2 border-b border-[#E2E8F0]">
+                <div class="flex items-center gap-2">
+                  <span class="w-2 h-4 bg-[#1C6EFF] rounded-full inline-block"></span>
+                  <h3 class="text-xs font-bold text-[#1E293B]">1. 排障总览信息</h3>
+                  <span class="text-[11px] text-[#64748B] font-mono ml-2" x-text="`诊断时间: ${analysisResult?.qualitative?.diagTime || '2026-06-04 14:22'}`"></span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="px-2 py-0.5 bg-emerald-100 text-[#16A34A] font-bold text-[11px] rounded" x-text="`诊断状态: ${analysisResult?.qualitative?.status || '已精确定位'}`"></span>
+                  <span class="px-2 py-0.5 bg-red-100 text-[#DC2626] font-bold text-[11px] rounded" x-text="`归因责任域：${analysisResult?.qualitative?.responsibilityDomain || 'SD-WAN / 跨境POP选路'}`"></span>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs">
+                <!-- 排障结论 -->
+                <div class="bg-white p-3 rounded border border-slate-200 space-y-2 flex flex-col justify-between">
+                  <div>
+                    <div class="flex items-center justify-between pb-1 mb-1.5 border-b border-slate-100">
+                      <span class="font-bold text-slate-900 text-xs">1. 排障结论</span>
+                      <span class="text-[10px] px-1.5 py-0.2 bg-red-50 text-[#DC2626] rounded border border-red-100" x-text="analysisResult?.qualitative?.responsibilityDomain"></span>
+                    </div>
+                    <p class="font-bold text-[#DC2626] text-xs leading-relaxed" x-text="analysisResult?.qualitative?.summary"></p>
+                  </div>
+                  <div class="pt-2 border-t border-slate-100 space-y-1 text-[11px] text-[#64748B]">
+                    <div class="flex justify-between"><span>结论摘要：</span><span class="text-slate-800 font-medium">SD-WAN专线出口丢包</span></div>
+                    <div class="flex justify-between"><span>判断时间：</span><span class="font-mono text-slate-800" x-text="analysisResult?.qualitative?.diagTime"></span></div>
+                    <div class="flex justify-between"><span>判定置信度：</span><span class="font-mono font-bold text-[#16A34A]" x-text="analysisResult?.qualitative?.confidence"></span></div>
+                  </div>
+                </div>
+
+                <!-- 影响范围 -->
+                <div class="bg-white p-3 rounded border border-slate-200 space-y-2 flex flex-col justify-between">
+                  <div>
+                    <div class="pb-1 mb-1.5 border-b border-slate-100 font-bold text-slate-900 text-xs">2. 影响范围</div>
+                    <div class="space-y-1.5 text-[11px]">
+                      <div><span class="text-[#64748B]">影响对象：</span><span class="font-medium text-slate-800" x-text="analysisResult?.impact?.affectedUsers"></span></div>
+                      <div><span class="text-[#64748B]">影响分布：</span><span class="font-medium text-slate-800" x-text="analysisResult?.impact?.affectedBranches"></span></div>
+                      <div><span class="text-[#64748B]">影响应用：</span><span class="font-medium text-slate-800" x-text="analysisResult?.impact?.affectedApps"></span></div>
+                    </div>
+                  </div>
+                  <div class="pt-2 border-t border-slate-100 space-y-1 text-[11px] text-[#64748B]">
+                    <div class="flex justify-between"><span>影响时间：</span><span class="font-mono text-slate-800">14:20 ~ 14:45</span></div>
+                    <div class="flex justify-between"><span>事件关联：</span><span class="font-mono text-[#1C6EFF] font-medium" x-text="analysisResult?.impact?.associatedAlert"></span></div>
+                  </div>
+                </div>
+
+                <!-- 问题定位 -->
+                <div class="bg-white p-3 rounded border border-slate-200 space-y-2 flex flex-col justify-between">
+                  <div>
+                    <div class="pb-1 mb-1.5 border-b border-slate-100 font-bold text-slate-900 text-xs">3. 问题定位</div>
+                    <div class="space-y-1.5 text-[11px]">
+                      <div><span class="text-[#64748B]">异常分段：</span><span class="font-semibold text-[#DC2626]" x-text="analysisResult?.location?.bottleneck"></span></div>
+                      <div><span class="text-[#64748B]">关键证据：</span><span class="font-mono text-[#DC2626]" x-text="analysisResult?.location?.metrics"></span></div>
+                      <div><span class="text-[#64748B]">对比证据：</span><span class="text-slate-700" x-text="analysisResult?.location?.comparison"></span></div>
+                    </div>
+                  </div>
+                  <div class="pt-2 border-t border-slate-100 space-y-1 text-[11px]">
+                    <div class="flex justify-between"><span class="text-[#64748B]">责任判断：</span><span class="font-medium text-[#DC2626]">SD-WAN / 运营商跨网选路</span></div>
+                    <div class="flex justify-between"><span class="text-[#64748B]">已排除项：</span><span class="text-[#16A34A] font-medium" x-text="analysisResult?.location?.excluded"></span></div>
+                  </div>
+                </div>
+
+                <!-- 处置建议 -->
+                <div class="bg-white p-3 rounded border border-slate-200 space-y-2 flex flex-col justify-between">
+                  <div>
+                    <div class="pb-1 mb-1.5 border-b border-slate-100 font-bold text-slate-900 text-xs">4. 处置建议</div>
+                    <div class="space-y-1.5 text-[11px]">
+                      <div><span class="text-[#64748B]">建议动作：</span><span class="font-medium text-[#16A34A] leading-relaxed block" x-text="analysisResult?.recommendation?.action"></span></div>
+                      <div><span class="text-[#64748B]">举证材料：</span><span class="text-slate-700">五段双向探针拔测拓扑链</span></div>
+                    </div>
+                  </div>
+                  <div class="pt-2 border-t border-slate-100 space-y-1 text-[11px] text-[#64748B]">
+                    <div class="flex justify-between"><span>处理对象：</span><span class="font-medium text-slate-800" x-text="analysisResult?.recommendation?.target"></span></div>
+                    <div class="flex justify-between"><span>验证建议：</span><span class="text-[#16A34A] font-medium" x-text="analysisResult?.recommendation?.verification"></span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 详情 Tab 区 -->
+            <div class="border border-[#E2E8F0] rounded-[4px] bg-white overflow-hidden shadow-2xs">
+              <div class="bg-white px-4 border-b border-[#E2E8F0] flex items-center gap-8 text-xs font-medium select-none">
+                <div @click="activeReportTab = 'impact'" class="relative h-10 flex items-center cursor-pointer transition-all" :class="activeReportTab === 'impact' ? 'text-[#1C6EFF] font-semibold' : 'text-[#5E6573] hover:text-[#1E293B]'">
+                  <div class="flex items-center gap-1.5">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                    <span>2.1 影响面分析</span>
+                  </div>
+                  <div x-show="activeReportTab === 'impact'" class="absolute bottom-0 left-0 right-0 h-[2px] bg-[#1C6EFF]" x-cloak></div>
+                </div>
+                <div @click="activeReportTab = 'troubleshoot'" class="relative h-10 flex items-center cursor-pointer transition-all" :class="activeReportTab === 'troubleshoot' ? 'text-[#1C6EFF] font-semibold' : 'text-[#5E6573] hover:text-[#1E293B]'">
+                  <div class="flex items-center gap-1.5">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                    <span>2.2 问题定位与链条举证</span>
+                  </div>
+                  <div x-show="activeReportTab === 'troubleshoot'" class="absolute bottom-0 left-0 right-0 h-[2px] bg-[#1C6EFF]" x-cloak></div>
+                </div>
+              </div>
+
+              <div class="p-4">
+                <!-- 影响面分析内容 -->
+                <div x-show="activeReportTab === 'impact'" class="space-y-4">
+                  <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                    <div class="border border-slate-200 p-3 rounded space-y-2">
+                      <div class="font-bold text-slate-900 flex items-center justify-between">
+                        <span>① 用户视角分析 (关联同链路人员)</span>
+                        <span class="text-[11px] text-[#1C6EFF] font-normal">共 48 人受影响</span>
+                      </div>
+                      <div class="space-y-1.5 text-[11px] text-[#334155]">
+                        <div class="p-2 bg-slate-50 rounded flex justify-between items-center"><span><b>VIP 用户：</b>张伟 (zhangwei / 研发中心)</span><span class="text-[#DC2626] font-semibold">体验卡顿 (丢包率 4.2%)</span></div>
+                        <div class="p-2 bg-slate-50 rounded flex justify-between items-center"><span><b>上海分公司：</b>同部门 12 名前端架构师</span><span class="text-[#DC2626] font-semibold">RTT 延时 >240ms</span></div>
+                        <div class="p-2 bg-slate-50 rounded flex justify-between items-center"><span><b>苏州研发办：</b>35 名 CI/CD 构建工程师</span><span class="text-amber-600 font-medium">Harbor 镜像拉取超时</span></div>
+                      </div>
+                    </div>
+                    <div class="border border-slate-200 p-3 rounded space-y-2">
+                      <div class="font-bold text-slate-900 flex items-center justify-between">
+                        <span>② 应用视角分析 (受影响业务系统)</span>
+                        <span class="text-[11px] text-[#1C6EFF] font-normal">受影响应用 2 个</span>
+                      </div>
+                      <div class="space-y-1.5 text-[11px] text-[#334155]">
+                        <div class="p-2 bg-slate-50 rounded flex justify-between items-center"><span><b>Harbor 基础镜像仓库：</b>TCP 握手延时 280ms</span><span class="text-[#DC2626] font-semibold">HTTP 504 概率 8.5%</span></div>
+                        <div class="p-2 bg-slate-50 rounded flex justify-between items-center"><span><b>Salesforce CRM 系统：</b>跨网 HTTPS 请求卡顿</span><span class="text-amber-600 font-medium">重传率 12.4%</span></div>
+                        <div class="p-2 bg-emerald-50 rounded flex justify-between items-center text-emerald-800"><span><b>内网 GitLab / 飞书：</b>本地选路流量</span><span class="font-semibold">体验正常 (无异常)</span></div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="border border-slate-200 p-3 rounded space-y-2 text-xs">
+                    <div class="font-bold text-slate-900">③ 群体特征碰撞 (多维收敛特征)</div>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-[11px]">
+                      <div class="p-2 bg-blue-50/60 rounded border border-blue-100"><span class="text-slate-500 block">同 POP 节点</span><span class="font-bold text-[#1C6EFF]">POP-SH-02 (上海二区)</span><span class="text-[10px] text-slate-400 block mt-0.5">匹配率 100% (48/48)</span></div>
+                      <div class="p-2 bg-blue-50/60 rounded border border-blue-100"><span class="text-slate-500 block">同 SD-WAN 连接器</span><span class="font-bold text-[#1C6EFF]">Tunnel-HW-Overseas-01</span><span class="text-[10px] text-slate-400 block mt-0.5">匹配率 95.8% (46/48)</span></div>
+                      <div class="p-2 bg-slate-50 rounded border border-slate-200"><span class="text-slate-500 block">同运营商选路</span><span class="font-bold text-slate-800">中国电信 跨网出口</span><span class="text-[10px] text-slate-400 block mt-0.5">包含上海与苏州电信出口</span></div>
+                      <div class="p-2 bg-slate-50 rounded border border-slate-200"><span class="text-slate-500 block">同办公室/部门</span><span class="font-bold text-slate-800">上海研发中心 & 苏州研发办</span><span class="text-[10px] text-slate-400 block mt-0.5">分布在 2 个实体园区</span></div>
+                    </div>
+                  </div>
+
+                  <div class="border border-slate-200 p-3 rounded space-y-1.5 text-xs">
+                    <div class="font-bold text-slate-900 flex items-center gap-2">
+                      <span>④ 事件关联 (DEM 聚类告警链条)</span>
+                      <span class="px-2 py-0.2 bg-amber-100 text-amber-800 text-[10px] rounded font-mono">告警 ID: ALT-20260604-092</span>
+                    </div>
+                    <div class="text-[11px] text-slate-600 bg-amber-50/50 p-2.5 rounded border border-amber-200/60 leading-relaxed">在 14:18:30 产生"【中优】华东地区-SDWAN跨境POP02节点丢包率突增"集群告警，告警触发时间与用户张伟报障时间 (14:20) 完美重合，确定属于同一故障源头引致。</div>
+                  </div>
+                </div>
+
+                <!-- 问题定位与链条举证 -->
+                <div x-show="activeReportTab === 'troubleshoot'" class="space-y-4" x-cloak>
+                  <div class="border border-slate-200 p-3.5 rounded space-y-3 text-xs">
+                    <div class="font-bold text-slate-900 flex items-center justify-between">
+                      <span>① 五段拓扑链路状态图谱</span>
+                      <span class="text-[11px] text-slate-500 font-mono">端到端全路径连续拨测</span>
+                    </div>
+                    <div class="grid grid-cols-5 gap-2 text-center select-none text-[11px]">
+                      <div class="p-2 bg-emerald-50 border border-emerald-300 rounded space-y-1"><div class="font-bold text-emerald-800">1. 终端客户端</div><div class="text-[10px] text-emerald-700">Wi-Fi 信号强 (-52dBm)<br/>CPU 18% 正常</div><span class="px-1.5 py-0.2 bg-emerald-200 text-emerald-900 text-[10px] rounded inline-block">正常</span></div>
+                      <div class="p-2 bg-emerald-50 border border-emerald-300 rounded space-y-1"><div class="font-bold text-emerald-800">2. 局域网/网关</div><div class="text-[10px] text-emerald-700">出口 RTT 2ms<br/>丢包率 0.0%</div><span class="px-1.5 py-0.2 bg-emerald-200 text-emerald-900 text-[10px] rounded inline-block">正常</span></div>
+                      <div class="p-2 bg-red-50 border-2 border-red-500 rounded space-y-1 shadow-sm alert-node-pulse">
+                        <div class="font-bold text-red-700 flex items-center justify-center gap-1">
+                          <svg class="w-3.5 h-3.5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                          <span>3. SD-WAN 出口</span>
+                        </div>
+                        <div class="text-[10px] text-red-600 font-bold">大包丢包率 14.2%<br/>RTT 240ms (高延时)</div>
+                        <span class="px-1.5 py-0.2 bg-red-600 text-white text-[10px] font-bold rounded inline-block">瓶颈异常点</span>
+                      </div>
+                      <div class="p-2 bg-amber-50 border border-amber-300 rounded space-y-1"><div class="font-bold text-amber-800">4. POP 节点</div><div class="text-[10px] text-amber-700">POP-SH-02 受累<br/>选路重传率高</div><span class="px-1.5 py-0.2 bg-amber-200 text-amber-900 text-[10px] rounded inline-block">次级受累</span></div>
+                      <div class="p-2 bg-emerald-50 border border-emerald-300 rounded space-y-1"><div class="font-bold text-emerald-800">5. 应用服务器</div><div class="text-[10px] text-emerald-700">Harbor Server Pod<br/>CPU 12% 正常</div><span class="px-1.5 py-0.2 bg-emerald-200 text-emerald-900 text-[10px] rounded inline-block">后端正常</span></div>
+                    </div>
+                  </div>
+
+                  <div class="border border-slate-200 p-3.5 rounded space-y-2 text-xs">
+                    <div class="font-bold text-slate-900">② 关键证据与对比证据对照表</div>
+                    <div class="overflow-x-auto">
+                      <table class="dem-table">
+                        <thead><tr><th>链路指标项</th><th>当前排障实测值</th><th>历史正常基线</th><th>对比结论 / 举证判断</th></tr></thead>
+                        <tbody class="text-[11px]">
+                          <tr><td class="font-semibold">小包 PING 丢包率 (64B)</td><td class="text-amber-600 font-mono font-bold">1.2%</td><td class="font-mono text-slate-500">0.05%</td><td>小包轻微受损，物理链路未完全断开</td></tr>
+                          <tr><td class="font-semibold">大包 ICMP 丢包率 (1450B)</td><td class="text-red-600 font-mono font-bold">14.2%</td><td class="font-mono text-slate-500">0.10%</td><td class="text-red-700 font-medium">极高丢包，匹配 MTU 分片与专线出口带宽瓶颈特征</td></tr>
+                          <tr><td class="font-semibold">端到端往返延时 RTT</td><td class="text-red-600 font-mono font-bold">240 ms</td><td class="font-mono text-slate-500">35 ms</td><td>延时飙升 6.8 倍，专线队列积压严重</td></tr>
+                          <tr><td class="font-semibold">同 POP 其他应用丢包率</td><td class="text-emerald-600 font-mono font-bold">0.08%</td><td class="font-mono text-slate-500">0.08%</td><td class="text-emerald-700">常规应用走国内 POP 选路无异常，排除运营商总干线断纤</td></tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  <div class="border border-slate-200 p-3.5 rounded space-y-2 text-xs">
+                    <div class="font-bold text-slate-900">③ 责任判定与归因总结</div>
+                    <div class="bg-red-50/60 p-3 rounded border border-red-200 text-[11px] text-red-900 leading-relaxed">
+                      <b>归因结论：</b>经过五段拓扑碰撞与大包/小包对照，排除了客户端 Wi-Fi、局域网及 Harbor 应用后端服务器问题。<b>确定故障原因为：SD-WAN 跨境专线出口 Node-SH-02 遭遇突发大文件/镜像拉取流量倾挤，导致大包丢包率达到 14.2%，责任属于【SD-WAN 跨境专线与选路路由】侧。</b>
+                    </div>
+                  </div>
+
+                  <div class="border border-slate-200 p-3.5 rounded space-y-2 text-xs">
+                    <div class="font-bold text-slate-900">④ 处置建议与验证步骤</div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-[11px]">
+                      <div class="p-2.5 bg-emerald-50/70 border border-emerald-200 rounded"><span class="font-bold text-emerald-800 block mb-1">步骤 1: 避障引流</span><p class="text-slate-700">系统已下发 QoS 策略，建议运维组一键引流至 华东-上海POP02 备用线路。</p></div>
+                      <div class="p-2.5 bg-blue-50/70 border border-blue-200 rounded"><span class="font-bold text-[#1C6EFF] block mb-1">步骤 2: 镜像拉取限速</span><p class="text-slate-700">对 Harbor 大包拉取设置并发上限，避免冲击跨境专线 QoS 保障队列。</p></div>
+                      <div class="p-2.5 bg-slate-50 border border-slate-200 rounded"><span class="font-bold text-slate-800 block mb-1">步骤 3: 效果验证</span><p class="text-slate-700">引流后观察张伟等人的大包丢包率是否回落至 &lt; 0.5%，RTT &lt; 45ms。</p></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div><!-- end 主体滚动区 -->
+
+        <!-- 排障历史 Drawer -->
+        <div x-show="showHistoryDrawer"
+             x-transition:enter="transition ease-out duration-300"
+             x-transition:enter-start="opacity-0"
+             x-transition:enter-end="opacity-100"
+             x-transition:leave="transition ease-in duration-200"
+             x-transition:leave-start="opacity-100"
+             x-transition:leave-end="opacity-0"
+             class="fixed inset-0 z-50 overflow-hidden flex justify-end" x-cloak>
+          <div class="fixed inset-0 bg-slate-900/40 backdrop-blur-xs" @click="showHistoryDrawer = false"></div>
+          <div class="relative w-full max-w-md bg-white h-full shadow-2xl z-10 flex flex-col">
+            <div class="px-4 py-3 bg-[#1E293B] text-white flex items-center justify-between">
+              <div class="flex items-center gap-2 text-xs font-bold">
+                <svg class="w-4 h-4 text-[#1C6EFF]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                <span>排障历史记录与报告追溯</span>
+              </div>
+              <button @click="showHistoryDrawer = false" class="text-slate-400 hover:text-white transition-colors cursor-pointer">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+              </button>
+            </div>
+            <div class="p-3 bg-[#F8FAFC] border-b border-[#E2E8F0] space-y-2">
+              <div class="relative">
+                <input type="text" x-model="historySearchQuery" placeholder="搜索历史 Prompt、用户、应用或排障责任域..." class="w-full pl-8 pr-3 py-1.5 bg-white border border-[#CBD5E1] rounded text-xs focus:outline-none focus:border-[#1C6EFF]">
+                <svg class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+              </div>
+              <div class="flex items-center justify-between text-[11px] text-slate-500">
+                <span x-text="`匹配历史记录: ${filteredHistory.length} 条`"></span>
+                <span>时间范围: 近30天</span>
+              </div>
+            </div>
+            <div class="flex-1 overflow-y-auto p-3 space-y-3 custom-scrollbar">
+              <template x-for="item in filteredHistory" :key="item.id">
+                <div class="bg-white border border-[#E2E8F0] hover:border-[#1C6EFF] p-3 rounded shadow-2xs transition-all space-y-2">
+                  <div class="flex items-center justify-between">
+                    <span class="px-1.5 py-0.2 bg-blue-100 text-[#1C6EFF] text-[10px] font-bold rounded" x-text="item.domain"></span>
+                    <span class="text-[11px] text-slate-400 font-mono" x-text="item.time"></span>
+                  </div>
+                  <p class="text-xs text-slate-800 font-medium leading-relaxed" x-text="item.prompt"></p>
+                  <div class="bg-slate-50 p-2 rounded text-[11px] text-slate-600 border border-slate-100">
+                    <span class="font-bold text-slate-700">结论: </span>
+                    <span x-text="item.summary"></span>
+                  </div>
+                  <div class="flex items-center justify-between pt-1 text-[11px]">
+                    <span class="text-emerald-600 font-medium" x-text="`状态: ${item.status}`"></span>
+                    <button @click="loadHistoryItem(item)" class="px-2.5 py-1 bg-[#1C6EFF] hover:bg-[#0056EB] text-white rounded text-[11px] font-medium cursor-pointer transition-colors">载入排障结果</button>
+                  </div>
+                </div>
+              </template>
+              <template x-if="filteredHistory.length === 0">
+                <div class="py-12 text-center text-xs text-slate-400">未找到符合搜索条件的排障历史记录</div>
+              </template>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </template>
+
+  </div>
+
+  <!-- 方案二公共底座脚本 -->
+  <script src="./_shell/shell.js"></script>
+
+  <!-- 排障定位专属逻辑 -->
+  <script>
+    // 同步初始化模板节点
+    (function injectTroubleshootTemplate() {
+      const tpl = document.getElementById('page-content-template');
+      if (!tpl) return;
+      ['atrust-workspace', 'sase-workspace'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+          el.innerHTML = '';
+          el.appendChild(tpl.content.cloneNode(true));
+        }
+      });
+    })();
+
+    window.dualShellAppStore = function (activePage) {
+      function safeGet(key, def) {
+        try { const v = localStorage.getItem(key); return v !== null ? v : def; } catch(e) { return def; }
+      }
+      function safeSet(key, val) {
+        try { localStorage.setItem(key, val); } catch(e) {}
+      }
+
+      const defaultTroubleshootText = `1. 请输入排障现象，请尽量包含访问主体（用户/分支等）、受影响应用及异常表现。若未指定时间，系统默认按【今天】时间范围进行分析。\n2. 示例：今天 14:20，研发中心 VIP 用户张伟 (zhangwei) 反馈在访问 Harbor 镜像仓库拉取基础镜像时，出现频繁连接超时与 4.2% 的丢包卡顿现象`;
+
+      return {
+        // ── 底座公共属性 ──
+        shell: safeGet('demoShell_v2', 'atrust'),
+        activePage: activePage || '排障定位',
+        atrustExpandedL2: 'dem',
+        saseExpandedL1Keys: ['dem-monitoring'],
+
+        setShell(s) { this.shell = s; safeSet('demoShell_v2', s); },
+        navigateTo(page) { const url = window.DEM_ROUTES_V2?.[page]; if (url) window.location.href = url; },
+        toggleAtrustL2(key) { this.atrustExpandedL2 = this.atrustExpandedL2 === key ? '' : key; },
+        toggleSaseL1(key) { this.saseExpandedL1Keys.includes(key) ? (this.saseExpandedL1Keys = this.saseExpandedL1Keys.filter(k => k !== key)) : this.saseExpandedL1Keys.push(key); },
+        isSaseExpanded(key) { return this.saseExpandedL1Keys.includes(key); },
+
+        // ── 子 Tab 数据 ──
+        branches: [], users: [], apps: [],
+        branchRegion: 'all', branchExp: 'all', branchSearch: '', branchPage: 1, branchPageSize: 10,
+        userExp: 'all', userSearch: '', userPage: 1, userPageSize: 10,
+        appType: 'all', appExp: 'all', appSearch: '', appPage: 1, appPageSize: 10,
+        troubleshootSubTab: 'branch',
+
+        // ── 排障 AI ──
+        troubleshootDateShortcut: '今天',
+        troubleshootDateRange: '2026-06-04 00:00:00 ~ 2026-06-04 23:59:59',
+        defaultTroubleshootText: defaultTroubleshootText,
+        _troubleshootInput: null,
+        isAnalyzing: false, analysisStep: 0, analysisResult: null,
+        agentWarningMessage: '',
+        showDetailedReport: false,
+        activeReportTab: 'impact',
+        showHistoryDrawer: false, historySearchQuery: '',
+        troubleshootHistory: [
+          { id: 'H1001', time: '2026-06-04 14:22', prompt: '示例：今天 14:20，研发中心 VIP 用户张伟 (zhangwei) 反馈在访问 Harbor 镜像仓库拉取基础镜像时，出现频繁连接超时与 4.2% 的丢包卡顿现象', dateShortcut: '今天', domain: '跨境/POP选路瓶颈', status: '已定位', summary: 'SD-WAN 跨境专线出口瓶颈 (Node-SH-02 丢包率 14.2%, 延迟 >180ms)' },
+          { id: 'H1002', time: '2026-06-04 11:15', prompt: '示例：2026-06-04 10:30，上海分公司与苏州研发办多名员工均反馈访问内网 GitLab 提交代码与销售 CRM 构建迟钝', dateShortcut: '今天', domain: '分支连接器丢包', status: '已定位', summary: 'POP-连接器隧道丢包 (上海连接器 01 CPU 89%, 丢包率 8.6%)' },
+          { id: 'H1003', time: '2026-06-03 16:40', prompt: '示例：今天 10:15，广州分公司 HR 部多名员工反馈在进行 SaaS 飞书多人视频会议时连通性偶发中断', dateShortcut: '近3天', domain: '终端 Wi-Fi 抖动', status: '已定位', summary: '终端 Wi-Fi 信号衰减与信道干扰 (RSSI -78dBm, 丢包率 5.1%)' },
+          { id: 'H1004', time: '2026-06-02 09:30', prompt: '北京总部 财务部多人反馈 CRM 系统页面加载缓慢且数据报表导出失败', dateShortcut: '近7天', domain: '应用后端性能', status: '已定位', summary: 'CRM 后端数据库慢查询与 API 响应延迟 (HTTP 504 概率 12%)' }
+        ],
+
+        init() {
+          if (window.initDemBranchData) this.branches = window.initDemBranchData();
+          if (window.initDemUserData) this.users = window.initDemUserData();
+          if (window.initDemAppData) this.apps = window.initDemAppData();
+
+          const incomingTitle = sessionStorage.getItem('dem_troubleshoot_title');
+          if (incomingTitle) {
+            sessionStorage.removeItem('dem_troubleshoot_title');
+            this._troubleshootInput = `今天 14:20，上海分公司多名员工反馈访问应用发生异常（分析预警告警项：${incomingTitle}）`;
+            this.agentWarningMessage = '';
+            this.$nextTick(() => this.startTroubleshootAnalysis());
+          } else {
+            this._troubleshootInput = null;
+          }
+        },
+
+        get troubleshootInput() { return this._troubleshootInput !== null && this._troubleshootInput !== undefined ? this._troubleshootInput : this.defaultTroubleshootText; },
+        set troubleshootInput(v) { this._troubleshootInput = v; },
+
+        onTroubleshootFocus() {
+          if (!this._troubleshootInput || this._troubleshootInput.startsWith('1.')) this._troubleshootInput = '';
+          this.agentWarningMessage = '';
+        },
+        onTroubleshootBlur() {
+          if (!this._troubleshootInput || !this._troubleshootInput.trim()) this._troubleshootInput = null;
+        },
+
+        // ── 分支过滤 ──
+        get filteredBranches() {
+          const expOrder = { '差': 1, '一般': 2, '正常': 3 };
+          return (this.branches || []).filter(b => {
+            const q = this.branchSearch.trim().toLowerCase();
+            const matchSearch = !q || b.branchName.toLowerCase().includes(q) || b.city.toLowerCase().includes(q) || b.egressIp.includes(q);
+            const matchRegion = this.branchRegion === 'all' || (b.region && b.region.includes(this.branchRegion.replace('区', '')));
+            const matchExp = this.branchExp === 'all' || b.experience === this.branchExp;
+            return matchSearch && matchRegion && matchExp;
+          }).sort((a, b) => (expOrder[a.experience] || 9) - (expOrder[b.experience] || 9));
+        },
+        get paginatedBranches() { const s = (this.branchPage - 1) * this.branchPageSize; return this.filteredBranches.slice(s, s + this.branchPageSize); },
+
+        get filteredUsers() {
+          const expOrder = { '差': 1, '一般': 2, '正常': 3 };
+          return (this.users || []).filter(u => {
+            const q = this.userSearch.trim().toLowerCase();
+            return (!q || u.userName.toLowerCase().includes(q) || u.department.toLowerCase().includes(q) || u.ipLocation.includes(q))
+              && (this.userExp === 'all' || u.experience === this.userExp);
+          }).sort((a, b) => (expOrder[a.experience] || 9) - (expOrder[b.experience] || 9));
+        },
+        get paginatedUsers() { const s = (this.userPage - 1) * this.userPageSize; return this.filteredUsers.slice(s, s + this.userPageSize); },
+
+        get filteredApps() {
+          const expOrder = { '差': 1, '一般': 2, '正常': 3 };
+          return (this.apps || []).filter(a => {
+            const q = this.appSearch.trim().toLowerCase();
+            return (!q || a.appName.toLowerCase().includes(q))
+              && (this.appType === 'all' || a.appType === this.appType)
+              && (this.appExp === 'all' || a.experience === this.appExp);
+          }).sort((a, b) => (expOrder[a.experience] || 9) - (expOrder[b.experience] || 9));
+        },
+        get paginatedApps() { const s = (this.appPage - 1) * this.appPageSize; return this.filteredApps.slice(s, s + this.appPageSize); },
+
+        get filteredHistory() {
+          const q = this.historySearchQuery.trim().toLowerCase();
+          if (!q) return this.troubleshootHistory;
+          return this.troubleshootHistory.filter(h => h.prompt.toLowerCase().includes(q) || h.domain.toLowerCase().includes(q) || h.summary.toLowerCase().includes(q));
+        },
+
+        // ── 工具函数 ──
+        formatCityName(popStr) {
+          if (!popStr) return '-';
+          const cities = ['西安','武汉','广州','重庆','杭州','深圳','上海','北京','南京','成都','天津'];
+          return cities.find(c => popStr.includes(c)) || popStr;
+        },
+        formatIpLocation(ipLoc) {
+          if (!ipLoc) return { ip: '-', location: '-' };
+          const parts = ipLoc.split(' ');
+          return parts.length >= 2 ? { ip: parts[0], location: parts[1] } : { ip: ipLoc, location: '-' };
+        },
+        formatDegradedApps(apps) {
+          if (!apps || !apps.length) return { isDegraded: false, fullText: '无', textPrefix: '-', count: 0, showMore: false };
+          return apps.length === 1
+            ? { isDegraded: true, fullText: apps[0], textPrefix: apps[0], count: 1, showMore: false }
+            : { isDegraded: true, fullText: apps.join('、'), textPrefix: `${apps[0]} 等 `, count: apps.length, showMore: true };
+        },
+
+        // ── AI 分析 ──
+        validateTroubleshootInput() {
+          const rawText = (this._troubleshootInput || this.defaultTroubleshootText).trim();
+          this.agentWarningMessage = '';
+          if (!rawText) { this.agentWarningMessage = '⚠️ 请输入排障现象与问题描述。'; return false; }
+          const cleanText = rawText.replace(/^1\..*?\n+2\.\s*/s, '').replace(/^示例：/, '');
+          const irrelevantKeywords = ['天气','算术','写代码','翻译','新闻','股票','笑话','你好','谢谢','什么名字','介绍一下'];
+          const hasFaultKeyword = /(慢|卡顿|超时|丢包|延迟|打不开|中断|失败|异常|断连|404|500|502|504|迟钝|连不上|体验|RTT|Jitter)/i.test(cleanText);
+          if (irrelevantKeywords.some(k => cleanText.includes(k)) && !hasFaultKeyword) { this.agentWarningMessage = '⚠️ DEM 排障 Agent 仅支持网络与应用访问体验故障诊断。'; return false; }
+          if (!/(用户|张三|李四|员工|分支|部门|VIP|IP|10\.|192\.)/i.test(cleanText) && !/[\u4e00-\u9fa5]{2,4}(?:说|反馈|访问|打不开|卡|慢|超时)/.test(cleanText)) { this.agentWarningMessage = '⚠️ 缺乏访问主体信息，请补充受影响的用户或分支机构。'; return false; }
+          if (!/(Harbor|GitLab|飞书|CRM|ERP|OA|系统|仓库|会议|应用|网页|服务|SaaS)/i.test(cleanText)) { this.agentWarningMessage = '⚠️ 缺乏访问目标信息，请补充访问的具体应用。'; return false; }
+          if (!hasFaultKeyword) { this.agentWarningMessage = '⚠️ 缺乏异常表现描述，请补充具体的故障现象。'; return false; }
+          return true;
+        },
+
+        startTroubleshootAnalysis() {
+          if (!this.validateTroubleshootInput()) return;
+          this.isAnalyzing = true; this.analysisStep = 1; this.analysisResult = null; this.showDetailedReport = false;
+          setTimeout(() => { this.analysisStep = 2; }, 800);
+          setTimeout(() => { this.analysisStep = 3; }, 1600);
+          setTimeout(() => {
+            this.isAnalyzing = false;
+            const cleanText = (this._troubleshootInput || this.defaultTroubleshootText).replace(/^1\..*?\n+2\.\s*/s, '').replace(/^示例：/, '');
+            this.analysisResult = {
+              title: `针对【${cleanText.length > 28 ? cleanText.slice(0, 28) + '...' : cleanText}】的 AI 诊断`,
+              qualitative: { summary: 'SD-WAN 跨境专线出口瓶颈 (Node-SH-02 丢包率 14.2%, 延迟 >180ms)', responsibilityDomain: 'SD-WAN / 跨境POP选路', status: '已精确定位', confidence: '96.5%', diagTime: new Date().toLocaleString('zh-CN', { hour12: false }) },
+              impact: { affectedUsers: '研发中心 VIP 用户张伟 (zhangwei) 等 48 名同链路员工', affectedBranches: '上海研发中心、苏州分公司 (2 个分支)', affectedApps: 'Harbor 镜像仓库、Salesforce CRM (2 个应用)', associatedAlert: 'ALT-20260604-092' },
+              location: { bottleneck: 'POP-连接器 & 跨网出口链路 (Node-SH-02)', metrics: '大包丢包率 14.2% | RTT 240ms | Jitter 35ms', comparison: '同 POP 其他常规应用丢包率 0.1%，判定非物理断纤', excluded: '终端 Wi-Fi 正常 | 应用后端 Pod CPU 12% 正常' },
+              recommendation: { action: '已自动下发动态 QoS 避障策略，建议优先引流至 华东-上海POP02 备用链路', target: 'SD-WAN 边缘控制器 & 运维组', verification: '关注引流后 RTT 是否降至 45ms 以下' }
+            };
+          }, 2200);
+        },
+
+        openDetailedReport() { this.showDetailedReport = true; this.activeReportTab = 'impact'; },
+        loadHistoryItem(item) { this._troubleshootInput = item.prompt.replace(/^示例：/, ''); this.troubleshootDateShortcut = item.dateShortcut || '今天'; this.agentWarningMessage = ''; this.showHistoryDrawer = false; this.showDetailedReport = false; this.startTroubleshootAnalysis(); },
+        startAnalysisFromTarget(type, name) { this._troubleshootInput = `今天 14:20，研发中心 VIP 用户张伟反馈访问${type}【${name}】出现严重卡顿与超时异常`; this.agentWarningMessage = ''; this.startTroubleshootAnalysis(); }
+      };
+    };
+  </script>
+
+</body>
+</html>

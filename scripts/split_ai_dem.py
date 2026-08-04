@@ -3,7 +3,7 @@ import json
 
 root = Path("Demos")
 src = root / "AI Dem.html"
-out_dir = root / "ai-dem"
+out_dir = root / "01-方案一(全貌)"
 asset_dir = out_dir / "assets"
 out_dir.mkdir(parents=True, exist_ok=True)
 asset_dir.mkdir(parents=True, exist_ok=True)
