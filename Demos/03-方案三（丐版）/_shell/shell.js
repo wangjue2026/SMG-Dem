@@ -1,8 +1,8 @@
 /**
- * 方案二 (一期) — 公共底座脚本 shell.js
+ * 方案三 (丐版) — 公共底座脚本 shell.js
  *
  * 包含：
- *  1. DEM_ROUTES_V2      — 方案二页面间路由映射
+ *  1. DEM_ROUTES_V2      — 方案三页面间路由映射
  *  2. dualShellAppStore  — Alpine 双底座 Store（aTrust / SASE 切换）
  *  3. DEM_SHELL_V2       — 双底座 HTML 模板注入工具
  *
@@ -15,11 +15,13 @@
      1. 路由映射（修改导航菜单时同步更新这里）
      ────────────────────────────────────────────── */
   window.DEM_ROUTES_V2 = {
-    '体验监控':  './DEM-体验预警.html',
-    '体验预警':  './DEM-体验预警.html',
-    '排障定位':  './DEM-排障定位.html',
-    '监控配置':  './DEM-监控配置.html',
-    '用户详情':  './DEM-用户详情.html'
+    '访问体验监测': './DEM-体验预警.html',
+    '体验预警':   './DEM-体验预警.html',
+    '告警排障':   './DEM-体验预警.html',
+    '排障定位':   './DEM-排障定位.html',
+    '监控配置':   './DEM-监控配置.html',
+    '用户详情':   './DEM-用户查询详情.html',
+    '用户查询详情': './DEM-用户查询详情.html'
   };
 
   /* ──────────────────────────────────────────────
@@ -190,7 +192,8 @@
         </svg>
       </div>
       <div x-show="atrustExpandedL2 === 'dem'" x-collapse x-cloak>
-        <div class="at-menu-l3" :class="(activePage === '体验监控' || activePage === '体验预警' || activePage === '排障定位') ? 'active' : ''" @click="navigateTo('体验监控')">体验监控</div>
+        <div class="at-menu-l3" :class="activePage === '体验预警' ? 'active' : ''" @click="navigateTo('体验预警')">体验预警</div>
+        <div class="at-menu-l3" :class="activePage === '排障定位' ? 'active' : ''" @click="navigateTo('排障定位')">排障定位</div>
         <div class="at-menu-l3" :class="activePage === '监控配置' ? 'active' : ''" @click="navigateTo('监控配置')">监控配置</div>
       </div>
     </div>
@@ -309,8 +312,11 @@
         </svg>
       </div>
       <div x-show="isSaseExpanded('dem-monitoring')" x-collapse x-cloak class="sase-submenu-container">
-        <div class="sase-menu-l2" :class="(activePage === '体验监控' || activePage === '体验预警' || activePage === '排障定位') ? 'selected' : ''" @click="navigateTo('体验监控')">
-          <div class="sase-dot"></div><span>体验监控</span>
+        <div class="sase-menu-l2" :class="activePage === '体验预警' ? 'selected' : ''" @click="navigateTo('体验预警')">
+          <div class="sase-dot"></div><span>体验预警</span>
+        </div>
+        <div class="sase-menu-l2" :class="activePage === '排障定位' ? 'selected' : ''" @click="navigateTo('排障定位')">
+          <div class="sase-dot"></div><span>排障定位</span>
         </div>
         <div class="sase-menu-l2" :class="activePage === '监控配置' ? 'selected' : ''" @click="navigateTo('监控配置')">
           <div class="sase-dot"></div><span>监控配置</span>

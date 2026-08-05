@@ -70,6 +70,7 @@
 
   window.initDemUserData = function () {
     const users = [
+      { id: "usr_000", userName: "Maria (maria_m)", department: "Digiplus / 马尼拉办公室 / 运营中心", terminals: ["MacBook Pro", "iPhone 15 Pro"], ipLocation: "203.177.12.8 (菲律宾-马尼拉)", pop: "马尼拉POP01", experience: "差", appCount: 12, degradedApps: ["SaaS 飞书", "Office 365"], city: "马尼拉", orgTop: "Digiplus" },
       { id: "usr_001", userName: "张伟 (zhangwei)", department: "集团总部 / 研发中心 / 架构组", terminals: ["MacBook Pro", "iPhone 15"], ipLocation: "114.242.10.15 (北京-朝阳)", pop: "华北-北京POP01", experience: "差", appCount: 14, degradedApps: ["Salesforce", "企业内部 ERP", "自研 CRM 系统"], city: "北京", orgTop: "研发中心" },
       { id: "usr_002", userName: "李娜 (lina)", department: "上海分公司 / 市场部 / 品牌组", terminals: ["Windows 11 PC"], ipLocation: "61.152.12.19 (上海-浦东)", pop: "华东-上海POP02", experience: "差", appCount: 8, degradedApps: ["内网 GitLab", "SaaS 飞书", "腾讯会议"], city: "上海", orgTop: "市场部" },
       { id: "usr_003", userName: "王强 (wangqiang)", department: "深圳分公司 / 财务部 / 结算组", terminals: ["ThinkPad X1", "iPad Air"], ipLocation: "183.14.2.8 (广东-深圳)", pop: "华南-深圳POP01", experience: "差", appCount: 22, degradedApps: ["金蝶云 ERP", "用友财务系统", "OA审批平台"], city: "深圳", orgTop: "财务部" },
@@ -140,19 +141,19 @@
   // -------------------------------------------------------------
   window.initDemAppData = function () {
     const baseApps = [
-      { id: "app_001", appName: "Salesforce CRM", domain: "crm.salesforce.com", appType: "SaaS 办公", experience: "差", activeUsers: 348, degradedUsers: 42, avgResponseTime: "480 ms", packetLoss: "3.5%", rtt: "88 ms", pop: "北京" },
-      { id: "app_002", appName: "企业内部 ERP", domain: "erp.internal.net", appType: "内网自研", experience: "差", activeUsers: 290, degradedUsers: 28, avgResponseTime: "390 ms", packetLoss: "2.8%", rtt: "65 ms", pop: "上海" },
-      { id: "app_003", appName: "Harbor 镜像仓库", domain: "registry.internal.net", appType: "基础设施", experience: "差", activeUsers: 160, degradedUsers: 24, avgResponseTime: "520 ms", packetLoss: "4.2%", rtt: "110 ms", pop: "西安" },
-      { id: "app_004", appName: "内网 GitLab", domain: "git.internal.net", appType: "内网自研", experience: "差", activeUsers: 410, degradedUsers: 19, avgResponseTime: "310 ms", packetLoss: "2.1%", rtt: "54 ms", pop: "深圳" },
-      { id: "app_005", appName: "仓储 WMS 系统", domain: "wms.supplychain.net", appType: "内网自研", experience: "差", activeUsers: 115, degradedUsers: 14, avgResponseTime: "640 ms", packetLoss: "3.8%", rtt: "92 ms", pop: "武汉" },
-      { id: "app_006", appName: "SaaS 飞书平台", domain: "feishu.cn", appType: "SaaS 办公", experience: "一般", activeUsers: 580, degradedUsers: 12, avgResponseTime: "180 ms", packetLoss: "0.9%", rtt: "32 ms", pop: "北京" },
-      { id: "app_007", appName: "腾讯会议 System", domain: "meeting.tencent.com", appType: "SaaS 办公", experience: "一般", activeUsers: 420, degradedUsers: 9, avgResponseTime: "160 ms", packetLoss: "0.8%", rtt: "28 ms", pop: "广州" },
-      { id: "app_008", appName: "Zabbix 监控平台", domain: "zabbix.ops.net", appType: "运维工具", experience: "一般", activeUsers: 85, degradedUsers: 5, avgResponseTime: "220 ms", packetLoss: "1.2%", rtt: "40 ms", pop: "北京" },
-      { id: "app_009", appName: "金蝶云 ERP", domain: "cloud.kingdee.com", appType: "SaaS 办公", experience: "正常", activeUsers: 210, degradedUsers: 0, avgResponseTime: "95 ms", packetLoss: "0.1%", rtt: "18 ms", pop: "深圳" },
-      { id: "app_010", appName: "用友财务系统", domain: "yonyou.internal.net", appType: "内网自研", experience: "正常", activeUsers: 175, degradedUsers: 0, avgResponseTime: "110 ms", packetLoss: "0.2%", rtt: "22 ms", pop: "上海" }
+      { id: "app_001", appName: "Salesforce CRM", domain: "crm.salesforce.com", appType: "SaaS应用", experience: "差", activeUsers: 348, degradedUsers: 42, avgResponseTime: "480 ms", packetLoss: "3.5%", rtt: "88 ms", pop: "北京" },
+      { id: "app_002", appName: "企业内部 ERP", domain: "erp.internal.net", appType: "内网应用", experience: "差", activeUsers: 290, degradedUsers: 28, avgResponseTime: "390 ms", packetLoss: "2.8%", rtt: "65 ms", pop: "上海" },
+      { id: "app_003", appName: "Harbor 镜像仓库", domain: "registry.internal.net", appType: "内网应用", experience: "差", activeUsers: 160, degradedUsers: 24, avgResponseTime: "520 ms", packetLoss: "4.2%", rtt: "110 ms", pop: "西安" },
+      { id: "app_004", appName: "内网 GitLab", domain: "git.internal.net", appType: "内网应用", experience: "差", activeUsers: 410, degradedUsers: 19, avgResponseTime: "310 ms", packetLoss: "2.1%", rtt: "54 ms", pop: "深圳" },
+      { id: "app_005", appName: "仓储 WMS 系统", domain: "wms.supplychain.net", appType: "内网应用", experience: "差", activeUsers: 115, degradedUsers: 14, avgResponseTime: "640 ms", packetLoss: "3.8%", rtt: "92 ms", pop: "武汉" },
+      { id: "app_006", appName: "SaaS 飞书平台", domain: "feishu.cn", appType: "SaaS应用", experience: "一般", activeUsers: 580, degradedUsers: 12, avgResponseTime: "180 ms", packetLoss: "0.9%", rtt: "32 ms", pop: "北京" },
+      { id: "app_007", appName: "腾讯会议 System", domain: "meeting.tencent.com", appType: "SaaS应用", experience: "一般", activeUsers: 420, degradedUsers: 9, avgResponseTime: "160 ms", packetLoss: "0.8%", rtt: "28 ms", pop: "广州" },
+      { id: "app_008", appName: "Zabbix 监控平台", domain: "zabbix.ops.net", appType: "内网应用", experience: "一般", activeUsers: 85, degradedUsers: 5, avgResponseTime: "220 ms", packetLoss: "1.2%", rtt: "40 ms", pop: "北京" },
+      { id: "app_009", appName: "金蝶云 ERP", domain: "cloud.kingdee.com", appType: "SaaS应用", experience: "正常", activeUsers: 210, degradedUsers: 0, avgResponseTime: "95 ms", packetLoss: "0.1%", rtt: "18 ms", pop: "深圳" },
+      { id: "app_010", appName: "用友财务系统", domain: "yonyou.internal.net", appType: "内网应用", experience: "正常", activeUsers: 175, degradedUsers: 0, avgResponseTime: "110 ms", packetLoss: "0.2%", rtt: "22 ms", pop: "上海" }
     ];
 
-    const types = ["SaaS 办公", "内网自研", "基础设施", "运维工具"];
+    const types = ["SaaS应用", "内网应用"];
     const cities = ["北京", "上海", "深圳", "广州", "成都", "西安", "南京", "武汉", "杭州"];
 
     for (let i = 11; i <= 36; i++) {
@@ -186,6 +187,7 @@
   // -------------------------------------------------------------
   window.initDemBranchData = function () {
     const baseBranches = [
+      { id: "br_000", branchName: "Digiplus 马尼拉办公室", region: "海外区域", egressIp: "203.177.12.8", city: "马尼拉", activeUsers: 46, degradedUsers: 34, experience: "差", pop: "马尼拉POP01", degradedApps: ["SaaS 飞书", "Office 365"] },
       { id: "br_001", branchName: "西安研发中心", region: "西北区域", egressIp: "222.90.8.45", city: "西安", activeUsers: 125, degradedUsers: 24, experience: "差", pop: "西安", degradedApps: ["K8s 集群控制台", "Harbor 镜像仓库", "Grafana 平台"] },
       { id: "br_002", branchName: "武汉分公司", region: "华中区域", egressIp: "59.173.18.66", city: "武汉", activeUsers: 110, degradedUsers: 18, experience: "差", pop: "武汉", degradedApps: ["仓储 WMS 系统", "物流 TMS 系统"] },
       { id: "br_003", branchName: "广州分公司", region: "华南区域", egressIp: "113.108.20.12", city: "广州", activeUsers: 95, degradedUsers: 14, experience: "差", pop: "广州", degradedApps: ["Salesforce CRM", "智能客服系统"] },

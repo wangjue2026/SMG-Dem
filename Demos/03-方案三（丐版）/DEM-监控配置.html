@@ -1,0 +1,184 @@
+<!-- [PROJECT META] 方案类型：方案二 (一期方案) | 路径：Demos/02-方案二(一期)/DEM-监控配置.html -->
+<!-- 🚧 此页面为骨架占位，后续设计内容补充在此文件中即可，无需修改其他页面框架。 -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>【方案二-一期】DEM - 监控配置 - 线上线下双底座</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/collapse@3.x.x/dist/cdn.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+  <link rel="stylesheet" href="../assets/css/ai-dem.css" />
+
+  <!-- 方案二公共底座样式 -->
+  <link rel="stylesheet" href="./_shell/shell.css" />
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ["Inter", "PingFang SC", "sans-serif"], outfit: ["Outfit", "sans-serif"] },
+          colors: {
+            brand: { DEFAULT: "#1C6EFF" },
+            text: { DEFAULT: "#272E38", title: "#454C59", mute: "#A1A7B3" },
+            bg: { light: "#F4F6F9", line: "#E1E5EB" }
+          }
+        }
+      }
+    }
+  </script>
+</head>
+
+<body class="bg-bg-light text-text font-sans overflow-hidden w-screen h-screen">
+
+  <div class="flex flex-col w-full h-full" x-data="dualShellAppStore('监控配置')">
+
+    <div id="shell-switcher"></div>
+
+    <!-- aTrust 框架 -->
+    <div x-show="shell === 'atrust'" class="flex flex-col w-full h-full">
+      <div id="shell-atrust-header"></div>
+      <div class="flex-1 flex overflow-hidden">
+        <div id="shell-atrust-sider"></div>
+        <div class="flex-1 bg-bg-light flex flex-col overflow-hidden">
+          <div class="flex-1 flex flex-col overflow-hidden" id="atrust-workspace"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SASE 框架 -->
+    <div x-show="shell === 'sase'" class="flex w-full h-full overflow-hidden">
+      <div id="shell-sase-sider"></div>
+      <div class="flex-1 bg-bg-light flex flex-col overflow-hidden">
+        <div class="flex-1 flex flex-col overflow-hidden" id="sase-workspace"></div>
+      </div>
+    </div>
+
+    <!-- 监控配置骨架模板 -->
+    <template id="page-content-template">
+      <div class="flex flex-col w-full h-full overflow-hidden">
+
+        <!-- 页头（单标题页头） -->
+        <div class="h-[48px] min-h-[48px] max-h-[48px] bg-white border-b border-[#E2E8F0] px-6 flex items-center justify-between flex-shrink-0 select-none z-20">
+          <span class="text-[14px] font-semibold text-[#1E293B]">监控配置</span>
+        </div>
+
+        <!-- 内容区骨架 -->
+        <div class="flex-1 flex items-center justify-center p-8 overflow-y-auto">
+          <div class="max-w-lg w-full text-center space-y-4">
+            <!-- 图示 -->
+            <div class="w-20 h-20 rounded-2xl bg-[#EFF6FF] border border-[#BFDBFE] flex items-center justify-center mx-auto">
+              <svg class="w-10 h-10 text-[#1C6EFF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                      d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z">
+                </path>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+              </svg>
+            </div>
+
+            <div>
+              <h2 class="text-base font-bold text-[#1E293B]">监控配置</h2>
+              <p class="mt-1 text-sm text-[#64748B]">此页面内容正在设计规划中，预留框架，后续内容将在此补充。</p>
+            </div>
+
+            <!-- 预期功能模块占位 -->
+            <div class="bg-white border border-[#E2E8F0] rounded-[6px] p-5 space-y-3 text-left shadow-2xs">
+              <div class="text-xs font-semibold text-[#334155] border-b border-[#F1F5F9] pb-2 mb-3">预期功能模块（待设计）</div>
+
+              <div class="space-y-2">
+                <!-- 探针配置 -->
+                <div class="flex items-center gap-3 p-2.5 bg-[#F8FAFC] rounded border border-dashed border-[#CBD5E1]">
+                  <div class="w-7 h-7 rounded bg-blue-100 flex items-center justify-center flex-shrink-0">
+                    <svg class="w-4 h-4 text-[#1C6EFF]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0"></path></svg>
+                  </div>
+                  <div>
+                    <div class="text-xs font-semibold text-[#1E293B]">拨测探针配置</div>
+                    <div class="text-[11px] text-[#64748B]">配置终端拨测探针的目标地址、频率与探测协议</div>
+                  </div>
+                  <span class="ml-auto text-[10px] text-[#A1A7B3] border border-[#E2E8F0] rounded px-1.5 py-0.5 flex-shrink-0">待设计</span>
+                </div>
+
+                <!-- 告警阈值 -->
+                <div class="flex items-center gap-3 p-2.5 bg-[#F8FAFC] rounded border border-dashed border-[#CBD5E1]">
+                  <div class="w-7 h-7 rounded bg-amber-100 flex items-center justify-center flex-shrink-0">
+                    <svg class="w-4 h-4 text-[#D97706]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
+                  </div>
+                  <div>
+                    <div class="text-xs font-semibold text-[#1E293B]">告警阈值规则</div>
+                    <div class="text-[11px] text-[#64748B]">定义丢包率、RTT、Jitter 等指标的预警触发阈值</div>
+                  </div>
+                  <span class="ml-auto text-[10px] text-[#A1A7B3] border border-[#E2E8F0] rounded px-1.5 py-0.5 flex-shrink-0">待设计</span>
+                </div>
+
+                <!-- VIP 对象管理 -->
+                <div class="flex items-center gap-3 p-2.5 bg-[#F8FAFC] rounded border border-dashed border-[#CBD5E1]">
+                  <div class="w-7 h-7 rounded bg-purple-100 flex items-center justify-center flex-shrink-0">
+                    <svg class="w-4 h-4 text-[#7C3AED]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"></path></svg>
+                  </div>
+                  <div>
+                    <div class="text-xs font-semibold text-[#1E293B]">VIP 对象管理</div>
+                    <div class="text-[11px] text-[#64748B]">设置 VIP 用户、重要分支与关键应用，优先保障体验</div>
+                  </div>
+                  <span class="ml-auto text-[10px] text-[#A1A7B3] border border-[#E2E8F0] rounded px-1.5 py-0.5 flex-shrink-0">待设计</span>
+                </div>
+
+                <!-- 通知渠道 -->
+                <div class="flex items-center gap-3 p-2.5 bg-[#F8FAFC] rounded border border-dashed border-[#CBD5E1]">
+                  <div class="w-7 h-7 rounded bg-emerald-100 flex items-center justify-center flex-shrink-0">
+                    <svg class="w-4 h-4 text-[#16A34A]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                  </div>
+                  <div>
+                    <div class="text-xs font-semibold text-[#1E293B]">告警通知渠道</div>
+                    <div class="text-[11px] text-[#64748B]">配置飞书、企业微信、邮件等告警推送渠道与接收组</div>
+                  </div>
+                  <span class="ml-auto text-[10px] text-[#A1A7B3] border border-[#E2E8F0] rounded px-1.5 py-0.5 flex-shrink-0">待设计</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 导航按钮 -->
+            <div class="flex items-center justify-center gap-3">
+              <button @click="navigateTo('体验预警')" class="px-4 py-2 bg-[#1C6EFF] hover:bg-[#0056EB] text-white rounded-[3px] text-sm font-medium transition-colors cursor-pointer flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                返回体验预警
+              </button>
+              <button @click="navigateTo('排障定位')" class="px-4 py-2 bg-white hover:bg-[#F8FAFC] border border-[#D3D7DE] hover:border-[#1C6EFF] text-[#334155] rounded-[3px] text-sm font-medium transition-colors cursor-pointer">
+                前往排障定位
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </template>
+  </div>
+
+  <!-- 方案二公共底座脚本 -->
+  <script src="./_shell/shell.js"></script>
+
+  <script>
+    (function injectConfigTemplate() {
+      const tpl = document.getElementById('page-content-template');
+      if (!tpl) return;
+      ['atrust-workspace', 'sase-workspace'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+          el.innerHTML = '';
+          el.appendChild(tpl.content.cloneNode(true));
+        }
+      });
+    })();
+
+    // 此页面无额外 store 扩展，使用公共 dualShellAppStore 即可
+  </script>
+
+</body>
+</html>

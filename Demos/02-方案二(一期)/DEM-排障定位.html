@@ -89,26 +89,18 @@
             </div>
           </div>
 
-          <!-- 下钻：面包屑页头 -->
+          <!-- 下钻页头（无面包屑，去掉时间与关闭按钮） -->
           <div x-show="showDetailedReport" class="flex items-center justify-between w-full h-full" x-cloak>
             <div class="flex items-center gap-2 text-xs">
-              <button @click="showDetailedReport = false" class="hover:bg-slate-100 px-2 py-1 rounded text-[#5E6573] hover:text-[#1C6EFF] transition-colors flex items-center gap-1 font-medium cursor-pointer">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
-                <span>返回排障列表</span>
+              <button @click="showDetailedReport = false" class="hover:bg-slate-100 p-1.5 rounded text-[#5E6573] hover:text-[#1C6EFF] transition-colors flex items-center gap-1 font-medium cursor-pointer" title="返回">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"></path></svg>
               </button>
-              <span class="text-slate-300">/</span>
-              <span class="text-[#5E6573]">排障定位</span>
-              <span class="text-slate-300">/</span>
-              <span class="text-[#1E293B] font-bold">详细排障分析报告</span>
-              <span class="px-2 py-0.5 bg-blue-50 text-[#1C6EFF] font-mono text-[11px] rounded border border-blue-100 ml-1.5" x-text="analysisResult?.qualitative?.diagTime || '2026-06-04 14:22'"></span>
+              <span class="text-[#1E293B] font-bold text-sm">详细排障分析报告</span>
             </div>
             <div class="flex items-center gap-2">
               <button @click="window.print()" class="h-7 px-3 bg-white border border-[#D3D7DE] hover:border-[#1C6EFF] hover:text-[#1C6EFF] text-[#334155] rounded-[2px] text-xs font-medium inline-flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs">
                 <svg class="w-3.5 h-3.5 text-[#5E6573]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
                 <span>导出 PDF 报告</span>
-              </button>
-              <button @click="showDetailedReport = false" class="h-7 px-3 bg-[#F1F5F9] hover:bg-[#E2E8F0] border border-[#CBD5E1] text-[#334155] rounded-[2px] text-xs font-medium inline-flex items-center gap-1 transition-colors cursor-pointer">
-                <span>关闭</span>
               </button>
             </div>
           </div>
@@ -156,14 +148,14 @@
                 </div>
               </div>
 
-              <!-- 自然语言输入区 -->
+              <!-- 自然语言输入区 (根据批注：背景白色，描边颜色使用开始分析按钮的蓝色 #1C6EFF) -->
               <div class="relative">
                 <textarea x-model="troubleshootInput"
                           @focus="onTroubleshootFocus()"
                           @blur="onTroubleshootBlur()"
                           @input="agentWarningMessage = ''"
                           rows="3"
-                          class="w-full p-3 pr-28 text-xs bg-[#F8FAFC] border border-[#CBD5E1] rounded-[4px] min-h-[82px] focus:outline-none focus:border-[#1C6EFF] focus:bg-white transition-all resize-none leading-relaxed"
+                          class="w-full p-3 pr-28 text-xs bg-white border border-[#1C6EFF] rounded-[4px] min-h-[82px] focus:outline-none focus:border-[#1C6EFF] focus:ring-1 focus:ring-[#1C6EFF]/20 transition-all resize-none leading-relaxed shadow-2xs"
                           :class="(troubleshootInput && (troubleshootInput.startsWith('1.') || troubleshootInput.startsWith('示例：'))) ? 'text-[#64748B]' : 'text-[#1E293B]'"></textarea>
 
                 <button @click="startTroubleshootAnalysis()"
@@ -194,8 +186,8 @@
                 <button @click="troubleshootInput = '2026-06-04 13:45，上海分公司与苏州研发办多名员工均反馈访问内网 GitLab 提交代码与销售 CRM 构建迟钝'; agentWarningMessage = '';" class="px-2.5 py-1 bg-[#F1F5F9] hover:bg-[#E2E8F0] text-[#334155] rounded-[3px] text-[11px] transition-colors border border-[#E2E8F0] whitespace-nowrap flex-shrink-0">
                   案例 2 - 群体报障：上海分公司与苏州办员工反馈访问 GitLab/CRM 均卡慢
                 </button>
-                <button @click="troubleshootInput = '今天 10:15，广州分公司 HR 部多名员工反馈在进行 SaaS 飞书多人视频会议时连通性偶发中断'; agentWarningMessage = '';" class="px-2.5 py-1 bg-[#F1F5F9] hover:bg-[#E2E8F0] text-[#334155] rounded-[3px] text-[11px] transition-colors border border-[#E2E8F0] whitespace-nowrap flex-shrink-0">
-                  案例 3 - 多对一报障：广州 HR 部多名员工访问 SaaS 飞书视频会议卡顿
+                <button @click="troubleshootInput = '今天 10:00，Digiplus 马尼拉办公室 Maria 及多名员工反馈飞书打开文档与上传附件很慢，Office 365 打开文件也很慢'; agentWarningMessage = '';" class="px-2.5 py-1 bg-[#F1F5F9] hover:bg-[#E2E8F0] text-[#334155] rounded-[3px] text-[11px] transition-colors border border-[#E2E8F0] whitespace-nowrap flex-shrink-0">
+                  案例 3 - 移动 SWG 报障：马尼拉办公室 Maria 及多名员工反馈飞书与 Office 365 访问卡慢
                 </button>
               </div>
 
@@ -229,52 +221,68 @@
                 </div>
               </div>
 
-              <!-- 分析摘要卡片 -->
-              <div x-show="analysisResult" class="mt-1 bg-white border-2 border-[#1C6EFF] p-4 rounded-[4px] shadow-xs space-y-3" x-cloak>
-                <div class="flex items-center justify-between pb-2 border-b border-slate-100">
-                  <div class="flex items-center gap-2.5 flex-wrap">
-                    <span class="text-xs font-bold text-[#1E293B]" x-text="analysisResult?.title"></span>
-                    <button @click="openDetailedReport()" class="px-2.5 py-0.5 bg-[#EFF6FF] hover:bg-[#DBEAFE] text-[#1C6EFF] border border-[#BFDBFE] rounded-[2px] text-xs font-medium inline-flex items-center gap-1 transition-colors cursor-pointer">
-                      <span>查看详细排障报告</span>
-                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+              <!-- 分析摘要卡片 (精简单横向卡片：按 1.总结定性 2.问题定位 3.影响范围 4.处置建议 顺序排列，仅保留重点红框内容) -->
+              <div x-show="analysisResult" class="mt-1 bg-[#F4F8FF] border border-[#BFDBFE] p-4 rounded-[4px] shadow-2xs space-y-3" x-cloak>
+                <div class="flex items-center justify-between pb-2 border-b border-blue-100">
+                  <span class="text-xs font-bold text-[#1E293B]" x-text="analysisResult?.title || '针对【今天10:00，Digiplus 马尼拉办公室 Maria 及...】问题分析摘要：'"></span>
+                  <div class="flex items-center gap-2">
+                    <button @click="openDetailedReport()" class="px-3 py-1 bg-white hover:bg-blue-50 text-[#1C6EFF] border border-[#1C6EFF] rounded-[2px] text-xs font-medium inline-flex items-center gap-1 transition-colors cursor-pointer shadow-2xs">
+                      <span>查看排障详情</span>
+                    </button>
+                    <button @click="analysisResult = null" class="px-3 py-1 bg-white hover:bg-slate-50 text-[#5E6573] border border-[#D3D7DE] rounded-[2px] text-xs font-medium transition-colors cursor-pointer">
+                      <span>关闭</span>
                     </button>
                   </div>
-                  <button @click="analysisResult = null" class="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded transition-colors cursor-pointer ml-auto" title="关闭摘要">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                  </button>
                 </div>
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs text-[#334155]">
-                  <div class="bg-[#F8FAFC] p-3 rounded border border-[#E2E8F0] space-y-1.5">
-                    <div class="flex items-center justify-between">
-                      <span class="font-bold text-slate-900 text-[12px]">1. 总结定性</span>
-                      <span class="px-1.5 py-0.2 bg-red-100 text-[#DC2626] font-semibold text-[10px] rounded" x-text="analysisResult?.qualitative?.responsibilityDomain"></span>
+
+                <!-- 单横向卡片：按顺序排列所有摘要信息 -->
+                <div class="bg-white p-3.5 rounded border border-blue-100/80 shadow-2xs text-xs text-slate-800 space-y-3">
+                  <!-- 总结定性 -->
+                  <div class="flex items-start gap-3 pb-2.5 border-b border-slate-100">
+                    <div class="w-24 shrink-0 pt-0.5">
+                      <span class="font-bold text-slate-900 text-[12px]">总结定性</span>
                     </div>
-                    <div class="text-[#DC2626] font-semibold leading-relaxed" x-text="analysisResult?.qualitative?.summary"></div>
-                    <div class="text-[11px] text-[#64748B] flex items-center justify-between pt-1 border-t border-slate-200/60">
-                      <span x-text="`诊断状态: ${analysisResult?.qualitative?.status}`"></span>
-                      <span class="font-mono text-[#16A34A]" x-text="`置信度 ${analysisResult?.qualitative?.confidence}`"></span>
-                    </div>
-                  </div>
-                  <div class="bg-[#F8FAFC] p-3 rounded border border-[#E2E8F0] space-y-1.5">
-                    <div class="font-bold text-slate-900 text-[12px]">2. 影响面分析</div>
-                    <div class="space-y-1 text-[11px]">
-                      <div><span class="text-[#64748B]">受影响人员:</span> <span class="font-medium text-slate-800" x-text="analysisResult?.impact?.affectedUsers"></span></div>
-                      <div><span class="text-[#64748B]">受影响分支:</span> <span class="font-medium text-slate-800" x-text="analysisResult?.impact?.affectedBranches"></span></div>
-                      <div><span class="text-[#64748B]">受影响应用:</span> <span class="font-medium text-slate-800" x-text="analysisResult?.impact?.affectedApps"></span></div>
+                    <div class="flex-1 text-[11px] text-slate-900 leading-relaxed pt-0.5">
+                      <p class="font-bold text-[14px]">本次反馈访问体验差是真实存在问题，主要是由于客户端到POP隧道质量下降与SASE平台租户限流双重因素造成了用户感受卡慢。</p>
+                      <div class="flex items-center gap-1.5 mt-2">
+                        <span class="px-1.5 py-0.5 bg-rose-50 text-rose-600 text-[10px] rounded border border-rose-100 shrink-0">群体问题</span>
+                        <span class="px-1.5 py-0.5 bg-pink-50 text-pink-600 text-[10px] rounded border border-pink-100 truncate shrink-0 max-w-[140px]" title="客户端隧道与平台限流">客户端隧道与平台限流</span>
+                      </div>
                     </div>
                   </div>
-                  <div class="bg-[#F8FAFC] p-3 rounded border border-[#E2E8F0] space-y-1.5">
-                    <div class="font-bold text-slate-900 text-[12px]">3. 问题定位</div>
-                    <div class="space-y-1 text-[11px]">
-                      <div><span class="text-[#64748B]">瓶颈分段:</span> <span class="font-semibold text-[#DC2626]" x-text="analysisResult?.location?.bottleneck"></span></div>
-                      <div><span class="text-[#64748B]">关键指标:</span> <span class="font-mono text-slate-800" x-text="analysisResult?.location?.metrics"></span></div>
-                      <div><span class="text-[#64748B]">已排除项:</span> <span class="text-[#16A34A]" x-text="analysisResult?.location?.excluded"></span></div>
+
+                  <!-- 问题定位 -->
+                  <div class="flex items-start gap-3 pb-2.5 border-b border-slate-100">
+                    <div class="w-24 shrink-0 pt-0.5">
+                      <span class="font-bold text-slate-900 text-[12px]">问题定位</span>
+                    </div>
+                    <div class="flex-1 text-[11px] font-normal space-y-1">
+                      <div><span class="text-[#64748B]">异常点：</span><span class="text-slate-900" x-text="analysisResult?.location?.bottleneck || '客户端到POP分段异常（段异常：私网Hop2）与 POP节点处理异常（点异常：10G限流）'"></span></div>
+                      <div><span class="text-[#64748B]">异常特征：</span><span class="font-mono text-[#D9363E] font-medium" x-text="analysisResult?.location?.metrics || 'Underlay丢包3.1%/抖动40ms; Overlay吞吐20M; POP流量10.4G命中限流'"></span></div>
                     </div>
                   </div>
-                  <div class="bg-[#F8FAFC] p-3 rounded border border-[#E2E8F0] space-y-1.5">
-                    <div class="font-bold text-slate-900 text-[12px]">4. 处置建议</div>
-                    <div class="text-[#16A34A] font-medium leading-relaxed text-[11px]" x-text="analysisResult?.recommendation?.action"></div>
-                    <div class="text-[11px] text-[#64748B] pt-1 border-t border-slate-200/60"><span>处理对象: SD-WAN 运维组</span></div>
+
+                  <!-- 影响范围 -->
+                  <div class="flex items-start gap-3 pb-2.5 border-b border-slate-100">
+                    <div class="w-24 shrink-0 pt-0.5">
+                      <span class="font-bold text-slate-900 text-[12px]">影响范围</span>
+                    </div>
+                    <div class="flex-1 text-[11px] font-normal space-y-1">
+                      <div><span class="text-[#64748B]">受影响用户：</span><span class="text-slate-900" x-text="analysisResult?.impact?.affectedUsers || 'Maria 及马尼拉办公室出口 203.177.12.8 下 34 名用户 (占 73.9%)'"></span></div>
+                      <div><span class="text-[#64748B]">受影响分支：</span><span class="text-slate-900" x-text="analysisResult?.impact?.affectedBranches || '马尼拉办公室 (出口 IP 203.177.12.8)'"></span></div>
+                      <div><span class="text-[#64748B]">受影响应用：</span><span class="text-slate-900" x-text="analysisResult?.impact?.affectedApps || '飞书、Office 365 (SaaS 办公系统)'"></span></div>
+                    </div>
+                  </div>
+
+                  <!-- 处置建议 -->
+                  <div class="flex items-start gap-3">
+                    <div class="w-24 shrink-0 pt-0.5">
+                      <span class="font-bold text-slate-900 text-[12px]">处置建议</span>
+                    </div>
+                    <div class="flex-1 text-[11px] font-normal space-y-1">
+                      <div><span class="text-[#64748B]">干系方：</span><span class="text-slate-900" x-text="analysisResult?.recommendation?.target || '客户办公室网络团队 & SASE 平台运营团队'"></span></div>
+                      <div><span class="text-[#64748B]">建议动作：</span><span class="text-slate-900" x-text="analysisResult?.recommendation?.action || '1. SASE平台解封/解除租户 10Gbps 限流；2. 客户修复办公室 LAN/网关链路丢包与抖动。'"></span></div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -293,20 +301,6 @@
               <!-- 分支表格 -->
               <div x-show="troubleshootSubTab === 'branch'" class="p-3 w-full">
                 <div class="flex items-center justify-end pb-3 gap-3 flex-wrap w-full">
-                  <select x-model="branchRegion" @change="branchPage = 1" class="dem-select w-32 transition-colors font-normal" :class="branchRegion === 'all' ? '!text-[#A1A7B3]' : '!text-[#2F3540]'">
-                    <option value="all">全量区域</option>
-                    <option value="华北区">华北区</option>
-                    <option value="华东区">华东区</option>
-                    <option value="华南区">华南区</option>
-                    <option value="西南区">西南区</option>
-                    <option value="西北区">西北区</option>
-                  </select>
-                  <select x-model="branchExp" @change="branchPage = 1" class="dem-select w-32 transition-colors font-normal" :class="branchExp === 'all' ? '!text-[#A1A7B3]' : '!text-[#2F3540]'">
-                    <option value="all">全量体验状态</option>
-                    <option value="差">差</option>
-                    <option value="一般">一般</option>
-                    <option value="正常">正常</option>
-                  </select>
                   <div class="relative w-64 flex-shrink-0">
                     <input type="text" x-model="branchSearch" @input="branchPage = 1" placeholder="搜索分支 / 城市 / IP..." class="w-full h-8 pl-8 pr-3 text-xs border border-[#D3D7DE] rounded-[2px] focus:outline-none focus:border-[#1C6EFF] text-[#2F3540] placeholder-[#A1A7B3]" />
                     <svg class="w-3.5 h-3.5 text-[#A1A7B3] absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
@@ -315,16 +309,15 @@
                 <div class="overflow-x-auto border border-[#E2E8F0] rounded-[2px] w-full">
                   <table class="dem-table w-full">
                     <thead><tr>
-                      <th class="w-48">分支名称</th><th class="w-32">所属区域</th><th class="w-48">出口 IP / 城市</th>
+                      <th class="w-48">分支名称</th><th class="w-48">出口 IP / 城市</th>
                       <th class="w-32 num-col">活跃接入用户</th><th class="w-32 num-col">体验受损用户数</th>
-                      <th class="w-28">主用接入 POP</th><th class="w-64">受阻高频应用</th>
+                      <th class="w-28">主要接入 POP</th><th class="w-64">受阻高频应用</th>
                       <th class="w-24">操作</th><th class="dem-table-col-more">...</th>
                     </tr></thead>
                     <tbody>
                       <template x-for="branch in paginatedBranches" :key="branch.id">
                         <tr>
                           <td><span class="font-normal text-text-title text-xs" x-text="branch.branchName"></span></td>
-                          <td><span class="text-text-mute truncate block max-w-[120px]" x-text="branch.region"></span></td>
                           <td>
                             <div class="font-mono text-xs text-text-title leading-tight" x-text="branch.egressIp"></div>
                             <div class="text-[11px] text-text-mute leading-tight mt-0.5" x-text="branch.city"></div>
@@ -343,7 +336,7 @@
                               </template>
                             </div>
                           </td>
-                          <td><button @click="startAnalysisFromTarget('分支', branch.branchName)" class="dem-table-action-link cursor-pointer border-0 bg-transparent p-0">查看详情</button></td>
+                          <td><button @click="navigateToUserDetail({ userName: branch.branchName + ' (管理员)', department: '分支机构 / ' + branch.branchName, ipLocation: branch.exitIp, pop: branch.pop, experience: branch.experience })" class="dem-table-action-link cursor-pointer border-0 bg-transparent p-0 whitespace-nowrap">查看详情</button></td>
                           <td class="dem-table-col-more"></td>
                         </tr>
                       </template>
@@ -369,9 +362,6 @@
               <!-- 用户表格 -->
               <div x-show="troubleshootSubTab === 'user'" class="p-3 w-full" x-cloak>
                 <div class="flex items-center justify-end pb-3 gap-3 flex-wrap w-full">
-                  <select x-model="userExp" @change="userPage = 1" class="dem-select w-32 transition-colors font-normal" :class="userExp === 'all' ? '!text-[#A1A7B3]' : '!text-[#2F3540]'">
-                    <option value="all">全量体验状态</option><option value="差">差</option><option value="一般">一般</option><option value="正常">正常</option>
-                  </select>
                   <div class="relative w-64 flex-shrink-0">
                     <input type="text" x-model="userSearch" @input="userPage = 1" placeholder="搜索用户名 / 账号 / IP..." class="w-full h-8 pl-8 pr-3 text-xs border border-[#D3D7DE] rounded-[2px] focus:outline-none focus:border-[#1C6EFF] text-[#2F3540] placeholder-[#A1A7B3]" />
                     <svg class="w-3.5 h-3.5 text-[#A1A7B3] absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
@@ -380,10 +370,10 @@
                 <div class="overflow-x-auto border border-[#E2E8F0] rounded-[2px] w-full">
                   <table class="dem-table w-full">
                     <thead><tr>
-                      <th class="w-48">用户</th><th class="w-60">所属组织架构</th><th class="w-48">使用终端</th>
-                      <th class="w-48">IP 归属地</th><th class="w-36">接入 POP</th>
-                      <th class="w-28 num-col">访问应用数</th><th class="w-64">体验受损应用</th>
-                      <th class="w-24">操作</th><th class="dem-table-col-more">...</th>
+                      <th class="w-44">用户</th><th class="w-56">所属组织架构</th><th class="w-40">使用终端</th>
+                      <th class="w-44">IP 归属地</th><th class="w-32">接入 POP</th>
+                      <th class="w-24 num-col">访问应用数</th><th class="w-56">体验受损应用</th>
+                      <th class="w-28 whitespace-nowrap">操作</th><th class="dem-table-col-more">...</th>
                     </tr></thead>
                     <tbody>
                       <template x-for="user in paginatedUsers" :key="user.id">
@@ -417,7 +407,7 @@
                               </template>
                             </div>
                           </td>
-                          <td><button @click="startAnalysisFromTarget('用户', user.userName)" class="dem-table-action-link cursor-pointer border-0 bg-transparent p-0">查看详情</button></td>
+                          <td><button @click="navigateToUserDetail(user)" class="dem-table-action-link cursor-pointer border-0 bg-transparent p-0 whitespace-nowrap">查看详情</button></td>
                           <td class="dem-table-col-more"></td>
                         </tr>
                       </template>
@@ -439,10 +429,9 @@
               <div x-show="troubleshootSubTab === 'app'" class="p-3 w-full" x-cloak>
                 <div class="flex items-center justify-end pb-3 gap-3 flex-wrap w-full">
                   <select x-model="appType" @change="appPage = 1" class="dem-select w-32 transition-colors font-normal" :class="appType === 'all' ? '!text-[#A1A7B3]' : '!text-[#2F3540]'">
-                    <option value="all">全量应用类型</option><option value="内网自研">内网自研</option><option value="SaaS 办公">SaaS 办公</option><option value="基础设施">基础设施</option>
-                  </select>
-                  <select x-model="appExp" @change="appPage = 1" class="dem-select w-32 transition-colors font-normal" :class="appExp === 'all' ? '!text-[#A1A7B3]' : '!text-[#2F3540]'">
-                    <option value="all">全量体验</option><option value="差">差</option><option value="一般">一般</option><option value="正常">正常</option>
+                    <option value="all">全量应用类型</option>
+                    <option value="内网应用">内网应用</option>
+                    <option value="SaaS应用">SaaS应用</option>
                   </select>
                   <div class="relative w-64 flex-shrink-0">
                     <input type="text" x-model="appSearch" @input="appPage = 1" placeholder="搜索应用名称 / 域名 / 所属分类..." class="w-full h-8 pl-8 pr-3 text-xs border border-[#D3D7DE] rounded-[2px] focus:outline-none focus:border-[#1C6EFF] text-[#2F3540] placeholder-[#A1A7B3]" />
@@ -473,7 +462,7 @@
                             <div class="text-[11px] text-text-mute font-mono mt-0.5" x-text="'RTT: ' + app.rtt"></div>
                           </td>
                           <td><span class="text-text-title font-normal text-xs" x-text="formatCityName(app.pop)"></span></td>
-                          <td><button @click="startAnalysisFromTarget('应用', app.appName)" class="dem-table-action-link cursor-pointer border-0 bg-transparent p-0">查看详情</button></td>
+                          <td><button @click="navigateToUserDetail({ userName: '体验受损用户 (关注' + app.appName + ')', department: '应用聚焦 / ' + app.appName, ipLocation: '114.242.10.15 (北京-朝阳)', pop: app.pop, experience: '差' })" class="dem-table-action-link cursor-pointer border-0 bg-transparent p-0">查看详情</button></td>
                           <td class="dem-table-col-more"></td>
                         </tr>
                       </template>
@@ -493,211 +482,771 @@
             </div>
           </div>
 
-          <!-- View 2: 下钻详细排障报告 -->
-          <div x-show="showDetailedReport" class="flex flex-col gap-3 w-full bg-white border border-[#E2E8F0] p-4 rounded-[4px] shadow-xs" x-cloak>
-            <!-- 排障总览大卡片 -->
-            <div class="bg-[#F8FAFC] border border-[#E2E8F0] p-4 rounded-[4px] space-y-3 select-none">
+          <!-- View 2: 下钻详细排障报告 (根据最新批注：双独立容器布局，不在同一个底座上，上下间距 16px) -->
+          <div x-show="showDetailedReport" class="flex flex-col gap-4 w-full" x-cloak>
+            
+            <!-- 容器一：排障总结 (支持收起/展开) -->
+            <div class="bg-white border border-[#E2E8F0] p-4 rounded-[4px] shadow-2xs space-y-3 select-none">
+              <!-- 卡片标题栏 -->
               <div class="flex items-center justify-between pb-2 border-b border-[#E2E8F0]">
                 <div class="flex items-center gap-2">
                   <span class="w-2 h-4 bg-[#1C6EFF] rounded-full inline-block"></span>
-                  <h3 class="text-xs font-bold text-[#1E293B]">1. 排障总览信息</h3>
-                  <span class="text-[11px] text-[#64748B] font-mono ml-2" x-text="`诊断时间: ${analysisResult?.qualitative?.diagTime || '2026-06-04 14:22'}`"></span>
+                  <h3 class="text-xs font-bold text-[#1E293B]">排障总结</h3>
+                  <span class="text-[11px] text-[#64748B] font-mono ml-2" x-text="`诊断时间: ${analysisResult?.qualitative?.diagTime || '2026-08-04 15:32:38'}`"></span>
                 </div>
-                <div class="flex items-center gap-2">
-                  <span class="px-2 py-0.5 bg-emerald-100 text-[#16A34A] font-bold text-[11px] rounded" x-text="`诊断状态: ${analysisResult?.qualitative?.status || '已精确定位'}`"></span>
-                  <span class="px-2 py-0.5 bg-red-100 text-[#DC2626] font-bold text-[11px] rounded" x-text="`归因责任域：${analysisResult?.qualitative?.responsibilityDomain || 'SD-WAN / 跨境POP选路'}`"></span>
-                </div>
+                <!-- 排障总结支持收起/展开 -->
+                <button @click="isSummaryCollapsed = !isSummaryCollapsed" class="text-xs text-[#1C6EFF] hover:text-[#0056EB] font-medium flex items-center gap-1 cursor-pointer">
+                  <span x-text="isSummaryCollapsed ? '展开排障总结' : '收起排障总结'"></span>
+                  <svg class="w-3.5 h-3.5 transition-transform duration-200" :class="isSummaryCollapsed ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                  </svg>
+                </button>
               </div>
 
-              <div class="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs">
-                <!-- 排障结论 -->
-                <div class="bg-white p-3 rounded border border-slate-200 space-y-2 flex flex-col justify-between">
-                  <div>
-                    <div class="flex items-center justify-between pb-1 mb-1.5 border-b border-slate-100">
-                      <span class="font-bold text-slate-900 text-xs">1. 排障结论</span>
-                      <span class="text-[10px] px-1.5 py-0.2 bg-red-50 text-[#DC2626] rounded border border-red-100" x-text="analysisResult?.qualitative?.responsibilityDomain"></span>
+              <!-- 可收起的总结内容容器 -->
+              <div x-show="!isSummaryCollapsed" x-collapse class="space-y-3">
+                <!-- 轻量 AI 科技感结论 Banner (去掉置信度标签) -->
+                <div class="bg-gradient-to-r from-blue-50/70 via-indigo-50/30 to-slate-50 border border-blue-100 p-3 rounded flex items-start gap-3">
+                  <div class="w-5 h-5 rounded bg-blue-500 text-white flex items-center justify-center font-medium text-[10px] flex-shrink-0 mt-0.5">AI</div>
+                  <div class="space-y-1 text-xs text-[#1E293B] leading-relaxed">
+                    <div class="font-medium text-[#1C6EFF] flex items-center gap-1.5">
+                      <span>AI 智能分析根因总结论</span>
                     </div>
-                    <p class="font-bold text-[#DC2626] text-xs leading-relaxed" x-text="analysisResult?.qualitative?.summary"></p>
-                  </div>
-                  <div class="pt-2 border-t border-slate-100 space-y-1 text-[11px] text-[#64748B]">
-                    <div class="flex justify-between"><span>结论摘要：</span><span class="text-slate-800 font-medium">SD-WAN专线出口丢包</span></div>
-                    <div class="flex justify-between"><span>判断时间：</span><span class="font-mono text-slate-800" x-text="analysisResult?.qualitative?.diagTime"></span></div>
-                    <div class="flex justify-between"><span>判定置信度：</span><span class="font-mono font-bold text-[#16A34A]" x-text="analysisResult?.qualitative?.confidence"></span></div>
+                    <p class="text-slate-600">
+                      本次用户反馈为真实线上体验故障，根因源自<span class="text-[#DC2626] font-semibold">“客户端到POP隧道质量下降”</span>与<span class="text-[#DC2626] font-semibold">“SASE平台租户限流”</span>。业务表现为访问卡顿与数据包丢失；经链路排查确认该故障具备批量扩散风险，会对<b>马尼拉办公室 34 名用户、马尼拉分支、飞书与 Office 365 应用</b>形成群体性业务影响，建议优先针对 SASE 平台租户限流与客户办公室内网落地解除限流和网关修复处置措施以快速止损。
+                    </p>
                   </div>
                 </div>
 
-                <!-- 影响范围 -->
-                <div class="bg-white p-3 rounded border border-slate-200 space-y-2 flex flex-col justify-between">
-                  <div>
-                    <div class="pb-1 mb-1.5 border-b border-slate-100 font-bold text-slate-900 text-xs">2. 影响范围</div>
-                    <div class="space-y-1.5 text-[11px]">
-                      <div><span class="text-[#64748B]">影响对象：</span><span class="font-medium text-slate-800" x-text="analysisResult?.impact?.affectedUsers"></span></div>
-                      <div><span class="text-[#64748B]">影响分布：</span><span class="font-medium text-slate-800" x-text="analysisResult?.impact?.affectedBranches"></span></div>
-                      <div><span class="text-[#64748B]">影响应用：</span><span class="font-medium text-slate-800" x-text="analysisResult?.impact?.affectedApps"></span></div>
+                <!-- 单横向结构化摘要卡片 -->
+                <div class="bg-white p-3.5 rounded border border-blue-100/80 shadow-2xs text-xs text-slate-800 space-y-3">
+                  <!-- 问题定位 -->
+                  <div class="flex items-start gap-3 pb-2.5 border-b border-slate-100">
+                    <div class="w-24 shrink-0 flex items-center gap-1.5 flex-wrap pt-0.5">
+                      <span class="font-bold text-slate-900 text-[12px]">问题定位</span>
+                      <span class="px-1.5 py-0.5 bg-rose-50 text-rose-600 text-[10px] rounded border border-rose-100 shrink-0">段/点双重异常</span>
+                    </div>
+                    <div class="flex-1 text-[11px] font-normal space-y-1">
+                      <div><span class="text-[#64748B]">异常点：</span><span class="text-slate-900">客户端到POP分段异常（私网Hop2）与 POP节点处理异常（租户10G限流）</span></div>
+                      <div><span class="text-[#64748B]">异常特征：</span><span class="font-mono text-[#D9363E] font-medium">Underlay丢包3.1%/抖动40ms；Overlay吞吐20M；POP流量10.4G命中限流</span></div>
                     </div>
                   </div>
-                  <div class="pt-2 border-t border-slate-100 space-y-1 text-[11px] text-[#64748B]">
-                    <div class="flex justify-between"><span>影响时间：</span><span class="font-mono text-slate-800">14:20 ~ 14:45</span></div>
-                    <div class="flex justify-between"><span>事件关联：</span><span class="font-mono text-[#1C6EFF] font-medium" x-text="analysisResult?.impact?.associatedAlert"></span></div>
-                  </div>
-                </div>
 
-                <!-- 问题定位 -->
-                <div class="bg-white p-3 rounded border border-slate-200 space-y-2 flex flex-col justify-between">
-                  <div>
-                    <div class="pb-1 mb-1.5 border-b border-slate-100 font-bold text-slate-900 text-xs">3. 问题定位</div>
-                    <div class="space-y-1.5 text-[11px]">
-                      <div><span class="text-[#64748B]">异常分段：</span><span class="font-semibold text-[#DC2626]" x-text="analysisResult?.location?.bottleneck"></span></div>
-                      <div><span class="text-[#64748B]">关键证据：</span><span class="font-mono text-[#DC2626]" x-text="analysisResult?.location?.metrics"></span></div>
-                      <div><span class="text-[#64748B]">对比证据：</span><span class="text-slate-700" x-text="analysisResult?.location?.comparison"></span></div>
+                  <!-- 影响范围 -->
+                  <div class="flex items-start gap-3 pb-2.5 border-b border-slate-100">
+                    <div class="w-24 shrink-0 pt-0.5">
+                      <span class="font-bold text-slate-900 text-[12px]">影响范围</span>
+                    </div>
+                    <div class="flex-1 text-[11px] font-normal space-y-1">
+                      <div><span class="text-[#64748B]">受影响用户：</span><span class="text-slate-900">Maria 及出口 203.177.12.8 下 34 名用户 (占 73.9%)</span></div>
+                      <div><span class="text-[#64748B]">受影响分支：</span><span class="text-slate-900">马尼拉办公室 (出口 IP 203.177.12.8)</span></div>
+                      <div><span class="text-[#64748B]">受影响应用：</span><span class="text-slate-900">飞书、Office 365 (SaaS 办公系统)</span></div>
                     </div>
                   </div>
-                  <div class="pt-2 border-t border-slate-100 space-y-1 text-[11px]">
-                    <div class="flex justify-between"><span class="text-[#64748B]">责任判断：</span><span class="font-medium text-[#DC2626]">SD-WAN / 运营商跨网选路</span></div>
-                    <div class="flex justify-between"><span class="text-[#64748B]">已排除项：</span><span class="text-[#16A34A] font-medium" x-text="analysisResult?.location?.excluded"></span></div>
-                  </div>
-                </div>
 
-                <!-- 处置建议 -->
-                <div class="bg-white p-3 rounded border border-slate-200 space-y-2 flex flex-col justify-between">
-                  <div>
-                    <div class="pb-1 mb-1.5 border-b border-slate-100 font-bold text-slate-900 text-xs">4. 处置建议</div>
-                    <div class="space-y-1.5 text-[11px]">
-                      <div><span class="text-[#64748B]">建议动作：</span><span class="font-medium text-[#16A34A] leading-relaxed block" x-text="analysisResult?.recommendation?.action"></span></div>
-                      <div><span class="text-[#64748B]">举证材料：</span><span class="text-slate-700">五段双向探针拔测拓扑链</span></div>
+                  <!-- 处置建议 -->
+                  <div class="flex items-start gap-3">
+                    <div class="w-24 shrink-0 pt-0.5">
+                      <span class="font-bold text-slate-900 text-[12px]">处置建议</span>
                     </div>
-                  </div>
-                  <div class="pt-2 border-t border-slate-100 space-y-1 text-[11px] text-[#64748B]">
-                    <div class="flex justify-between"><span>处理对象：</span><span class="font-medium text-slate-800" x-text="analysisResult?.recommendation?.target"></span></div>
-                    <div class="flex justify-between"><span>验证建议：</span><span class="text-[#16A34A] font-medium" x-text="analysisResult?.recommendation?.verification"></span></div>
+                    <div class="flex-1 text-[11px] font-normal space-y-1">
+                      <div><span class="text-[#64748B]">干系方：</span><span class="text-slate-900">客户办公室网络团队 & SASE 平台运营团队</span></div>
+                      <div><span class="text-[#64748B]">建议动作：</span><span class="text-slate-900">1. SASE平台解封/解除租户 10Gbps 限流；2. 客户修复办公室 LAN/网关链路丢包与抖动。</span></div>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
 
-            <!-- 详情 Tab 区 -->
-            <div class="border border-[#E2E8F0] rounded-[4px] bg-white overflow-hidden shadow-2xs">
-              <div class="bg-white px-4 border-b border-[#E2E8F0] flex items-center gap-8 text-xs font-medium select-none">
-                <div @click="activeReportTab = 'impact'" class="relative h-10 flex items-center cursor-pointer transition-all" :class="activeReportTab === 'impact' ? 'text-[#1C6EFF] font-semibold' : 'text-[#5E6573] hover:text-[#1E293B]'">
-                  <div class="flex items-center gap-1.5">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
-                    <span>2.1 影响面分析</span>
-                  </div>
-                  <div x-show="activeReportTab === 'impact'" class="absolute bottom-0 left-0 right-0 h-[2px] bg-[#1C6EFF]" x-cloak></div>
-                </div>
-                <div @click="activeReportTab = 'troubleshoot'" class="relative h-10 flex items-center cursor-pointer transition-all" :class="activeReportTab === 'troubleshoot' ? 'text-[#1C6EFF] font-semibold' : 'text-[#5E6573] hover:text-[#1E293B]'">
-                  <div class="flex items-center gap-1.5">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
-                    <span>2.2 问题定位与链条举证</span>
-                  </div>
-                  <div x-show="activeReportTab === 'troubleshoot'" class="absolute bottom-0 left-0 right-0 h-[2px] bg-[#1C6EFF]" x-cloak></div>
+            <!-- 容器二：详细分析 Tab 容器 (仅保留 用户视角分析 与 应用视角分析) -->
+            <div class="bg-white border border-[#E2E8F0] p-4 rounded-[4px] shadow-2xs select-none space-y-4">
+              
+              <!-- Tab 切换 Bar (影响面分析已隐藏) -->
+              <div class="border-b border-[#E2E8F0] flex items-center justify-between pb-0 bg-white">
+                <div class="flex items-center gap-6">
+                  <button @click="detailReportTab = 'user'" 
+                          class="pb-2 text-xs font-semibold border-b-2 transition-all cursor-pointer" 
+                          :class="detailReportTab === 'user' ? 'border-[#1C6EFF] text-[#1C6EFF]' : 'border-transparent text-[#64748B] hover:text-[#1E293B]'">
+                    用户视角分析
+                  </button>
+
+                  <button @click="detailReportTab = 'app'" 
+                          class="pb-2 text-xs font-semibold border-b-2 transition-all cursor-pointer" 
+                          :class="detailReportTab === 'app' ? 'border-[#1C6EFF] text-[#1C6EFF]' : 'border-transparent text-[#64748B] hover:text-[#1E293B]'">
+                    应用视角分析
+                  </button>
                 </div>
               </div>
-
-              <div class="p-4">
-                <!-- 影响面分析内容 -->
-                <div x-show="activeReportTab === 'impact'" class="space-y-4">
-                  <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-                    <div class="border border-slate-200 p-3 rounded space-y-2">
-                      <div class="font-bold text-slate-900 flex items-center justify-between">
-                        <span>① 用户视角分析 (关联同链路人员)</span>
-                        <span class="text-[11px] text-[#1C6EFF] font-normal">共 48 人受影响</span>
-                      </div>
-                      <div class="space-y-1.5 text-[11px] text-[#334155]">
-                        <div class="p-2 bg-slate-50 rounded flex justify-between items-center"><span><b>VIP 用户：</b>张伟 (zhangwei / 研发中心)</span><span class="text-[#DC2626] font-semibold">体验卡顿 (丢包率 4.2%)</span></div>
-                        <div class="p-2 bg-slate-50 rounded flex justify-between items-center"><span><b>上海分公司：</b>同部门 12 名前端架构师</span><span class="text-[#DC2626] font-semibold">RTT 延时 >240ms</span></div>
-                        <div class="p-2 bg-slate-50 rounded flex justify-between items-center"><span><b>苏州研发办：</b>35 名 CI/CD 构建工程师</span><span class="text-amber-600 font-medium">Harbor 镜像拉取超时</span></div>
-                      </div>
-                    </div>
-                    <div class="border border-slate-200 p-3 rounded space-y-2">
-                      <div class="font-bold text-slate-900 flex items-center justify-between">
-                        <span>② 应用视角分析 (受影响业务系统)</span>
-                        <span class="text-[11px] text-[#1C6EFF] font-normal">受影响应用 2 个</span>
-                      </div>
-                      <div class="space-y-1.5 text-[11px] text-[#334155]">
-                        <div class="p-2 bg-slate-50 rounded flex justify-between items-center"><span><b>Harbor 基础镜像仓库：</b>TCP 握手延时 280ms</span><span class="text-[#DC2626] font-semibold">HTTP 504 概率 8.5%</span></div>
-                        <div class="p-2 bg-slate-50 rounded flex justify-between items-center"><span><b>Salesforce CRM 系统：</b>跨网 HTTPS 请求卡顿</span><span class="text-amber-600 font-medium">重传率 12.4%</span></div>
-                        <div class="p-2 bg-emerald-50 rounded flex justify-between items-center text-emerald-800"><span><b>内网 GitLab / 飞书：</b>本地选路流量</span><span class="font-semibold">体验正常 (无异常)</span></div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div class="border border-slate-200 p-3 rounded space-y-2 text-xs">
-                    <div class="font-bold text-slate-900">③ 群体特征碰撞 (多维收敛特征)</div>
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-[11px]">
-                      <div class="p-2 bg-blue-50/60 rounded border border-blue-100"><span class="text-slate-500 block">同 POP 节点</span><span class="font-bold text-[#1C6EFF]">POP-SH-02 (上海二区)</span><span class="text-[10px] text-slate-400 block mt-0.5">匹配率 100% (48/48)</span></div>
-                      <div class="p-2 bg-blue-50/60 rounded border border-blue-100"><span class="text-slate-500 block">同 SD-WAN 连接器</span><span class="font-bold text-[#1C6EFF]">Tunnel-HW-Overseas-01</span><span class="text-[10px] text-slate-400 block mt-0.5">匹配率 95.8% (46/48)</span></div>
-                      <div class="p-2 bg-slate-50 rounded border border-slate-200"><span class="text-slate-500 block">同运营商选路</span><span class="font-bold text-slate-800">中国电信 跨网出口</span><span class="text-[10px] text-slate-400 block mt-0.5">包含上海与苏州电信出口</span></div>
-                      <div class="p-2 bg-slate-50 rounded border border-slate-200"><span class="text-slate-500 block">同办公室/部门</span><span class="font-bold text-slate-800">上海研发中心 & 苏州研发办</span><span class="text-[10px] text-slate-400 block mt-0.5">分布在 2 个实体园区</span></div>
-                    </div>
-                  </div>
-
-                  <div class="border border-slate-200 p-3 rounded space-y-1.5 text-xs">
-                    <div class="font-bold text-slate-900 flex items-center gap-2">
-                      <span>④ 事件关联 (DEM 聚类告警链条)</span>
-                      <span class="px-2 py-0.2 bg-amber-100 text-amber-800 text-[10px] rounded font-mono">告警 ID: ALT-20260604-092</span>
-                    </div>
-                    <div class="text-[11px] text-slate-600 bg-amber-50/50 p-2.5 rounded border border-amber-200/60 leading-relaxed">在 14:18:30 产生"【中优】华东地区-SDWAN跨境POP02节点丢包率突增"集群告警，告警触发时间与用户张伟报障时间 (14:20) 完美重合，确定属于同一故障源头引致。</div>
-                  </div>
-                </div>
-
-                <!-- 问题定位与链条举证 -->
-                <div x-show="activeReportTab === 'troubleshoot'" class="space-y-4" x-cloak>
-                  <div class="border border-slate-200 p-3.5 rounded space-y-3 text-xs">
-                    <div class="font-bold text-slate-900 flex items-center justify-between">
-                      <span>① 五段拓扑链路状态图谱</span>
-                      <span class="text-[11px] text-slate-500 font-mono">端到端全路径连续拨测</span>
-                    </div>
-                    <div class="grid grid-cols-5 gap-2 text-center select-none text-[11px]">
-                      <div class="p-2 bg-emerald-50 border border-emerald-300 rounded space-y-1"><div class="font-bold text-emerald-800">1. 终端客户端</div><div class="text-[10px] text-emerald-700">Wi-Fi 信号强 (-52dBm)<br/>CPU 18% 正常</div><span class="px-1.5 py-0.2 bg-emerald-200 text-emerald-900 text-[10px] rounded inline-block">正常</span></div>
-                      <div class="p-2 bg-emerald-50 border border-emerald-300 rounded space-y-1"><div class="font-bold text-emerald-800">2. 局域网/网关</div><div class="text-[10px] text-emerald-700">出口 RTT 2ms<br/>丢包率 0.0%</div><span class="px-1.5 py-0.2 bg-emerald-200 text-emerald-900 text-[10px] rounded inline-block">正常</span></div>
-                      <div class="p-2 bg-red-50 border-2 border-red-500 rounded space-y-1 shadow-sm alert-node-pulse">
-                        <div class="font-bold text-red-700 flex items-center justify-center gap-1">
-                          <svg class="w-3.5 h-3.5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
-                          <span>3. SD-WAN 出口</span>
+              
+              <!-- Tab 1 内容：影响面分析 -->
+              <div x-show="detailReportTab === 'impact'" class="space-y-4">
+                
+                <!-- 1.1 用户视角分析 -->
+                <div id="sec-impact-user" class="space-y-2 border border-slate-200 p-3.5 rounded-[4px] bg-[#F8FAFC]">
+                      <div class="flex items-center justify-between">
+                        <div class="font-medium text-slate-800 text-xs flex items-center gap-2">
+                          <span class="w-1.5 h-3 bg-[#1C6EFF] rounded-full inline-block"></span>
+                          <span>1.1 用户视角分析 (当前报障用户及共享路径)</span>
                         </div>
-                        <div class="text-[10px] text-red-600 font-bold">大包丢包率 14.2%<br/>RTT 240ms (高延时)</div>
-                        <span class="px-1.5 py-0.2 bg-red-600 text-white text-[10px] font-bold rounded inline-block">瓶颈异常点</span>
+                        <span class="px-2 py-0.5 bg-rose-50 text-rose-600 text-[10px] rounded border border-rose-100">体验状态: 差</span>
                       </div>
-                      <div class="p-2 bg-amber-50 border border-amber-300 rounded space-y-1"><div class="font-bold text-amber-800">4. POP 节点</div><div class="text-[10px] text-amber-700">POP-SH-02 受累<br/>选路重传率高</div><span class="px-1.5 py-0.2 bg-amber-200 text-amber-900 text-[10px] rounded inline-block">次级受累</span></div>
-                      <div class="p-2 bg-emerald-50 border border-emerald-300 rounded space-y-1"><div class="font-bold text-emerald-800">5. 应用服务器</div><div class="text-[10px] text-emerald-700">Harbor Server Pod<br/>CPU 12% 正常</div><span class="px-1.5 py-0.2 bg-emerald-200 text-emerald-900 text-[10px] rounded inline-block">后端正常</span></div>
+
+                      <!-- Maria 详细诊断信息 -->
+                      <div class="grid grid-cols-1 md:grid-cols-3 gap-2 text-[11px] text-slate-600 bg-white p-2.5 rounded border border-slate-200">
+                        <div><span class="text-slate-400">报障人员:</span> <span class="text-slate-800">Maria (马尼拉办公室)</span></div>
+                        <div><span class="text-slate-400">报障应用:</span> <span class="text-slate-800">飞书 (卡慢、上传困难)</span></div>
+                        <div><span class="text-slate-400">分析时间窗:</span> <span class="font-mono text-slate-800">9:45 — 10:15 (现场还原)</span></div>
+                      </div>
+
+                      <!-- 9:45-10:15 时间窗同用户多应用数据对照表 -->
+                      <div class="overflow-x-auto">
+                        <table class="dem-table w-full text-[11px]">
+                          <thead><tr><th>应用名称</th><th>访问体验</th><th>HTTP 状态/响应</th><th>RTT 往返延时</th><th>数据包丢包率</th><th>体验判决说明</th></tr></thead>
+                          <tbody>
+                            <tr>
+                              <td class="text-slate-800">飞书 (SaaS)</td>
+                              <td><span class="px-1.5 py-0.2 bg-rose-50 text-rose-600 rounded text-[10px] border border-rose-100">差</span></td>
+                              <td class="font-mono text-slate-600">HTTP 200 / 220ms</td>
+                              <td class="font-mono text-rose-600">109 ms</td>
+                              <td class="font-mono text-rose-600">3.4 %</td>
+                              <td class="text-rose-600">数据包丢包高，文件传输严重受阻</td>
+                            </tr>
+                            <tr>
+                              <td class="text-slate-800">Office 365 (SaaS)</td>
+                              <td><span class="px-1.5 py-0.2 bg-rose-50 text-rose-600 rounded text-[10px] border border-rose-100">差</span></td>
+                              <td class="font-mono text-slate-600">HTTP 200 / 215ms</td>
+                              <td class="font-mono text-rose-600">112 ms</td>
+                              <td class="font-mono text-rose-600">3.5 %</td>
+                              <td class="text-rose-600">文档在线打开迟钝、频繁卡顿</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+
+                      <!-- 💡 用户视角分析核心结论 (按批注精简为3点结构化结论) -->
+                      <div class="bg-blue-50/60 p-3 rounded border border-blue-100/60 text-[11px] text-[#1E40AF] space-y-1.5">
+                        <div class="font-bold flex items-center gap-1.5 text-[#1C6EFF]">
+                          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                          <span>用户视角分析结论：</span>
+                        </div>
+                        <ul class="space-y-1 text-slate-700 leading-relaxed font-normal">
+                          <li><span class="font-semibold text-slate-900">1. 访问特征：</span>在此时间段内，用户真实存在访问 <span class="font-semibold text-rose-600">飞书、Office 365</span> 体验问题，特征为 <span class="font-medium text-rose-600">丢包率高 (3.4%~3.5%)、RTT 往返延时增加 (109~112ms) 及上传卡顿</span>。</li>
+                          <li><span class="font-semibold text-slate-900">2. 应用覆盖：</span>用户在此时间段内共访问 <span class="font-semibold text-slate-900">2 个</span> 应用，其中 <span class="font-semibold text-rose-600">2 个体验差</span>、<span class="font-semibold text-slate-600">0 个体验一般</span>、<span class="font-semibold text-emerald-600">0 个体验正常</span>。</li>
+                          <li><span class="font-semibold text-slate-900">3. 定性结论：</span><span class="font-semibold text-[#1C6EFF]">推断用户终端进程与硬件节点自身正常</span>，多应用同时受损排除单服务端故障，瓶颈集中于共享接入路径。</li>
+                        </ul>
+                      </div>
+                    </div>
+
+                    <!-- 1.2 应用视角分析 -->
+                    <div id="sec-impact-app" class="scroll-mt-16 space-y-2 border border-slate-200 p-3.5 rounded-[4px] bg-[#F8FAFC]">
+                      <div class="font-medium text-slate-800 text-xs flex items-center gap-2">
+                        <span class="w-1.5 h-3 bg-[#1C6EFF] rounded-full inline-block"></span>
+                        <span>1.2 应用视角分析 (公网路径与探测对照)</span>
+                      </div>
+
+                      <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-[11px]">
+                        <div class="bg-white p-2.5 rounded border border-slate-200 space-y-1.5">
+                          <div class="font-medium text-slate-800 flex justify-between">
+                            <span>POP 到飞书公网路径探测</span>
+                            <span class="text-emerald-600">🟢 正常</span>
+                          </div>
+                          <div class="space-y-1 text-slate-500 font-mono">
+                            <div>真实访问 RTT: 48 ms (基线 50ms)</div>
+                            <div>丢包率: 0.1% | 抖动: 3ms</div>
+                            <div>探测节点: 新加坡 POP 拨测节点</div>
+                          </div>
+                        </div>
+                        <div class="bg-white p-2.5 rounded border border-slate-200 space-y-1.5">
+                          <div class="font-medium text-slate-800 flex justify-between">
+                            <span>POP 到 Office 365 路径探测</span>
+                            <span class="text-emerald-600">🟢 正常</span>
+                          </div>
+                          <div class="space-y-1 text-slate-500 font-mono">
+                            <div>真实访问 RTT: 52 ms (基线 55ms)</div>
+                            <div>丢包率: 0.1% | 抖动: 4ms</div>
+                            <div>探测节点: 马尼拉 POP 拨测节点</div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- 💡 应用视角分析核心结论 (按批注精简为3点结构化结论) -->
+                      <div class="bg-blue-50/60 p-3 rounded border border-blue-100/60 text-[11px] text-[#1E40AF] space-y-1.5">
+                        <div class="font-bold flex items-center gap-1.5 text-[#1C6EFF]">
+                          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                          <span>应用视角分析结论：</span>
+                        </div>
+                        <ul class="space-y-1 text-slate-700 leading-relaxed font-normal">
+                          <li><span class="font-semibold text-slate-900">1. 用户覆盖及体验：</span>在此时间段内共有 <span class="font-semibold text-slate-900">120 名用户</span> 访问此应用，其中 <span class="font-semibold text-rose-600">38 人体验差</span>、<span class="font-semibold text-amber-600">12 人体验一般</span>、<span class="font-semibold text-emerald-600">70 人体验正常</span>。</li>
+                          <li><span class="font-semibold text-slate-900">2. 访问差共性特征：</span>体验差的用户高度集中于 <span class="font-semibold text-slate-900">同一出口 IP (203.177.12.8 / 马尼拉办公室)</span>，且均通过 <span class="font-semibold text-slate-900">马尼拉 POP 节点</span> 接入。</li>
+                          <li><span class="font-semibold text-slate-900">3. 定性结论：</span><span class="font-semibold text-[#1C6EFF]">应用节点及公网路径探测正常（排除 SaaS 厂商服务端责任）</span>，判定存在 <span class="font-semibold text-rose-600">同一分支/出口 IP 群体性业务受损</span> 的可能性。</li>
+                        </ul>
+                      </div>
+                    </div>
+<!-- 1.3 群体分析 -->
+                    <div id="sec-impact-group" class="scroll-mt-16 space-y-2 border border-slate-200 p-3.5 rounded-[4px] bg-[#F8FAFC]">
+                      <div class="font-medium text-slate-800 text-xs flex items-center gap-2">
+                        <span class="w-1.5 h-3 bg-[#1C6EFF] rounded-full inline-block"></span>
+                        <span>1.3 群体分析 (同出口 IP 聚合与扩散)</span>
+                      </div>
+
+                      <!-- 群体统计 Indicator Cards -->
+                      <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-[11px]">
+                        <div class="bg-white p-2.5 rounded border border-slate-200">
+                          <span class="text-slate-500 block">全网飞书有效用户统计</span>
+                          <div class="text-slate-700 text-sm mt-0.5">120 人有效 / <span class="text-rose-600">38 人异常</span></div>
+                          <span class="text-[10px] text-slate-400 block mt-0.5">全网异常率 31.7%</span>
+                        </div>
+                        <div class="bg-white p-2.5 rounded border border-blue-100 bg-blue-50/20">
+                          <span class="text-slate-500 block">出口 IP 203.177.12.8 聚合</span>
+                          <div class="text-[#1C6EFF] text-sm mt-0.5">46 人有效 / <span class="text-rose-600">34 人异常</span></div>
+                          <span class="text-[10px] text-[#1C6EFF] block mt-0.5">异常集中度 73.9% (34/46)</span>
+                        </div>
+                        <div class="bg-white p-2.5 rounded border border-slate-200">
+                          <span class="text-slate-500 block">多应用双重受损统计</span>
+                          <div class="text-slate-700 text-sm mt-0.5">29 人飞书+O365 双差</div>
+                          <span class="text-[10px] text-slate-400 block mt-0.5">占同出口异常用户 85.3%</span>
+                        </div>
+                      </div>
+
+                      <!-- 💡 群体分析核心结论 (按批注精简为2点结构化结论) -->
+                      <div class="bg-blue-50/60 p-3 rounded border border-blue-100/60 text-[11px] text-[#1E40AF] space-y-1.5">
+                        <div class="font-bold flex items-center gap-1.5 text-[#1C6EFF]">
+                          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                          <span>群体分析结论：</span>
+                        </div>
+                        <ul class="space-y-1 text-slate-700 leading-relaxed font-normal">
+                          <li><span class="font-semibold text-slate-900">1. 群体识别与共同点：</span>基于应用视角识别到同一时间段有 <span class="font-semibold text-rose-600">38 名用户</span> 访问体验差，其共同点为 <span class="font-semibold text-slate-900">集中于出口 IP 203.177.12.8 (马尼拉办公室，占 73.9%)</span> 且 <span class="font-semibold text-rose-600">29 人呈现多应用双重受损</span>。</li>
+                          <li><span class="font-semibold text-slate-900">2. 定段与定点结论：</span><span class="font-semibold text-[#1C6EFF]">问题定位为客户端到 POP 隧道分段异常（私网 Hop2 丢包抖动）与 POP 节点处理异常（点异常：命中 10Gbps 限流）</span>。</li>
+                        </ul>
+                      </div>
+                    </div>
+
+                    <!-- 1.4 事件关联 -->
+                    <div id="sec-impact-event" class="scroll-mt-16 space-y-2 border border-slate-200 p-3.5 rounded-[4px] bg-[#F8FAFC]">
+                      <div class="font-medium text-slate-800 text-xs flex items-center gap-2">
+                        <span class="w-1.5 h-3 bg-[#1C6EFF] rounded-full inline-block"></span>
+                        <span>1.4 事件关联 (DEM 聚类告警链条)</span>
+                      </div>
+
+                      <div class="bg-amber-50/60 border border-amber-100 p-3 rounded text-[11px] space-y-1.5 text-amber-900">
+                        <div class="flex items-center justify-between">
+                          <span class="font-medium flex items-center gap-1.5">
+                            <svg class="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                            <span>关联告警: SASE 平台马尼拉 POP 租户 10Gbps 限流告警</span>
+                          </span>
+                          <span class="px-2 py-0.2 bg-amber-100 text-amber-800 rounded font-mono">ALT-20260717-011</span>
+                        </div>
+                        <p class="leading-relaxed text-slate-600">
+                          在 10:00:05 触发“【高危】马尼拉 POP 节点租户入站流量达到 10.4Gbps，命中 10Gbps 限流上限”告警，告警触发时间与 Maria 报障时间 (10:00) 完美重合，确认限流是引起丢包卡顿的关键促发点。
+                        </p>
+                      </div>
+                    </div>
+                    </div>
+
+              <!-- Tab 2 内容：用户视角分析 (完整复刻 DEM-用户详情 核心内容) -->
+              <div x-show="detailReportTab === 'user'" class="space-y-3" x-cloak>
+                
+                <!-- 顶部用户卡片 -->
+                <div class="bg-white border border-[#E1E5EB] p-3.5 rounded-[4px] shadow-2xs flex items-center justify-between flex-wrap gap-4">
+                  <!-- 用户基础信息区 -->
+                  <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-[#1C6EFF] text-white flex items-center justify-center font-semibold text-sm font-outfit shadow-xs shrink-0" x-text="userDetail.userName ? userDetail.userName.charAt(0) : '用'"></div>
+                    <div class="flex flex-col justify-center">
+                      <div class="flex items-center gap-2">
+                        <span class="text-sm font-semibold text-[#2F3540]" x-text="userDetail.userName"></span>
+                      </div>
+                      <span class="text-xs text-[#5C6270] mt-0.5" x-text="userDetail.userDept"></span>
                     </div>
                   </div>
 
-                  <div class="border border-slate-200 p-3.5 rounded space-y-2 text-xs">
-                    <div class="font-bold text-slate-900">② 关键证据与对比证据对照表</div>
-                    <div class="overflow-x-auto">
-                      <table class="dem-table">
-                        <thead><tr><th>链路指标项</th><th>当前排障实测值</th><th>历史正常基线</th><th>对比结论 / 举证判断</th></tr></thead>
-                        <tbody class="text-[11px]">
-                          <tr><td class="font-semibold">小包 PING 丢包率 (64B)</td><td class="text-amber-600 font-mono font-bold">1.2%</td><td class="font-mono text-slate-500">0.05%</td><td>小包轻微受损，物理链路未完全断开</td></tr>
-                          <tr><td class="font-semibold">大包 ICMP 丢包率 (1450B)</td><td class="text-red-600 font-mono font-bold">14.2%</td><td class="font-mono text-slate-500">0.10%</td><td class="text-red-700 font-medium">极高丢包，匹配 MTU 分片与专线出口带宽瓶颈特征</td></tr>
-                          <tr><td class="font-semibold">端到端往返延时 RTT</td><td class="text-red-600 font-mono font-bold">240 ms</td><td class="font-mono text-slate-500">35 ms</td><td>延时飙升 6.8 倍，专线队列积压严重</td></tr>
-                          <tr><td class="font-semibold">同 POP 其他应用丢包率</td><td class="text-emerald-600 font-mono font-bold">0.08%</td><td class="font-mono text-slate-500">0.08%</td><td class="text-emerald-700">常规应用走国内 POP 选路无异常，排除运营商总干线断纤</td></tr>
-                        </tbody>
-                      </table>
+                  <!-- 右侧应用统计数据 -->
+                  <div class="flex items-center gap-6 text-xs select-none">
+                    <div class="flex flex-col items-end">
+                      <span class="text-[#6F7785]">共访问应用数</span>
+                      <span class="text-base font-bold text-[#2F3540] font-outfit mt-0.5" x-text="userDetail.totalApps + ' 个'"></span>
                     </div>
-                  </div>
-
-                  <div class="border border-slate-200 p-3.5 rounded space-y-2 text-xs">
-                    <div class="font-bold text-slate-900">③ 责任判定与归因总结</div>
-                    <div class="bg-red-50/60 p-3 rounded border border-red-200 text-[11px] text-red-900 leading-relaxed">
-                      <b>归因结论：</b>经过五段拓扑碰撞与大包/小包对照，排除了客户端 Wi-Fi、局域网及 Harbor 应用后端服务器问题。<b>确定故障原因为：SD-WAN 跨境专线出口 Node-SH-02 遭遇突发大文件/镜像拉取流量倾挤，导致大包丢包率达到 14.2%，责任属于【SD-WAN 跨境专线与选路路由】侧。</b>
-                    </div>
-                  </div>
-
-                  <div class="border border-slate-200 p-3.5 rounded space-y-2 text-xs">
-                    <div class="font-bold text-slate-900">④ 处置建议与验证步骤</div>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-[11px]">
-                      <div class="p-2.5 bg-emerald-50/70 border border-emerald-200 rounded"><span class="font-bold text-emerald-800 block mb-1">步骤 1: 避障引流</span><p class="text-slate-700">系统已下发 QoS 策略，建议运维组一键引流至 华东-上海POP02 备用线路。</p></div>
-                      <div class="p-2.5 bg-blue-50/70 border border-blue-200 rounded"><span class="font-bold text-[#1C6EFF] block mb-1">步骤 2: 镜像拉取限速</span><p class="text-slate-700">对 Harbor 大包拉取设置并发上限，避免冲击跨境专线 QoS 保障队列。</p></div>
-                      <div class="p-2.5 bg-slate-50 border border-slate-200 rounded"><span class="font-bold text-slate-800 block mb-1">步骤 3: 效果验证</span><p class="text-slate-700">引流后观察张伟等人的大包丢包率是否回落至 &lt; 0.5%，RTT &lt; 45ms。</p></div>
+                    <div class="h-7 w-[1px] bg-[#E1E5EB]"></div>
+                    <div class="flex items-center gap-3">
+                      <div class="flex items-center gap-1.5 bg-[#12A679]/10 px-2 py-1 rounded-[2px]">
+                        <span class="w-2 h-2 rounded-full bg-[#12A679]"></span>
+                        <span class="text-[#5C6270]">正常：</span>
+                        <span class="font-bold text-[#12A679] font-outfit" x-text="userDetail.normalApps"></span>
+                      </div>
+                      <div class="flex items-center gap-1.5 bg-[#FA721B]/10 px-2 py-1 rounded-[2px]">
+                        <span class="w-2 h-2 rounded-full bg-[#FA721B]"></span>
+                        <span class="text-[#5C6270]">一般：</span>
+                        <span class="font-bold text-[#FA721B] font-outfit" x-text="userDetail.fairApps"></span>
+                      </div>
+                      <div class="flex items-center gap-1.5 bg-[#D9363E]/10 px-2 py-1 rounded-[2px]">
+                        <span class="w-2 h-2 rounded-full bg-[#D9363E]"></span>
+                        <span class="text-[#5C6270]">体验差：</span>
+                        <span class="font-bold text-[#D9363E] font-outfit" x-text="userDetail.poorApps"></span>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            </div>
-          </div>
+
+                <!-- 核心下钻两栏布局 -->
+                <div class="flex gap-3 min-h-[520px]">
+
+                  <!-- 左侧收起状态下的固定占位小竖条 -->
+                  <div x-show="isLeftPanelCollapsed" x-cloak
+                       class="w-8 min-w-[32px] bg-white border border-[#E1E5EB] flex flex-col items-center py-2 shrink-0 shadow-2xs select-none transition-all duration-300 rounded-[4px]">
+                    <button @click="isLeftPanelCollapsed = false" title="展开应用列表"
+                            class="w-6 h-7 rounded flex items-center justify-center text-[#5C6270] hover:text-[#1C6EFF] hover:bg-[#F0F6FF] transition-colors cursor-pointer">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"></path></svg>
+                    </button>
+                  </div>
+                  
+                  <!-- 左侧: 访问应用体验情况分布列表 -->
+                  <div x-show="!isLeftPanelCollapsed"
+                       class="w-[290px] min-w-[290px] bg-white border border-[#E1E5EB] rounded-[4px] flex flex-col shrink-0 overflow-hidden shadow-2xs transition-all duration-300">
+                    <div class="p-3 border-b border-[#E1E5EB] flex items-center justify-between bg-[#F8FAFC]">
+                      <span class="text-xs font-semibold text-[#2F3540]">访问应用列表</span>
+                      <div class="flex items-center gap-1.5">
+                        <select x-model="appFilter" class="dem-select text-xs w-[120px] bg-white h-7 py-0">
+                          <option value="degraded">仅展示体验受损</option>
+                          <option value="all">展示全部应用</option>
+                        </select>
+                        <button @click="isLeftPanelCollapsed = true" title="向左收起应用列表"
+                                class="w-6 h-6 rounded flex items-center justify-center text-[#5C6270] hover:text-[#1C6EFF] hover:bg-[#EFF6FF] transition-colors cursor-pointer shrink-0">
+                          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7"></path></svg>
+                        </button>
+                      </div>
+                    </div>
+
+                    <!-- 应用卡片列表 -->
+                    <div class="flex-1 overflow-y-auto custom-scrollbar divide-y divide-[#F0F2F5] max-h-[460px]">
+                      <template x-for="app in filteredApps" :key="app.id">
+                        <div class="p-3 cursor-pointer app-card-item relative transition-colors"
+                             :class="activeAppId === app.id ? 'active bg-[#F0F6FF] border-l-3 border-l-[#1C6EFF]' : 'hover:bg-[#F8FAFC]'"
+                             @click="selectApp(app)">
+                          <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-1.5">
+                              <span class="text-xs font-semibold text-[#2F3540]" x-text="app.name"></span>
+                              <template x-if="userDetail.reportedAppId === app.id">
+                                <span class="px-1.5 py-0.2 bg-rose-100 text-rose-700 text-[9px] rounded font-medium border border-rose-200">本次报障</span>
+                              </template>
+                            </div>
+                            <span class="inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] font-normal"
+                                  :class="app.experience === '差' ? 'bg-[#D9363E]/10 text-[#D9363E]' : (app.experience === '一般' ? 'bg-[#FA721B]/10 text-[#FA721B]' : 'bg-[#12A679]/10 text-[#12A679]')">
+                              <span class="w-1.5 h-1.5 rounded-full mr-1"
+                                    :class="app.experience === '差' ? 'bg-[#D9363E]' : (app.experience === '一般' ? 'bg-[#FA721B]' : 'bg-[#12A679]')"></span>
+                              <span x-text="'体验：' + app.experience"></span>
+                            </span>
+                          </div>
+                          <div class="mt-1.5 text-[11px] text-[#6F7785] truncate font-mono" x-text="app.domain"></div>
+                          <div class="mt-1.5 flex items-center justify-between">
+                            <span class="text-[10px] text-[#5C6270] bg-[#6F7785]/10 px-1.5 py-0.5 rounded-[2px]" x-text="app.tag"></span>
+                          </div>
+                        </div>
+                      </template>
+                    </div>
+                  </div>
+
+                  <!-- 右侧: 当前选中应用的体验差详情展示面板 -->
+                  <div x-ref="detailScrollPanel" class="flex-1 flex flex-col space-y-3 min-w-0 overflow-y-auto custom-scrollbar max-h-[560px] pr-1">
+                    
+                    <!-- 采样时间线与异常切片示例 -->
+                    <div class="bg-white border border-[#E1E5EB] p-3.5 rounded-[4px] shadow-2xs flex-shrink-0 flex flex-col space-y-3">
+                      <div class="flex items-center justify-between border-b border-[#E1E5EB] pb-2">
+                        <div class="flex items-center gap-3">
+                          <span class="text-xs font-semibold text-[#2F3540]">访问体验异常切片示例：</span>
+                          <div class="flex items-center gap-2">
+                            <template x-for="slice in (currentApp.slices || [])" :key="slice.id">
+                              <button @click="selectSlice(slice)"
+                                      class="px-2.5 py-0.5 text-xs rounded-[2px] transition-all cursor-pointer select-none font-normal"
+                                      :class="activeSliceId === slice.id ? 'bg-[#EFF6FF] text-[#1C6EFF] border border-[#1C6EFF] font-medium' : 'bg-white text-[#5C6270] border border-[#D3D7DE] hover:border-[#1C6EFF]'">
+                                <span x-text="slice.name"></span>
+                                <span class="text-[10px] ml-1 opacity-75 font-mono" x-text="'(' + slice.time + ')'"></span>
+                              </button>
+                            </template>
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- 100个采样点柱状图 -->
+                      <div class="bg-[#F8FAFC] p-3 rounded-[2px] relative flex flex-col border border-slate-200">
+                        <div class="h-10 flex items-center justify-between gap-[2px] px-1 relative">
+                          <template x-for="(pt, idx) in samplePoints" :key="pt.id">
+                            <div class="flex-1 flex flex-col items-center justify-center h-full cursor-pointer timeline-bar-wrapper relative group"
+                                 @mouseenter="hoveredSampleIdx = idx"
+                                 @mouseleave="hoveredSampleIdx = null"
+                                 @click="selectSamplePoint(idx)">
+                              <!-- Tooltip -->
+                              <div x-show="hoveredSampleIdx === idx"
+                                   x-transition:enter="transition ease-out duration-150"
+                                   x-transition:enter-start="opacity-0 translate-y-1 scale-95"
+                                   x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+                                   class="absolute -top-12 left-1/2 -translate-x-1/2 bg-[#1E293B] text-white text-[10px] px-2 py-1 rounded shadow-lg whitespace-nowrap z-30 pointer-events-none" x-cloak>
+                                <div class="font-mono" x-text="pt.time"></div>
+                                <div class="flex items-center gap-1 mt-0.5">
+                                  <span>TTFB:</span>
+                                  <span class="font-outfit" x-text="pt.ttfb + 'ms'"></span>
+                                  <span :class="pt.experience === '差' ? 'text-[#D9363E]' : (pt.experience === '一般' ? 'text-amber-400' : 'text-emerald-400')" x-text="'(' + pt.experience + ')'"></span>
+                                </div>
+                              </div>
+                              <div class="w-full h-full rounded-[1px] relative transition-all duration-200"
+                                   :class="{
+                                     'bg-[#12A679]': pt.experience === '正常',
+                                     'bg-[#FA721B]': pt.experience === '一般',
+                                     'bg-[#D9363E]': pt.experience === '差',
+                                     'ring-2 ring-[#D9363E] selected-bar-glow z-20 scale-y-105': selectedSampleIdx === idx
+                                   }">
+                                <template x-if="selectedSampleIdx === idx">
+                                  <div class="absolute -top-2 left-1/2 -translate-x-1/2 text-[#D9363E] text-[9px] leading-none pointer-events-none">▼</div>
+                                </template>
+                              </div>
+                            </div>
+                          </template>
+                        </div>
+                        <div class="flex items-center justify-between text-[10px] text-[#6F7785] mt-1.5 px-1 border-t border-[#E1E5EB] pt-1 font-mono">
+                          <span>08:00</span>
+                          <span>10:00</span>
+                          <span>12:00</span>
+                          <span class="text-[#D9363E] font-medium" x-text="currentSlice.time + ' (当前切片时刻)'"></span>
+                          <span>16:00</span>
+                        </div>
+                        <div class="mt-2 bg-white border border-[#D3D7DE] px-3 py-1.5 rounded-[2px] flex items-center justify-between text-xs select-none shadow-2xs">
+                          <div class="flex items-center gap-5 text-[11px]">
+                            <div><span class="text-[#6F7785]">选中时间：</span><span class="text-[#2F3540] font-mono font-medium" x-text="currentSlice.time || '15:20'"></span></div>
+                            <div><span class="text-[#6F7785]">拓扑范围：</span><span class="text-[#2F3540] font-mono" x-text="currentSlice.range || '15:15~15:20'"></span></div>
+                            <div><span class="text-[#6F7785]">成功率：</span><span class="font-outfit text-[#2F3540]" x-text="currentSlice.successRate || '94.8%'"></span></div>
+                          </div>
+                          <div class="flex items-center gap-1.5 text-[11px]">
+                            <span class="text-[#6F7785]">评估状态：</span>
+                            <span class="inline-flex items-center gap-1 text-xs font-normal" :class="currentSlice.status === '异常' ? 'text-[#D9363E]' : 'text-[#12A679]'">
+                              <span class="w-1.5 h-1.5 rounded-full" :class="currentSlice.status === '异常' ? 'bg-[#D9363E]' : 'bg-[#12A679]'"></span>
+                              <span x-text="currentSlice.status || '异常'"></span>
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- 访问链路 + 五段拓扑图 -->
+                    <div class="bg-white border border-[#E1E5EB] p-3.5 rounded-[4px] shadow-2xs flex-shrink-0 flex flex-col space-y-3">
+                      <div class="flex items-center justify-between text-xs">
+                        <div class="flex items-center gap-2">
+                          <span class="font-semibold text-[#2F3540]">访问链路五段物理拓扑</span>
+                          <span class="text-[11px] text-[#6F7785]">（点击节点或链路段可联动高亮手风琴指标）</span>
+                        </div>
+                        <span class="text-xs text-[#6F7785]" x-text="currentApp.name + ' · 联动时刻 ' + currentSlice.time"></span>
+                      </div>
+
+                      <!-- 拓扑图卡片 -->
+                      <div class="bg-[#F8FAFC] p-4 rounded-[2px] border border-slate-200 flex items-center justify-around relative">
+                        <!-- 节点 1: 终端 -->
+                        <div class="flex flex-col items-center text-center topo-clickable z-10 group" @click="clickTopologyItem('node', 'node_terminal')">
+                          <div class="w-10 h-10 rounded-full bg-white border-2 border-[#12A679] flex items-center justify-center shadow-2xs group-hover:border-[#1C6EFF]">
+                            <svg class="w-4 h-4 text-[#12A679]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                          </div>
+                          <span class="text-[11px] font-medium text-[#2F3540] mt-1" x-text="currentSlice.topology?.client?.name || 'ThinkPad X1'"></span>
+                          <span class="inline-flex items-center gap-1 text-[9px] text-[#12A679]">🟢 正常</span>
+                        </div>
+
+                        <!-- 链路段 1: 终端 ➔ POP -->
+                        <div class="flex-1 mx-2 flex flex-col items-center topo-clickable group" @click="clickTopologyItem('segment', currentSlice.topology?.segment1?.targetId || 'seg_client_pop')">
+                          <div class="w-5 h-5 rounded-full flex items-center justify-center mb-0.5 text-[10px]"
+                               :class="currentSlice.topology?.segment1?.status === '异常' ? 'bg-[#D9363E]/10 text-[#D9363E] border border-[#D9363E]' : 'bg-[#12A679]/10 text-[#12A679] border border-[#12A679]'">⚡</div>
+                          <div class="w-full flex flex-col items-center">
+                            <span class="text-[10px] font-mono" :class="currentSlice.topology?.segment1?.status === '异常' ? 'text-[#D9363E] font-medium' : 'text-[#5C6270]'" x-text="'RTT ' + (currentSlice.topology?.segment1?.delay || '20ms') + ' 丢包 ' + (currentSlice.topology?.segment1?.loss || '0.1%')"></span>
+                            <div class="w-full h-[2px] relative my-1" :class="currentSlice.topology?.segment1?.status === '异常' ? 'bg-[#D9363E]' : 'bg-[#12A679]'"></div>
+                          </div>
+                        </div>
+
+                        <!-- 节点 2: POP -->
+                        <div class="flex flex-col items-center text-center topo-clickable z-10 group" @click="clickTopologyItem('node', 'node_pop')">
+                          <div class="w-10 h-10 rounded-full bg-white border-2 border-[#12A679] flex items-center justify-center shadow-2xs group-hover:border-[#1C6EFF]">
+                            <span class="text-xs font-bold text-[#12A679]">POP</span>
+                          </div>
+                          <span class="text-[11px] font-medium text-[#2F3540] mt-1" x-text="currentSlice.topology?.pop?.name || 'POP节点'"></span>
+                          <span class="inline-flex items-center gap-1 text-[9px] text-[#12A679]">🟢 正常</span>
+                        </div>
+
+                        <!-- 链路段 2: POP ➔ 连接器 -->
+                        <div class="flex-1 mx-2 flex flex-col items-center topo-clickable group" @click="clickTopologyItem('segment', currentSlice.topology?.segment2?.targetId || 'seg_pop_gw')">
+                          <div class="w-5 h-5 rounded-full flex items-center justify-center mb-0.5 text-[10px]"
+                               :class="currentSlice.topology?.segment2?.status === '异常' ? 'bg-[#D9363E]/10 text-[#D9363E] border border-[#D9363E]' : 'bg-[#12A679]/10 text-[#12A679] border border-[#12A679]'">🔗</div>
+                          <div class="w-full flex flex-col items-center">
+                            <span class="text-[10px] font-mono" :class="currentSlice.topology?.segment2?.status === '异常' ? 'text-[#D9363E] font-medium' : 'text-[#5C6270]'" x-text="'RTT ' + (currentSlice.topology?.segment2?.delay || '120ms') + ' 丢包 ' + (currentSlice.topology?.segment2?.loss || '5.0%')"></span>
+                            <div class="w-full h-[2px] relative my-1" :class="currentSlice.topology?.segment2?.status === '异常' ? 'bg-[#D9363E]' : 'bg-[#12A679]'"></div>
+                          </div>
+                        </div>
+
+                        <!-- 节点 3: GW 连接器 -->
+                        <div class="flex flex-col items-center text-center topo-clickable z-10 group" @click="clickTopologyItem('node', 'node_connector')">
+                          <div class="w-10 h-10 rounded-full bg-white border-2 border-[#12A679] flex items-center justify-center shadow-2xs group-hover:border-[#1C6EFF]">
+                            <span class="text-xs font-bold text-[#12A679]">GW</span>
+                          </div>
+                          <span class="text-[11px] font-medium text-[#2F3540] mt-1" x-text="currentSlice.topology?.gw?.name || '连接器'"></span>
+                          <span class="inline-flex items-center gap-1 text-[9px] text-[#12A679]">🟢 正常</span>
+                        </div>
+
+                        <!-- 链路段 3: 连接器 ➔ 应用 -->
+                        <div class="flex-1 mx-2 flex flex-col items-center topo-clickable group" @click="clickTopologyItem('segment', currentSlice.topology?.segment3?.targetId || 'seg_gw_app')">
+                          <div class="w-5 h-5 rounded-full flex items-center justify-center mb-0.5 text-[10px]"
+                               :class="currentSlice.topology?.segment3?.status === '异常' ? 'bg-[#D9363E]/10 text-[#D9363E] border border-[#D9363E]' : 'bg-[#12A679]/10 text-[#12A679] border border-[#12A679]'">🌐</div>
+                          <div class="w-full flex flex-col items-center">
+                            <span class="text-[10px] font-mono" :class="currentSlice.topology?.segment3?.status === '异常' ? 'text-[#D9363E] font-medium' : 'text-[#5C6270]'" x-text="'RTT ' + (currentSlice.topology?.segment3?.delay || '35ms') + ' 丢包 ' + (currentSlice.topology?.segment3?.loss || '0.0%')"></span>
+                            <div class="w-full h-[2px] relative my-1" :class="currentSlice.topology?.segment3?.status === '异常' ? 'bg-[#D9363E]' : 'bg-[#12A679]'"></div>
+                          </div>
+                        </div>
+
+                        <!-- 节点 4: 应用 -->
+                        <div class="flex flex-col items-center text-center topo-clickable z-10 group" @click="clickTopologyItem('node', 'node_app')">
+                          <div class="w-10 h-10 rounded-full bg-white border-2 border-[#D9363E] flex items-center justify-center shadow-2xs group-hover:border-[#1C6EFF]">
+                            <span class="text-xs font-bold text-[#D9363E]">APP</span>
+                          </div>
+                          <span class="text-[11px] font-medium text-[#2F3540] mt-1" x-text="currentSlice.topology?.app?.name || '应用'"></span>
+                          <span class="inline-flex items-center gap-1 text-[9px] text-[#D9363E]">🔴 异常</span>
+                        </div>
+                      </div>
+
+                      <!-- 异常特征释义 -->
+                      <div class="bg-[#F4F6F9] border border-[#E1E5EB] px-3 py-2 rounded-[2px] text-xs text-[#2F3540] flex items-center gap-2">
+                        <span class="font-semibold text-[#1C6EFF]">异常特征释义：</span>
+                        <span x-text="currentApp.abnormalExplain || '给出一句关于异常特征的解释，是什么导致了本次的访问体验差。'"></span>
+                      </div>
+
+                      <!-- 统一链路明细手风琴列表 (完全复刻 DEM-用户详情 的富文本与图表模板) -->
+                      <div class="space-y-2 pt-2 border-t border-[#E1E5EB]">
+                        <template x-for="item in currentSliceDetails" :key="item.id">
+                          <div :id="item.id" 
+                               class="border rounded-[2px] overflow-hidden bg-white transition-all duration-300"
+                               :class="highlightedItemId === item.id ? 'border-[#1C6EFF] ring-2 ring-[#1C6EFF]/40 shadow-md scale-[1.005]' : 'border-[#E1E5EB]'">
+                            
+                            <!-- 手风琴 Header -->
+                            <div @click="toggleItem(item.id)" 
+                                 class="p-2.5 flex items-center justify-between cursor-pointer select-none bg-[#F8FAFC]">
+                              <div class="flex items-center gap-2 text-xs">
+                                <span class="w-2 h-2 rounded-full shrink-0" :class="item.status === '异常' ? 'bg-[#D9363E]' : 'bg-[#12A679]'"></span>
+                                <span class="font-medium text-[#2F3540]" x-text="formatItemName(item.name)"></span>
+                                <span class="text-[10px] text-[#A1A7B3] px-1.5 py-0.2 bg-[#6F7785]/10 rounded" x-text="item.itemType === 'segment' ? '链路段' : '节点'"></span>
+                              </div>
+                              <div class="flex items-center gap-2">
+                                <span class="px-1.5 py-0.2 text-[10px] rounded" :class="item.status === '异常' ? 'bg-rose-50 text-rose-600 border border-rose-100' : 'bg-emerald-50 text-emerald-600 border border-emerald-100'" x-text="item.status"></span>
+                                <svg class="w-4 h-4 text-[#A1A7B3] transition-transform duration-200" :class="isItemOpen(item.id) ? 'rotate-180 text-[#1C6EFF]' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                              </div>
+                            </div>
+
+                            <!-- 手风琴 Body -->
+                            <div x-show="isItemOpen(item.id)" x-collapse>
+                              <div class="p-3.5 bg-[#FAFCFF] space-y-3">
+                                
+                                <!-- 1. 终端-POP段 (seg_client_pop) 定责对比视图 -->
+                                <template x-if="item.id === 'seg_client_pop'">
+                                  <div class="space-y-3">
+                                    <!-- 4 大核心指标卡片 -->
+                                    <div class="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+                                      <div class="bg-white border border-[#E1E5EB] p-3 rounded-[2px] shadow-2xs flex flex-col justify-between">
+                                        <span class="text-[11px] text-[#6F7785]">Underlay 时延</span>
+                                        <div class="mt-1 flex items-baseline justify-between">
+                                          <span class="text-xl font-bold font-outfit text-[#FA721B]">85<span class="text-xs ml-0.5 font-normal">ms</span></span>
+                                          <span class="text-[10px] text-[#94A3B8]">基线 28ms</span>
+                                        </div>
+                                      </div>
+                                      <div class="bg-white border border-[#E1E5EB] p-3 rounded-[2px] shadow-2xs flex flex-col justify-between">
+                                        <span class="text-[11px] text-[#6F7785]">Overlay 时延</span>
+                                        <div class="mt-1 flex items-baseline justify-between">
+                                          <span class="text-xl font-bold font-outfit text-[#FA721B]">88<span class="text-xs ml-0.5 font-normal">ms</span></span>
+                                          <span class="text-[10px] text-[#94A3B8]">基线 30ms</span>
+                                        </div>
+                                      </div>
+                                      <div class="bg-white border border-[#E1E5EB] p-3 rounded-[2px] shadow-2xs flex flex-col justify-between">
+                                        <span class="text-[11px] text-[#6F7785]">Underlay 丢包</span>
+                                        <div class="mt-1 flex items-baseline justify-between">
+                                          <span class="text-xl font-bold font-outfit text-[#D9363E]">3.1<span class="text-xs ml-0.5 font-normal">%</span></span>
+                                          <span class="text-[10px] text-[#94A3B8]">&lt;0.3%</span>
+                                        </div>
+                                      </div>
+                                      <div class="bg-white border border-[#E1E5EB] p-3 rounded-[2px] shadow-2xs flex flex-col justify-between">
+                                        <span class="text-[11px] text-[#6F7785]">Overlay 丢包</span>
+                                        <div class="mt-1 flex items-baseline justify-between">
+                                          <span class="text-xl font-bold font-outfit text-[#D9363E]">3.0<span class="text-xs ml-0.5 font-normal">%</span></span>
+                                          <span class="text-[10px] text-[#94A3B8]">&lt;0.3%</span>
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    <!-- 2 个对比图表 + 分段事件 -->
+                                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-3">
+                                      <div class="lg:col-span-2 space-y-3">
+                                        <div class="bg-white border border-[#E1E5EB] p-3 rounded-[2px] shadow-2xs flex flex-col">
+                                          <div class="flex items-center justify-between text-xs mb-2">
+                                            <span class="font-medium text-[#2F3540]">隧道与公网探测时延对比 <span class="text-[11px] text-[#94A3B8] font-normal">(ms)</span></span>
+                                            <div class="flex items-center gap-3 text-[10px] text-[#5C6270]">
+                                              <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-[#1C6EFF]"></span> Underlay</span>
+                                              <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-[#FA721B]"></span> Overlay</span>
+                                              <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-[#06B6D4]"></span> 8.8.8.8</span>
+                                            </div>
+                                          </div>
+                                          <div class="h-28 w-full bg-[#FAFBFD] rounded border border-[#F1F5F9] p-2 relative">
+                                            <svg viewBox="0 0 320 80" class="w-full h-full overflow-visible">
+                                              <line x1="0" y1="20" x2="320" y2="20" stroke="#F1F5F9" stroke-width="1"/>
+                                              <line x1="0" y1="50" x2="320" y2="50" stroke="#F1F5F9" stroke-width="1"/>
+                                              <line x1="0" y1="65" x2="320" y2="65" stroke="#94A3B8" stroke-width="1" stroke-dasharray="4 3"/>
+                                              <polyline fill="none" stroke="#1C6EFF" stroke-width="2" points="0,65 60,65 120,48 180,32 240,18 300,14"/>
+                                              <polyline fill="none" stroke="#FA721B" stroke-width="2" points="0,62 60,62 120,44 180,28 240,14 300,10"/>
+                                              <polyline fill="none" stroke="#06B6D4" stroke-width="2" points="0,65 60,65 120,50 180,35 240,20 300,16"/>
+                                            </svg>
+                                          </div>
+                                        </div>
+                                      </div>
+
+                                      <div class="bg-white border border-[#E1E5EB] p-3 rounded-[2px] shadow-2xs flex flex-col justify-between">
+                                        <div class="text-xs font-semibold text-[#2F3540] pb-2 border-b border-[#F0F2F5]">
+                                          分段事件 · 按发生时间
+                                        </div>
+                                        <div class="mt-2 space-y-2.5 relative pl-4 border-l border-[#E1E5EB] ml-2 text-xs">
+                                          <div class="relative">
+                                            <div class="absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full bg-[#D9363E] ring-4 ring-white"></div>
+                                            <div class="flex items-baseline justify-between">
+                                              <span class="font-mono text-[#6F7785]">09:55</span>
+                                              <span class="font-semibold text-[#2F3540]">Hop 2 LAN</span>
+                                            </div>
+                                            <div class="text-[11px] text-[#D9363E] mt-0.5">丢包 3.0% · 抖动 38ms</div>
+                                          </div>
+                                          <div class="relative">
+                                            <div class="absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full bg-[#1C6EFF] ring-4 ring-white"></div>
+                                            <div class="flex items-baseline justify-between">
+                                              <span class="font-mono text-[#6F7785]">10:00</span>
+                                              <span class="font-semibold text-[#2F3540]">飞书SaaS</span>
+                                            </div>
+                                            <div class="text-[11px] text-[#5C6270] mt-0.5">TTFB 520ms</div>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </template>
+
+                                <!-- 2. POP 节点 (node_pop) 监测视图 -->
+                                <template x-if="item.id === 'node_pop'">
+                                  <div class="space-y-3">
+                                    <div class="flex items-center justify-between border-b border-[#E1E5EB] pb-2">
+                                      <div class="flex items-center gap-2">
+                                        <span class="text-xs font-bold text-[#2F3540]">马尼拉POP</span>
+                                        <span class="px-2 py-0.5 bg-[#EFF6FF] text-[#1C6EFF] text-[10px] rounded-[2px] border border-[#BFDBFE]">平台遥测 + 流量控制</span>
+                                      </div>
+                                    </div>
+                                    <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+                                      <div class="bg-white border border-[#E1E5EB] p-2.5 rounded-[2px] shadow-2xs">
+                                        <span class="text-[11px] text-[#6F7785]">租户入站流量</span>
+                                        <div class="text-base font-bold font-outfit text-[#D9363E] mt-1">10.4<span class="text-xs font-normal">Gbps</span></div>
+                                        <div class="text-[10px] text-[#94A3B8]">上限 10.0Gbps</div>
+                                      </div>
+                                      <div class="bg-white border border-[#E1E5EB] p-2.5 rounded-[2px] shadow-2xs">
+                                        <span class="text-[11px] text-[#6F7785]">平台限流丢包</span>
+                                        <div class="text-base font-bold font-outfit text-[#D9363E] mt-1">2.1%</div>
+                                        <div class="text-[10px] text-[#94A3B8]">基线 0.0%</div>
+                                      </div>
+                                      <div class="bg-white border border-[#E1E5EB] p-2.5 rounded-[2px] shadow-2xs">
+                                        <span class="text-[11px] text-[#6F7785]">转发时延</span>
+                                        <div class="text-base font-bold font-outfit text-[#12A679] mt-1">8ms</div>
+                                        <div class="text-[10px] text-[#94A3B8]">基线 10ms</div>
+                                      </div>
+                                      <div class="bg-white border border-[#E1E5EB] p-2.5 rounded-[2px] shadow-2xs">
+                                        <span class="text-[11px] text-[#6F7785]">转发抖动</span>
+                                        <div class="text-base font-bold font-outfit text-[#12A679] mt-1">2ms</div>
+                                        <div class="text-[10px] text-[#94A3B8]">&lt;5ms</div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </template>
+
+                                <!-- 3. 终端节点 (node_terminal) 遥测趋势视图 -->
+                                <template x-if="item.id === 'node_terminal'">
+                                  <div class="space-y-3">
+                                    <div class="flex items-center justify-between text-xs text-[#5C6270]">
+                                      <p x-text="item.summary || ''"></p>
+                                      <span class="px-2 py-0.5 bg-[#F1F5F9] text-[#64748B] text-[10px] rounded border border-[#E2E8F0]">设备遥测数据</span>
+                                    </div>
+                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-2.5">
+                                      <div class="bg-white border border-[#E1E5EB] p-3 rounded-[2px] shadow-2xs">
+                                        <div class="flex items-center justify-between text-xs mb-1">
+                                          <span class="font-medium text-[#2F3540]">CPU 使用率</span>
+                                          <span class="text-[#1C6EFF] font-outfit font-bold">24.5%</span>
+                                        </div>
+                                      </div>
+                                      <div class="bg-white border border-[#E1E5EB] p-3 rounded-[2px] shadow-2xs">
+                                        <div class="flex items-center justify-between text-xs mb-1">
+                                          <span class="font-medium text-[#2F3540]">内存使用率</span>
+                                          <span class="text-[#8B5CF6] font-outfit font-bold">68.2%</span>
+                                        </div>
+                                      </div>
+                                      <div class="bg-white border border-[#E1E5EB] p-3 rounded-[2px] shadow-2xs">
+                                        <div class="flex items-center justify-between text-xs mb-1">
+                                          <span class="font-medium text-[#2F3540]">WiFi 信号 (RSSI)</span>
+                                          <span class="text-[#06B6D4] font-outfit font-bold">-48dBm</span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </template>
+
+                                <!-- 4. 默认通用视图 (常规链路段与节点) -->
+                                <template x-if="item.id !== 'seg_client_pop' && item.id !== 'node_pop' && item.id !== 'node_terminal'">
+                                  <div class="space-y-3">
+                                    <p class="text-xs text-[#5C6270] leading-relaxed font-medium" x-text="item.summary || ''"></p>
+                                    <template x-if="item.cause">
+                                      <div class="p-2 bg-amber-50/70 border border-amber-200/80 rounded text-[11px] text-amber-900">
+                                        <span class="font-bold">推导根因：</span><span x-text="item.cause"></span>
+                                      </div>
+                                    </template>
+                                    <template x-if="item.metrics && item.metrics.length">
+                                      <div class="overflow-x-auto border border-slate-200 rounded bg-white mt-2">
+                                        <table class="dem-table w-full text-[11px]">
+                                          <thead><tr><th>指标名称</th><th>当前值</th><th>基线/参考值</th><th>状态判定</th></tr></thead>
+                                          <tbody>
+                                            <template x-for="(m, mIdx) in item.metrics" :key="mIdx">
+                                              <tr>
+                                                <td class="text-slate-700" x-text="m.label"></td>
+                                                <td class="font-mono font-medium" :class="m.isAbnormal ? 'text-rose-600 font-bold' : 'text-slate-900'" x-text="m.value"></td>
+                                                <td class="font-mono text-slate-500" x-text="m.baseline || '-'"></td>
+                                                <td>
+                                                  <span class="px-1.5 py-0.2 rounded text-[10px]" :class="m.isAbnormal ? 'bg-rose-50 text-rose-600 border border-rose-100' : 'bg-emerald-50 text-emerald-600 border border-emerald-100'" x-text="m.isAbnormal ? '🔴 异常' : '🟢 正常'"></span>
+                                                </td>
+                                              </tr>
+                                            </template>
+                                          </tbody>
+                                        </table>
+                                      </div>
+                                    </template>
+                                  </div>
+                                </template>
+
+                              </div>
+                            </div>
+                          </div>
+                        </template>
+                      </div>
+                    </div>
+
+                  </div>
+                </div>
+
+              </div><!-- end Tab 2 用户视角分析 -->
+
+              <!-- Tab 3 内容：应用视角分析 (暂空占位) -->
+              <div x-show="detailReportTab === 'app'" class="space-y-4" x-cloak>
+                <div class="bg-white border border-slate-200 rounded-[4px] p-12 text-center flex flex-col items-center justify-center space-y-3">
+                  <div class="w-14 h-14 rounded-full bg-blue-50 text-[#1C6EFF] flex items-center justify-center">
+                    <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+                    </svg>
+                  </div>
+                  <div class="space-y-1">
+                    <h4 class="text-sm font-semibold text-slate-800">应用视角分析面板</h4>
+                    <p class="text-xs text-slate-500 max-w-sm">该模块正在规划开发中，后续支持按应用维度聚合全网访问质量、SaaS/API 接口健康度及单应用故障排查。</p>
+                  </div>
+                  <div class="pt-2">
+                    <span class="px-3 py-1 bg-slate-100 text-slate-500 rounded text-[11px] font-mono">Status: Planned / Phase 2</span>
+                  </div>
+                </div>
+              </div><!-- end Tab 3 应用视角分析 -->
+
+            </div><!-- end 容器二：下方详细分析 -->
 
         </div><!-- end 主体滚动区 -->
 
@@ -735,7 +1284,7 @@
               <template x-for="item in filteredHistory" :key="item.id">
                 <div class="bg-white border border-[#E2E8F0] hover:border-[#1C6EFF] p-3 rounded shadow-2xs transition-all space-y-2">
                   <div class="flex items-center justify-between">
-                    <span class="px-1.5 py-0.2 bg-blue-100 text-[#1C6EFF] text-[10px] font-bold rounded" x-text="item.domain"></span>
+                    <span class="px-1.5 py-0.5 bg-rose-50 text-rose-600 text-[10px] font-medium rounded border border-rose-100" x-text="item.domain"></span>
                     <span class="text-[11px] text-slate-400 font-mono" x-text="item.time"></span>
                   </div>
                   <p class="text-xs text-slate-800 font-medium leading-relaxed" x-text="item.prompt"></p>
@@ -745,7 +1294,7 @@
                   </div>
                   <div class="flex items-center justify-between pt-1 text-[11px]">
                     <span class="text-emerald-600 font-medium" x-text="`状态: ${item.status}`"></span>
-                    <button @click="loadHistoryItem(item)" class="px-2.5 py-1 bg-[#1C6EFF] hover:bg-[#0056EB] text-white rounded text-[11px] font-medium cursor-pointer transition-colors">载入排障结果</button>
+                    <button @click="loadHistoryItem(item)" class="px-2.5 py-1 bg-[#1C6EFF] hover:bg-[#0056EB] text-white rounded text-[11px] font-medium cursor-pointer transition-colors">查看排障报告</button>
                   </div>
                 </div>
               </template>
@@ -817,12 +1366,40 @@
         isAnalyzing: false, analysisStep: 0, analysisResult: null,
         agentWarningMessage: '',
         showDetailedReport: false,
-        activeReportTab: 'impact',
+        isSummaryCollapsed: false,
+        detailReportTab: 'user',
+        activeReportTab: 'user',
+        activeAnchor: 'impact-user',
+        isImpactExpanded: true,
+        isTroubleshootExpanded: true,
         showHistoryDrawer: false, historySearchQuery: '',
+
+        scrollToAnchor(id) {
+          this.activeAnchor = id;
+          if (id.startsWith('impact')) {
+            this.isImpactExpanded = true;
+          } else if (id.startsWith('loc')) {
+            this.isTroubleshootExpanded = true;
+          }
+          this.$nextTick(() => {
+            const el = document.getElementById(`sec-${id}`);
+            if (el) {
+              const scrollParent = el.closest('.overflow-y-auto') || document.documentElement;
+              if (scrollParent === document.documentElement || scrollParent === document.body) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              } else {
+                const parentRect = scrollParent.getBoundingClientRect();
+                const elRect = el.getBoundingClientRect();
+                const targetScrollTop = scrollParent.scrollTop + (elRect.top - parentRect.top) - 12;
+                scrollParent.scrollTo({ top: targetScrollTop, behavior: 'smooth' });
+              }
+            }
+          });
+        },
         troubleshootHistory: [
-          { id: 'H1001', time: '2026-06-04 14:22', prompt: '示例：今天 14:20，研发中心 VIP 用户张伟 (zhangwei) 反馈在访问 Harbor 镜像仓库拉取基础镜像时，出现频繁连接超时与 4.2% 的丢包卡顿现象', dateShortcut: '今天', domain: '跨境/POP选路瓶颈', status: '已定位', summary: 'SD-WAN 跨境专线出口瓶颈 (Node-SH-02 丢包率 14.2%, 延迟 >180ms)' },
-          { id: 'H1002', time: '2026-06-04 11:15', prompt: '示例：2026-06-04 10:30，上海分公司与苏州研发办多名员工均反馈访问内网 GitLab 提交代码与销售 CRM 构建迟钝', dateShortcut: '今天', domain: '分支连接器丢包', status: '已定位', summary: 'POP-连接器隧道丢包 (上海连接器 01 CPU 89%, 丢包率 8.6%)' },
-          { id: 'H1003', time: '2026-06-03 16:40', prompt: '示例：今天 10:15，广州分公司 HR 部多名员工反馈在进行 SaaS 飞书多人视频会议时连通性偶发中断', dateShortcut: '近3天', domain: '终端 Wi-Fi 抖动', status: '已定位', summary: '终端 Wi-Fi 信号衰减与信道干扰 (RSSI -78dBm, 丢包率 5.1%)' },
+          { id: 'H1001', time: '2026-08-04 10:15', prompt: '示例：今天 10:00，Digiplus 马尼拉办公室 Maria 及多名员工反馈飞书打开文档与上传附件很慢，Office 365 打开文件也很慢', dateShortcut: '今天', domain: '客户端隧道与平台限流', status: '已定位', summary: '客户端到POP隧道质量下降与SASE平台租户10Gbps限流 (马尼拉出口 203.177.12.8 下 34 人受影响)' },
+          { id: 'H1002', time: '2026-06-04 14:22', prompt: '示例：今天 14:20，研发中心 VIP 用户张伟 (zhangwei) 反馈在访问 Harbor 镜像仓库拉取基础镜像时，出现频繁连接超时与 4.2% 的丢包卡顿现象', dateShortcut: '今天', domain: '跨境/POP选路瓶颈', status: '已定位', summary: 'SD-WAN 跨境专线出口瓶颈 (Node-SH-02 丢包率 14.2%, 延迟 >180ms)' },
+          { id: 'H1003', time: '2026-06-04 11:15', prompt: '示例：2026-06-04 10:30，上海分公司与苏州研发办多名员工均反馈访问内网 GitLab 提交代码与销售 CRM 构建迟钝', dateShortcut: '今天', domain: '分支连接器丢包', status: '已定位', summary: 'POP-连接器隧道丢包 (上海连接器 01 CPU 89%, 丢包率 8.6%)' },
           { id: 'H1004', time: '2026-06-02 09:30', prompt: '北京总部 财务部多人反馈 CRM 系统页面加载缓慢且数据报表导出失败', dateShortcut: '近7天', domain: '应用后端性能', status: '已定位', summary: 'CRM 后端数据库慢查询与 API 响应延迟 (HTTP 504 概率 12%)' }
         ],
 
@@ -830,6 +1407,28 @@
           if (window.initDemBranchData) this.branches = window.initDemBranchData();
           if (window.initDemUserData) this.users = window.initDemUserData();
           if (window.initDemAppData) this.apps = window.initDemAppData();
+
+          // 初始化用户视角分析数据
+          this.adaptUserDetailByCase(this._troubleshootInput || this.defaultTroubleshootText);
+
+          // 自动监听滚动同步高亮锚点 (Scroll-Spy)
+          this.$nextTick(() => {
+            const scrollContainer = document.querySelector('.overflow-y-auto') || window;
+            const ids = ['impact-user', 'impact-app', 'impact-group', 'impact-event', 'loc-link', 'loc-diag', 'loc-suggest'];
+            scrollContainer.addEventListener('scroll', () => {
+              if (!this.showDetailedReport) return;
+              for (const id of ids) {
+                const el = document.getElementById(`sec-${id}`);
+                if (el) {
+                  const rect = el.getBoundingClientRect();
+                  if (rect.top <= 240 && rect.bottom >= 60) {
+                    this.activeAnchor = id;
+                    break;
+                  }
+                }
+              }
+            }, { passive: true });
+          });
 
           const incomingTitle = sessionStorage.getItem('dem_troubleshoot_title');
           if (incomingTitle) {
@@ -911,6 +1510,324 @@
             : { isDegraded: true, fullText: apps.join('、'), textPrefix: `${apps[0]} 等 `, count: apps.length, showMore: true };
         },
 
+        // ── 用户视角分析专属数据模型与方法 ──
+        userDetail: {
+          userId: 'usr_001',
+          userName: 'Maria (马尼拉办公室 / 203.177.12.8)',
+          userDept: 'Digiplus / 东南亚大区 / 马尼拉办事处',
+          overallExperience: '差',
+          totalApps: 12,
+          normalApps: 9,
+          fairApps: 1,
+          poorApps: 2,
+          reportedAppId: 'app_feishu'
+        },
+        rawAppList: [],
+        activeAppId: 'app_feishu',
+        activeSliceId: 'slice_1',
+        selectedSampleIdx: 88,
+        hoveredSampleIdx: null,
+        appFilter: 'degraded',
+        isLeftPanelCollapsed: false,
+        openItemIds: [],
+        highlightedItemId: null,
+        samplePoints: [],
+
+        formatItemName(name) {
+          if (!name) return '';
+          return name.replace(/^[0-9]+\.\s*/, '');
+        },
+
+        get filteredApps() {
+          const expOrder = { '差': 1, '一般': 2, '正常': 3 };
+          let list = [...(this.rawAppList || [])];
+          if (this.appFilter === 'degraded') {
+            list = list.filter(a => a.experience === '差' || a.experience === '一般');
+          }
+          return list.sort((a, b) => (expOrder[a.experience] || 99) - (expOrder[b.experience] || 99));
+        },
+
+        get currentApp() {
+          if (!this.rawAppList || !this.rawAppList.length) return {};
+          return this.rawAppList.find(a => a.id === this.activeAppId) || this.rawAppList[0];
+        },
+
+        get currentSlice() {
+          const slices = this.currentApp?.slices || [];
+          return slices.find(s => s.id === this.activeSliceId) || slices[0] || {};
+        },
+
+        get currentSliceDetails() {
+          const slice = this.currentSlice;
+          if (!slice) return [];
+          const itemOrderMap = { 'node_terminal': 1, 'seg_client_pop': 2, 'node_pop': 3, 'seg_pop_gw': 4, 'node_connector': 5, 'seg_gw_app': 6, 'node_app': 7 };
+          const list = [];
+          (slice.segmentDetails || []).forEach(seg => list.push({ ...seg, itemType: 'segment', order: itemOrderMap[seg.id] || 99 }));
+          (slice.nodeDetails || []).forEach(node => list.push({ ...node, itemType: 'node', order: itemOrderMap[node.id] || 99 }));
+          return list.sort((a, b) => {
+            const aAbn = a.status === '异常' ? 0 : 1;
+            const bAbn = b.status === '异常' ? 0 : 1;
+            if (aAbn !== bAbn) return aAbn - bAbn;
+            return a.order - b.order;
+          });
+        },
+
+        autoExpandAbnormalItems() {
+          const details = this.currentSliceDetails;
+          const abnIds = details.filter(item => item.status === '异常').map(item => item.id);
+          this.openItemIds = abnIds.length > 0 ? abnIds : (details.length > 0 ? [details[0].id] : []);
+        },
+
+        toggleItem(id) {
+          this.openItemIds.includes(id) ? (this.openItemIds = this.openItemIds.filter(i => i !== id)) : this.openItemIds.push(id);
+        },
+        isItemOpen(id) { return this.openItemIds.includes(id); },
+
+        selectApp(app) {
+          if (!app) return;
+          this.activeAppId = app.id;
+          if (app.slices && app.slices.length > 0) {
+            this.activeSliceId = app.slices[0].id;
+            this.selectedSampleIdx = app.slices[0].sampleIdx !== undefined ? app.slices[0].sampleIdx : 88;
+          }
+          this.autoExpandAbnormalItems();
+        },
+
+        selectSlice(slice) {
+          if (!slice) return;
+          this.activeSliceId = slice.id;
+          this.selectedSampleIdx = slice.sampleIdx !== undefined ? slice.sampleIdx : 88;
+          this.autoExpandAbnormalItems();
+        },
+
+        selectSamplePoint(idx) {
+          this.selectedSampleIdx = idx;
+        },
+
+        clickTopologyItem(type, targetId) {
+          if (!targetId) return;
+          if (!this.openItemIds.includes(targetId)) this.openItemIds.push(targetId);
+          this.highlightedItemId = targetId;
+          setTimeout(() => { if (this.highlightedItemId === targetId) this.highlightedItemId = null; }, 2000);
+          this.scrollToElement(targetId);
+        },
+
+        scrollToElement(id) {
+          setTimeout(() => {
+            const container = this.$refs.detailScrollPanel;
+            if (!container) return;
+            const el = container.querySelector(`[id="${id}"]`);
+            if (!el) return;
+            const containerRect = container.getBoundingClientRect();
+            const elRect = el.getBoundingClientRect();
+            const targetScrollTop = container.scrollTop + (elRect.top - containerRect.top + elRect.height / 2) - containerRect.height / 2;
+            container.scrollTo({ top: Math.max(0, targetScrollTop), behavior: 'smooth' });
+          }, 350);
+        },
+
+        // ── 动态自适应数据适配逻辑 (含报障应用精准自动定位) ──
+        adaptUserDetailByCase(rawPrompt, targetUser) {
+          const prompt = (rawPrompt || this._troubleshootInput || '').toLowerCase();
+          
+          if (targetUser) {
+            this.userDetail = {
+              userId: targetUser.userId || 'usr_009',
+              userName: `${targetUser.userName} (${targetUser.ipLocation ? targetUser.ipLocation.split(' ')[0] : '10.18.24.36'})`,
+              userDept: targetUser.department || '某某科技股份有限公司 / 业务部门',
+              overallExperience: targetUser.experience || '差',
+              totalApps: 14, normalApps: 10, fairApps: 2, poorApps: 2,
+              reportedAppId: 'app_feishu'
+            };
+          } else if (prompt.includes('张伟') || prompt.includes('harbor') || prompt.includes('zhangwei')) {
+            // 案例 1: 张伟 - Harbor 镜像仓库
+            this.userDetail = {
+              userId: 'usr_002',
+              userName: '张伟 (研发中心 VIP / zhangwei)',
+              userDept: '某某科技股份有限公司 / 研发中心 / 基础架构组',
+              overallExperience: '差',
+              totalApps: 15, normalApps: 12, fairApps: 2, poorApps: 1,
+              reportedAppId: 'app_harbor'
+            };
+            this.rawAppList = [
+              {
+                id: 'app_harbor',
+                name: 'Harbor 镜像仓库',
+                domain: 'https://harbor.internal.net',
+                experience: '差',
+                tag: '基础设施',
+                summary: 'VIP 用户拉取镜像频繁超时，由于 SD-WAN 跨境专线出口 Node-SH-02 丢包率攀升至 14.2%，RTT > 180ms，引发 TCP 大包包重传与拉取超时。',
+                abnormalExplain: 'SD-WAN 跨境专线出口 Node-SH-02 产生 14.2% 严重包重传与超时。',
+                slices: [
+                  {
+                    id: 'slice_1',
+                    name: '切片1',
+                    time: '14:20',
+                    range: '14:15~14:20',
+                    successRate: '85.8%',
+                    status: '异常',
+                    sampleIdx: 88,
+                    topology: {
+                      client: { name: 'MacBook Pro', sub: '终端', status: '正常' },
+                      segment1: { name: 'WiFi', delay: '12ms', loss: '0.0%', status: '正常', targetId: 'seg_client_pop' },
+                      pop: { name: '上海POP02', sub: 'POP节点', status: '正常' },
+                      segment2: { name: '跨境专线', delay: '185ms', loss: '14.2%', status: '异常', targetId: 'seg_pop_gw' },
+                      gw: { name: 'Node-SH-02', sub: 'SD-WAN出口', status: '正常' },
+                      segment3: { name: 'Harbor段', delay: '25ms', loss: '0.0%', status: '正常', targetId: 'seg_gw_app' },
+                      app: { name: 'Harbor仓库', sub: '应用', status: '异常', targetId: 'node_app' }
+                    },
+                    segmentDetails: [
+                      {
+                        id: 'seg_pop_gw',
+                        name: 'pop-连接器段',
+                        status: '异常',
+                        summary: 'SD-WAN 跨境专线链路发生突发路由绕行与高丢包 (14.2%)。',
+                        metrics: [
+                          { label: '专线 RTT 时延', value: '185 ms', baseline: '45 ms', isAbnormal: true },
+                          { label: '数据包丢包率', value: '14.2%', baseline: '< 0.5%', isAbnormal: true },
+                          { label: '选路状态', value: '跨境专线绕行', baseline: '最优路由', isAbnormal: true }
+                        ],
+                        cause: '跨境 SD-WAN 主干线路在 14:15 出现带宽满载拥塞，导致大包丢包严重。'
+                      }
+                    ],
+                    nodeDetails: [
+                      {
+                        id: 'node_app',
+                        name: '应用',
+                        status: '异常',
+                        summary: 'Harbor 镜像仓库节点高并发拉取请求导致镜像分发队列阻塞。',
+                        metrics: [
+                          { label: 'Harbor API 响应', value: 'HTTP 504 Timeout', isAbnormal: true }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              { id: 'app_gitlab', name: '内网 GitLab', domain: 'https://git.internal.net', experience: '一般', tag: '代码仓库', summary: '偶发轻微延迟。', abnormalExplain: '内网网关高峰期排队。', slices: [] },
+              { id: 'app_oa', name: '企业 OA 系统', domain: 'https://oa.domain.com', experience: '正常', tag: '内网应用', summary: '访问正常。', abnormalExplain: '全链路指标正常。', slices: [] }
+            ];
+          } else if (prompt.includes('上海') || prompt.includes('gitlab') || prompt.includes('crm')) {
+            // 案例 2: 上海/苏州办 - GitLab & CRM
+            this.userDetail = {
+              userId: 'usr_003',
+              userName: '李明 (上海分公司 / 10.18.24.36)',
+              userDept: '某某科技股份有限公司 / 华东大区 / 上海分公司',
+              overallExperience: '差',
+              totalApps: 18, normalApps: 14, fairApps: 2, poorApps: 2,
+              reportedAppId: 'app_gitlab'
+            };
+            this.rawAppList = [
+              {
+                id: 'app_gitlab',
+                name: '内网 GitLab 仓库',
+                domain: 'https://gitlab.company.com',
+                experience: '差',
+                tag: '代码仓库',
+                summary: '上海分公司与苏州研发办多名员工提交代码卡顿，上海连接器01 CPU利用率高达89.4%，产生8.6%丢包。',
+                abnormalExplain: '内网连接器 CPU 超载满载 (89.4%) 引发数据包拥塞抛包。',
+                slices: [
+                  {
+                    id: 'slice_1',
+                    name: '切片1',
+                    time: '13:45',
+                    range: '13:40~13:45',
+                    successRate: '91.4%',
+                    status: '异常',
+                    sampleIdx: 88,
+                    topology: {
+                      client: { name: 'ThinkPad X1', sub: '终端', status: '正常' },
+                      segment1: { name: 'WiFi', delay: '18ms', loss: '0.1%', status: '正常', targetId: 'seg_client_pop' },
+                      pop: { name: '上海POP01', sub: 'POP节点', status: '正常' },
+                      segment2: { name: '连接器', delay: '95ms', loss: '8.6%', status: '异常', targetId: 'seg_pop_gw' },
+                      gw: { name: '上海连接器01', sub: '连接器', status: '异常', targetId: 'node_connector' },
+                      segment3: { name: 'GitLab段', delay: '15ms', loss: '0.0%', status: '正常', targetId: 'seg_gw_app' },
+                      app: { name: 'GitLab', sub: '应用', status: '正常', targetId: 'node_app' }
+                    },
+                    segmentDetails: [
+                      { id: 'seg_pop_gw', name: 'pop-连接器段', status: '异常', summary: 'POP 到内网连接器专线段丢包 8.6%，RTT 95ms。', metrics: [{ label: '丢包率', value: '8.6%', baseline: '< 0.5%', isAbnormal: true }] }
+                    ],
+                    nodeDetails: [
+                      { id: 'node_connector', name: '连接器', status: '异常', summary: '上海连接器01 CPU 89.4% 满载警告。', metrics: [{ label: '连接器 CPU 利用率', value: '89.4%', baseline: '< 70%', isAbnormal: true }] }
+                    ]
+                  }
+                ]
+              },
+              { id: 'app_crm', name: '销售 CRM 构建', domain: 'https://crm.company.com', experience: '差', tag: '业务系统', summary: 'CRM 页面响应缓慢。', abnormalExplain: '连接器抛包导致 HTTP 超时。', slices: [] },
+              { id: 'app_oa', name: 'OA 系统', domain: 'https://oa.domain.com', experience: '一般', tag: '内网应用', summary: '访问平稳。', abnormalExplain: '偶发轻微绕行。', slices: [] }
+            ];
+          } else {
+            // 案例 3 / 默认: Maria (马尼拉办公室 飞书/O365)
+            this.userDetail = {
+              userId: 'usr_001',
+              userName: 'Maria (马尼拉办公室 / 203.177.12.8)',
+              userDept: 'Digiplus / 东南亚大区 / 马尼拉办事处',
+              overallExperience: '差',
+              totalApps: 12, normalApps: 9, fairApps: 1, poorApps: 2,
+              reportedAppId: 'app_feishu'
+            };
+            this.rawAppList = [
+              {
+                id: 'app_feishu',
+                name: 'SaaS 飞书平台',
+                domain: 'https://feishu.cn',
+                experience: '差',
+                tag: 'SaaS办公',
+                summary: '在当前时间窗内，马尼拉办公室 Maria 反馈飞书文档加载缓慢与附件上传超时。主因是客户端到 POP 隧道段 Underlay 丢包 3.1% 以及 SASE 马尼拉 POP 触发 10Gbps 限流。',
+                abnormalExplain: '私网 LAN 汇聚 Hop 2 丢包 3.0% 且 POP 节点触发 10Gbps 限流抛包。',
+                slices: [
+                  {
+                    id: 'slice_1',
+                    name: '切片1',
+                    time: '10:00',
+                    range: '09:55~10:00',
+                    successRate: '92.4%',
+                    status: '异常',
+                    sampleIdx: 88,
+                    topology: {
+                      client: { name: 'ThinkPad X1', sub: '终端', status: '正常' },
+                      segment1: { name: 'WiFi/LAN', delay: '82ms', loss: '3.1%', status: '异常', targetId: 'seg_client_pop' },
+                      pop: { name: '马尼拉POP', sub: 'POP节点', status: '异常', targetId: 'node_pop' },
+                      segment2: { name: '连接器', delay: '48ms', loss: '0.1%', status: '正常', targetId: 'seg_pop_gw' },
+                      gw: { name: 'GW连接器', sub: '连接器', status: '正常' },
+                      segment3: { name: '应用', delay: '20ms', loss: '0.0%', status: '正常', targetId: 'seg_gw_app' },
+                      app: { name: '飞书SaaS', sub: '应用', status: '正常', targetId: 'node_app' }
+                    },
+                    segmentDetails: [
+                      { id: 'seg_client_pop', name: '终端-pop段', status: '异常', summary: '私网 Hop 2 (10.10.0.1) LAN 汇聚节点丢包 3.0%，抖动 38ms。', metrics: [{ label: '私网 Hop 2 丢包率', value: '3.0%', baseline: '< 0.1%', isAbnormal: true }] }
+                    ],
+                    nodeDetails: [
+                      { id: 'node_pop', name: 'pop', status: '异常', summary: '马尼拉 POP 节点租户入站流量达到 10.4Gbps，命中 10Gbps 保护限流规则。', metrics: [{ label: '租户入站流量', value: '10.4 Gbps', baseline: '10.0 Gbps (上限)', isAbnormal: true }] }
+                    ]
+                  }
+                ]
+              },
+              { id: 'app_o365', name: 'Office 365 云服务', domain: 'https://office.com', experience: '差', tag: 'SaaS办公', summary: 'Office 365 云端文档保存缓慢。', abnormalExplain: '受马尼拉 POP 限流影响，云端 API 交互延迟上升。', slices: [] },
+              { id: 'app_oa', name: '企业 OA 系统', domain: 'https://oa.domain.com', experience: '一般', tag: '内网应用', summary: '访问基本平稳。', abnormalExplain: '偶发延时上升。', slices: [] }
+            ];
+          }
+
+          // 生成采样点
+          const points = [];
+          for (let i = 0; i < 100; i++) {
+            let exp = '正常';
+            let ttfb = Math.floor(Math.random() * 15 + 45);
+            if (i === 88 || i === 27 || i === 8) { exp = '差'; ttfb = Math.floor(Math.random() * 80 + 520); }
+            else if (i === 42) { exp = '一般'; ttfb = 165; }
+            const totalMins = 8 * 60 + i * 4.8;
+            const h = String(Math.floor(totalMins / 60) % 24).padStart(2, '0');
+            const m = String(Math.floor(totalMins % 60)).padStart(2, '0');
+            points.push({ id: i, time: `${h}:${m}`, experience: exp, ttfb: ttfb });
+          }
+          this.samplePoints = points;
+
+          // **精准自动聚焦定位到报障应用**
+          const repAppId = this.userDetail.reportedAppId || (this.rawAppList[0] ? this.rawAppList[0].id : null);
+          if (repAppId) {
+            const targetApp = this.rawAppList.find(a => a.id === repAppId) || this.rawAppList[0];
+            this.selectApp(targetApp);
+          }
+        },
+
         // ── AI 分析 ──
         validateTroubleshootInput() {
           const rawText = (this._troubleshootInput || this.defaultTroubleshootText).trim();
@@ -920,8 +1837,8 @@
           const irrelevantKeywords = ['天气','算术','写代码','翻译','新闻','股票','笑话','你好','谢谢','什么名字','介绍一下'];
           const hasFaultKeyword = /(慢|卡顿|超时|丢包|延迟|打不开|中断|失败|异常|断连|404|500|502|504|迟钝|连不上|体验|RTT|Jitter)/i.test(cleanText);
           if (irrelevantKeywords.some(k => cleanText.includes(k)) && !hasFaultKeyword) { this.agentWarningMessage = '⚠️ DEM 排障 Agent 仅支持网络与应用访问体验故障诊断。'; return false; }
-          if (!/(用户|张三|李四|员工|分支|部门|VIP|IP|10\.|192\.)/i.test(cleanText) && !/[\u4e00-\u9fa5]{2,4}(?:说|反馈|访问|打不开|卡|慢|超时)/.test(cleanText)) { this.agentWarningMessage = '⚠️ 缺乏访问主体信息，请补充受影响的用户或分支机构。'; return false; }
-          if (!/(Harbor|GitLab|飞书|CRM|ERP|OA|系统|仓库|会议|应用|网页|服务|SaaS)/i.test(cleanText)) { this.agentWarningMessage = '⚠️ 缺乏访问目标信息，请补充访问的具体应用。'; return false; }
+          if (!/(用户|张三|李四|员工|分支|部门|VIP|IP|10\.|192\.|Maria|Digiplus|马尼拉)/i.test(cleanText) && !/[\u4e00-\u9fa5]{2,4}(?:说|反馈|访问|打不开|卡|慢|超时)/.test(cleanText)) { this.agentWarningMessage = '⚠️ 缺乏访问主体信息，请补充受影响的用户或分支机构。'; return false; }
+          if (!/(Harbor|GitLab|飞书|CRM|ERP|OA|系统|仓库|会议|应用|网页|服务|SaaS|Office)/i.test(cleanText)) { this.agentWarningMessage = '⚠️ 缺乏访问目标信息，请补充访问的具体应用。'; return false; }
           if (!hasFaultKeyword) { this.agentWarningMessage = '⚠️ 缺乏异常表现描述，请补充具体的故障现象。'; return false; }
           return true;
         },
@@ -935,18 +1852,62 @@
             this.isAnalyzing = false;
             const cleanText = (this._troubleshootInput || this.defaultTroubleshootText).replace(/^1\..*?\n+2\.\s*/s, '').replace(/^示例：/, '');
             this.analysisResult = {
-              title: `针对【${cleanText.length > 28 ? cleanText.slice(0, 28) + '...' : cleanText}】的 AI 诊断`,
-              qualitative: { summary: 'SD-WAN 跨境专线出口瓶颈 (Node-SH-02 丢包率 14.2%, 延迟 >180ms)', responsibilityDomain: 'SD-WAN / 跨境POP选路', status: '已精确定位', confidence: '96.5%', diagTime: new Date().toLocaleString('zh-CN', { hour12: false }) },
-              impact: { affectedUsers: '研发中心 VIP 用户张伟 (zhangwei) 等 48 名同链路员工', affectedBranches: '上海研发中心、苏州分公司 (2 个分支)', affectedApps: 'Harbor 镜像仓库、Salesforce CRM (2 个应用)', associatedAlert: 'ALT-20260604-092' },
-              location: { bottleneck: 'POP-连接器 & 跨网出口链路 (Node-SH-02)', metrics: '大包丢包率 14.2% | RTT 240ms | Jitter 35ms', comparison: '同 POP 其他常规应用丢包率 0.1%，判定非物理断纤', excluded: '终端 Wi-Fi 正常 | 应用后端 Pod CPU 12% 正常' },
-              recommendation: { action: '已自动下发动态 QoS 避障策略，建议优先引流至 华东-上海POP02 备用链路', target: 'SD-WAN 边缘控制器 & 运维组', verification: '关注引流后 RTT 是否降至 45ms 以下' }
+              title: `针对【${cleanText.length > 32 ? cleanText.slice(0, 32) + '...' : cleanText}】问题分析摘要：`,
+              qualitative: {
+                summary: '客户端到POP隧道质量下降与SASE平台租户限流 (隧道吞吐降至20Mbps, 平台丢包2.1%)',
+                responsibilityDomain: '客户办公室内网 / SASE平台租户限流',
+                status: '已精确定位',
+                confidence: '98.2%',
+                diagTime: new Date().toLocaleString('zh-CN', { hour12: false }),
+                tags: ['群体问题', '客户端隧道与平台限流']
+              },
+              impact: {
+                affectedUsers: 'Maria 及马尼拉办公室出口 203.177.12.8 下 34 名用户 (占 73.9%)',
+                affectedBranches: '马尼拉办公室 (出口 IP 203.177.12.8)',
+                affectedApps: '飞书、Office 365 (SaaS 办公系统)',
+                associatedAlert: 'ALT-20260717-011'
+              },
+              location: {
+                bottleneck: '客户端到POP分段异常（段异常：私网Hop2）与 POP节点处理异常（点异常：10G限流）',
+                metrics: 'Underlay丢包3.1%/抖动40ms; Overlay吞吐20M; POP流量10.4G命中限流',
+                comparison: 'POP到飞书公网路径 RTT 48ms / 丢包 0.1% 正常',
+                excluded: '客户端进程硬件正常、POP到应用路径正常、飞书/O365应用正常'
+              },
+              recommendation: {
+                action: '1. SASE平台解封/解除租户 10Gbps 限流；2. 客户修复办公室 LAN/网关链路丢包与抖动。',
+                target: '客户办公室网络团队 & SASE 平台运营团队',
+                verification: '验证 Hop 2 丢包 < 0.1%，吞吐恢复至 60Mbps'
+              }
             };
+            this.adaptUserDetailByCase(cleanText);
           }, 2200);
         },
 
-        openDetailedReport() { this.showDetailedReport = true; this.activeReportTab = 'impact'; },
-        loadHistoryItem(item) { this._troubleshootInput = item.prompt.replace(/^示例：/, ''); this.troubleshootDateShortcut = item.dateShortcut || '今天'; this.agentWarningMessage = ''; this.showHistoryDrawer = false; this.showDetailedReport = false; this.startTroubleshootAnalysis(); },
-        startAnalysisFromTarget(type, name) { this._troubleshootInput = `今天 14:20，研发中心 VIP 用户张伟反馈访问${type}【${name}】出现严重卡顿与超时异常`; this.agentWarningMessage = ''; this.startTroubleshootAnalysis(); }
+        openDetailedReport() {
+          this.showDetailedReport = true;
+          this.detailReportTab = 'user';
+          this.adaptUserDetailByCase(this._troubleshootInput || this.defaultTroubleshootText);
+        },
+
+        loadHistoryItem(item) {
+          this._troubleshootInput = item.prompt.replace(/^示例：/, '');
+          this.troubleshootDateShortcut = item.dateShortcut || '今天';
+          this.agentWarningMessage = '';
+          this.showHistoryDrawer = false;
+          this.showDetailedReport = false;
+          this.startTroubleshootAnalysis();
+        },
+
+        startAnalysisFromTarget(type, name) {
+          this._troubleshootInput = `今天 10:00，Digiplus 马尼拉办公室 Maria 及多名员工反馈访问${type}【${name}】出现严重卡顿与超时异常`;
+          this.agentWarningMessage = '';
+          this.startTroubleshootAnalysis();
+        },
+
+        navigateToUserDetail(user) {
+          if (user) { try { sessionStorage.setItem('dem_selected_user', JSON.stringify(user)); } catch(e) {} }
+          window.location.href = './DEM-用户详情.html';
+        }
       };
     };
   </script>
