@@ -291,10 +291,15 @@
    6. 动画
    ──────────────────────────────────────────────────────────── */
 @keyframes pulse-red-subtle {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.35); }
-  50% { box-shadow: 0 0 0 5px rgba(239, 68, 68, 0); }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(217, 54, 62, 0.45); }
+  50% { box-shadow: 0 0 0 6px rgba(217, 54, 62, 0); }
 }
-.alert-node-pulse { animation: pulse-red-subtle 2s infinite; }
+@keyframes pulse-amber-subtle {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(217, 119, 6, 0.45); }
+  50% { box-shadow: 0 0 0 6px rgba(217, 119, 6, 0); }
+}
+.alert-node-pulse-red { animation: pulse-red-subtle 2s infinite ease-in-out; }
+.alert-node-pulse-amber { animation: pulse-amber-subtle 2s infinite ease-in-out; }
 
 /* ────────────────────────────────────────────────────────────
    7. 通用控件：Select、告警卡片、分页
@@ -388,3 +393,24 @@
   width: 40px; min-width: 40px; max-width: 40px;
   text-align: center !important;
 }
+
+/* ────────────────────────────────────────────────────────────
+   6. 体验预警 / 告警排障 拓扑节点与故障点动态呼吸光晕
+   ──────────────────────────────────────────────────────────── */
+@keyframes pulse-red-subtle {
+  0%, 100% { filter: drop-shadow(0 0 1px rgba(217, 54, 62, 0.5)); transform: scale(1); }
+  50% { filter: drop-shadow(0 0 6px rgba(217, 54, 62, 0.9)); transform: scale(1.08); }
+}
+@keyframes pulse-amber-subtle {
+  0%, 100% { filter: drop-shadow(0 0 1px rgba(217, 119, 6, 0.5)); transform: scale(1); }
+  50% { filter: drop-shadow(0 0 6px rgba(217, 119, 6, 0.9)); transform: scale(1.08); }
+}
+
+.alert-node-pulse-red {
+  animation: pulse-red-subtle 2s infinite ease-in-out;
+}
+
+.alert-node-pulse-amber {
+  animation: pulse-amber-subtle 2s infinite ease-in-out;
+}
+
