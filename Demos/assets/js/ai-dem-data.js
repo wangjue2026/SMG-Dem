@@ -240,80 +240,101 @@
         id: "cl_001",
         level: "高优",
         dimension: "分支问题",
-        title: "西安研发中心 等 23 名用户访问 Harbor 镜像仓库 丢包率超标 (4.2%) 异常",
+        impactType: "群体影响",
+        scenarioType: "branch_acc",
+        title: "西安研发中心 访问 Harbor 镜像仓库 丢包率超标 (5.8%) 异常",
         time: "2026-06-04 14:32:10",
-        description: "基于 Overlay 拨测与基线对比分析，ISP 运营商跨网节点出现 4.2% 丢包绕行，Underlay 物理出口及终端侧状态健康。",
-        scope: { branchCount: 2, userCount: 23, appCount: 1, appName: "Harbor 镜像仓库" },
+        impactDesc: "由于上车点 POP 至下车点 POP 传输段故障，具备群体扩散风险，影响西安分支出口 P203.177.12.8 下 38 名研发人员。",
+        popHighlight: "POP — 传输段丢包 5.8%",
+        attributionText: "拨测显示上车点 POP 与下车点 POP 传输段发生 5.8% 丢包，同时目标服务端 CPU 负载偏高 (91.2%)，导致整体拉取镜像缓慢。",
+        description: "拨测显示上车点 POP 与下车点 POP 传输段发生 5.8% 丢包，同时目标服务端 CPU 负载偏高 (91.2%)，导致整体拉取镜像缓慢。",
+        scope: { branchCount: 2, userCount: 38, appCount: 1, appName: "Harbor 镜像仓库" },
         nodes: [
-          { name: "用户终端", sub: "23 台 PC", status: "normal" },
-          { name: "分支出口", sub: "西安出口 (222.90.8.45)", status: "normal" },
-          { name: "运营商/WAN", sub: "ISP 跨网节点", status: "error", metric: "丢包率 4.2%" },
-          { name: "SASE POP", sub: "西安 POP01", status: "normal" },
-          { name: "Harbor 镜像仓库", sub: "10.200.4.12:443", status: "normal" }
+          { name: "西安分支", sub: "222.90.8.45", status: "normal", type: "branch" },
+          { name: "上车点 POP", sub: "西安 POP01", status: "normal", type: "pop" },
+          { name: "下车点 POP", sub: "北京 POP01", status: "error", type: "pop", metric: "丢包 5.8%" },
+          { name: "总部 AF", sub: "HQ-AF-01", status: "normal", type: "af" },
+          { name: "Harbor 镜像仓库", sub: "10.200.4.12:443", status: "error", type: "app", alertBadge: "CPU 91.2%" }
         ]
       },
       {
         id: "cl_002",
         level: "高优",
         dimension: "用户问题",
-        title: "张伟、李娜 等 42 名用户访问 Salesforce CRM 拨测响应超时 (>600ms) 异常",
+        impactType: "群体影响",
+        scenarioType: "ga",
+        title: "张伟、李娜 等 42 名移动办公用户访问 Salesforce CRM 拨测响应超时 (>600ms) 异常",
         time: "2026-06-04 14:28:45",
-        description: "应用端 HTTP 响应延迟升至 640ms (基线 120ms)，解析 DNS 路由与 POP 代理转发耗时均在正常范围内。",
+        impactDesc: "由于 GA 下车点 POP 至 GW 连接器端网关路由绕行，影响 42 名外勤销售人员 CRM 客户单据提交体验。",
+        popHighlight: "SaaS — 目标端响应超时 640ms",
+        attributionText: "应用端 HTTP 响应延迟升至 640ms (基线 120ms)，上车点 POP 代理转发与 GW 连接器处理耗时均在正常范围内。",
+        description: "应用端 HTTP 响应延迟升至 640ms (基线 120ms)，上车点 POP 代理转发与 GW 连接器处理耗时均在正常范围内。",
         scope: { branchCount: 3, userCount: 42, appCount: 1, appName: "Salesforce CRM" },
         nodes: [
-          { name: "用户终端", sub: "42 名用户", status: "normal" },
-          { name: "分支出口", sub: "多分支出口", status: "normal" },
-          { name: "运营商/WAN", sub: "骨干网", status: "normal" },
-          { name: "SASE POP", sub: "北京 POP01", status: "normal" },
-          { name: "Salesforce CRM", sub: "crm.salesforce.com", status: "error", metric: "响应 640ms (超时)" }
+          { name: "移动终端", sub: "42 名外勤用户", status: "normal", type: "terminal" },
+          { name: "上车点 POP", sub: "北京 POP01", status: "normal", type: "pop" },
+          { name: "下车点 POP", sub: "海外 POP02", status: "normal", type: "pop" },
+          { name: "GW 连接器", sub: "GW-Connector-01", status: "normal", type: "connector" },
+          { name: "Salesforce CRM", sub: "crm.salesforce.com", status: "error", type: "app", alertBadge: "超时 640ms" }
         ]
       },
       {
         id: "cl_003",
         level: "高优",
         dimension: "应用问题",
-        title: "武汉分公司 18 名员工访问 仓储 WMS 系统 TCP 握手超时 异常",
+        impactType: "群体影响",
+        scenarioType: "mobile",
+        title: "武汉分公司 18 名移动终端员工访问 仓储 WMS 系统 TCP 握手超时 异常",
         time: "2026-06-04 14:20:15",
-        description: "分支出口防火墙 NAT 转换瓶颈导致并发会话数达到上限，大量 TCP SYN 报文在分支出口处产生积压丢失。",
+        impactDesc: "GW 连接器防火墙并发会话满载，造成仓库出入库扫码终端连接中断与会话重置。",
+        popHighlight: "GW — NAT 会话满载 (98%)",
+        attributionText: "GW 连接器防火墙 NAT 转换瓶颈导致并发会话数达到上限，大量 TCP SYN 报文在连接器入口处产生积压丢失。",
+        description: "GW 连接器防火墙 NAT 转换瓶颈导致并发会话数达到上限，大量 TCP SYN 报文在连接器入口处产生积压丢失。",
         scope: { branchCount: 1, userCount: 18, appCount: 1, appName: "仓储 WMS 系统" },
         nodes: [
-          { name: "用户终端", sub: "18 台 PC", status: "normal" },
-          { name: "分支出口", sub: "武汉出口防火墙", status: "error", metric: "NAT 会话满载 (98%)" },
-          { name: "运营商/WAN", sub: "湖北电信", status: "normal" },
-          { name: "SASE POP", sub: "武汉 POP01", status: "normal" },
-          { name: "仓储 WMS 系统", sub: "wms.supplychain.net", status: "normal" }
+          { name: "移动终端", sub: "18 台扫码枪", status: "normal", type: "terminal" },
+          { name: "GW 连接器", sub: "武汉连接器", status: "error", type: "connector", alertBadge: "NAT 98%" },
+          { name: "仓储 WMS 系统", sub: "wms.supplychain.net", status: "normal", type: "app" }
         ]
       },
       {
         id: "cl_004",
         level: "中优",
         dimension: "分支问题",
-        title: "广州分公司 14 名员工访问 智能客服系统 产生抖动与延迟增加",
+        impactType: "个人影响",
+        scenarioType: "branch_acc",
+        title: "广州分公司 访问 智能客服系统 产生 POP 选路抖动",
         time: "2026-06-04 14:15:30",
-        description: "广州 POP 节点轻度负载拥塞，导致双向 RTT 时延从 25ms 波动增加至 110ms。",
+        impactDesc: "上车点 POP 出现短时轻度拥塞，波及广州华南大区 14 名客服坐席音频实时传输。",
+        popHighlight: "POP — 节点 RTT 抖动 110ms",
+        attributionText: "广州上车点 POP 节点轻度负载拥塞，导致双向 RTT 时延从 25ms 波动增加至 110ms。",
+        description: "广州上车点 POP 节点轻度负载拥塞，导致双向 RTT 时延从 25ms 波动增加至 110ms。",
         scope: { branchCount: 1, userCount: 14, appCount: 1, appName: "智能客服系统" },
         nodes: [
-          { name: "用户终端", sub: "14 台 PC", status: "normal" },
-          { name: "分支出口", sub: "广州出口", status: "normal" },
-          { name: "运营商/WAN", sub: "广东联通", status: "normal" },
-          { name: "SASE POP", sub: "广州 POP01", status: "warning", metric: "RTT 110ms (抖动)" },
-          { name: "智能客服系统", sub: "cs.internal.net", status: "normal" }
+          { name: "广州分支", sub: "广州出口", status: "normal", type: "branch" },
+          { name: "上车点 POP", sub: "广州 POP01", status: "warning", type: "pop", alertBadge: "抖动 110ms" },
+          { name: "下车点 POP", sub: "深圳 POP01", status: "normal", type: "pop" },
+          { name: "总部 AF", sub: "HQ-AF-02", status: "normal", type: "af" },
+          { name: "智能客服系统", sub: "cs.internal.net", status: "normal", type: "app" }
         ]
       },
       {
         id: "cl_005",
         level: "中优",
         dimension: "应用问题",
-        title: "深圳分公司 12 名员工访问 金蝶云 ERP 偶发 HTTP 502 错误",
+        impactType: "个人影响",
+        scenarioType: "mobile",
+        title: "深圳分公司 12 名移动用户访问 金蝶云 ERP 偶发 HTTP 502 错误",
         time: "2026-06-04 14:02:00",
+        impactDesc: "SaaS 应用云网关在极短时间内产生短连并发突增，影响财务人员凭证导入流程。",
+        popHighlight: "APP — 云网关 502 Bad Gateway",
+        attributionText: "云端应用代理 Gateway 在高并发下偶发断连，引发 502 Bad Gateway 响应。",
         description: "云端应用代理 Gateway 在高并发下偶发断连，引发 502 Bad Gateway 响应。",
         scope: { branchCount: 1, userCount: 12, appCount: 1, appName: "金蝶云 ERP" },
         nodes: [
-          { name: "用户终端", sub: "12 名用户", status: "normal" },
-          { name: "分支出口", sub: "深圳出口", status: "normal" },
-          { name: "运营商/WAN", sub: "深圳电信", status: "normal" },
-          { name: "SASE POP", sub: "深圳 POP01", status: "normal" },
-          { name: "金蝶云 ERP", sub: "cloud.kingdee.com", status: "warning", metric: "HTTP 502 偶发" }
+          { name: "移动终端", sub: "12 名移动用户", status: "normal", type: "terminal" },
+          { name: "GW 连接器", sub: "深圳连接器01", status: "normal", type: "connector" },
+          { name: "金蝶云 ERP", sub: "cloud.kingdee.com", status: "warning", type: "app", alertBadge: "HTTP 502" }
         ]
       }
     ];
@@ -323,10 +344,10 @@
     const levels = ["高优", "中优", "低优"];
     const dimensions = ["分支问题", "用户问题", "应用问题", "网络链路"];
     const errorTypes = [
-      { text: "DNS 解析超时 (>300ms)", nodeIdx: 1, metric: "DNS 超时 340ms" },
-      { text: "跨省 ISP 骨干网拥塞", nodeIdx: 2, metric: "RTT 140ms (高延迟)" },
-      { text: "POP 选路绕路异常", nodeIdx: 3, metric: "跨网绕行 +45ms" },
-      { text: "后端 API 响应缓慢", nodeIdx: 4, metric: "TTFB 850ms" }
+      { text: "DNS 解析超时 (>300ms)", tag: "DNS — 解析超时 340ms", nodeIdx: 1, metric: "DNS 超时 340ms" },
+      { text: "跨省 ISP 骨干网拥塞", tag: "ISP — 骨干网延迟 140ms", nodeIdx: 2, metric: "RTT 140ms" },
+      { text: "POP 选路绕路异常", tag: "POP — 跨网绕行 +45ms", nodeIdx: 3, metric: "绕行 +45ms" },
+      { text: "后端 API 响应缓慢", tag: "APP — 服务端 TTFB 850ms", nodeIdx: 4, metric: "TTFB 850ms" }
     ];
 
     for (let i = 6; i <= 18; i++) {
@@ -336,26 +357,57 @@
       const dim = dimensions[i % dimensions.length];
       const err = errorTypes[i % errorTypes.length];
       const uCount = (i * 7) % 30 + 5;
+      const isGroup = i % 2 === 0;
 
-      const nodes = [
-        { name: "用户终端", sub: `${uCount} 台`, status: "normal" },
-        { name: "分支出口", sub: `${b}出口`, status: err.nodeIdx === 1 ? "warning" : "normal" },
-        { name: "运营商/WAN", sub: "骨干网链路", status: err.nodeIdx === 2 ? "error" : "normal" },
-        { name: "SASE POP", sub: "区域 POP 节点", status: err.nodeIdx === 3 ? "warning" : "normal" },
-        { name: "目标应用", sub: a, status: err.nodeIdx === 4 ? "error" : "normal" }
-      ];
-      if (err.nodeIdx < nodes.length) {
-        nodes[err.nodeIdx].metric = err.metric;
+      // 3 场景轮询生成
+      const scenarioMode = i % 3; // 0: mobile, 1: ga, 2: branch_acc
+      let nodes = [];
+
+      if (scenarioMode === 0) {
+        // ① 移动办公场景 (终端——连接器——应用)
+        nodes = [
+          { name: "移动终端", sub: `${uCount} 台 PC`, status: "normal", type: "terminal" },
+          { name: "GW 连接器", sub: "GW-Connector-01", status: err.nodeIdx === 1 ? "warning" : "normal", type: "connector" },
+          { name: a, sub: `app-${i}.net`, status: err.nodeIdx >= 2 ? "error" : "normal", type: "app" }
+        ];
+      } else if (scenarioMode === 1) {
+        // ② GA加速场景 (终端——上车点pop——下车点pop——连接器——应用)
+        nodes = [
+          { name: "移动终端", sub: `${uCount} 名用户`, status: "normal", type: "terminal" },
+          { name: "上车点 POP", sub: `${b} POP01`, status: err.nodeIdx === 1 ? "warning" : "normal", type: "pop" },
+          { name: "下车点 POP", sub: "目标 POP02", status: err.nodeIdx === 2 ? "error" : "normal", type: "pop" },
+          { name: "GW 连接器", sub: "GW-Connector-02", status: err.nodeIdx === 3 ? "warning" : "normal", type: "connector" },
+          { name: a, sub: `app-${i}.net`, status: err.nodeIdx === 4 ? "error" : "normal", type: "app" }
+        ];
+      } else {
+        // ③ 分支加速访问场景 (分支——上车点pop——下车点pop——总部AF——应用)
+        nodes = [
+          { name: `${b}`, sub: "出口 IP", status: "normal", type: "branch" },
+          { name: "上车点 POP", sub: `${b} POP01`, status: err.nodeIdx === 1 ? "warning" : "normal", type: "pop" },
+          { name: "下车点 POP", sub: "HQ POP01", status: err.nodeIdx === 2 ? "error" : "normal", type: "pop" },
+          { name: "总部 AF", sub: "HQ-AF-Firewall", status: err.nodeIdx === 3 ? "warning" : "normal", type: "af" },
+          { name: a, sub: `app-${i}.net`, status: err.nodeIdx === 4 ? "error" : "normal", type: "app" }
+        ];
       }
+
+      const targetIdx = Math.min(err.nodeIdx, nodes.length - 1);
+      nodes[targetIdx].alertBadge = err.metric;
+
+      const attrText = `智能拨测探测显示 ${b} 访问 ${a} 路径中 ${err.text}，导致端到端响应延时显著增加。`;
 
       alerts.push({
         id: `cl_0${i < 10 ? '0' + i : i}`,
         level: lvl,
         dimension: dim,
-        title: `${b} 等 ${uCount} 名用户访问 ${a} ${err.text} 异常`,
-        time: `2026-06-04 13:${(i * 3) % 60}:00`,
-        description: `基于流量基线拨测，${nodes[err.nodeIdx].name} 节点检测到 ${err.metric}，其余节点通信正常。`,
-        scope: { branchCount: (i % 2) + 1, userCount: uCount, appCount: 1, appName: a },
+        impactType: isGroup ? "群体影响" : "个人影响",
+        scenarioType: scenarioMode === 0 ? "mobile" : scenarioMode === 1 ? "ga" : "branch_acc",
+        title: `${b} ${uCount} 名用户访问 ${a} 产生 ${err.text} 异常`,
+        time: `2026-06-04 13:${(i * 3) % 60 < 10 ? '0' + ((i * 3) % 60) : (i * 3) % 60}:15`,
+        impactDesc: `由于 ${err.text} 原因，波及 ${b} 出口下 ${uCount} 名接入员工，访问 ${a} 产生显著卡顿。`,
+        popHighlight: err.tag,
+        attributionText: attrText,
+        description: attrText,
+        scope: { branchCount: (i % 3) + 1, userCount: uCount, appCount: 1, appName: a },
         nodes: nodes
       });
     }

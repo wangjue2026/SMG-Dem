@@ -17,8 +17,8 @@
   <script src="../assets/js/tailwind-config.js"></script>
   <link rel="stylesheet" href="../assets/css/ai-dem.css" />
 
-  <!-- 集中维护的公共 Shell 框架 -->
-  <script src="../assets/js/dem-shell.js?v=4.0"></script>
+  <!-- 集中维护的双底座公共 Shell 样式 -->
+  <link rel="stylesheet" href="./_shell/shell.css" />
 
   <style>
     /* -------------------------------------------------------------
@@ -193,7 +193,8 @@
   <script>
     function demUserTabState() {
       return {
-        ...window.demAppState('用户', 'm_0_0_1'),
+        ...window.dualShellAppStore('体验预警'),
+        pageTab: '用户',
         users: [],
         searchQuery: '',
         selectedExperience: 'all',
@@ -348,16 +349,61 @@
   <div id="dem-svgs"></div>
 
   <div class="flex flex-col w-full h-full" x-data="demUserTabState()">
-    <!-- 顶部主 Header -->
-    <header id="dem-header" class="h-[56px] min-h-[56px] bg-white border-b border-bg-line flex items-center px-4 flex-shrink-0 z-30"></header>
 
-    <div class="flex-1 flex overflow-hidden">
-      <!-- 左侧 Sider 导航 -->
-      <aside id="dem-sider" class="at-sider flex flex-col flex-shrink-0 select-none"></aside>
+    <!-- 底座切换浮层（由 shell.js 注入） -->
+    <div id="shell-switcher"></div>
 
-      <div class="flex-1 flex flex-col overflow-hidden">
+    <!-- MODE 1: aTrust 线下底座框架 -->
+    <div x-show="shell === 'atrust'" class="flex flex-col w-full h-full">
+      <div id="shell-atrust-header"></div>
+      <div class="flex-1 flex overflow-hidden">
+        <div id="shell-atrust-sider"></div>
+        <div class="flex-1 bg-bg-light flex flex-col overflow-hidden">
+          <div class="flex-1 bg-[#F4F6F9] flex flex-col overflow-hidden" id="atrust-workspace"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODE 2: SASE 线上云底座框架 -->
+    <div x-show="shell === 'sase'" class="flex w-full h-full overflow-hidden">
+      <div id="shell-sase-sider"></div>
+      <div class="flex-1 bg-bg-light flex flex-col overflow-hidden">
+        <div class="flex-1 bg-[#F4F6F9] flex flex-col overflow-hidden" id="sase-workspace"></div>
+      </div>
+    </div>
+
+    <!-- 用户 Workspace 内容模板 -->
+    <template id="page-content-template">
+      <div class="flex flex-col w-full h-full overflow-hidden">
         <!-- 体验监控 Tab 页头 -->
-        <div id="dem-sub-header"></div>
+        <div class="h-[48px] min-h-[48px] bg-white border-b border-bg-line px-6 flex items-center justify-between flex-shrink-0 select-none z-20">
+          <div class="flex items-center h-full">
+            <span class="text-[14px] font-semibold text-text-title">体验监控</span>
+            <div class="w-[1px] h-[16px] mx-[16px] bg-bg-line"></div>
+            <div class="flex items-center h-full gap-6 relative">
+              <template x-for="tab in ['首页', '分支', '用户', '应用']">
+                <div class="relative h-full flex items-center cursor-pointer select-none group"
+                     @click="pageTab = tab; navigateTo(tab)">
+                  <span class="text-[14px] transition-colors"
+                        :class="pageTab === tab ? 'text-brand font-semibold' : 'text-text-title font-normal group-hover:text-brand'"
+                        x-text="tab"></span>
+                  <div x-show="pageTab === tab" class="absolute bottom-0 left-0 right-0 h-[2px] bg-brand" x-cloak></div>
+                </div>
+              </template>
+            </div>
+          </div>
+
+          <div class="p-[1px] bg-gradient-to-r from-[#1C6EFF] to-[#10B981] rounded-full shadow-xs hover:shadow transition-all cursor-pointer inline-flex items-center flex-shrink-0 group">
+            <button @click="showAiDrawer1 = true; aiDrawerOpen = true;" 
+                    class="relative inline-flex items-center gap-1.5 h-7 px-3.5 bg-gradient-to-r from-[#E6F4FF] via-[#E6FFFA] to-[#F0FDF4] hover:from-[#D4EDFF] hover:to-[#D1F5EE] text-[#095859] font-medium text-xs rounded-full group-hover:bg-opacity-90 transition-all overflow-hidden cursor-pointer">
+              <span class="absolute inset-0 bg-white/40 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 ease-in-out pointer-events-none"></span>
+              <svg class="w-3.5 h-3.5 text-[#006666] animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+              </svg>
+              <span class="font-medium text-[#095859] whitespace-nowrap">AI排障定位</span>
+            </button>
+          </div>
+        </div>
 
         <!-- 主内容区域 -->
         <main class="flex-1 bg-[#F5F7FA] px-4 py-2 flex flex-col overflow-y-auto space-y-2">
@@ -706,8 +752,23 @@
 
         </main>
       </div>
-    </div>
+    </template>
   </div>
 
+  <!-- 双底座公共 Shell 逻辑 -->
+  <script src="./_shell/shell.js"></script>
+  <script>
+    (function injectUserTemplate() {
+      const tpl = document.getElementById('page-content-template');
+      if (!tpl) return;
+      ['atrust-workspace', 'sase-workspace'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+          el.innerHTML = '';
+          el.appendChild(tpl.content.cloneNode(true));
+        }
+      });
+    })();
+  </script>
 </body>
 </html>

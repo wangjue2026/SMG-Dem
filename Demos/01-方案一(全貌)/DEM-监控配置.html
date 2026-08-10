@@ -17,25 +17,45 @@
   <script src="../assets/js/tailwind-config.js"></script>
   <link rel="stylesheet" href="../assets/css/ai-dem.css" />
 
-  <!-- 集中维护的公共 Shell 框架 -->
-  <script src="../assets/js/dem-shell.js?v=4.0"></script>
+  <!-- 集中维护的双底座公共 Shell 样式 -->
+  <link rel="stylesheet" href="./_shell/shell.css" />
 </head>
 <body class="bg-bg-light text-text font-sans overflow-hidden w-screen h-screen">
 
   <div id="dem-svgs"></div>
 
-  <div class="flex flex-col w-full h-full" x-data="demAppState('监控配置', 'm_0_0_2')">
-    <header id="dem-header" class="h-[56px] min-h-[56px] bg-white border-b border-bg-line flex items-center px-4 flex-shrink-0 z-30"></header>
+  <div class="flex flex-col w-full h-full" x-data="dualShellAppStore('监控配置')">
+    <!-- 底座切换浮层（由 shell.js 注入） -->
+    <div id="shell-switcher"></div>
 
-    <div class="flex-1 flex overflow-hidden">
-      <aside id="dem-sider" class="at-sider flex flex-col flex-shrink-0 select-none"></aside>
+    <!-- MODE 1: aTrust 线下底座框架 -->
+    <div x-show="shell === 'atrust'" class="flex flex-col w-full h-full">
+      <div id="shell-atrust-header"></div>
+      <div class="flex-1 flex overflow-hidden">
+        <div id="shell-atrust-sider"></div>
+        <div class="flex-1 bg-bg-light flex flex-col overflow-hidden">
+          <div class="flex-1 bg-[#F4F6F9] flex flex-col overflow-hidden" id="atrust-workspace"></div>
+        </div>
+      </div>
+    </div>
 
-      <div class="flex-1 flex flex-col overflow-hidden">
-        <!-- 体验监控专属页头 (Tab 型页头: 首页 / 分支 / 用户 / 应用) -->
-        <div id="dem-sub-header"></div>
+    <!-- MODE 2: SASE 线上云底座框架 -->
+    <div x-show="shell === 'sase'" class="flex w-full h-full overflow-hidden">
+      <div id="shell-sase-sider"></div>
+      <div class="flex-1 bg-bg-light flex flex-col overflow-hidden">
+        <div class="flex-1 bg-[#F4F6F9] flex flex-col overflow-hidden" id="sase-workspace"></div>
+      </div>
+    </div>
+
+    <!-- Workspace 内容模板 -->
+    <template id="page-content-template">
+      <div class="flex flex-col w-full h-full overflow-hidden">
+        <!-- 页头 -->
+        <div class="h-[48px] min-h-[48px] max-h-[48px] bg-white border-b border-[#E2E8F0] px-6 flex items-center flex-shrink-0 select-none z-20">
+          <span class="text-[14px] font-semibold text-[#1E293B]">监控配置</span>
+        </div>
 
         <main class="flex-1 bg-bg-light p-4 flex flex-col overflow-hidden">
-          <!-- 清爽重构容器 (已清除历史演示代码，路由与框架保持不变) -->
           <div class="bg-white rounded-container border border-bg-line p-8 shadow-sm flex-1 flex flex-col items-center justify-center text-center">
             <div class="w-14 h-14 rounded-full bg-brand/10 text-brand flex items-center justify-center mb-4">
               <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -47,8 +67,23 @@
           </div>
         </main>
       </div>
-    </div>
+    </template>
   </div>
 
+  <!-- 双底座公共 Shell 逻辑 -->
+  <script src="./_shell/shell.js"></script>
+  <script>
+    (function injectConfigTemplate() {
+      const tpl = document.getElementById('page-content-template');
+      if (!tpl) return;
+      ['atrust-workspace', 'sase-workspace'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+          el.innerHTML = '';
+          el.appendChild(tpl.content.cloneNode(true));
+        }
+      });
+    })();
+  </script>
 </body>
 </html>

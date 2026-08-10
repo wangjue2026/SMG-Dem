@@ -1,0 +1,421 @@
+/* ============================================================
+   方案一 (全貌) — 公共底座样式 shell.css
+   包含：Design Token、双底座切换器、aTrust 导航、SASE 导航、
+         表格组件、自定义滚动条、动画
+   修改此文件即可同步所有子页面的框架样式。
+   ============================================================ */
+
+/* ────────────────────────────────────────────────────────────
+   0. Shell 占位预分配
+   给 Header / Sider 占位 div 预先设置与注入内容一致的尺寸和背景色。
+   这样页面初始渲染时布局就已经正确，shell.js 注入后不会发生
+   "侧栏先消失再出现"的宽度跳动（FOUC 根本修复）。
+   ──────────────────────────────────────────────────────────── */
+
+/* aTrust Header 占位：56px 高度 + 白色背景，与注入后的 <header> 一致 */
+#shell-atrust-header {
+  height: 56px;
+  min-height: 56px;
+  flex-shrink: 0;
+  background: #FFFFFF;
+  border-bottom: 1px solid #E1E5EB;
+}
+
+/* aTrust Sider 占位：240px 宽度 + 深色背景，与 .at-sider 一致 */
+#shell-atrust-sider {
+  width: 240px !important;
+  min-width: 240px !important;
+  flex-shrink: 0;
+  background: var(--app-sider-bg, #272E38);
+}
+
+/* SASE Sider 占位：240px 宽度 + 深色背景，与 .sase-sider 一致 */
+#shell-sase-sider {
+  width: 240px !important;
+  min-width: 240px !important;
+  flex-shrink: 0;
+  background: var(--sase-sidebar-bg, #272E38);
+}
+
+:root {
+  --color-blue: #1C6EFF;
+  --color-blue-l10: #387EFF;
+  --color-blue-d10: #0056EB;
+  --color-green: #12A679;
+  --color-mint: #4BFFC6;
+  --color-graphite: #A1A7B3;
+  --color-graphite-d20: #5E6573;
+  --color-graphite-d30: #454C59;
+  --color-graphite-d40: #272E38;
+  --color-graphite-l20: #C0C8D6;
+  --color-graphite-l30: #E1E5EB;
+  --color-graphite-l40: #EDF1F7;
+  --color-graphite-l50: #F4F6F9;
+
+  --app-sider-bg: #272E38;
+  --sase-sidebar-bg: #272E38;
+  --sase-parent-active-bg: #1E232B;
+  --sase-sidebar-width: 240px;
+  --sase-header-height: 56px;
+  --sase-footer-height: 36px;
+}
+
+[x-cloak] { display: none !important; }
+
+/* ────────────────────────────────────────────────────────────
+   2. 自定义精细滚动条
+   ──────────────────────────────────────────────────────────── */
+.custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 4px; }
+.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.3); }
+
+/* ────────────────────────────────────────────────────────────
+   3. 右下角双底座切换 Toolbar (demo-switcher)
+   ──────────────────────────────────────────────────────────── */
+.demo-switcher-bar {
+  position: fixed;
+  bottom: 16px;
+  right: 16px;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--color-graphite-l30);
+  border-radius: 20px;
+  padding: 4px 10px;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.12), 0 1px 3px rgba(0, 0, 0, 0.08);
+  font-size: 11px;
+  user-select: none;
+  transition: all 0.25s ease-in-out;
+  cursor: pointer;
+}
+.demo-switcher-bar:hover {
+  background: #FFFFFF;
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.16), 0 2px 6px rgba(0, 0, 0, 0.08);
+  border-color: #C0C8D6;
+}
+.demo-switcher-collapsed { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.demo-switcher-expanded-content { display: flex; align-items: center; gap: 6px; }
+.demo-switcher-group { display: flex; align-items: center; gap: 2px; background: rgba(0, 0, 0, 0.04); border-radius: 12px; padding: 2px; }
+.demo-switcher-btn {
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 500;
+  color: #5E6573;
+  transition: all 0.15s ease;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  font-size: 11px;
+}
+.demo-switcher-btn.active {
+  background: #FFFFFF;
+  color: #1C6EFF;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  font-weight: 600;
+}
+
+/* ────────────────────────────────────────────────────────────
+   4. aTrust 顶部导航 & 侧边栏组件
+   ──────────────────────────────────────────────────────────── */
+.at-top-nav-item {
+  height: 32px;
+  padding: 0 16px;
+  border-radius: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-graphite-d40, #272E38);
+  font-size: 13px;
+  font-weight: 400;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+.at-top-nav-item:hover { background: rgba(0, 0, 0, 0.05); }
+.at-top-nav-item.active {
+  background: var(--color-blue, #1C6EFF);
+  color: #FFFFFF;
+  font-weight: 500;
+}
+
+/* aTrust Sider Title Header (48px) */
+.at-sider-title {
+  height: 48px;
+  min-height: 48px;
+  max-height: 48px;
+  box-sizing: border-box;
+  color: #A1A7B3;
+  font-size: 16px;
+  font-weight: 400;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.at-sider {
+  width: 240px !important;
+  min-width: 240px !important;
+  max-width: 240px !important;
+  background: var(--app-sider-bg, #272E38);
+  color: #FFFFFF;
+  flex-shrink: 0;
+}
+
+.at-menu-l2 {
+  height: 40px;
+  display: flex;
+  align-items: center;
+  position: relative;
+  cursor: pointer;
+  color: #EDF1F7;
+  font-size: 13px;
+  font-weight: 400;
+  transition: color 0.2s, background-color 0.2s;
+}
+.at-menu-l2:hover { background: rgba(255, 255, 255, 0.04); color: #FFFFFF; }
+.at-menu-l2.active { color: #FFFFFF; font-weight: 600; }
+.at-menu-l2-icon {
+  width: 16px; height: 16px; margin-left: 24px; margin-right: 8px; flex-shrink: 0;
+}
+
+.at-menu-l3 {
+  height: 32px;
+  padding-left: 48px;
+  padding-right: 16px;
+  display: flex;
+  align-items: center;
+  position: relative;
+  cursor: pointer;
+  color: #BEC3CC;
+  font-size: 12px;
+  font-weight: 400;
+  transition: color 0.2s;
+}
+.at-menu-l3:hover { color: #FFFFFF; background: rgba(255, 255, 255, 0.04); }
+.at-menu-l3.active {
+  color: #FFFFFF;
+  font-weight: 600;
+  background: linear-gradient(90deg, rgba(28, 110, 255, 0.2), transparent);
+}
+.at-menu-l3.active::before {
+  content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--color-blue, #1C6EFF);
+}
+
+/* ────────────────────────────────────────────────────────────
+   5. SASE 线上云底座导航组件
+   ──────────────────────────────────────────────────────────── */
+.sase-sider {
+  width: 240px !important;
+  min-width: 240px !important;
+  max-width: 240px !important;
+  background-color: var(--sase-sidebar-bg, #272E38);
+  color: #FFFFFF;
+  flex-shrink: 0;
+}
+.sase-group-l1 {
+  height: 32px;
+  padding-left: 16px;
+  padding-right: 12px;
+  display: flex;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 400;
+  color: #A1A7B3;
+  pointer-events: none;
+  letter-spacing: 0.2px;
+}
+.sase-menu-l1 {
+  height: 36px;
+  padding-left: 16px;
+  padding-right: 12px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  position: relative;
+  font-size: 13px;
+  font-weight: 400;
+  color: #FFFFFF;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.sase-menu-l1:hover { background-color: rgba(255, 255, 255, 0.05); }
+.sase-menu-l1-icon {
+  width: 16px; height: 16px; min-width: 16px; margin-right: 8px; color: #FFFFFF; transition: color 0.2s ease;
+}
+.sase-menu-l1.parent-active {
+  background-color: #1E232B !important;
+  color: #FFFFFF !important;
+}
+.sase-menu-l1.parent-active .sase-menu-l1-icon { color: #1C6EFF !important; }
+.sase-submenu-container { background-color: #1E232B; overflow: hidden; }
+
+.sase-menu-l2 {
+  height: 32px;
+  padding-left: 40px;
+  padding-right: 12px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  position: relative;
+  font-size: 12px;
+  font-weight: 400;
+  color: #FFFFFF;
+  transition: background-color 0.15s ease;
+}
+.sase-menu-l2:hover { background-color: rgba(255, 255, 255, 0.04); }
+.sase-dot {
+  width: 4px; height: 4px; min-width: 4px; min-height: 4px; border-radius: 50%; background-color: #FFFFFF; opacity: 0.6; margin-right: 8px; transition: all 0.2s ease;
+}
+.sase-menu-l2.selected {
+  background: linear-gradient(90deg, rgba(28, 110, 255, 0.2) 0%, rgba(28, 110, 255, 0) 100%) !important;
+  font-weight: 600;
+  color: #FFFFFF !important;
+}
+.sase-menu-l2.selected::before {
+  content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background-color: #1C6EFF; z-index: 1;
+}
+.sase-menu-l2.selected .sase-dot {
+  background-color: #4BFFC6 !important; opacity: 1 !important; box-shadow: 0 0 4px rgba(75, 255, 198, 0.5); filter: drop-shadow(0 0 3px rgba(75, 255, 198, 0.3));
+}
+.sase-footer {
+  height: 36px; min-height: 36px; display: flex; align-items: center; padding-left: 16px; background-color: #272E38; border-top: 1px solid rgba(255, 255, 255, 0.08); z-index: 10;
+}
+
+/* ────────────────────────────────────────────────────────────
+   6. 动画
+   ──────────────────────────────────────────────────────────── */
+@keyframes pulse-red-subtle {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(217, 54, 62, 0.45); }
+  50% { box-shadow: 0 0 0 6px rgba(217, 54, 62, 0); }
+}
+@keyframes pulse-amber-subtle {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(217, 119, 6, 0.45); }
+  50% { box-shadow: 0 0 0 6px rgba(217, 119, 6, 0); }
+}
+.alert-node-pulse-red { animation: pulse-red-subtle 2s infinite ease-in-out; }
+.alert-node-pulse-amber { animation: pulse-amber-subtle 2s infinite ease-in-out; }
+
+/* ────────────────────────────────────────────────────────────
+   7. 通用控件：Select、告警卡片、分页
+   ──────────────────────────────────────────────────────────── */
+.dem-select {
+  height: 32px; font-size: 12px; color: #2F3540; background-color: #FFFFFF; border: 1px solid #D3D7DE; border-radius: 2px;
+  padding-left: 12px; padding-right: 28px; appearance: none; -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23A1A7B3'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 8px center; background-size: 14px 14px; cursor: pointer; transition: border-color 0.15s;
+}
+.dem-select:hover, .dem-select:focus { border-color: #1C6EFF; outline: none; }
+.dem-input {
+  height: 32px; font-size: 12px; color: #2F3540; background-color: #FFFFFF; border: 1px solid #D3D7DE; border-radius: 2px;
+  padding-left: 30px; padding-right: 12px; transition: border-color 0.15s, box-shadow 0.15s;
+}
+.dem-input:hover, .dem-input:focus { border-color: #1C6EFF; outline: none; }
+.dem-input::placeholder { color: #A1A7B3; }
+.dem-alert-card { background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 4px; transition: all 0.15s ease-in-out; }
+.dem-alert-card:hover { border-color: #1C6EFF; box-shadow: 0 3px 8px -2px rgba(28, 110, 255, 0.08); }
+.dem-pagination-bar { height: 44px; background: #FFFFFF; border-top: 1px solid #E2E8F0; display: flex; align-items: center; justify-content: flex-end; padding: 0 16px; gap: 16px; font-size: 12px; color: #5C6270; }
+.dem-page-btn { width: 24px; height: 24px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; font-size: 12px; color: #2F3540; transition: all 0.15s; }
+.dem-page-btn:hover { border: 1px solid #1C6EFF; color: #1C6EFF; }
+.dem-page-btn.active { background-color: #1C6EFF; color: #FFFFFF; font-weight: 500; }
+.dem-page-btn.disabled { cursor: not-allowed; color: #C0C4CC; }
+.dem-page-btn.disabled:hover { border: none; color: #C0C4CC; }
+
+/* ────────────────────────────────────────────────────────────
+   8. 表格组件核心规范样式
+   ──────────────────────────────────────────────────────────── */
+.dem-table-container {
+  border: 1px solid var(--color-graphite-l30, #E1E5EB);
+  border-radius: 0px !important;
+  background: #ffffff;
+}
+
+.dem-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.dem-table thead tr { height: 32px; }
+
+.dem-table th {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  height: 32px;
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 400;
+  color: #454C59;
+  background-color: #EDF1F7;
+  white-space: nowrap;
+  text-align: left;
+  border-bottom: 1px solid #E1E5EB;
+  box-shadow: inset 0 -1px 0 #E1E5EB;
+  user-select: none;
+}
+
+.dem-table th:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  right: 0; top: 8px;
+  height: 16px; width: 1px;
+  background-color: #E1E5EB;
+}
+
+.dem-table tbody tr {
+  height: 40px;
+  transition: background-color 0.15s ease;
+  border-bottom: 1px solid #F0F2F5;
+}
+.dem-table tbody tr:hover { background-color: #F7F9FC; }
+
+.dem-table td {
+  padding: 4px 12px;
+  font-size: 12px;
+  color: #2F3540;
+  vertical-align: middle;
+  border-bottom: 1px solid #E1E5EB;
+}
+
+.dem-table th.num-col,
+.dem-table td.num-col { text-align: right; }
+
+.dem-table-action-link {
+  color: #1C6EFF;
+  font-size: 12px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: color 0.15s;
+}
+.dem-table-action-link:hover { color: #4FA1FF; }
+
+.dem-table-col-more {
+  width: 40px; min-width: 40px; max-width: 40px;
+  text-align: center !important;
+}
+
+/* ────────────────────────────────────────────────────────────
+   9. 体验预警 / 告警排障 拓扑节点与故障点动态呼吸光晕
+   ──────────────────────────────────────────────────────────── */
+@keyframes pulse-red-subtle {
+  0%, 100% { filter: drop-shadow(0 0 1px rgba(217, 54, 62, 0.5)); transform: scale(1); }
+  50% { filter: drop-shadow(0 0 6px rgba(217, 54, 62, 0.9)); transform: scale(1.08); }
+}
+@keyframes pulse-amber-subtle {
+  0%, 100% { filter: drop-shadow(0 0 1px rgba(217, 119, 6, 0.5)); transform: scale(1); }
+  50% { filter: drop-shadow(0 0 6px rgba(217, 119, 6, 0.9)); transform: scale(1.08); }
+}
+
+.alert-node-pulse-red {
+  animation: pulse-red-subtle 2s infinite ease-in-out;
+}
+
+.alert-node-pulse-amber {
+  animation: pulse-amber-subtle 2s infinite ease-in-out;
+}

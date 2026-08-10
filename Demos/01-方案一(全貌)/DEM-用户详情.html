@@ -17,8 +17,8 @@
   <script src="../assets/js/tailwind-config.js"></script>
   <link rel="stylesheet" href="../assets/css/ai-dem.css" />
 
-  <!-- 集中维护的公共 Shell 框架 -->
-  <script src="../assets/js/dem-shell.js?v=4.0"></script>
+  <!-- 集中维护的双底座公共 Shell 样式 -->
+  <link rel="stylesheet" href="./_shell/shell.css" />
 
   <style>
     /* 下拉选择框通用规范 */
@@ -91,7 +91,7 @@
   <script>
     function demUserDetailState() {
       return {
-        ...window.demAppState('用户', 'm_0_0_1'),
+        ...window.dualShellAppStore('用户详情'),
 
         // 用户顶部数据 (以第一个用户 张三 34342 为核心案例)
         userId: 'usr_001',
@@ -684,16 +684,43 @@
   <div id="dem-svgs"></div>
 
   <div class="flex flex-col w-full h-full" x-data="demUserDetailState()">
-    <!-- 1. 顶部主 Header (DEM Shell 框架) -->
-    <header id="dem-header" class="h-[56px] min-h-[56px] bg-white border-b border-[#E1E5EB] flex items-center px-4 flex-shrink-0 z-30"></header>
 
-    <div class="flex-1 flex overflow-hidden">
-      <!-- 2. 左侧 Sider 导航 (DEM Shell 框架) -->
-      <aside id="dem-sider" class="at-sider flex flex-col flex-shrink-0 select-none"></aside>
+    <!-- 底座切换浮层（由 shell.js 注入） -->
+    <div id="shell-switcher"></div>
 
-      <div class="flex-1 flex flex-col overflow-hidden">
-        <!-- 3. DEM Shell 页头 -->
-        <div id="dem-sub-header" class="flex-shrink-0"></div>
+    <!-- MODE 1: aTrust 线下底座框架 -->
+    <div x-show="shell === 'atrust'" class="flex flex-col w-full h-full">
+      <div id="shell-atrust-header"></div>
+      <div class="flex-1 flex overflow-hidden">
+        <div id="shell-atrust-sider"></div>
+        <div class="flex-1 bg-bg-light flex flex-col overflow-hidden">
+          <div class="flex-1 bg-[#F4F6F9] flex flex-col overflow-hidden" id="atrust-workspace"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODE 2: SASE 线上云底座框架 -->
+    <div x-show="shell === 'sase'" class="flex w-full h-full overflow-hidden">
+      <div id="shell-sase-sider"></div>
+      <div class="flex-1 bg-bg-light flex flex-col overflow-hidden">
+        <div class="flex-1 bg-[#F4F6F9] flex flex-col overflow-hidden" id="sase-workspace"></div>
+      </div>
+    </div>
+
+    <!-- 用户详情 Workspace 内容模板 -->
+    <template id="page-content-template">
+      <div class="flex flex-col w-full h-full overflow-hidden">
+        <!-- 页头 -->
+        <div class="h-[48px] min-h-[48px] max-h-[48px] bg-white border-b border-[#E2E8F0] px-6 flex items-center justify-between flex-shrink-0 select-none z-20">
+          <div class="flex items-center gap-2">
+            <a href="./DEM-用户.html" class="text-xs text-[#1C6EFF] hover:underline flex items-center gap-1">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+              <span>返回用户列表</span>
+            </a>
+            <span class="text-[#CBD5E1]">｜</span>
+            <span class="text-[14px] font-semibold text-[#1E293B]">用户查询详情</span>
+          </div>
+        </div>
 
         <!-- 4. 主内容区域 -->
         <main class="flex-1 bg-[#F5F7FA] p-3 flex flex-col space-y-2.5 overflow-y-auto custom-scrollbar relative">
@@ -1182,8 +1209,23 @@
 
         </main>
       </div>
-    </div>
+    </template>
   </div>
 
+  <!-- 双底座公共 Shell 逻辑 -->
+  <script src="./_shell/shell.js"></script>
+  <script>
+    (function injectUserDetailTemplate() {
+      const tpl = document.getElementById('page-content-template');
+      if (!tpl) return;
+      ['atrust-workspace', 'sase-workspace'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+          el.innerHTML = '';
+          el.appendChild(tpl.content.cloneNode(true));
+        }
+      });
+    })();
+  </script>
 </body>
 </html>
