@@ -669,22 +669,14 @@
             </div>
 
             <!-- 告警卡片列表展示区 (与工具栏间距 8px) -->
-            <div class="p-3 pt-2 space-y-2 bg-white">
+            <div class="p-3 pt-2 space-y-4 bg-white">
               
               <template x-for="item in paginatedAlerts" :key="item.id">
                 <div class="dem-alert-card rounded-[4px] border border-[#E2E8F0] overflow-hidden relative bg-white transition-all hover:border-[#1C6EFF] hover:shadow-xs cursor-pointer">
                   
-                  <!-- 顶部紧急程度微渐变点缀 (减淡 30%) -->
-                  <div class="absolute top-0 left-0 right-0 h-[40px] pointer-events-none"
-                       :style="item.level === '高优'
-                         ? 'background: linear-gradient(to bottom, rgba(207,23,29,0.028) 0%, transparent 100%)'
-                         : item.level === '中优'
-                           ? 'background: linear-gradient(to bottom, rgba(250,114,27,0.028) 0%, transparent 100%)'
-                           : 'background: linear-gradient(to bottom, rgba(100,116,139,0.02) 0%, transparent 100%)'
-                       "></div>
 
-                  <!-- 1. 标题栏 (拉通 40px 高度) -->
-                  <div class="h-[40px] px-3.5 flex items-center justify-between border-b border-[#F1F5F9] relative z-10">
+                  <!-- 1. 标题栏 (拉通 40px 高度，背景底色 #F7F9FC) -->
+                  <div class="h-[40px] px-3.5 flex items-center justify-between border-b border-[#E2E8F0] bg-[#F7F9FC] relative z-10">
                     <div class="flex items-center gap-2 flex-1 min-w-0 pr-4">
                       <!-- 等级 Tag (高优 / 中优 / 低优) -->
                       <span :class="getLevelBadgeClass(item.level)" x-text="item.level"></span>
@@ -703,84 +695,99 @@
                     </div>
                   </div>
 
-                  <!-- 2. 影响范围与定位内容 (3 行内容，每行上下间距 4px，纵向紧凑排版) -->
-                  <div class="p-3 py-2 flex flex-col gap-1 text-xs relative z-10">
-                    <!-- 第 1 行：4 个 Tag 并排 (分支、用户、应用、问题原因) -->
-                    <div class="flex items-center gap-2 text-[11px] text-[#475569] flex-wrap">
-                      <span class="inline-flex items-center gap-1 bg-[#F8FAFC] border border-[#E2E8F0] px-2 py-0.5 rounded-[2px]">
-                        <svg class="w-3 h-3 text-[#64748B]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
-                        <span>涉及 <strong class="text-[#1E293B] font-medium" x-text="item.scope.branchCount"></strong> 个分支</span>
-                      </span>
-                      <span class="inline-flex items-center gap-1 bg-[#F8FAFC] border border-[#E2E8F0] px-2 py-0.5 rounded-[2px]">
-                        <svg class="w-3 h-3 text-[#64748B]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
-                        <span>影响 <strong class="text-[#CF171D] font-bold" x-text="item.scope.userCount"></strong> 名用户</span>
-                      </span>
-                      <span class="inline-flex items-center gap-1 bg-[#F8FAFC] border border-[#E2E8F0] px-2 py-0.5 rounded-[2px]">
-                        <svg class="w-3 h-3 text-[#64748B]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
-                        <span x-text="item.scope.appName"></span>
-                      </span>
-                      <!-- 问题原因 Tag -->
-                      <span class="inline-flex items-center px-2 py-0.5 rounded border text-[11px] font-medium bg-[#FFFAF0] text-[#DD6B20] border-[#FEEBC8]"
-                            x-text="item.popHighlight || 'POP — 传输段丢包 5.0%'"></span>
+                  <!-- 2. 卡片核心主体 (左侧诊断归因 + 右侧极简抽象链路流) -->
+                  <div class="p-3 py-2.5 flex items-center justify-between gap-4 relative z-10">
+                    
+                    <!-- 左侧：影响范围与诊断归因信息 -->
+                    <div class="flex-1 min-w-0 flex flex-col gap-1.5 text-xs">
+                      <!-- 第 1 行：4 个 Tag 并排 (分支、用户、应用、真实分段 Tag) -->
+                      <div class="flex items-center gap-2 text-[11px] text-[#475569] flex-wrap">
+                        <span class="inline-flex items-center gap-1 bg-[#F8FAFC] border border-[#E2E8F0] px-2 py-0.5 rounded-[2px]">
+                          <svg class="w-3 h-3 text-[#64748B]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+                          <span>涉及 <strong class="text-[#1E293B] font-medium" x-text="item.scope.branchCount"></strong> 个分支</span>
+                        </span>
+                        <span class="inline-flex items-center gap-1 bg-[#F8FAFC] border border-[#E2E8F0] px-2 py-0.5 rounded-[2px]">
+                          <svg class="w-3 h-3 text-[#64748B]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                          <span>影响 <strong class="text-[#CF171D] font-bold" x-text="item.scope.userCount"></strong> 名用户</span>
+                        </span>
+                        <span class="inline-flex items-center gap-1 bg-[#F8FAFC] border border-[#E2E8F0] px-2 py-0.5 rounded-[2px]">
+                          <svg class="w-3 h-3 text-[#64748B]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
+                          <span x-text="item.scope.appName"></span>
+                        </span>
+                        <!-- 问题原因真实分段 Tag -->
+                        <span class="inline-flex items-center px-2 py-0.5 rounded border text-[11px] font-medium bg-[#FFFAF0] text-[#DD6B20] border-[#FEEBC8]"
+                              x-text="item.popHighlight || 'POP — 传输段丢包 5.0%'"></span>
+                      </div>
+
+                      <!-- 第 2 行：诊断归因详细说明 -->
+                      <div class="text-[11px] text-[#475569] leading-relaxed">
+                        <span class="font-medium text-[#1E293B]">诊断归因：</span>
+                        <span x-text="item.attributionText || item.description"></span>
+                      </div>
+
+                      <!-- 第 3 行：影响说明 -->
+                      <div class="text-[11px] text-[#64748B] leading-relaxed">
+                        <span class="font-medium text-[#475569]">影响说明：</span>
+                        <span x-text="item.impactDesc || '由于此故障原因，具备群体扩散风险，影响相同出口下接入用户体验。'"></span>
+                      </div>
                     </div>
 
-                    <!-- 第 2 行：问题定位详细说明 (横向拉通) -->
-                    <div class="text-[11px] text-[#475569] leading-relaxed">
-                      <span class="font-medium text-[#1E293B]">诊断归因：</span>
-                      <span x-text="item.attributionText || item.description"></span>
+                    <!-- 右侧空白处：极简抽象拓扑链路 (无标题 / 节点去固定常驻文本 / 鼠标悬浮展示节点详细信息) -->
+                    <div class="flex-shrink-0 flex flex-col justify-center pl-3 border-l border-[#F1F5F9] w-[350px] min-w-[310px] max-w-[380px]">
+                      <div class="p-2.5 px-3 flex items-center justify-between">
+
+                        <!-- 精简节点链路流 (无拓扑标题) -->
+                        <div class="flex items-center justify-between relative w-full py-0.5">
+                          <template x-for="(node, nIdx) in item.nodes" :key="nIdx">
+                            <div class="flex items-center flex-1 min-w-0 relative">
+                              <!-- 节点 Icon 圈与 Hover 浮层 (去掉常驻节点文本，鼠标悬浮展示信息) -->
+                              <div class="flex flex-col items-center flex-shrink-0 relative group cursor-pointer" :title="node.name + (node.sub ? ' (' + node.sub + ')' : '')">
+                                
+                                <!-- 鼠标悬浮 Hover Tooltip 浮层 -->
+                                <div class="absolute bottom-full mb-1.5 hidden group-hover:flex flex-col items-center z-30 pointer-events-none transition-all">
+                                  <div class="bg-[#1E293B] text-white text-[10px] py-1 px-2 rounded-[3px] whitespace-nowrap shadow-md flex items-center gap-1">
+                                    <span class="font-semibold text-white" x-text="node.name"></span>
+                                    <span class="text-[9px] text-[#94A3B8]" x-show="node.sub" x-text="'(' + node.sub + ')'"></span>
+                                  </div>
+                                  <div class="w-0 h-0 border-x-4 border-x-transparent border-t-4 border-t-[#1E293B]"></div>
+                                </div>
+
+                                <!-- Warning Badge (如 CPU 91.2% / NAT 98%) -->
+                                <div x-show="node.alertBadge" 
+                                     class="absolute -top-3 text-[8px] font-bold bg-[#CF171D] text-white px-1 rounded-full whitespace-nowrap z-10 shadow-2xs scale-90" 
+                                     x-text="node.alertBadge"></div>
+                                
+                                <!-- 节点 Icon 圈 (高亮与悬浮缩放效果) -->
+                                <div class="w-6.5 h-6.5 rounded-full border flex items-center justify-center bg-white transition-all group-hover:scale-110 group-hover:shadow-xs"
+                                     :class="node.status === 'error' ? 'border-[#CF171D] text-[#CF171D] bg-[#FFF5F5] ring-2 ring-[#CF171D]/20' : node.status === 'warning' ? 'border-[#FA721B] text-[#FA721B] bg-[#FFFAF0] ring-2 ring-[#FA721B]/20' : 'border-[#10B981] text-[#10B981] bg-[#F0FDF4]'">
+                                  <svg x-show="node.type === 'terminal' || node.name.includes('终端')" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                                  <svg x-show="node.type === 'branch' || node.name.includes('分支')" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+                                  <svg x-show="node.type === 'pop' || node.name.includes('POP')" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 002 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 002 2h1.5a2.5 2.5 0 002.5-2.5V7a2 2 0 00-2-2h-2c-.53 0-1.04-.21-1.41-.59L12 3"></path></svg>
+                                  <svg x-show="node.type === 'connector' || node.name.includes('连接器')" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                  <svg x-show="node.type === 'af' || node.name.includes('AF')" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+                                  <svg x-show="node.type === 'app' || (!node.type && nIdx >= 2)" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 002-2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2"></path></svg>
+                                </div>
+                              </div>
+
+                              <!-- 连接线 (nIdx < nodes.length - 1) -->
+                              <div x-show="nIdx < item.nodes.length - 1" class="flex-1 flex flex-col items-center justify-center relative -mx-0.5">
+                                <!-- 连线上的异常指标 -->
+                                <span x-show="node.metric" 
+                                      class="text-[8px] font-mono whitespace-nowrap leading-none mb-0.5 scale-95 font-bold text-[#CF171D]"
+                                      x-text="node.metric"></span>
+                                <!-- 箭头线 -->
+                                <div class="w-full h-[1px] relative" :class="node.status === 'error' || item.nodes[nIdx+1].status === 'error' ? 'bg-[#CF171D]' : node.metric ? 'bg-[#FA721B]' : 'bg-[#CBD5E1]'">
+                                  <div class="absolute right-0 top-1/2 -translate-y-1/2 w-0 h-0 border-y-[2.5px] border-y-transparent border-l-[3.5px]"
+                                       :class="node.status === 'error' || item.nodes[nIdx+1].status === 'error' ? 'border-l-[#CF171D]' : node.metric ? 'border-l-[#FA721B]' : 'border-l-[#CBD5E1]'"></div>
+                                </div>
+                              </div>
+                            </div>
+                          </template>
+                        </div>
+                      </div>
                     </div>
 
-                    <!-- 第 3 行：影响范围内容 (横向拉通) -->
-                    <div class="text-[11px] text-[#64748B] leading-relaxed">
-                      <span class="font-medium text-[#475569]">影响说明：</span>
-                      <span x-text="item.impactDesc || '由于此故障原因，具备群体扩散风险，影响相同出口下接入用户体验。'"></span>
-                    </div>
                   </div>
-
-                  <!-- 3. 拓扑链路内容 (基于3大标准场景渲染，图标尺寸 w-7 h-7 保持不变，高度缩减 20%) -->
-                  <div class="px-3.5 pb-2 pt-0.5 border-t border-[#F1F5F9] relative z-10">
-                    <div class="flex items-center justify-between relative w-full pt-1.5 pb-0.5">
-                      <template x-for="(node, nIdx) in item.nodes" :key="nIdx">
-                        <div class="flex items-center flex-1 relative">
-                          <!-- 节点图形与信息 -->
-                          <div class="flex flex-col items-center relative z-10 min-w-[68px]">
-                            <!-- 节点右上角 Warning Badge (如 CPU 91.2% / NAT 98%) -->
-                            <div x-show="node.alertBadge" class="absolute -top-2.5 text-[9px] font-bold bg-[#CF171D] text-white px-1.5 py-0.2 rounded-full whitespace-nowrap shadow-xs animate-pulse" x-text="node.alertBadge"></div>
-                            
-                            <!-- 节点图标容器 (保持 w-7 h-7 尺寸不动) -->
-                            <div class="w-7 h-7 rounded-md border flex items-center justify-center bg-white shadow-2xs transition-colors"
-                                 :class="node.status === 'error' ? 'border-[#CF171D] text-[#CF171D] bg-[#FFF5F5] ring-2 ring-[#CF171D]/20' : node.status === 'warning' ? 'border-[#FA721B] text-[#FA721B] bg-[#FFFAF0] ring-2 ring-[#FA721B]/20' : 'border-[#10B981] text-[#10B981] bg-[#F0FDF4]'">
-                              <!-- 场景①/②: 移动终端 -->
-                              <svg x-show="node.type === 'terminal' || node.name.includes('终端')" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
-                              <!-- 场景③: 分支 -->
-                              <svg x-show="node.type === 'branch' || node.name.includes('分支')" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
-                              <!-- 场景②/③: SASE POP (上车点/下车点) -->
-                              <svg x-show="node.type === 'pop' || node.name.includes('POP')" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 002 2h1.5a2.5 2.5 0 002.5-2.5V7a2 2 0 00-2-2h-2c-.53 0-1.04-.21-1.41-.59L12 3"></path></svg>
-                              <!-- 场景①/②: GW 连接器 -->
-                              <svg x-show="node.type === 'connector' || node.name.includes('连接器')" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-                              <!-- 场景③: 总部 AF 防火墙 -->
-                              <svg x-show="node.type === 'af' || node.name.includes('AF')" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
-                              <!-- 目标应用 -->
-                              <svg x-show="node.type === 'app' || (!node.type && nIdx >= 2)" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 002-2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2"></path></svg>
-                            </div>
-
-                            <!-- 节点名称与副标题 -->
-                            <span class="text-[10px] font-medium text-[#1E293B] mt-0.5 text-center truncate max-w-[85px]" x-text="node.name"></span>
-                            <span class="text-[9px] text-[#94A3B8] truncate max-w-[85px]" x-text="node.sub"></span>
-                          </div>
-
-                          <!-- 节点间的连接线与指标 (nIdx < nodes.length - 1) -->
-                          <div x-show="nIdx < item.nodes.length - 1" class="flex-1 flex flex-col items-center justify-center relative -mx-1 -mt-2">
-                            <!-- 连线上指示 -->
-                            <span class="text-[9px] font-mono whitespace-nowrap mb-0.5 scale-90"
-                                  :class="node.status === 'error' || item.nodes[nIdx+1].status === 'error' ? 'text-[#CF171D] font-bold' : 'text-[#64748B]'"
-                                  x-text="node.metric || '正常'"></span>
-                            <!-- 连线箭头 -->
-                            <div class="w-full h-[1.5px] relative" :class="node.status === 'error' || item.nodes[nIdx+1].status === 'error' ? 'bg-[#CF171D]' : 'bg-[#CBD5E1]'">
-                              <div class="absolute right-0 top-1/2 -translate-y-1/2 w-0 h-0 border-y-[3px] border-y-transparent border-l-[4px]"
-                                   :class="node.status === 'error' || item.nodes[nIdx+1].status === 'error' ? 'border-l-[#CF171D]' : 'border-l-[#CBD5E1]'"></div>
-                            </div>
-                          </div>
                         </div>
                       </template>
                     </div>

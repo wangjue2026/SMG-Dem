@@ -245,7 +245,7 @@
         title: "西安研发中心 访问 Harbor 镜像仓库 丢包率超标 (5.8%) 异常",
         time: "2026-06-04 14:32:10",
         impactDesc: "由于上车点 POP 至下车点 POP 传输段故障，具备群体扩散风险，影响西安分支出口 P203.177.12.8 下 38 名研发人员。",
-        popHighlight: "POP — 传输段丢包 5.8%",
+        popHighlight: "POP传输段 — 丢包 5.8%",
         attributionText: "拨测显示上车点 POP 与下车点 POP 传输段发生 5.8% 丢包，同时目标服务端 CPU 负载偏高 (91.2%)，导致整体拉取镜像缓慢。",
         description: "拨测显示上车点 POP 与下车点 POP 传输段发生 5.8% 丢包，同时目标服务端 CPU 负载偏高 (91.2%)，导致整体拉取镜像缓慢。",
         scope: { branchCount: 2, userCount: 38, appCount: 1, appName: "Harbor 镜像仓库" },
@@ -266,7 +266,7 @@
         title: "张伟、李娜 等 42 名移动办公用户访问 Salesforce CRM 拨测响应超时 (>600ms) 异常",
         time: "2026-06-04 14:28:45",
         impactDesc: "由于 GA 下车点 POP 至 GW 连接器端网关路由绕行，影响 42 名外勤销售人员 CRM 客户单据提交体验。",
-        popHighlight: "SaaS — 目标端响应超时 640ms",
+        popHighlight: "应用服务端 — 响应超时 640ms",
         attributionText: "应用端 HTTP 响应延迟升至 640ms (基线 120ms)，上车点 POP 代理转发与 GW 连接器处理耗时均在正常范围内。",
         description: "应用端 HTTP 响应延迟升至 640ms (基线 120ms)，上车点 POP 代理转发与 GW 连接器处理耗时均在正常范围内。",
         scope: { branchCount: 3, userCount: 42, appCount: 1, appName: "Salesforce CRM" },
@@ -287,7 +287,7 @@
         title: "武汉分公司 18 名移动终端员工访问 仓储 WMS 系统 TCP 握手超时 异常",
         time: "2026-06-04 14:20:15",
         impactDesc: "GW 连接器防火墙并发会话满载，造成仓库出入库扫码终端连接中断与会话重置。",
-        popHighlight: "GW — NAT 会话满载 (98%)",
+        popHighlight: "网关连接器 — NAT会话满载 98%",
         attributionText: "GW 连接器防火墙 NAT 转换瓶颈导致并发会话数达到上限，大量 TCP SYN 报文在连接器入口处产生积压丢失。",
         description: "GW 连接器防火墙 NAT 转换瓶颈导致并发会话数达到上限，大量 TCP SYN 报文在连接器入口处产生积压丢失。",
         scope: { branchCount: 1, userCount: 18, appCount: 1, appName: "仓储 WMS 系统" },
@@ -306,7 +306,7 @@
         title: "广州分公司 访问 智能客服系统 产生 POP 选路抖动",
         time: "2026-06-04 14:15:30",
         impactDesc: "上车点 POP 出现短时轻度拥塞，波及广州华南大区 14 名客服坐席音频实时传输。",
-        popHighlight: "POP — 节点 RTT 抖动 110ms",
+        popHighlight: "POP接入节点 — RTT抖动 110ms",
         attributionText: "广州上车点 POP 节点轻度负载拥塞，导致双向 RTT 时延从 25ms 波动增加至 110ms。",
         description: "广州上车点 POP 节点轻度负载拥塞，导致双向 RTT 时延从 25ms 波动增加至 110ms。",
         scope: { branchCount: 1, userCount: 14, appCount: 1, appName: "智能客服系统" },
@@ -327,7 +327,7 @@
         title: "深圳分公司 12 名移动用户访问 金蝶云 ERP 偶发 HTTP 502 错误",
         time: "2026-06-04 14:02:00",
         impactDesc: "SaaS 应用云网关在极短时间内产生短连并发突增，影响财务人员凭证导入流程。",
-        popHighlight: "APP — 云网关 502 Bad Gateway",
+        popHighlight: "应用服务端 — HTTP 502 错误",
         attributionText: "云端应用代理 Gateway 在高并发下偶发断连，引发 502 Bad Gateway 响应。",
         description: "云端应用代理 Gateway 在高并发下偶发断连，引发 502 Bad Gateway 响应。",
         scope: { branchCount: 1, userCount: 12, appCount: 1, appName: "金蝶云 ERP" },
@@ -344,10 +344,10 @@
     const levels = ["高优", "中优", "低优"];
     const dimensions = ["分支问题", "用户问题", "应用问题", "网络链路"];
     const errorTypes = [
-      { text: "DNS 解析超时 (>300ms)", tag: "DNS — 解析超时 340ms", nodeIdx: 1, metric: "DNS 超时 340ms" },
-      { text: "跨省 ISP 骨干网拥塞", tag: "ISP — 骨干网延迟 140ms", nodeIdx: 2, metric: "RTT 140ms" },
-      { text: "POP 选路绕路异常", tag: "POP — 跨网绕行 +45ms", nodeIdx: 3, metric: "绕行 +45ms" },
-      { text: "后端 API 响应缓慢", tag: "APP — 服务端 TTFB 850ms", nodeIdx: 4, metric: "TTFB 850ms" }
+      { text: "DNS 解析超时 (>300ms)", tag: "终端接入段 — DNS解析超时 340ms", nodeIdx: 1, metric: "DNS 超时 340ms" },
+      { text: "跨省 ISP 骨干网拥塞", tag: "POP传输段 — 骨干网延迟 140ms", nodeIdx: 2, metric: "RTT 140ms" },
+      { text: "POP 选路绕路异常", tag: "POP传输段 — 跨网绕行 +45ms", nodeIdx: 3, metric: "绕行 +45ms" },
+      { text: "后端 API 响应缓慢", tag: "应用服务端 — TTFB 850ms", nodeIdx: 4, metric: "TTFB 850ms" }
     ];
 
     for (let i = 6; i <= 18; i++) {
