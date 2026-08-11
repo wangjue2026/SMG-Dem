@@ -24,7 +24,7 @@
 
   <div id="dem-svgs"></div>
 
-  <div class="flex flex-col w-full h-full" x-data="dualShellAppStore('体验预警')">
+  <div class="flex flex-col w-full h-full" x-data="dualShellAppStore('体验监控')">
     <!-- 底座切换浮层（由 shell.js 注入） -->
     <div id="shell-switcher"></div>
 
@@ -56,7 +56,7 @@
             <span class="text-[14px] font-semibold text-text-title">体验监控</span>
             <div class="w-[1px] h-[16px] mx-[16px] bg-bg-line"></div>
             <div class="flex items-center h-full gap-6 relative">
-              <template x-for="tab in ['首页', '分支', '用户', '应用']">
+              <template x-for="tab in ['概览', '分支', '用户', '应用']">
                 <div class="relative h-full flex items-center cursor-pointer select-none group"
                      @click="pageTab = tab; navigateTo(tab)">
                   <span class="text-[14px] transition-colors"

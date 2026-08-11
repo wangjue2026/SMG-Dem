@@ -70,22 +70,21 @@
 
   window.initDemUserData = function () {
     const users = [
-      { id: "usr_000", userName: "Maria (maria_m)", department: "Digiplus / 马尼拉办公室 / 运营中心", terminals: ["MacBook Pro", "iPhone 15 Pro"], ipLocation: "203.177.12.8 (菲律宾-马尼拉)", pop: "马尼拉POP01", experience: "差", appCount: 12, degradedApps: ["SaaS 飞书", "Office 365"], city: "马尼拉", orgTop: "Digiplus" },
-      { id: "usr_001", userName: "张伟 (zhangwei)", department: "集团总部 / 研发中心 / 架构组", terminals: ["MacBook Pro", "iPhone 15"], ipLocation: "114.242.10.15 (北京-朝阳)", pop: "华北-北京POP01", experience: "差", appCount: 14, degradedApps: ["Salesforce", "企业内部 ERP", "自研 CRM 系统"], city: "北京", orgTop: "研发中心" },
-      { id: "usr_002", userName: "李娜 (lina)", department: "上海分公司 / 市场部 / 品牌组", terminals: ["Windows 11 PC"], ipLocation: "61.152.12.19 (上海-浦东)", pop: "华东-上海POP02", experience: "差", appCount: 8, degradedApps: ["内网 GitLab", "SaaS 飞书", "腾讯会议"], city: "上海", orgTop: "市场部" },
-      { id: "usr_003", userName: "王强 (wangqiang)", department: "深圳分公司 / 财务部 / 结算组", terminals: ["ThinkPad X1", "iPad Air"], ipLocation: "183.14.2.8 (广东-深圳)", pop: "华南-深圳POP01", experience: "差", appCount: 22, degradedApps: ["金蝶云 ERP", "用友财务系统", "OA审批平台"], city: "深圳", orgTop: "财务部" },
-      { id: "usr_004", userName: "赵敏 (zhaomin)", department: "集团总部 / 运维中心 / 网络组", terminals: ["MacBook Air"], ipLocation: "114.242.10.88 (北京-海淀)", pop: "华北-北京POP01", experience: "一般", appCount: 19, degradedApps: ["Zabbix 监控平台"], city: "北京", orgTop: "运维中心" },
-      { id: "usr_005", userName: "孙杰 (sunjie)", department: "成都运营中心 / 客户服务部", terminals: ["Dell Desktop", "Android Phone"], ipLocation: "218.17.158.20 (四川-成都)", pop: "西南-成都POP01", experience: "一般", appCount: 11, degradedApps: ["呼叫中心平台", "工单流转系统"], city: "成都", orgTop: "客户服务部" },
-      { id: "usr_006", userName: "周明 (zhouming)", department: "集团总部 / 研发中心 / 前端组", terminals: ["MacBook Pro"], ipLocation: "114.242.11.30 (北京-朝阳)", pop: "华北-北京POP01", experience: "正常", appCount: 16, degradedApps: [], city: "北京", orgTop: "研发中心" },
-      { id: "usr_007", userName: "钱芳 (qianfang)", department: "广州分公司 / 销售部 / 华南大区", terminals: ["ThinkPad T14", "Mate 60 Pro"], ipLocation: "113.108.20.12 (广东-广州)", pop: "华南-广州POP01", experience: "差", appCount: 9, degradedApps: ["Salesforce", "智能客服系统"], city: "广州", orgTop: "销售部" },
-      { id: "usr_008", userName: "吴刚 (wugang)", department: "西安研发中心 / 云计算部", terminals: ["Ubuntu Workstation"], ipLocation: "222.90.8.45 (陕西-西安)", pop: "西北-西安POP01", experience: "差", appCount: 15, degradedApps: ["K8s 集群控制台", "Harbor 镜像仓库", "Grafana 平台"], city: "西安", orgTop: "研发中心" },
-      { id: "usr_009", userName: "郑洋 (zhengyang)", department: "南京分公司 / 人力资源部", terminals: ["HP EliteBook"], ipLocation: "221.226.5.88 (江苏-南京)", pop: "华东-南京POP01", experience: "一般", appCount: 7, degradedApps: ["北森 HR 平台"], city: "南京", orgTop: "人力资源部" },
-      { id: "usr_010", userName: "陈磊 (chenlei)", department: "武汉分公司 / 供应链管理部", terminals: ["Windows 10 PC", "Xiaomi Pad"], ipLocation: "59.173.18.66 (湖北-武汉)", pop: "华中-武汉POP01", experience: "差", appCount: 18, degradedApps: ["仓储 WMS 系统", "物流 TMS 系统"], city: "武汉", orgTop: "供应链部" }
+      { id: "usr_000", userName: "23422（Maria）", isVip: true, department: "Digiplus / 马尼拉办公室 / 运营中心", terminals: ["MacBook Pro", "iPhone 15 Pro"], ipLocation: "203.177.12.8 (菲律宾-马尼拉)", pop: "马尼拉POP01", experience: "差", appCount: 12, degradedApps: ["SaaS 飞书", "Office 365"], city: "马尼拉", orgTop: "Digiplus" },
+      { id: "usr_001", userName: "10082（张伟）", isVip: true, department: "集团总部 / 研发中心 / 架构组", terminals: ["MacBook Pro", "iPhone 15"], ipLocation: "114.242.10.15 (北京-朝阳)", pop: "华北-北京POP01", experience: "差", appCount: 14, degradedApps: ["Salesforce", "企业内部 ERP", "自研 CRM 系统"], city: "北京", orgTop: "研发中心" },
+      { id: "usr_002", userName: "10245（李娜）", isVip: false, department: "上海分公司 / 市场部 / 品牌组", terminals: ["Windows 11 PC"], ipLocation: "61.152.12.19 (上海-浦东)", pop: "华东-上海POP02", experience: "差", appCount: 8, degradedApps: ["内网 GitLab", "SaaS 飞书", "腾讯会议"], city: "上海", orgTop: "市场部" },
+      { id: "usr_003", userName: "10892（王强）", isVip: false, department: "深圳分公司 / 财务部 / 结算组", terminals: ["ThinkPad X1", "iPad Air"], ipLocation: "183.14.2.8 (广东-深圳)", pop: "华南-深圳POP01", experience: "差", appCount: 22, degradedApps: ["金蝶云 ERP", "用友财务系统", "OA审批平台"], city: "深圳", orgTop: "财务部" },
+      { id: "usr_004", userName: "10331（赵敏）", isVip: false, department: "集团总部 / 运维中心 / 网络组", terminals: ["MacBook Air"], ipLocation: "114.242.10.88 (北京-海淀)", pop: "华北-北京POP01", experience: "一般", appCount: 19, degradedApps: ["Zabbix 监控平台"], city: "北京", orgTop: "运维中心" },
+      { id: "usr_005", userName: "10564（孙杰）", isVip: false, department: "成都运营中心 / 客户服务部", terminals: ["Dell Desktop", "Android Phone"], ipLocation: "218.17.158.20 (四川-成都)", pop: "西南-成都POP01", experience: "一般", appCount: 11, degradedApps: ["呼叫中心平台", "工单流转系统"], city: "成都", orgTop: "客户服务部" },
+      { id: "usr_006", userName: "10772（周明）", isVip: false, department: "集团总部 / 研发中心 / 前端组", terminals: ["MacBook Pro"], ipLocation: "114.242.11.30 (北京-朝阳)", pop: "华北-北京POP01", experience: "正常", appCount: 16, degradedApps: [], city: "北京", orgTop: "研发中心" },
+      { id: "usr_007", userName: "10118（钱芳）", isVip: false, department: "广州分公司 / 销售部 / 华南大区", terminals: ["ThinkPad T14", "Mate 60 Pro"], ipLocation: "113.108.20.12 (广东-广州)", pop: "华南-广州POP01", experience: "差", appCount: 9, degradedApps: ["Salesforce", "智能客服系统"], city: "广州", orgTop: "销售部" },
+      { id: "usr_008", userName: "10443（吴刚）", isVip: false, department: "西安研发中心 / 云计算部", terminals: ["Ubuntu Workstation"], ipLocation: "222.90.8.45 (陕西-西安)", pop: "西北-西安POP01", experience: "差", appCount: 15, degradedApps: ["K8s 集群控制台", "Harbor 镜像仓库", "Grafana 平台"], city: "西安", orgTop: "研发中心" },
+      { id: "usr_009", userName: "10689（郑洋）", isVip: false, department: "南京分公司 / 人力资源部", terminals: ["HP EliteBook"], ipLocation: "221.226.5.88 (江苏-南京)", pop: "华东-南京POP01", experience: "一般", appCount: 7, degradedApps: ["北森 HR 平台"], city: "南京", orgTop: "人力资源部" },
+      { id: "usr_010", userName: "10920（陈磊）", isVip: false, department: "武汉分公司 / 供应链管理部", terminals: ["Windows 10 PC", "Xiaomi Pad"], ipLocation: "59.173.18.66 (湖北-武汉)", pop: "华中-武汉POP01", experience: "差", appCount: 18, degradedApps: ["仓储 WMS 系统", "物流 TMS 系统"], city: "武汉", orgTop: "供应链部" }
     ];
 
     const firstNames = ["伟", "芳", "娜", "秀英", "敏", "静", "丽", "强", "磊", "军", "洋", "勇", "艳", "杰", "娟", "涛", "明", "超", "秀兰", "霞"];
     const lastNames = ["张", "李", "王", "赵", "陈", "刘", "杨", "黄", "吴", "周", "徐", "孙", "马", "朱", "胡", "郭", "何", "高", "林", "罗"];
-    const pyNames = ["zhang", "li", "wang", "zhao", "chen", "liu", "yang", "huang", "wu", "zhou", "xu", "sun", "ma", "zhu", "hu", "guo", "he", "gao", "lin", "luo"];
     const depts = [
       { path: "集团总部 / 研发中心 / 后端组", top: "研发中心" },
       { path: "集团总部 / 研发中心 / 测试组", top: "研发中心" },
@@ -108,7 +107,7 @@
     for (let i = 11; i <= 48; i++) {
       const ln = lastNames[i % lastNames.length];
       const fn = firstNames[(i * 3) % firstNames.length];
-      const py = pyNames[i % pyNames.length] + (i % 99);
+      const jobNo = 11000 + i * 47;
       const d = depts[i % depts.length];
       const c = cities[i % cities.length];
       const exp = i % 5 === 0 ? "差" : (i % 3 === 0 ? "一般" : "正常");
@@ -121,7 +120,8 @@
 
       users.push({
         id: `usr_0${i < 10 ? '0' + i : i}`,
-        userName: `${ln}${fn} (${py})`,
+        userName: `${jobNo}（${ln}${fn}）`,
+        isVip: false,
         department: d.path,
         terminals: terminalList[i % terminalList.length],
         ipLocation: `${c.ip}${(i * 7) % 250 + 1}.${(i * 13) % 250 + 1} (${c.name})`,
@@ -141,19 +141,20 @@
   // -------------------------------------------------------------
   window.initDemAppData = function () {
     const baseApps = [
-      { id: "app_001", appName: "Salesforce CRM", domain: "crm.salesforce.com", appType: "SaaS应用", experience: "差", activeUsers: 348, degradedUsers: 42, avgResponseTime: "480 ms", packetLoss: "3.5%", rtt: "88 ms", pop: "北京" },
-      { id: "app_002", appName: "企业内部 ERP", domain: "erp.internal.net", appType: "内网应用", experience: "差", activeUsers: 290, degradedUsers: 28, avgResponseTime: "390 ms", packetLoss: "2.8%", rtt: "65 ms", pop: "上海" },
-      { id: "app_003", appName: "Harbor 镜像仓库", domain: "registry.internal.net", appType: "内网应用", experience: "差", activeUsers: 160, degradedUsers: 24, avgResponseTime: "520 ms", packetLoss: "4.2%", rtt: "110 ms", pop: "西安" },
-      { id: "app_004", appName: "内网 GitLab", domain: "git.internal.net", appType: "内网应用", experience: "差", activeUsers: 410, degradedUsers: 19, avgResponseTime: "310 ms", packetLoss: "2.1%", rtt: "54 ms", pop: "深圳" },
-      { id: "app_005", appName: "仓储 WMS 系统", domain: "wms.supplychain.net", appType: "内网应用", experience: "差", activeUsers: 115, degradedUsers: 14, avgResponseTime: "640 ms", packetLoss: "3.8%", rtt: "92 ms", pop: "武汉" },
-      { id: "app_006", appName: "SaaS 飞书平台", domain: "feishu.cn", appType: "SaaS应用", experience: "一般", activeUsers: 580, degradedUsers: 12, avgResponseTime: "180 ms", packetLoss: "0.9%", rtt: "32 ms", pop: "北京" },
-      { id: "app_007", appName: "腾讯会议 System", domain: "meeting.tencent.com", appType: "SaaS应用", experience: "一般", activeUsers: 420, degradedUsers: 9, avgResponseTime: "160 ms", packetLoss: "0.8%", rtt: "28 ms", pop: "广州" },
-      { id: "app_008", appName: "Zabbix 监控平台", domain: "zabbix.ops.net", appType: "内网应用", experience: "一般", activeUsers: 85, degradedUsers: 5, avgResponseTime: "220 ms", packetLoss: "1.2%", rtt: "40 ms", pop: "北京" },
-      { id: "app_009", appName: "金蝶云 ERP", domain: "cloud.kingdee.com", appType: "SaaS应用", experience: "正常", activeUsers: 210, degradedUsers: 0, avgResponseTime: "95 ms", packetLoss: "0.1%", rtt: "18 ms", pop: "深圳" },
-      { id: "app_010", appName: "用友财务系统", domain: "yonyou.internal.net", appType: "内网应用", experience: "正常", activeUsers: 175, degradedUsers: 0, avgResponseTime: "110 ms", packetLoss: "0.2%", rtt: "22 ms", pop: "上海" }
+      { id: "app_001", appName: "Salesforce CRM", isVip: true, domain: "crm.salesforce.com", appType: "SaaS应用", region: "-", experience: "差", activeUsers: 348, degradedUsers: 42, avgResponseTime: "480 ms", packetLoss: "3.5%", rtt: "88 ms", pop: "北京" },
+      { id: "app_002", appName: "企业内部 ERP", isVip: true, domain: "erp.internal.net", appType: "内网应用", region: "上海数据中心", experience: "差", activeUsers: 290, degradedUsers: 28, avgResponseTime: "390 ms", packetLoss: "2.8%", rtt: "65 ms", pop: "上海" },
+      { id: "app_003", appName: "Harbor 镜像仓库", isVip: false, domain: "registry.internal.net", appType: "内网应用", region: "西北数据中心", experience: "差", activeUsers: 160, degradedUsers: 24, avgResponseTime: "520 ms", packetLoss: "4.2%", rtt: "110 ms", pop: "西安" },
+      { id: "app_004", appName: "内网 GitLab", isVip: false, domain: "git.internal.net", appType: "内网应用", region: "华南数据中心", experience: "差", activeUsers: 410, degradedUsers: 19, avgResponseTime: "310 ms", packetLoss: "2.1%", rtt: "54 ms", pop: "深圳" },
+      { id: "app_005", appName: "仓储 WMS 系统", isVip: false, domain: "wms.supplychain.net", appType: "内网应用", region: "华中数据中心", experience: "差", activeUsers: 115, degradedUsers: 14, avgResponseTime: "640 ms", packetLoss: "3.8%", rtt: "92 ms", pop: "武汉" },
+      { id: "app_006", appName: "SaaS 飞书平台", isVip: false, domain: "feishu.cn", appType: "SaaS应用", region: "-", experience: "一般", activeUsers: 580, degradedUsers: 12, avgResponseTime: "180 ms", packetLoss: "0.9%", rtt: "32 ms", pop: "北京" },
+      { id: "app_007", appName: "腾讯会议 System", isVip: false, domain: "meeting.tencent.com", appType: "SaaS应用", region: "-", experience: "一般", activeUsers: 420, degradedUsers: 9, avgResponseTime: "160 ms", packetLoss: "0.8%", rtt: "28 ms", pop: "广州" },
+      { id: "app_008", appName: "Zabbix 监控平台", isVip: false, domain: "zabbix.ops.net", appType: "内网应用", region: "北京数据中心", experience: "一般", activeUsers: 85, degradedUsers: 5, avgResponseTime: "220 ms", packetLoss: "1.2%", rtt: "40 ms", pop: "北京" },
+      { id: "app_009", appName: "金蝶云 ERP", isVip: false, domain: "cloud.kingdee.com", appType: "SaaS应用", region: "-", experience: "正常", activeUsers: 210, degradedUsers: 0, avgResponseTime: "95 ms", packetLoss: "0.1%", rtt: "18 ms", pop: "深圳" },
+      { id: "app_010", appName: "用友财务系统", isVip: false, domain: "yonyou.internal.net", appType: "内网应用", region: "华东数据中心", experience: "正常", activeUsers: 175, degradedUsers: 0, avgResponseTime: "110 ms", packetLoss: "0.2%", rtt: "22 ms", pop: "上海" }
     ];
 
     const types = ["SaaS应用", "内网应用"];
+    const internalRegions = ["华东数据中心", "北京数据中心", "华南数据中心", "西北数据中心", "华中数据中心", "西南数据中心"];
     const cities = ["北京", "上海", "深圳", "广州", "成都", "西安", "南京", "武汉", "杭州"];
 
     for (let i = 11; i <= 36; i++) {
@@ -163,12 +164,16 @@
       const resp = exp === "差" ? `${(i * 19) % 300 + 350} ms` : (exp === "一般" ? `${(i * 11) % 100 + 180} ms` : `${(i * 7) % 60 + 60} ms`);
       const loss = exp === "差" ? `${((i % 4) + 2.1).toFixed(1)}%` : (exp === "一般" ? `${((i % 2) + 0.6).toFixed(1)}%` : '0.1%');
       const rttVal = exp === "差" ? `${(i * 3) % 50 + 65} ms` : `${(i * 2) % 30 + 15} ms`;
+      const appType = types[i % types.length];
+      const region = appType === "SaaS应用" ? "-" : internalRegions[i % internalRegions.length];
 
       baseApps.push({
         id: `app_0${i < 10 ? '0' + i : i}`,
         appName: `核心应用服务_${i}`,
+        isVip: false,
         domain: `app-service-${i}.internal.net`,
-        appType: types[i % types.length],
+        appType: appType,
+        region: region,
         experience: exp,
         activeUsers: activeU,
         degradedUsers: degU,
@@ -240,7 +245,7 @@
         id: "cl_001",
         level: "高优",
         dimension: "分支问题",
-        impactType: "群体影响",
+        impactType: "群体异常",
         scenarioType: "branch_acc",
         title: "西安研发中心 访问 Harbor 镜像仓库 丢包率超标 (5.8%) 异常",
         time: "2026-06-04 14:32:10",
@@ -261,7 +266,7 @@
         id: "cl_002",
         level: "高优",
         dimension: "用户问题",
-        impactType: "群体影响",
+        impactType: "VIP对象体验异常",
         scenarioType: "ga",
         title: "张伟、李娜 等 42 名移动办公用户访问 Salesforce CRM 拨测响应超时 (>600ms) 异常",
         time: "2026-06-04 14:28:45",
@@ -282,7 +287,7 @@
         id: "cl_003",
         level: "高优",
         dimension: "应用问题",
-        impactType: "群体影响",
+        impactType: "群体异常",
         scenarioType: "mobile",
         title: "武汉分公司 18 名移动终端员工访问 仓储 WMS 系统 TCP 握手超时 异常",
         time: "2026-06-04 14:20:15",
@@ -301,7 +306,7 @@
         id: "cl_004",
         level: "中优",
         dimension: "分支问题",
-        impactType: "个人影响",
+        impactType: "体验预警",
         scenarioType: "branch_acc",
         title: "广州分公司 访问 智能客服系统 产生 POP 选路抖动",
         time: "2026-06-04 14:15:30",
@@ -322,7 +327,7 @@
         id: "cl_005",
         level: "中优",
         dimension: "应用问题",
-        impactType: "个人影响",
+        impactType: "VIP对象体验异常",
         scenarioType: "mobile",
         title: "深圳分公司 12 名移动用户访问 金蝶云 ERP 偶发 HTTP 502 错误",
         time: "2026-06-04 14:02:00",
@@ -399,7 +404,7 @@
         id: `cl_0${i < 10 ? '0' + i : i}`,
         level: lvl,
         dimension: dim,
-        impactType: isGroup ? "群体影响" : "个人影响",
+        impactType: ["群体异常", "VIP对象体验异常", "体验预警"][i % 3],
         scenarioType: scenarioMode === 0 ? "mobile" : scenarioMode === 1 ? "ga" : "branch_acc",
         title: `${b} ${uCount} 名用户访问 ${a} 产生 ${err.text} 异常`,
         time: `2026-06-04 13:${(i * 3) % 60 < 10 ? '0' + ((i * 3) % 60) : (i * 3) % 60}:15`,
