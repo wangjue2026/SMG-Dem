@@ -47,6 +47,37 @@
       outline: none;
     }
 
+    /* 下拉选择框快捷清除包装器与图标 */
+    .dem-select-wrapper {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+    }
+    .dem-clear-btn {
+      display: none;
+      position: absolute;
+      right: 6px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 16px;
+      height: 16px;
+      background-color: #FFFFFF;
+      border-radius: 50%;
+      color: #8A92A1;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      z-index: 10;
+      transition: all 0.15s;
+    }
+    .dem-clear-btn:hover {
+      color: #1C6EFF;
+      background-color: #F0F5FF;
+    }
+    .dem-select-wrapper:hover .dem-clear-btn.has-value {
+      display: flex;
+    }
+
     /* -------------------------------------------------------------
        @comp-input 规范输入框
        ------------------------------------------------------------- */
@@ -158,7 +189,9 @@
 
         // --- 1. 分支状态 ---
         branchSearchQuery: '',
-        branchSelectedExperience: [],
+        branchSelectedExp: [],
+        branchSelectedLoc: [],
+        branchSelectedPop: [],
         branchExpSortDir: 'desc',
         branchCurrentPage: 1,
         branchPageSize: 10,
@@ -166,7 +199,8 @@
 
         // --- 2. 用户状态 ---
         userSearchQuery: '',
-        userSelectedExperience: [],
+        userSelectedExp: [],
+        userSelectedLoc: [],
         userSelectedPop: [],
         userExpSortDir: 'desc',
         userCurrentPage: 1,
@@ -175,8 +209,9 @@
 
         // --- 3. 应用状态 ---
         appSearchQuery: '',
-        appSelectedExperience: [],
+        appSelectedExp: [],
         appSelectedType: [],
+        appSelectedRegion: [],
         appExpSortDir: 'desc',
         appCurrentPage: 1,
         appPageSize: 10,
@@ -206,6 +241,7 @@
 
         init() {
           const designUsers = [
+            { id: "usr_hezong", userName: "45343（何总）", isVip: true, department: "/深信服/总经办", ipLocation: "114.242.25.18 (北京-酒店Wi-Fi)", experience: "差", terminals: ["MacBook Pro (何总专用)"], pop: "POP (北京)", appCount: 16, degradedApps: ["OA系统", "ERP系统"] },
             { id: "usr_d1", userName: "14810（郝星伍）", isVip: false, department: "/本地用户/安全BG/零信任", ipLocation: "202.108.22.5 (电信-长沙)", experience: "差", terminals: ["WIN-DESK-88--WIN-YZ"], pop: "POP (香港)", appCount: 9, degradedApps: ["Salesforce"] },
             { id: "usr_d2", userName: "63728（王浩）", isVip: false, department: "/本地用户/安全BG/零信任", ipLocation: "183.14.5.12 (移动-深圳)", experience: "差", terminals: ["WIN-DESK-62--OKP"], pop: "POP (新加坡)", appCount: 15, degradedApps: ["Salesforce", "Teams", "Yahoo"] },
             { id: "usr_d3", userName: "84261（柯特）", isVip: false, department: "/国内市场体系/华东区", ipLocation: "119.12.8.20 (联通-深圳)", experience: "差", terminals: ["WIN-DESK-97JUA-OKP"], pop: "POP (新加坡)", appCount: 11, degradedApps: ["Yahoo", "内部 CRM 系统", "OA审批平台"] },
@@ -252,12 +288,18 @@
           const list = (this.branches || []).filter(b => {
             const query = (this.branchSearchQuery || '').trim().toLowerCase();
             const matchSearch = !query || 
-              b.branchName.toLowerCase().includes(query) ||
-              b.city.toLowerCase().includes(query) ||
-              b.egressIp.toLowerCase().includes(query);
+              (b.branchName && b.branchName.toLowerCase().includes(query)) ||
+              (b.group && b.group.toLowerCase().includes(query)) ||
+              (b.location && b.location.toLowerCase().includes(query)) ||
+              (b.city && b.city.toLowerCase().includes(query)) ||
+              (b.egressIp && b.egressIp.toLowerCase().includes(query)) ||
+              (b.pop && b.pop.toLowerCase().includes(query));
 
-            const matchExp = this.branchSelectedExperience.length === 0 || this.branchSelectedExperience.includes(b.experience);
-            return matchSearch && matchExp;
+            const matchExp = this.branchSelectedExp.length === 0 || this.branchSelectedExp.includes(b.experience);
+            const matchLoc = this.branchSelectedLoc.length === 0 || this.branchSelectedLoc.some(loc => (b.location && b.location.includes(loc)) || (b.city && b.city.includes(loc)));
+            const matchPop = this.branchSelectedPop.length === 0 || this.branchSelectedPop.some(pop => b.pop && b.pop.includes(pop));
+
+            return matchSearch && matchExp && matchLoc && matchPop;
           });
 
           return list.sort((a, b) => (expOrder[a.experience] || 99) - (expOrder[b.experience] || 99));
@@ -293,14 +335,18 @@
           const list = (this.users || []).filter(u => {
             const query = (this.userSearchQuery || '').trim().toLowerCase();
             const matchSearch = !query || 
-              u.userName.toLowerCase().includes(query) ||
-              u.department.toLowerCase().includes(query) ||
-              u.ipLocation.toLowerCase().includes(query);
+              (u.userName && u.userName.toLowerCase().includes(query)) ||
+              (u.department && u.department.toLowerCase().includes(query)) ||
+              (u.ipLocation && u.ipLocation.toLowerCase().includes(query)) ||
+              (u.pop && u.pop.toLowerCase().includes(query)) ||
+              (u.terminals && u.terminals.some(t => t.toLowerCase().includes(query))) ||
+              (u.degradedApps && u.degradedApps.some(a => a.toLowerCase().includes(query)));
 
-            const matchExp = this.userSelectedExperience.length === 0 || this.userSelectedExperience.includes(u.experience);
-            const matchPop = this.userSelectedPop.length === 0 || this.userSelectedPop.includes(u.pop);
+            const matchExp = this.userSelectedExp.length === 0 || this.userSelectedExp.includes(u.experience);
+            const matchLoc = this.userSelectedLoc.length === 0 || this.userSelectedLoc.some(loc => (u.ipLocation && u.ipLocation.includes(loc)) || (u.city && u.city.includes(loc)));
+            const matchPop = this.userSelectedPop.length === 0 || this.userSelectedPop.some(pop => u.pop && u.pop.includes(pop));
 
-            return matchSearch && matchExp && matchPop;
+            return matchSearch && matchExp && matchLoc && matchPop;
           });
 
           return list.sort((a, b) => (expOrder[a.experience] || 99) - (expOrder[b.experience] || 99));
@@ -369,14 +415,16 @@
           const list = (this.apps || []).filter(a => {
             const query = (this.appSearchQuery || '').trim().toLowerCase();
             const matchSearch = !query || 
-              a.appName.toLowerCase().includes(query) ||
-              a.domain.toLowerCase().includes(query) ||
-              a.region.toLowerCase().includes(query);
+              (a.appName && a.appName.toLowerCase().includes(query)) ||
+              (a.domain && a.domain.toLowerCase().includes(query)) ||
+              (a.address && a.address.toLowerCase().includes(query)) ||
+              (a.region && a.region.toLowerCase().includes(query));
 
-            const matchExp = this.appSelectedExperience.length === 0 || this.appSelectedExperience.includes(a.experience);
+            const matchExp = this.appSelectedExp.length === 0 || this.appSelectedExp.includes(a.experience);
             const matchType = this.appSelectedType.length === 0 || this.appSelectedType.includes(a.appType);
+            const matchRegion = this.appSelectedRegion.length === 0 || this.appSelectedRegion.includes(a.region);
 
-            return matchSearch && matchExp && matchType;
+            return matchSearch && matchExp && matchType && matchRegion;
           });
 
           return list.sort((a, b) => (expOrder[a.experience] || 99) - (expOrder[b.experience] || 99));
@@ -407,13 +455,13 @@
           if (tab === '访问用户') tab = '用户';
           this.contentTab = tab;
           if (tab === '分支') {
-            this.branchSelectedExperience = status ? [status] : [];
+            this.branchSelectedExp = status ? [status] : [];
             this.branchCurrentPage = 1;
           } else if (tab === '用户') {
-            this.userSelectedExperience = status ? [status] : [];
+            this.userSelectedExp = status ? [status] : [];
             this.userCurrentPage = 1;
           } else if (tab === '应用') {
-            this.appSelectedExperience = status ? [status] : [];
+            this.appSelectedExp = status ? [status] : [];
             this.appCurrentPage = 1;
           }
           this.$nextTick(() => {
@@ -448,18 +496,55 @@
           };
         },
 
-        goToVipDetail(itemName, type) {
+        goToVipDetail(itemOrName, type) {
           try {
+            // 兼容两种传参：对象（VIP 静态卡片直接内联完整数据）或字符串（动态匹配 users 列表）
+            let userName, nameOnly, dept, exp, appCount, poorApps, fairApps, normalApps, ipLocation, pop;
+
+            if (itemOrName && typeof itemOrName === 'object') {
+              // 对象传参：直接读取字段
+              userName = itemOrName.userName || '';
+              nameOnly = itemOrName.nameOnly || userName.replace(/[（(].*[）)]/g, '').replace(/^[0-9]+[（(]?/, '').trim();
+              dept = itemOrName.department || '深信服科技 / 总经办';
+              exp = itemOrName.experience || '差';
+              appCount = itemOrName.appCount || 17;
+              poorApps = itemOrName.poorApps != null ? itemOrName.poorApps : 0;
+              fairApps = itemOrName.fairApps != null ? itemOrName.fairApps : 0;
+              normalApps = itemOrName.normalApps != null ? itemOrName.normalApps : Math.max(0, appCount - poorApps - fairApps);
+              ipLocation = itemOrName.ipLocation || '';
+              pop = itemOrName.pop || '';
+            } else {
+              // 字符串传参：尝试从 users 列表匹配，找不到则用兜底值
+              userName = itemOrName || '';
+              const matchedUser = (this.users || []).find(u => u.userName === userName);
+              nameOnly = userName.replace(/[（(].*[）)]/g, '').replace(/^[0-9]+[（(]?/, '').trim();
+              dept = matchedUser?.department || '深信服科技 / 总经办';
+              exp = matchedUser?.experience || '差';
+              appCount = matchedUser?.appCount || 17;
+              poorApps = matchedUser?.degradedApps?.length || 0;
+              fairApps = Math.max(0, Math.round(appCount * 0.18));
+              normalApps = Math.max(0, appCount - poorApps - fairApps);
+              ipLocation = matchedUser?.ipLocation || '';
+              pop = matchedUser?.pop || '';
+            }
+
             sessionStorage.setItem('dem_locate_query', JSON.stringify({
               queryType: type === 'app' ? '应用' : '用户',
-              queryValue: itemName,
+              queryValue: userName,
               dateShortcut: this.dateShortcut,
               dateRange: this.dateRange,
               selectedItem: {
-                label: itemName,
-                nameOnly: (itemName || '').replace(/[（(].*[）)]/g, '').trim(),
-                sub: type === 'app' ? 'SaaS 核心业务' : '深信服科技 / 总经办',
-                dept: type === 'app' ? 'SaaS 核心业务' : '深信服科技 / 总经办'
+                label: userName,
+                nameOnly: nameOnly,
+                sub: dept,
+                dept: dept,
+                experience: exp,
+                totalApps: appCount,
+                poorApps: poorApps,
+                fairApps: fairApps,
+                normalApps: normalApps,
+                ipLocation: ipLocation,
+                pop: pop
               }
             }));
           } catch(e) {}
@@ -472,14 +557,26 @@
 
         goToBranchDetail(branch) {
           try {
+            const appCount = branch.appCount || 12;
+            const degradedCount = branch.degradedApps?.length || (branch.experience === '差' ? 3 : branch.experience === '一般' ? 1 : 0);
             sessionStorage.setItem('dem_locate_query', JSON.stringify({
               queryType: '分支',
               queryValue: branch.branchName || branch.city || branch.id,
+              dateShortcut: this.dateShortcut,
+              dateRange: this.dateRange,
               selectedItem: {
                 label: branch.branchName,
                 nameOnly: branch.branchName,
-                sub: `出口 IP: ${branch.egressIp} | ${branch.region}`,
-                dept: branch.region
+                sub: `出口 IP: ${branch.egressIp || '-'} | ${branch.region || branch.location || '-'}`,
+                dept: branch.region || branch.location || '-',
+                experience: branch.experience || '差',
+                totalApps: appCount,
+                poorApps: degradedCount,
+                fairApps: Math.max(0, Math.round(appCount * 0.15)),
+                normalApps: Math.max(0, appCount - degradedCount - Math.max(0, Math.round(appCount * 0.15))),
+                pop: branch.pop || '',
+                location: branch.location || branch.region || '',
+                egressIp: branch.egressIp || ''
               }
             }));
           } catch(e) {}
@@ -488,14 +585,26 @@
 
         goToUserDetail(user) {
           try {
+            const appCount = user.appCount || 17;
+            const degradedCount = user.degradedApps?.length || (user.experience === '差' ? 2 : user.experience === '一般' ? 1 : 0);
             sessionStorage.setItem('dem_locate_query', JSON.stringify({
               queryType: '用户',
               queryValue: user.userName || user.id,
+              dateShortcut: this.dateShortcut,
+              dateRange: this.dateRange,
               selectedItem: {
                 label: user.userName,
                 nameOnly: (user.userName || '').replace(/^[0-9]+[（(]/, '').replace(/[）)]$/, '').trim(),
                 sub: user.department,
-                dept: user.department
+                dept: user.department,
+                experience: user.experience || '差',
+                totalApps: appCount,
+                poorApps: degradedCount,
+                fairApps: Math.max(0, Math.round(appCount * 0.18)),
+                normalApps: Math.max(0, appCount - degradedCount - Math.max(0, Math.round(appCount * 0.18))),
+                ipLocation: user.ipLocation || '',
+                pop: user.pop || '',
+                terminals: user.terminals || []
               }
             }));
           } catch(e) {}
@@ -599,11 +708,15 @@
           </div>
 
           <button @click="showAiDrawer1 = true; aiDrawerOpen = true;" 
-                  class="h-8 px-3 bg-white border border-[#1C6EFF] hover:bg-[#1C6EFF]/5 text-[#1C6EFF] font-normal text-xs rounded-[2px] transition-colors inline-flex items-center gap-1.5 cursor-pointer">
-            <svg class="w-3.5 h-3.5 text-[#1C6EFF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-            </svg>
-            <span class="whitespace-nowrap">智能排障</span>
+                  class="group relative inline-flex items-center justify-center p-[1px] rounded-full overflow-hidden transition-all duration-200 hover:shadow-[0_2px_10px_rgba(28,110,255,0.25)] cursor-pointer active:scale-95"
+                  style="background: linear-gradient(135deg, #1C6EFF 0%, #10B981 100%);">
+            <div class="h-[30px] px-3.5 bg-white group-hover:bg-gradient-to-r group-hover:from-[#1C6EFF]/5 group-hover:to-[#10B981]/5 rounded-full flex items-center gap-1.5 transition-all">
+              <svg class="w-3.5 h-3.5 text-[#1C6EFF] group-hover:text-[#059669] transition-colors flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2L14.4 7.6L20 10L14.4 12.4L12 18L9.6 12.4L4 10L9.6 7.6L12 2Z"/>
+                <path d="M19 14L20.2 16.8L23 18L20.2 19.2L19 22L17.8 19.2L15 18L17.8 16.8L19 14Z"/>
+              </svg>
+              <span class="text-xs font-medium text-[#1C6EFF] group-hover:text-[#059669] transition-colors whitespace-nowrap">智能排障</span>
+            </div>
           </button>
         </div>
 
@@ -923,18 +1036,18 @@
 
                 <!-- VIP 用户明细列表 (每行 32px，底色 F7F9FC，间距 4px) -->
                 <div class="flex flex-col gap-[4px] text-[12px]" x-show="vipTab === 'user'">
-                  <!-- VIP 1 -->
-                  <div @click="goToVipDetail('张前进', 'user')" class="h-[32px] px-2.5 bg-[#F7F9FC] rounded-[4px] flex items-center justify-between cursor-pointer hover:bg-white hover:border-[#1890FF]/40 border border-transparent transition-all group">
+                  <!-- VIP 1 (何总 - 剧本主角) -->
+                  <div @click="goToVipDetail({ userName: '45343（何总）', nameOnly: '何总', department: '/深信服/总经办', experience: '差', appCount: 16, poorApps: 2, fairApps: 2, normalApps: 12, ipLocation: '114.242.25.18 (北京-酒店Wi-Fi)', pop: 'POP (北京)' }, 'user')" class="h-[32px] px-2.5 bg-[#F7F9FC] rounded-[4px] flex items-center justify-between cursor-pointer hover:bg-white hover:border-[#1890FF]/40 border border-transparent transition-all group">
                     <div class="flex items-center gap-2 min-w-0 flex-1">
                       <span class="w-1.5 h-1.5 rounded-full bg-[#FF5752] flex-shrink-0"></span>
-                      <span class="text-[12px] text-[#262626] font-normal group-hover:text-[#1890FF] truncate">34534（张前进）</span>
+                      <span class="text-[12px] text-[#262626] font-normal group-hover:text-[#1890FF] truncate">45343（何总）</span>
                       <span class="text-[12px] text-[#8C8C8C] font-normal truncate">/深信服/总经办</span>
                     </div>
-                    <span class="text-[12px] text-right font-normal text-[#FF5752] flex-shrink-0 ml-2">35<span class="text-[#8C8C8C] font-normal">/45</span></span>
+                    <span class="text-[12px] text-right font-normal text-[#FF5752] flex-shrink-0 ml-2">2<span class="text-[#8C8C8C] font-normal">/16</span></span>
                   </div>
 
                   <!-- VIP 2 -->
-                  <div @click="goToVipDetail('李达', 'user')" class="h-[32px] px-2.5 bg-[#F7F9FC] rounded-[4px] flex items-center justify-between cursor-pointer hover:bg-white hover:border-[#1890FF]/40 border border-transparent transition-all group">
+                  <div @click="goToVipDetail({ userName: '23222（李达）', nameOnly: '李达', department: '/深信服/总经办', experience: '差', appCount: 45, poorApps: 35, fairApps: 5, normalApps: 5, ipLocation: '183.14.5.12 (移动-深圳)' }, 'user')" class="h-[32px] px-2.5 bg-[#F7F9FC] rounded-[4px] flex items-center justify-between cursor-pointer hover:bg-white hover:border-[#1890FF]/40 border border-transparent transition-all group">
                     <div class="flex items-center gap-2 min-w-0 flex-1">
                       <span class="w-1.5 h-1.5 rounded-full bg-[#FF5752] flex-shrink-0"></span>
                       <span class="text-[12px] text-[#262626] font-normal group-hover:text-[#1890FF] truncate">23222（李达）</span>
@@ -944,7 +1057,7 @@
                   </div>
 
                   <!-- VIP 3 -->
-                  <div @click="goToVipDetail('吴刚', 'user')" class="h-[32px] px-2.5 bg-[#F7F9FC] rounded-[4px] flex items-center justify-between cursor-pointer hover:bg-white hover:border-[#1890FF]/40 border border-transparent transition-all group">
+                  <div @click="goToVipDetail({ userName: '45452（吴刚）', nameOnly: '吴刚', department: '/深信服/总经办', experience: '差', appCount: 45, poorApps: 35, fairApps: 4, normalApps: 6, ipLocation: '119.12.8.20 (联通-深圳)' }, 'user')" class="h-[32px] px-2.5 bg-[#F7F9FC] rounded-[4px] flex items-center justify-between cursor-pointer hover:bg-white hover:border-[#1890FF]/40 border border-transparent transition-all group">
                     <div class="flex items-center gap-2 min-w-0 flex-1">
                       <span class="w-1.5 h-1.5 rounded-full bg-[#FF5752] flex-shrink-0"></span>
                       <span class="text-[12px] text-[#262626] font-normal group-hover:text-[#1890FF] truncate">45452（吴刚）</span>
@@ -1002,93 +1115,319 @@
 
             <!-- Tab 1: 分支监控视图 -->
             <div x-show="contentTab === '分支'" class="flex flex-col">
-              <!-- 工具栏 -->
-              <div class="p-3 flex items-center justify-end gap-3 flex-wrap flex-shrink-0 bg-white">
-                <div class="relative" x-data="{ open: false }" @click.outside="open = false">
-                  <div @click="open = !open" 
-                       class="h-8 min-w-[130px] px-2.5 bg-white border border-[#D3D7DE] rounded-[2px] hover:border-[#1C6EFF] transition-colors flex items-center justify-between cursor-pointer select-none text-xs">
-                    <template x-if="branchSelectedExperience.length === 0">
-                      <span class="text-[#A1A7B3] font-normal">全部健康状态</span>
-                    </template>
-                    <template x-if="branchSelectedExperience.length > 0">
-                      <span class="text-[#2F3540] font-normal truncate max-w-[100px]" x-text="'体验: ' + branchSelectedExperience.join(',')"></span>
-                    </template>
-                    <div class="flex items-center gap-1 ml-1.5 flex-shrink-0">
-                      <template x-if="branchSelectedExperience.length > 0">
-                        <span @click.stop="branchSelectedExperience = []; branchCurrentPage = 1" 
-                              class="w-3.5 h-3.5 rounded-full hover:bg-gray-200 inline-flex items-center justify-center text-[#A1A7B3] hover:text-[#5C6270] transition-colors cursor-pointer"
-                              title="清除选择">
-                          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                        </span>
+              <!-- 工具栏：左侧 3 个多选筛选项（展示Tag与+N折叠，加宽30%），右侧搜索框 -->
+              <div class="p-3 flex items-center justify-between gap-3 flex-wrap flex-shrink-0 bg-white">
+                <!-- 3个等宽多选筛选项在左侧 -->
+                <div class="flex items-center gap-2">
+                  <!-- 1. 体验状态多选 -->
+                  <div class="relative inline-flex items-center group w-[188px]" x-data="{ open: false }" @click.outside="open = false">
+                    <div @click="open = !open" 
+                         class="h-8 w-full px-2 bg-white border border-[#D3D7DE] rounded-[2px] hover:border-[#1C6EFF] transition-colors flex items-center justify-between cursor-pointer select-none text-xs">
+                      <!-- 未选状态 -->
+                      <template x-if="branchSelectedExp.length === 0">
+                        <span class="text-[#A1A7B3] font-normal truncate">全部体验状态</span>
                       </template>
-                      <svg class="w-3.5 h-3.5 text-[#A1A7B3] transition-transform" :class="open && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                      <!-- 单选状态：展示单个 Tag -->
+                      <template x-if="branchSelectedExp.length === 1">
+                        <div class="flex items-center overflow-hidden">
+                          <span class="inline-flex items-center gap-1 h-5 px-1.5 bg-[#EDF1F7] text-[#2F3540] text-xs rounded-[2px] max-w-[130px] truncate select-none">
+                            <span class="truncate" x-text="branchSelectedExp[0]"></span>
+                            <button type="button" 
+                                    @click.stop.prevent="branchSelectedExp = []; branchCurrentPage = 1"
+                                    class="w-3 h-3 flex-shrink-0 text-[#8A92A1] hover:text-[#2F3540] inline-flex items-center justify-center rounded-[1px] hover:bg-[#D3D7DE] transition-colors cursor-pointer"
+                                    title="删除">
+                              <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
+                              </svg>
+                            </button>
+                          </span>
+                        </div>
+                      </template>
+                      <!-- 多选状态：第1个 Tag + 折叠 +N Badge -->
+                      <template x-if="branchSelectedExp.length > 1">
+                        <div class="flex items-center gap-1 overflow-hidden">
+                          <span class="inline-flex items-center gap-1 h-5 px-1.5 bg-[#EDF1F7] text-[#2F3540] text-xs rounded-[2px] max-w-[96px] truncate select-none">
+                            <span class="truncate" x-text="branchSelectedExp[0]"></span>
+                            <button type="button" 
+                                    @click.stop.prevent="branchSelectedExp = branchSelectedExp.filter((_, idx) => idx !== 0); branchCurrentPage = 1"
+                                    class="w-3 h-3 flex-shrink-0 text-[#8A92A1] hover:text-[#2F3540] inline-flex items-center justify-center rounded-[1px] hover:bg-[#D3D7DE] transition-colors cursor-pointer"
+                                    title="删除">
+                              <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
+                              </svg>
+                            </button>
+                          </span>
+                          <span class="inline-flex items-center justify-center h-5 px-1.5 bg-[#EDF1F7] text-[#2F3540] text-xs font-normal rounded-[2px] flex-shrink-0 select-none"
+                                :title="branchSelectedExp.join('、')"
+                                x-text="`+${branchSelectedExp.length - 1}`">
+                          </span>
+                        </div>
+                      </template>
+                      
+                      <!-- 右侧清除与展开箭头 -->
+                      <div class="flex items-center gap-1 ml-1 flex-shrink-0">
+                        <template x-if="branchSelectedExp.length > 0">
+                          <span @click.stop.prevent="branchSelectedExp = []; branchCurrentPage = 1" 
+                                class="w-3.5 h-3.5 rounded-full hover:bg-gray-200 inline-flex items-center justify-center text-[#8A92A1] hover:text-[#5C6270] transition-colors cursor-pointer"
+                                title="全部清除">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                          </span>
+                        </template>
+                        <svg class="w-3.5 h-3.5 text-[#A1A7B3] transition-transform duration-150" :class="open && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                      </div>
+                    </div>
+
+                    <!-- 下拉多选列表 -->
+                    <div x-show="open" 
+                         x-cloak 
+                         class="absolute left-0 top-full mt-1 min-w-[188px] max-h-[220px] overflow-y-auto bg-white border border-[#E1E5EB] shadow-lg rounded-[2px] py-1 z-50 text-xs text-[#2F3540] custom-scrollbar">
+                      <template x-for="opt in ['差', '一般', '正常']" :key="opt">
+                        <label class="flex items-center gap-2 px-3 py-1.5 hover:bg-[#F4F6F9] cursor-pointer select-none">
+                          <input type="checkbox" :value="opt" x-model="branchSelectedExp" @change="branchCurrentPage = 1" class="rounded border-gray-300 text-[#1C6EFF] focus:ring-0 w-3.5 h-3.5">
+                          <span x-text="opt"></span>
+                        </label>
+                      </template>
                     </div>
                   </div>
-                  <div x-show="open" x-cloak class="absolute right-0 top-full mt-1 w-[140px] bg-white border border-[#E1E5EB] shadow-lg rounded-[2px] py-1 z-50 text-xs text-[#2F3540]">
-                    <template x-for="opt in ['差', '一般', '正常']" :key="opt">
-                      <label class="flex items-center gap-2 px-3 py-1.5 hover:bg-[#F4F6F9] cursor-pointer select-none">
-                        <input type="checkbox" :value="opt" x-model="branchSelectedExperience" @change="branchCurrentPage = 1" class="rounded border-gray-300 text-[#1C6EFF] focus:ring-0 w-3.5 h-3.5">
-                        <span x-text="opt"></span>
-                      </label>
-                    </template>
+
+                  <!-- 2. 地理位置多选 -->
+                  <div class="relative inline-flex items-center group w-[188px]" x-data="{ open: false }" @click.outside="open = false">
+                    <div @click="open = !open" 
+                         class="h-8 w-full px-2 bg-white border border-[#D3D7DE] rounded-[2px] hover:border-[#1C6EFF] transition-colors flex items-center justify-between cursor-pointer select-none text-xs">
+                      <!-- 未选状态 -->
+                      <template x-if="branchSelectedLoc.length === 0">
+                        <span class="text-[#A1A7B3] font-normal truncate">全部地理位置</span>
+                      </template>
+                      <!-- 单选状态 -->
+                      <template x-if="branchSelectedLoc.length === 1">
+                        <div class="flex items-center overflow-hidden">
+                          <span class="inline-flex items-center gap-1 h-5 px-1.5 bg-[#EDF1F7] text-[#2F3540] text-xs rounded-[2px] max-w-[130px] truncate select-none">
+                            <span class="truncate" x-text="branchSelectedLoc[0]"></span>
+                            <button type="button" 
+                                    @click.stop.prevent="branchSelectedLoc = []; branchCurrentPage = 1"
+                                    class="w-3 h-3 flex-shrink-0 text-[#8A92A1] hover:text-[#2F3540] inline-flex items-center justify-center rounded-[1px] hover:bg-[#D3D7DE] transition-colors cursor-pointer"
+                                    title="删除">
+                              <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
+                              </svg>
+                            </button>
+                          </span>
+                        </div>
+                      </template>
+                      <!-- 多选状态 -->
+                      <template x-if="branchSelectedLoc.length > 1">
+                        <div class="flex items-center gap-1 overflow-hidden">
+                          <span class="inline-flex items-center gap-1 h-5 px-1.5 bg-[#EDF1F7] text-[#2F3540] text-xs rounded-[2px] max-w-[96px] truncate select-none">
+                            <span class="truncate" x-text="branchSelectedLoc[0]"></span>
+                            <button type="button" 
+                                    @click.stop.prevent="branchSelectedLoc = branchSelectedLoc.filter((_, idx) => idx !== 0); branchCurrentPage = 1"
+                                    class="w-3 h-3 flex-shrink-0 text-[#8A92A1] hover:text-[#2F3540] inline-flex items-center justify-center rounded-[1px] hover:bg-[#D3D7DE] transition-colors cursor-pointer"
+                                    title="删除">
+                              <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
+                              </svg>
+                            </button>
+                          </span>
+                          <span class="inline-flex items-center justify-center h-5 px-1.5 bg-[#EDF1F7] text-[#2F3540] text-xs font-normal rounded-[2px] flex-shrink-0 select-none"
+                                :title="branchSelectedLoc.join('、')"
+                                x-text="`+${branchSelectedLoc.length - 1}`">
+                          </span>
+                        </div>
+                      </template>
+                      
+                      <!-- 右侧清除与展开箭头 -->
+                      <div class="flex items-center gap-1 ml-1 flex-shrink-0">
+                        <template x-if="branchSelectedLoc.length > 0">
+                          <span @click.stop.prevent="branchSelectedLoc = []; branchCurrentPage = 1" 
+                                class="w-3.5 h-3.5 rounded-full hover:bg-gray-200 inline-flex items-center justify-center text-[#8A92A1] hover:text-[#5C6270] transition-colors cursor-pointer"
+                                title="全部清除">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                          </span>
+                        </template>
+                        <svg class="w-3.5 h-3.5 text-[#A1A7B3] transition-transform duration-150" :class="open && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                      </div>
+                    </div>
+
+                    <!-- 下拉多选列表 -->
+                    <div x-show="open" 
+                         x-cloak 
+                         class="absolute left-0 top-full mt-1 min-w-[188px] max-h-[220px] overflow-y-auto bg-white border border-[#E1E5EB] shadow-lg rounded-[2px] py-1 z-50 text-xs text-[#2F3540] custom-scrollbar">
+                      <template x-for="opt in ['菲律宾 马尼拉', '中国 西安', '中国 武汉', '中国 广州', '中国 深圳', '中国 上海', '中国 北京', '中国 成都', '中国 南京', '中国 杭州']" :key="opt">
+                        <label class="flex items-center gap-2 px-3 py-1.5 hover:bg-[#F4F6F9] cursor-pointer select-none">
+                          <input type="checkbox" :value="opt" x-model="branchSelectedLoc" @change="branchCurrentPage = 1" class="rounded border-gray-300 text-[#1C6EFF] focus:ring-0 w-3.5 h-3.5">
+                          <span x-text="opt"></span>
+                        </label>
+                      </template>
+                    </div>
+                  </div>
+
+                  <!-- 3. 接入POP多选 -->
+                  <div class="relative inline-flex items-center group w-[188px]" x-data="{ open: false }" @click.outside="open = false">
+                    <div @click="open = !open" 
+                         class="h-8 w-full px-2 bg-white border border-[#D3D7DE] rounded-[2px] hover:border-[#1C6EFF] transition-colors flex items-center justify-between cursor-pointer select-none text-xs">
+                      <!-- 未选状态 -->
+                      <template x-if="branchSelectedPop.length === 0">
+                        <span class="text-[#8A92A1] font-normal truncate">全部接入POP</span>
+                      </template>
+                      <!-- 单选状态 -->
+                      <template x-if="branchSelectedPop.length === 1">
+                        <div class="flex items-center overflow-hidden">
+                          <span class="inline-flex items-center gap-1 h-5 px-1.5 bg-[#EDF1F7] text-[#2F3540] text-xs rounded-[2px] max-w-[130px] truncate select-none">
+                            <span class="truncate" x-text="branchSelectedPop[0]"></span>
+                            <button type="button" 
+                                    @click.stop.prevent="branchSelectedPop = []; branchCurrentPage = 1"
+                                    class="w-3 h-3 flex-shrink-0 text-[#8A92A1] hover:text-[#2F3540] inline-flex items-center justify-center rounded-[1px] hover:bg-[#D3D7DE] transition-colors cursor-pointer"
+                                    title="删除">
+                              <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
+                              </svg>
+                            </button>
+                          </span>
+                        </div>
+                      </template>
+                      <!-- 多选状态 -->
+                      <template x-if="branchSelectedPop.length > 1">
+                        <div class="flex items-center gap-1 overflow-hidden">
+                          <span class="inline-flex items-center gap-1 h-5 px-1.5 bg-[#EDF1F7] text-[#2F3540] text-xs rounded-[2px] max-w-[96px] truncate select-none">
+                            <span class="truncate" x-text="branchSelectedPop[0]"></span>
+                            <button type="button" 
+                                    @click.stop.prevent="branchSelectedPop = branchSelectedPop.filter((_, idx) => idx !== 0); branchCurrentPage = 1"
+                                    class="w-3 h-3 flex-shrink-0 text-[#8A92A1] hover:text-[#2F3540] inline-flex items-center justify-center rounded-[1px] hover:bg-[#D3D7DE] transition-colors cursor-pointer"
+                                    title="删除">
+                              <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
+                              </svg>
+                            </button>
+                          </span>
+                          <span class="inline-flex items-center justify-center h-5 px-1.5 bg-[#EDF1F7] text-[#2F3540] text-xs font-normal rounded-[2px] flex-shrink-0 select-none"
+                                :title="branchSelectedPop.join('、')"
+                                x-text="`+${branchSelectedPop.length - 1}`">
+                          </span>
+                        </div>
+                      </template>
+                      
+                      <!-- 右侧清除与展开箭头 -->
+                      <div class="flex items-center gap-1 ml-1 flex-shrink-0">
+                        <template x-if="branchSelectedPop.length > 0">
+                          <span @click.stop.prevent="branchSelectedPop = []; branchCurrentPage = 1" 
+                                class="w-3.5 h-3.5 rounded-full hover:bg-gray-200 inline-flex items-center justify-center text-[#8A92A1] hover:text-[#5C6270] transition-colors cursor-pointer"
+                                title="全部清除">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                          </span>
+                        </template>
+                        <svg class="w-3.5 h-3.5 text-[#A1A7B3] transition-transform duration-150" :class="open && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                      </div>
+                    </div>
+
+                    <!-- 下拉多选列表 -->
+                    <div x-show="open" 
+                         x-cloak 
+                         class="absolute left-0 top-full mt-1 min-w-[188px] max-h-[220px] overflow-y-auto bg-white border border-[#E1E5EB] shadow-lg rounded-[2px] py-1 z-50 text-xs text-[#2F3540] custom-scrollbar">
+                      <template x-for="opt in ['马尼拉POP', '西安POP', '武汉POP', '广州POP', '深圳POP', '上海POP', '北京POP', '成都POP', '南京POP', '香港POP']" :key="opt">
+                        <label class="flex items-center gap-2 px-3 py-1.5 hover:bg-[#F4F6F9] cursor-pointer select-none">
+                          <input type="checkbox" :value="opt" x-model="branchSelectedPop" @change="branchCurrentPage = 1" class="rounded border-gray-300 text-[#1C6EFF] focus:ring-0 w-3.5 h-3.5">
+                          <span x-text="opt"></span>
+                        </label>
+                      </template>
+                    </div>
                   </div>
                 </div>
-                <div class="relative w-64 flex-shrink-0">
-                  <input type="text" x-model="branchSearchQuery" @input="branchCurrentPage = 1" placeholder="搜索分支名称 / 关联城市 / 出口 IP..." class="w-full h-8 pl-8 pr-3 text-xs bg-white border border-[#D3D7DE] rounded-[2px] focus:outline-none focus:border-[#1C6EFF] transition-colors text-[#2F3540]" />
-                  <svg class="w-3.5 h-3.5 text-[#A1A7B3] absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+
+                <!-- 搜索框带快捷清除 -->
+                <div class="relative inline-flex items-center group w-64 flex-shrink-0">
+                  <input type="text" x-model="branchSearchQuery" @input="branchCurrentPage = 1" placeholder="搜索分支名称 / 分组 / 地理位置 / 出口IP..." class="h-8 pl-3 pr-7 text-xs border border-[#D3D7DE] rounded-[2px] w-full focus:outline-none focus:border-[#1C6EFF] text-[#2F3540]">
+                  <button type="button" 
+                          x-show="branchSearchQuery" 
+                          @click="branchSearchQuery = ''; branchCurrentPage = 1" 
+                          class="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full text-[#8A92A1] hover:text-[#1C6EFF] hover:bg-[#F0F5FF] flex items-center justify-center cursor-pointer"
+                          title="清除搜索">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                  </button>
                 </div>
               </div>
+
               <!-- 表格 -->
               <div class="overflow-x-auto custom-scrollbar pl-[2px]">
                 <table class="dem-table">
                   <thead>
                     <tr>
-                      <th class="w-56">分支名称</th>
-                      <th class="w-48">出口 IP / 城市</th>
-                      <th class="w-32 cursor-pointer select-none hover:text-[#1C6EFF] transition-colors" @click="toggleBranchExpSort()">
+                      <th class="w-48">分支名称</th>
+                      <th class="w-24">分支类型</th>
+                      <th class="w-28">所属分组</th>
+                      <th class="w-36">地理位置</th>
+                      <th class="w-28 cursor-pointer select-none hover:text-[#1C6EFF] transition-colors" @click="toggleBranchExpSort()">
                         <div class="inline-flex items-center gap-1.5">
-                          <span>访问体验</span>
+                          <span>体验状态</span>
                           <div class="inline-flex flex-col gap-[2px] flex-shrink-0">
                             <svg class="w-2 h-1.5 transition-colors" :class="branchExpSortDir === 'asc' ? 'text-[#1C6EFF]' : 'text-[#A1A7B3]'" viewBox="0 0 8 6" fill="currentColor"><path d="M4 0L8 6H0L4 0Z"/></svg>
                             <svg class="w-2 h-1.5 transition-colors" :class="branchExpSortDir === 'desc' ? 'text-[#1C6EFF]' : 'text-[#A1A7B3]'" viewBox="0 0 8 6" fill="currentColor"><path d="M4 6L0 0H8L4 6Z"/></svg>
                           </div>
                         </div>
                       </th>
-                      <th class="w-36">主用接入 POP</th>
-                      <th class="w-72">受阻高频应用</th>
-                      <th class="w-24">操作</th>
+                      <th class="w-32">主要接入POP</th>
+                      <th class="w-32 num-col">体验受损用户数</th>
+                      <th class="w-28 num-col">访问应用数</th>
+                      <th class="w-64">体验受损应用</th>
+                      <th class="w-20">操作</th>
                       <th class="dem-table-col-more">...</th>
                     </tr>
                   </thead>
                   <tbody>
                     <template x-for="branch in paginatedBranches" :key="branch.id">
                       <tr>
+                        <!-- 1. 分支名称 -->
                         <td><a href="javascript:void(0)" @click="goToBranchDetail(branch)" class="dem-table-action-link font-normal text-xs" x-text="branch.branchName"></a></td>
-                        <td>
-                          <div class="font-mono text-xs text-text-title leading-tight" x-text="branch.egressIp"></div>
-                          <div class="text-[11px] text-text-mute leading-tight mt-0.5" x-text="branch.city"></div>
-                        </td>
+                        <!-- 2. 分支类型 -->
+                        <td><span class="text-xs text-[#2F3540]" x-text="branch.branchType || 'NGAF'"></span></td>
+                        <!-- 3. 所属分组 -->
+                        <td><span class="text-xs text-[#2F3540]" x-text="branch.group || branch.region || '华东大区'"></span></td>
+                        <!-- 4. 地理位置 -->
+                        <td><span class="text-xs text-[#2F3540]" x-text="branch.location || branch.city"></span></td>
+                        <!-- 5. 体验状态 -->
                         <td><span :class="getExpBadgeClass(branch.experience)"><span x-text="branch.experience"></span></span></td>
-                        <td><span class="text-text-title font-normal text-xs" x-text="formatCityName(branch.pop)"></span></td>
+                        <!-- 6. 主要接入POP -->
+                        <td><span class="text-[#2F3540] font-normal text-xs" x-text="branch.pop || formatCityName(branch.pop)"></span></td>
+                        <!-- 7. 体验受损用户数 -->
+                        <td class="num-col font-outfit text-xs">
+                          <span :class="branch.degradedUsers > 0 ? 'text-[#FF5752] font-semibold' : 'text-[#2F3540]'" x-text="branch.degradedUsers"></span>
+                        </td>
+                        <!-- 8. 访问应用数 -->
+                        <td class="num-col font-outfit font-normal text-[#2F3540] text-xs" x-text="branch.appCount || 12"></td>
+                        <!-- 9. 体验受损应用 -->
                         <td>
-                          <div class="truncate max-w-[280px]" :title="formatDegradedApps(branch.degradedApps).fullText">
-                            <template x-if="!formatDegradedApps(branch.degradedApps).isDegraded"><span class="text-[#5C6270]">-</span></template>
+                          <div class="truncate max-w-[240px]" :title="formatDegradedApps(branch.degradedApps).fullText">
+                            <template x-if="!formatDegradedApps(branch.degradedApps).isDegraded"><span class="text-[#8A92A1]">-</span></template>
                             <template x-if="formatDegradedApps(branch.degradedApps).isDegraded">
-                              <span class="text-[#5C6270] font-normal text-xs">
+                              <span class="text-[#2F3540] font-normal text-xs">
                                 <span x-text="formatDegradedApps(branch.degradedApps).textPrefix"></span>
                                 <template x-if="formatDegradedApps(branch.degradedApps).showMore">
-                                  <span><span class="text-red-600 font-semibold" x-text="formatDegradedApps(branch.degradedApps).count"></span> 个</span>
+                                  <span><span class="text-[#FF5752] font-semibold" x-text="formatDegradedApps(branch.degradedApps).count"></span> 个</span>
                                 </template>
                               </span>
                             </template>
                           </div>
                         </td>
-                        <td><a href="javascript:void(0)" @click="goToBranchDetail(branch)" class="dem-table-action-link">查看详情</a></td>
+                        <!-- 10. 操作 -->
+                        <td><a href="javascript:void(0)" @click="goToBranchDetail(branch)" class="dem-table-action-link">详情</a></td>
                         <td class="dem-table-col-more"></td>
                       </tr>
                     </template>
                     <template x-if="paginatedBranches.length === 0">
-                      <tr><td colspan="7" class="text-center py-12 text-text-mute"><span>没有匹配的分支机构体验数据</span></td></tr>
+                      <tr><td colspan="11" class="text-center py-12 text-text-mute"><span>没有匹配的分支机构体验数据</span></td></tr>
                     </template>
                   </tbody>
                 </table>
@@ -1117,35 +1456,251 @@
 
             <!-- Tab 2: 用户监控视图 -->
             <div x-show="contentTab === '用户'" class="flex flex-col" x-cloak>
-              <!-- 工具栏 -->
-              <div class="p-3 flex items-center justify-end gap-3 flex-wrap flex-shrink-0 bg-white">
-                <div class="relative" x-data="{ open: false }" @click.outside="open = false">
-                  <div @click="open = !open" class="h-8 min-w-[130px] px-2.5 bg-white border border-[#D3D7DE] rounded-[2px] hover:border-[#1C6EFF] transition-colors flex items-center justify-between cursor-pointer select-none text-xs">
-                    <template x-if="userSelectedExperience.length === 0"><span class="text-[#A1A7B3] font-normal">全部体验状态</span></template>
-                    <template x-if="userSelectedExperience.length > 0"><span class="text-[#2F3540] font-normal truncate max-w-[100px]" x-text="'体验: ' + userSelectedExperience.join(',')"></span></template>
-                    <div class="flex items-center gap-1 ml-1.5 flex-shrink-0">
-                      <template x-if="userSelectedExperience.length > 0">
-                        <span @click.stop="userSelectedExperience = []; userCurrentPage = 1" class="w-3.5 h-3.5 rounded-full hover:bg-gray-200 inline-flex items-center justify-center text-[#A1A7B3] hover:text-[#5C6270] transition-colors cursor-pointer" title="清除选择">
-                          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                        </span>
+              <!-- 工具栏：左侧 3 个多选筛选项（展示Tag与+N折叠，加宽30%），右侧搜索框 -->
+              <div class="p-3 flex items-center justify-between gap-3 flex-wrap flex-shrink-0 bg-white">
+                <!-- 3个等宽多选筛选项在左侧 -->
+                <div class="flex items-center gap-2">
+                  <!-- 1. 体验状态多选 -->
+                  <div class="relative inline-flex items-center group w-[188px]" x-data="{ open: false }" @click.outside="open = false">
+                    <div @click="open = !open" 
+                         class="h-8 w-full px-2 bg-white border border-[#D3D7DE] rounded-[2px] hover:border-[#1C6EFF] transition-colors flex items-center justify-between cursor-pointer select-none text-xs">
+                      <!-- 未选状态 -->
+                      <template x-if="userSelectedExp.length === 0">
+                        <span class="text-[#A1A7B3] font-normal truncate">全部体验状态</span>
                       </template>
-                      <svg class="w-3.5 h-3.5 text-[#A1A7B3] transition-transform" :class="open && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                      <!-- 单选状态 -->
+                      <template x-if="userSelectedExp.length === 1">
+                        <div class="flex items-center overflow-hidden">
+                          <span class="inline-flex items-center gap-1 h-5 px-1.5 bg-[#EDF1F7] text-[#2F3540] text-xs rounded-[2px] max-w-[130px] truncate select-none">
+                            <span class="truncate" x-text="userSelectedExp[0]"></span>
+                            <button type="button" 
+                                    @click.stop.prevent="userSelectedExp = []; userCurrentPage = 1"
+                                    class="w-3 h-3 flex-shrink-0 text-[#8A92A1] hover:text-[#2F3540] inline-flex items-center justify-center rounded-[1px] hover:bg-[#D3D7DE] transition-colors cursor-pointer"
+                                    title="删除">
+                              <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
+                              </svg>
+                            </button>
+                          </span>
+                        </div>
+                      </template>
+                      <!-- 多选状态 -->
+                      <template x-if="userSelectedExp.length > 1">
+                        <div class="flex items-center gap-1 overflow-hidden">
+                          <span class="inline-flex items-center gap-1 h-5 px-1.5 bg-[#EDF1F7] text-[#2F3540] text-xs rounded-[2px] max-w-[96px] truncate select-none">
+                            <span class="truncate" x-text="userSelectedExp[0]"></span>
+                            <button type="button" 
+                                    @click.stop.prevent="userSelectedExp = userSelectedExp.filter((_, idx) => idx !== 0); userCurrentPage = 1"
+                                    class="w-3 h-3 flex-shrink-0 text-[#8A92A1] hover:text-[#2F3540] inline-flex items-center justify-center rounded-[1px] hover:bg-[#D3D7DE] transition-colors cursor-pointer"
+                                    title="删除">
+                              <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
+                              </svg>
+                            </button>
+                          </span>
+                          <span class="inline-flex items-center justify-center h-5 px-1.5 bg-[#EDF1F7] text-[#2F3540] text-xs font-normal rounded-[2px] flex-shrink-0 select-none"
+                                :title="userSelectedExp.join('、')"
+                                x-text="`+${userSelectedExp.length - 1}`">
+                          </span>
+                        </div>
+                      </template>
+                      
+                      <!-- 右侧清除与展开箭头 -->
+                      <div class="flex items-center gap-1 ml-1 flex-shrink-0">
+                        <template x-if="userSelectedExp.length > 0">
+                          <span @click.stop.prevent="userSelectedExp = []; userCurrentPage = 1" 
+                                class="w-3.5 h-3.5 rounded-full hover:bg-gray-200 inline-flex items-center justify-center text-[#8A92A1] hover:text-[#5C6270] transition-colors cursor-pointer"
+                                title="全部清除">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                          </span>
+                        </template>
+                        <svg class="w-3.5 h-3.5 text-[#A1A7B3] transition-transform duration-150" :class="open && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                      </div>
+                    </div>
+
+                    <!-- 下拉多选列表 -->
+                    <div x-show="open" 
+                         x-cloak 
+                         class="absolute left-0 top-full mt-1 min-w-[188px] max-h-[220px] overflow-y-auto bg-white border border-[#E1E5EB] shadow-lg rounded-[2px] py-1 z-50 text-xs text-[#2F3540] custom-scrollbar">
+                      <template x-for="opt in ['差', '一般', '正常']" :key="opt">
+                        <label class="flex items-center gap-2 px-3 py-1.5 hover:bg-[#F4F6F9] cursor-pointer select-none">
+                          <input type="checkbox" :value="opt" x-model="userSelectedExp" @change="userCurrentPage = 1" class="rounded border-gray-300 text-[#1C6EFF] focus:ring-0 w-3.5 h-3.5">
+                          <span x-text="opt"></span>
+                        </label>
+                      </template>
                     </div>
                   </div>
-                  <div x-show="open" x-cloak class="absolute right-0 top-full mt-1 w-[140px] bg-white border border-[#E1E5EB] shadow-lg rounded-[2px] py-1 z-50 text-xs text-[#2F3540]">
-                    <template x-for="opt in ['差', '一般', '正常']" :key="opt">
-                      <label class="flex items-center gap-2 px-3 py-1.5 hover:bg-[#F4F6F9] cursor-pointer select-none">
-                        <input type="checkbox" :value="opt" x-model="userSelectedExperience" @change="userCurrentPage = 1" class="rounded border-gray-300 text-[#1C6EFF] focus:ring-0 w-3.5 h-3.5">
-                        <span x-text="opt"></span>
-                      </label>
-                    </template>
+
+                  <!-- 2. IP 归属地多选 -->
+                  <div class="relative inline-flex items-center group w-[188px]" x-data="{ open: false }" @click.outside="open = false">
+                    <div @click="open = !open" 
+                         class="h-8 w-full px-2 bg-white border border-[#D3D7DE] rounded-[2px] hover:border-[#1C6EFF] transition-colors flex items-center justify-between cursor-pointer select-none text-xs">
+                      <!-- 未选状态 -->
+                      <template x-if="userSelectedLoc.length === 0">
+                        <span class="text-[#8A92A1] font-normal truncate">全部IP归属地</span>
+                      </template>
+                      <!-- 单选状态 -->
+                      <template x-if="userSelectedLoc.length === 1">
+                        <div class="flex items-center overflow-hidden">
+                          <span class="inline-flex items-center gap-1 h-5 px-1.5 bg-[#EDF1F7] text-[#2F3540] text-xs rounded-[2px] max-w-[130px] truncate select-none">
+                            <span class="truncate" x-text="userSelectedLoc[0]"></span>
+                            <button type="button" 
+                                    @click.stop.prevent="userSelectedLoc = []; userCurrentPage = 1"
+                                    class="w-3 h-3 flex-shrink-0 text-[#8A92A1] hover:text-[#2F3540] inline-flex items-center justify-center rounded-[1px] hover:bg-[#D3D7DE] transition-colors cursor-pointer"
+                                    title="删除">
+                              <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
+                              </svg>
+                            </button>
+                          </span>
+                        </div>
+                      </template>
+                      <!-- 多选状态 -->
+                      <template x-if="userSelectedLoc.length > 1">
+                        <div class="flex items-center gap-1 overflow-hidden">
+                          <span class="inline-flex items-center gap-1 h-5 px-1.5 bg-[#EDF1F7] text-[#2F3540] text-xs rounded-[2px] max-w-[96px] truncate select-none">
+                            <span class="truncate" x-text="userSelectedLoc[0]"></span>
+                            <button type="button" 
+                                    @click.stop.prevent="userSelectedLoc = userSelectedLoc.filter((_, idx) => idx !== 0); userCurrentPage = 1"
+                                    class="w-3 h-3 flex-shrink-0 text-[#8A92A1] hover:text-[#2F3540] inline-flex items-center justify-center rounded-[1px] hover:bg-[#D3D7DE] transition-colors cursor-pointer"
+                                    title="删除">
+                              <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
+                              </svg>
+                            </button>
+                          </span>
+                          <span class="inline-flex items-center justify-center h-5 px-1.5 bg-[#EDF1F7] text-[#2F3540] text-xs font-normal rounded-[2px] flex-shrink-0 select-none"
+                                :title="userSelectedLoc.join('、')"
+                                x-text="`+${userSelectedLoc.length - 1}`">
+                          </span>
+                        </div>
+                      </template>
+                      
+                      <!-- 右侧清除与展开箭头 -->
+                      <div class="flex items-center gap-1 ml-1 flex-shrink-0">
+                        <template x-if="userSelectedLoc.length > 0">
+                          <span @click.stop.prevent="userSelectedLoc = []; userCurrentPage = 1" 
+                                class="w-3.5 h-3.5 rounded-full hover:bg-gray-200 inline-flex items-center justify-center text-[#8A92A1] hover:text-[#5C6270] transition-colors cursor-pointer"
+                                title="全部清除">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                          </span>
+                        </template>
+                        <svg class="w-3.5 h-3.5 text-[#A1A7B3] transition-transform duration-150" :class="open && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                      </div>
+                    </div>
+
+                    <!-- 下拉多选列表 -->
+                    <div x-show="open" 
+                         x-cloak 
+                         class="absolute left-0 top-full mt-1 min-w-[188px] max-h-[220px] overflow-y-auto bg-white border border-[#E1E5EB] shadow-lg rounded-[2px] py-1 z-50 text-xs text-[#2F3540] custom-scrollbar">
+                      <template x-for="opt in ['马尼拉', '长沙', '深圳', '北京', '上海', '广州', '成都', '西安', '南京', '武汉', '杭州']" :key="opt">
+                        <label class="flex items-center gap-2 px-3 py-1.5 hover:bg-[#F4F6F9] cursor-pointer select-none">
+                          <input type="checkbox" :value="opt" x-model="userSelectedLoc" @change="userCurrentPage = 1" class="rounded border-gray-300 text-[#1C6EFF] focus:ring-0 w-3.5 h-3.5">
+                          <span x-text="opt"></span>
+                        </label>
+                      </template>
+                    </div>
+                  </div>
+
+                  <!-- 3. 接入POP多选 -->
+                  <div class="relative inline-flex items-center group w-[188px]" x-data="{ open: false }" @click.outside="open = false">
+                    <div @click="open = !open" 
+                         class="h-8 w-full px-2 bg-white border border-[#D3D7DE] rounded-[2px] hover:border-[#1C6EFF] transition-colors flex items-center justify-between cursor-pointer select-none text-xs">
+                      <!-- 未选状态 -->
+                      <template x-if="userSelectedPop.length === 0">
+                        <span class="text-[#8A92A1] font-normal truncate">全部接入POP</span>
+                      </template>
+                      <!-- 单选状态 -->
+                      <template x-if="userSelectedPop.length === 1">
+                        <div class="flex items-center overflow-hidden">
+                          <span class="inline-flex items-center gap-1 h-5 px-1.5 bg-[#EDF1F7] text-[#2F3540] text-xs rounded-[2px] max-w-[130px] truncate select-none">
+                            <span class="truncate" x-text="userSelectedPop[0]"></span>
+                            <button type="button" 
+                                    @click.stop.prevent="userSelectedPop = []; userCurrentPage = 1"
+                                    class="w-3 h-3 flex-shrink-0 text-[#8A92A1] hover:text-[#2F3540] inline-flex items-center justify-center rounded-[1px] hover:bg-[#D3D7DE] transition-colors cursor-pointer"
+                                    title="删除">
+                              <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
+                              </svg>
+                            </button>
+                          </span>
+                        </div>
+                      </template>
+                      <!-- 多选状态 -->
+                      <template x-if="userSelectedPop.length > 1">
+                        <div class="flex items-center gap-1 overflow-hidden">
+                          <span class="inline-flex items-center gap-1 h-5 px-1.5 bg-[#EDF1F7] text-[#2F3540] text-xs rounded-[2px] max-w-[96px] truncate select-none">
+                            <span class="truncate" x-text="userSelectedPop[0]"></span>
+                            <button type="button" 
+                                    @click.stop.prevent="userSelectedPop = userSelectedPop.filter((_, idx) => idx !== 0); userCurrentPage = 1"
+                                    class="w-3 h-3 flex-shrink-0 text-[#8A92A1] hover:text-[#2F3540] inline-flex items-center justify-center rounded-[1px] hover:bg-[#D3D7DE] transition-colors cursor-pointer"
+                                    title="删除">
+                              <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
+                              </svg>
+                            </button>
+                          </span>
+                          <span class="inline-flex items-center justify-center h-5 px-1.5 bg-[#EDF1F7] text-[#2F3540] text-xs font-normal rounded-[2px] flex-shrink-0 select-none"
+                                :title="userSelectedPop.join('、')"
+                                x-text="`+${userSelectedPop.length - 1}`">
+                          </span>
+                        </div>
+                      </template>
+                      
+                      <!-- 右侧清除与展开箭头 -->
+                      <div class="flex items-center gap-1 ml-1 flex-shrink-0">
+                        <template x-if="userSelectedPop.length > 0">
+                          <span @click.stop.prevent="userSelectedPop = []; userCurrentPage = 1" 
+                                class="w-3.5 h-3.5 rounded-full hover:bg-gray-200 inline-flex items-center justify-center text-[#8A92A1] hover:text-[#5C6270] transition-colors cursor-pointer"
+                                title="全部清除">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                          </span>
+                        </template>
+                        <svg class="w-3.5 h-3.5 text-[#A1A7B3] transition-transform duration-150" :class="open && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                      </div>
+                    </div>
+
+                    <!-- 下拉多选列表 -->
+                    <div x-show="open" 
+                         x-cloak 
+                         class="absolute left-0 top-full mt-1 min-w-[188px] max-h-[220px] overflow-y-auto bg-white border border-[#E1E5EB] shadow-lg rounded-[2px] py-1 z-50 text-xs text-[#2F3540] custom-scrollbar">
+                      <template x-for="opt in ['POP (香港)', 'POP (新加坡)', 'POP (成都)', '马尼拉POP01', '华北-北京POP01', '华东-上海POP02', '华南-深圳POP01', '华南-广州POP01', '西南-成都POP01', '西北-西安POP01', '华东-南京POP01', '华中-武汉POP01']" :key="opt">
+                        <label class="flex items-center gap-2 px-3 py-1.5 hover:bg-[#F4F6F9] cursor-pointer select-none">
+                          <input type="checkbox" :value="opt" x-model="userSelectedPop" @change="userCurrentPage = 1" class="rounded border-gray-300 text-[#1C6EFF] focus:ring-0 w-3.5 h-3.5">
+                          <span x-text="opt"></span>
+                        </label>
+                      </template>
+                    </div>
                   </div>
                 </div>
-                <div class="relative w-64 flex-shrink-0">
-                  <input type="text" x-model="userSearchQuery" @input="userCurrentPage = 1" placeholder="搜索用户 / 终端 / IP / 组织 / 应用..." class="w-full h-8 pl-8 pr-3 text-xs bg-white border border-[#D3D7DE] rounded-[2px] focus:outline-none focus:border-[#1C6EFF] transition-colors text-[#2F3540]" />
-                  <svg class="w-3.5 h-3.5 text-[#A1A7B3] absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+
+                <!-- 搜索框带快捷清除 -->
+                <div class="relative inline-flex items-center group w-64 flex-shrink-0">
+                  <input type="text" x-model="userSearchQuery" @input="userCurrentPage = 1" placeholder="搜索用户 / 终端 / IP / 组织 / 应用..." class="h-8 pl-3 pr-7 text-xs border border-[#D3D7DE] rounded-[2px] w-full focus:outline-none focus:border-[#1C6EFF] text-[#2F3540]">
+                  <button type="button" 
+                          x-show="userSearchQuery" 
+                          @click="userSearchQuery = ''; userCurrentPage = 1" 
+                          class="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full text-[#8A92A1] hover:text-[#1C6EFF] hover:bg-[#F0F5FF] flex items-center justify-center cursor-pointer"
+                          title="清除搜索">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                  </button>
                 </div>
               </div>
+
               <!-- 表格 -->
               <div class="overflow-x-auto custom-scrollbar pl-[2px]">
                 <table class="dem-table">
@@ -1227,7 +1782,7 @@
                       </tr>
                     </template>
                     <template x-if="paginatedUsers.length === 0">
-                      <tr><td colspan="9" class="text-center py-12 text-text-mute"><span>没有匹配的用户体验数据</span></td></tr>
+                      <tr><td colspan="10" class="text-center py-12 text-text-mute"><span>没有匹配的用户体验数据</span></td></tr>
                     </template>
                   </tbody>
                 </table>
@@ -1256,85 +1811,318 @@
 
             <!-- Tab 3: 应用监控视图 -->
             <div x-show="contentTab === '应用'" class="flex flex-col" x-cloak>
-              <!-- 工具栏 -->
-              <div class="p-3 flex items-center justify-end gap-3 flex-wrap flex-shrink-0 bg-white">
-                <div class="relative" x-data="{ open: false }" @click.outside="open = false">
-                  <div @click="open = !open" class="h-8 min-w-[130px] px-2.5 bg-white border border-[#D3D7DE] rounded-[2px] hover:border-[#1C6EFF] transition-colors flex items-center justify-between cursor-pointer select-none text-xs">
-                    <template x-if="appSelectedExperience.length === 0"><span class="text-[#A1A7B3] font-normal">全部健康状态</span></template>
-                    <template x-if="appSelectedExperience.length > 0"><span class="text-[#2F3540] font-normal truncate max-w-[100px]" x-text="'体验: ' + appSelectedExperience.join(',')"></span></template>
-                    <div class="flex items-center gap-1 ml-1.5 flex-shrink-0">
-                      <template x-if="appSelectedExperience.length > 0">
-                        <span @click.stop="appSelectedExperience = []; appCurrentPage = 1" class="w-3.5 h-3.5 rounded-full hover:bg-gray-200 inline-flex items-center justify-center text-[#A1A7B3] hover:text-[#5C6270] transition-colors cursor-pointer" title="清除选择">
-                          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                        </span>
+              <!-- 工具栏：左侧 3 个多选筛选项（展示Tag与+N折叠，加宽30%），右侧搜索框 -->
+              <div class="p-3 flex items-center justify-between gap-3 flex-wrap flex-shrink-0 bg-white">
+                <!-- 3个等宽多选筛选项在左侧 -->
+                <div class="flex items-center gap-2">
+                  <!-- 1. 体验状态多选 -->
+                  <div class="relative inline-flex items-center group w-[188px]" x-data="{ open: false }" @click.outside="open = false">
+                    <div @click="open = !open" 
+                         class="h-8 w-full px-2 bg-white border border-[#D3D7DE] rounded-[2px] hover:border-[#1C6EFF] transition-colors flex items-center justify-between cursor-pointer select-none text-xs">
+                      <!-- 未选状态 -->
+                      <template x-if="appSelectedExp.length === 0">
+                        <span class="text-[#A1A7B3] font-normal truncate">全部体验状态</span>
                       </template>
-                      <svg class="w-3.5 h-3.5 text-[#A1A7B3] transition-transform" :class="open && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                      <!-- 单选状态 -->
+                      <template x-if="appSelectedExp.length === 1">
+                        <div class="flex items-center overflow-hidden">
+                          <span class="inline-flex items-center gap-1 h-5 px-1.5 bg-[#EDF1F7] text-[#2F3540] text-xs rounded-[2px] max-w-[130px] truncate select-none">
+                            <span class="truncate" x-text="appSelectedExp[0]"></span>
+                            <button type="button" 
+                                    @click.stop.prevent="appSelectedExp = []; appCurrentPage = 1"
+                                    class="w-3 h-3 flex-shrink-0 text-[#8A92A1] hover:text-[#2F3540] inline-flex items-center justify-center rounded-[1px] hover:bg-[#D3D7DE] transition-colors cursor-pointer"
+                                    title="删除">
+                              <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
+                              </svg>
+                            </button>
+                          </span>
+                        </div>
+                      </template>
+                      <!-- 多选状态 -->
+                      <template x-if="appSelectedExp.length > 1">
+                        <div class="flex items-center gap-1 overflow-hidden">
+                          <span class="inline-flex items-center gap-1 h-5 px-1.5 bg-[#EDF1F7] text-[#2F3540] text-xs rounded-[2px] max-w-[96px] truncate select-none">
+                            <span class="truncate" x-text="appSelectedExp[0]"></span>
+                            <button type="button" 
+                                    @click.stop.prevent="appSelectedExp = appSelectedExp.filter((_, idx) => idx !== 0); appCurrentPage = 1"
+                                    class="w-3 h-3 flex-shrink-0 text-[#8A92A1] hover:text-[#2F3540] inline-flex items-center justify-center rounded-[1px] hover:bg-[#D3D7DE] transition-colors cursor-pointer"
+                                    title="删除">
+                              <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
+                              </svg>
+                            </button>
+                          </span>
+                          <span class="inline-flex items-center justify-center h-5 px-1.5 bg-[#EDF1F7] text-[#2F3540] text-xs font-normal rounded-[2px] flex-shrink-0 select-none"
+                                :title="appSelectedExp.join('、')"
+                                x-text="`+${appSelectedExp.length - 1}`">
+                          </span>
+                        </div>
+                      </template>
+                      
+                      <!-- 右侧清除与展开箭头 -->
+                      <div class="flex items-center gap-1 ml-1 flex-shrink-0">
+                        <template x-if="appSelectedExp.length > 0">
+                          <span @click.stop.prevent="appSelectedExp = []; appCurrentPage = 1" 
+                                class="w-3.5 h-3.5 rounded-full hover:bg-gray-200 inline-flex items-center justify-center text-[#8A92A1] hover:text-[#5C6270] transition-colors cursor-pointer"
+                                title="全部清除">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                          </span>
+                        </template>
+                        <svg class="w-3.5 h-3.5 text-[#A1A7B3] transition-transform duration-150" :class="open && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                      </div>
+                    </div>
+
+                    <!-- 下拉多选列表 -->
+                    <div x-show="open" 
+                         x-cloak 
+                         class="absolute left-0 top-full mt-1 min-w-[188px] max-h-[220px] overflow-y-auto bg-white border border-[#E1E5EB] shadow-lg rounded-[2px] py-1 z-50 text-xs text-[#2F3540] custom-scrollbar">
+                      <template x-for="opt in ['差', '一般', '正常']" :key="opt">
+                        <label class="flex items-center gap-2 px-3 py-1.5 hover:bg-[#F4F6F9] cursor-pointer select-none">
+                          <input type="checkbox" :value="opt" x-model="appSelectedExp" @change="appCurrentPage = 1" class="rounded border-gray-300 text-[#1C6EFF] focus:ring-0 w-3.5 h-3.5">
+                          <span x-text="opt"></span>
+                        </label>
+                      </template>
                     </div>
                   </div>
-                  <div x-show="open" x-cloak class="absolute right-0 top-full mt-1 w-[140px] bg-white border border-[#E1E5EB] shadow-lg rounded-[2px] py-1 z-50 text-xs text-[#2F3540]">
-                    <template x-for="opt in ['差', '一般', '正常']" :key="opt">
-                      <label class="flex items-center gap-2 px-3 py-1.5 hover:bg-[#F4F6F9] cursor-pointer select-none">
-                        <input type="checkbox" :value="opt" x-model="appSelectedExperience" @change="appCurrentPage = 1" class="rounded border-gray-300 text-[#1C6EFF] focus:ring-0 w-3.5 h-3.5">
-                        <span x-text="opt"></span>
-                      </label>
-                    </template>
+
+                  <!-- 2. 应用类型多选 -->
+                  <div class="relative inline-flex items-center group w-[188px]" x-data="{ open: false }" @click.outside="open = false">
+                    <div @click="open = !open" 
+                         class="h-8 w-full px-2 bg-white border border-[#D3D7DE] rounded-[2px] hover:border-[#1C6EFF] transition-colors flex items-center justify-between cursor-pointer select-none text-xs">
+                      <!-- 未选状态 -->
+                      <template x-if="appSelectedType.length === 0">
+                        <span class="text-[#8A92A1] font-normal truncate">全部应用类型</span>
+                      </template>
+                      <!-- 单选状态 -->
+                      <template x-if="appSelectedType.length === 1">
+                        <div class="flex items-center overflow-hidden">
+                          <span class="inline-flex items-center gap-1 h-5 px-1.5 bg-[#EDF1F7] text-[#2F3540] text-xs rounded-[2px] max-w-[130px] truncate select-none">
+                            <span class="truncate" x-text="appSelectedType[0]"></span>
+                            <button type="button" 
+                                    @click.stop.prevent="appSelectedType = []; appCurrentPage = 1"
+                                    class="w-3 h-3 flex-shrink-0 text-[#8A92A1] hover:text-[#2F3540] inline-flex items-center justify-center rounded-[1px] hover:bg-[#D3D7DE] transition-colors cursor-pointer"
+                                    title="删除">
+                              <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
+                              </svg>
+                            </button>
+                          </span>
+                        </div>
+                      </template>
+                      <!-- 多选状态 -->
+                      <template x-if="appSelectedType.length > 1">
+                        <div class="flex items-center gap-1 overflow-hidden">
+                          <span class="inline-flex items-center gap-1 h-5 px-1.5 bg-[#EDF1F7] text-[#2F3540] text-xs rounded-[2px] max-w-[96px] truncate select-none">
+                            <span class="truncate" x-text="appSelectedType[0]"></span>
+                            <button type="button" 
+                                    @click.stop.prevent="appSelectedType = appSelectedType.filter((_, idx) => idx !== 0); appCurrentPage = 1"
+                                    class="w-3 h-3 flex-shrink-0 text-[#8A92A1] hover:text-[#2F3540] inline-flex items-center justify-center rounded-[1px] hover:bg-[#D3D7DE] transition-colors cursor-pointer"
+                                    title="删除">
+                              <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
+                              </svg>
+                            </button>
+                          </span>
+                          <span class="inline-flex items-center justify-center h-5 px-1.5 bg-[#EDF1F7] text-[#2F3540] text-xs font-normal rounded-[2px] flex-shrink-0 select-none"
+                                :title="appSelectedType.join('、')"
+                                x-text="`+${appSelectedType.length - 1}`">
+                          </span>
+                        </div>
+                      </template>
+                      
+                      <!-- 右侧清除与展开箭头 -->
+                      <div class="flex items-center gap-1 ml-1 flex-shrink-0">
+                        <template x-if="appSelectedType.length > 0">
+                          <span @click.stop.prevent="appSelectedType = []; appCurrentPage = 1" 
+                                class="w-3.5 h-3.5 rounded-full hover:bg-gray-200 inline-flex items-center justify-center text-[#8A92A1] hover:text-[#5C6270] transition-colors cursor-pointer"
+                                title="全部清除">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                          </span>
+                        </template>
+                        <svg class="w-3.5 h-3.5 text-[#A1A7B3] transition-transform duration-150" :class="open && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                      </div>
+                    </div>
+
+                    <!-- 下拉多选列表 -->
+                    <div x-show="open" 
+                         x-cloak 
+                         class="absolute left-0 top-full mt-1 min-w-[188px] max-h-[220px] overflow-y-auto bg-white border border-[#E1E5EB] shadow-lg rounded-[2px] py-1 z-50 text-xs text-[#2F3540] custom-scrollbar">
+                      <template x-for="opt in ['内网应用', 'SaaS应用']" :key="opt">
+                        <label class="flex items-center gap-2 px-3 py-1.5 hover:bg-[#F4F6F9] cursor-pointer select-none">
+                          <input type="checkbox" :value="opt" x-model="appSelectedType" @change="appCurrentPage = 1" class="rounded border-gray-300 text-[#1C6EFF] focus:ring-0 w-3.5 h-3.5">
+                          <span x-text="opt"></span>
+                        </label>
+                      </template>
+                    </div>
+                  </div>
+
+                  <!-- 3. 所属区域多选 -->
+                  <div class="relative inline-flex items-center group w-[188px]" x-data="{ open: false }" @click.outside="open = false">
+                    <div @click="open = !open" 
+                         class="h-8 w-full px-2 bg-white border border-[#D3D7DE] rounded-[2px] hover:border-[#1C6EFF] transition-colors flex items-center justify-between cursor-pointer select-none text-xs">
+                      <!-- 未选状态 -->
+                      <template x-if="appSelectedRegion.length === 0">
+                        <span class="text-[#8A92A1] font-normal truncate">全部所属区域</span>
+                      </template>
+                      <!-- 单选状态 -->
+                      <template x-if="appSelectedRegion.length === 1">
+                        <div class="flex items-center overflow-hidden">
+                          <span class="inline-flex items-center gap-1 h-5 px-1.5 bg-[#EDF1F7] text-[#2F3540] text-xs rounded-[2px] max-w-[130px] truncate select-none">
+                            <span class="truncate" x-text="appSelectedRegion[0] === '-' ? '- (SaaS应用)' : appSelectedRegion[0]"></span>
+                            <button type="button" 
+                                    @click.stop.prevent="appSelectedRegion = []; appCurrentPage = 1"
+                                    class="w-3 h-3 flex-shrink-0 text-[#8A92A1] hover:text-[#2F3540] inline-flex items-center justify-center rounded-[1px] hover:bg-[#D3D7DE] transition-colors cursor-pointer"
+                                    title="删除">
+                              <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
+                              </svg>
+                            </button>
+                          </span>
+                        </div>
+                      </template>
+                      <!-- 多选状态 -->
+                      <template x-if="appSelectedRegion.length > 1">
+                        <div class="flex items-center gap-1 overflow-hidden">
+                          <span class="inline-flex items-center gap-1 h-5 px-1.5 bg-[#EDF1F7] text-[#2F3540] text-xs rounded-[2px] max-w-[96px] truncate select-none">
+                            <span class="truncate" x-text="appSelectedRegion[0] === '-' ? '- (SaaS)' : appSelectedRegion[0]"></span>
+                            <button type="button" 
+                                    @click.stop.prevent="appSelectedRegion = appSelectedRegion.filter((_, idx) => idx !== 0); appCurrentPage = 1"
+                                    class="w-3 h-3 flex-shrink-0 text-[#8A92A1] hover:text-[#2F3540] inline-flex items-center justify-center rounded-[1px] hover:bg-[#D3D7DE] transition-colors cursor-pointer"
+                                    title="删除">
+                              <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
+                              </svg>
+                            </button>
+                          </span>
+                          <span class="inline-flex items-center justify-center h-5 px-1.5 bg-[#EDF1F7] text-[#2F3540] text-xs font-normal rounded-[2px] flex-shrink-0 select-none"
+                                :title="appSelectedRegion.map(r => r === '-' ? '- (SaaS应用)' : r).join('、')"
+                                x-text="`+${appSelectedRegion.length - 1}`">
+                          </span>
+                        </div>
+                      </template>
+                      
+                      <!-- 右侧清除与展开箭头 -->
+                      <div class="flex items-center gap-1 ml-1 flex-shrink-0">
+                        <template x-if="appSelectedRegion.length > 0">
+                          <span @click.stop.prevent="appSelectedRegion = []; appCurrentPage = 1" 
+                                class="w-3.5 h-3.5 rounded-full hover:bg-gray-200 inline-flex items-center justify-center text-[#8A92A1] hover:text-[#5C6270] transition-colors cursor-pointer"
+                                title="全部清除">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                          </span>
+                        </template>
+                        <svg class="w-3.5 h-3.5 text-[#A1A7B3] transition-transform duration-150" :class="open && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                      </div>
+                    </div>
+
+                    <!-- 下拉多选列表 -->
+                    <div x-show="open" 
+                         x-cloak 
+                         class="absolute left-0 top-full mt-1 min-w-[188px] max-h-[220px] overflow-y-auto bg-white border border-[#E1E5EB] shadow-lg rounded-[2px] py-1 z-50 text-xs text-[#2F3540] custom-scrollbar">
+                      <template x-for="opt in ['上海数据中心', '北京数据中心', '华南数据中心', '西北数据中心', '华中数据中心', '西南数据中心', '华东数据中心', '-']" :key="opt">
+                        <label class="flex items-center gap-2 px-3 py-1.5 hover:bg-[#F4F6F9] cursor-pointer select-none">
+                          <input type="checkbox" :value="opt" x-model="appSelectedRegion" @change="appCurrentPage = 1" class="rounded border-gray-300 text-[#1C6EFF] focus:ring-0 w-3.5 h-3.5">
+                          <span x-text="opt === '-' ? '- (SaaS应用)' : opt"></span>
+                        </label>
+                      </template>
+                    </div>
                   </div>
                 </div>
-                <div class="relative w-64 flex-shrink-0">
-                  <input type="text" x-model="appSearchQuery" @input="appCurrentPage = 1" placeholder="搜索应用名称 / 域名 / 所属数据中心..." class="w-full h-8 pl-8 pr-3 text-xs bg-white border border-[#D3D7DE] rounded-[2px] focus:outline-none focus:border-[#1C6EFF] transition-colors text-[#2F3540]" />
-                  <svg class="w-3.5 h-3.5 text-[#A1A7B3] absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+
+                <!-- 搜索框带快捷清除 -->
+                <div class="relative inline-flex items-center group w-64 flex-shrink-0">
+                  <input type="text" x-model="appSearchQuery" @input="appCurrentPage = 1" placeholder="搜索应用名称 / 地址 / 所属区域..." class="h-8 pl-3 pr-7 text-xs border border-[#D3D7DE] rounded-[2px] w-full focus:outline-none focus:border-[#1C6EFF] text-[#2F3540]">
+                  <button type="button" 
+                          x-show="appSearchQuery" 
+                          @click="appSearchQuery = ''; appCurrentPage = 1" 
+                          class="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full text-[#8A92A1] hover:text-[#1C6EFF] hover:bg-[#F0F5FF] flex items-center justify-center cursor-pointer"
+                          title="清除搜索">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                  </button>
                 </div>
               </div>
+
               <!-- 表格 -->
               <div class="overflow-x-auto custom-scrollbar pl-[2px]">
                 <table class="dem-table">
                   <thead>
                     <tr>
                       <th class="w-56">应用名称</th>
-                      <th class="w-48">访问域名 / 类型</th>
-                      <th class="w-32 cursor-pointer select-none hover:text-[#1C6EFF] transition-colors" @click="toggleAppExpSort()">
+                      <th class="w-48">地址</th>
+                      <th class="w-28">应用类型</th>
+                      <th class="w-36">所属区域</th>
+                      <th class="w-28 cursor-pointer select-none hover:text-[#1C6EFF] transition-colors" @click="toggleAppExpSort()">
                         <div class="inline-flex items-center gap-1.5">
-                          <span>访问体验</span>
+                          <span>体验状态</span>
                           <div class="inline-flex flex-col gap-[2px] flex-shrink-0">
                             <svg class="w-2 h-1.5 transition-colors" :class="appExpSortDir === 'asc' ? 'text-[#1C6EFF]' : 'text-[#A1A7B3]'" viewBox="0 0 8 6" fill="currentColor"><path d="M4 0L8 6H0L4 0Z"/></svg>
                             <svg class="w-2 h-1.5 transition-colors" :class="appExpSortDir === 'desc' ? 'text-[#1C6EFF]' : 'text-[#A1A7B3]'" viewBox="0 0 8 6" fill="currentColor"><path d="M4 6L0 0H8L4 6Z"/></svg>
                           </div>
                         </div>
                       </th>
-                      <th class="w-36">所属区域/数据中心</th>
-                      <th class="w-32">活跃/受阻用户</th>
-                      <th class="w-28">平均响应时间</th>
-                      <th class="w-24">操作</th>
+                      <th class="w-36">受损/活跃用户</th>
+                      <th class="w-32">受损/活跃分支</th>
+                      <th class="w-20">操作</th>
                       <th class="dem-table-col-more">...</th>
                     </tr>
                   </thead>
                   <tbody>
                     <template x-for="app in paginatedApps" :key="app.id">
                       <tr>
+                        <!-- 1. 应用名称 -->
                         <td>
                           <div class="flex items-center gap-1.5">
                             <a href="javascript:void(0)" @click="goToAppDetail(app)" class="dem-table-action-link font-normal text-xs" x-text="app.appName"></a>
                             <template x-if="app.isVip"><span class="bg-[#FFF1F0] text-[#FF4D4F] border border-[#FFA39E] text-[10px] px-1 rounded font-semibold">VIP</span></template>
                           </div>
                         </td>
-                        <td>
-                          <div class="font-mono text-xs text-text-title leading-tight" x-text="app.domain"></div>
-                          <div class="text-[11px] text-text-mute leading-tight mt-0.5" x-text="app.appType"></div>
-                        </td>
+                        <!-- 2. 地址 -->
+                        <td><span class="font-mono text-xs text-[#2F3540]" x-text="app.domain || app.address"></span></td>
+                        <!-- 3. 应用类型 -->
+                        <td><span class="text-xs text-[#2F3540]" x-text="app.appType"></span></td>
+                        <!-- 4. 所属区域 -->
+                        <td><span class="text-xs text-[#2F3540]" x-text="app.region || '-'"></span></td>
+                        <!-- 5. 体验状态 -->
                         <td><span :class="getExpBadgeClass(app.experience)"><span x-text="app.experience"></span></span></td>
-                        <td><span class="text-text-title font-normal text-xs" x-text="app.region"></span></td>
+                        <!-- 6. 受损/活跃用户 -->
                         <td>
-                          <span class="text-xs text-[#2F3540]">
-                            <span x-text="app.activeUsers"></span> / <span class="text-red-600 font-semibold" x-text="app.degradedUsers"></span> 人
+                          <span class="text-xs">
+                            <span :class="app.degradedUsers > 0 ? 'text-[#FF5752] font-semibold' : 'text-[#2F3540]'" x-text="app.degradedUsers"></span>
+                            <span class="text-[#8A92A1]"> / </span>
+                            <span class="text-[#2F3540]" x-text="app.activeUsers"></span>
+                            <span class="text-[#8A92A1] ml-0.5">人</span>
                           </span>
                         </td>
-                        <td><span class="font-mono text-xs text-text-title" x-text="app.avgResponseTime"></span></td>
+                        <!-- 7. 受损/活跃分支 -->
+                        <td>
+                          <span class="text-xs">
+                            <span :class="app.degradedBranches > 0 ? 'text-[#FF5752] font-semibold' : 'text-[#2F3540]'" x-text="app.degradedBranches"></span>
+                            <span class="text-[#8A92A1]"> / </span>
+                            <span class="text-[#2F3540]" x-text="app.activeBranches || 8"></span>
+                            <span class="text-[#8A92A1] ml-0.5">个</span>
+                          </span>
+                        </td>
+                        <!-- 8. 操作 -->
                         <td><a href="javascript:void(0)" @click="goToAppDetail(app)" class="dem-table-action-link">详情</a></td>
                         <td class="dem-table-col-more"></td>
                       </tr>
                     </template>
                     <template x-if="paginatedApps.length === 0">
-                      <tr><td colspan="8" class="text-center py-12 text-text-mute"><span>没有匹配的应用体验数据</span></td></tr>
+                      <tr><td colspan="9" class="text-center py-12 text-text-mute"><span>没有匹配的应用体验数据</span></td></tr>
                     </template>
                   </tbody>
                 </table>

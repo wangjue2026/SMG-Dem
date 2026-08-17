@@ -137,20 +137,21 @@
   };
 
   // -------------------------------------------------------------
+  // -------------------------------------------------------------
   // 应用 Tab 假数据生成器 (window.initDemAppData)
   // -------------------------------------------------------------
   window.initDemAppData = function () {
     const baseApps = [
-      { id: "app_001", appName: "Salesforce CRM", isVip: true, domain: "crm.salesforce.com", appType: "SaaS应用", region: "-", experience: "差", activeUsers: 348, degradedUsers: 42, avgResponseTime: "480 ms", packetLoss: "3.5%", rtt: "88 ms", pop: "北京" },
-      { id: "app_002", appName: "企业内部 ERP", isVip: true, domain: "erp.internal.net", appType: "内网应用", region: "上海数据中心", experience: "差", activeUsers: 290, degradedUsers: 28, avgResponseTime: "390 ms", packetLoss: "2.8%", rtt: "65 ms", pop: "上海" },
-      { id: "app_003", appName: "Harbor 镜像仓库", isVip: false, domain: "registry.internal.net", appType: "内网应用", region: "西北数据中心", experience: "差", activeUsers: 160, degradedUsers: 24, avgResponseTime: "520 ms", packetLoss: "4.2%", rtt: "110 ms", pop: "西安" },
-      { id: "app_004", appName: "内网 GitLab", isVip: false, domain: "git.internal.net", appType: "内网应用", region: "华南数据中心", experience: "差", activeUsers: 410, degradedUsers: 19, avgResponseTime: "310 ms", packetLoss: "2.1%", rtt: "54 ms", pop: "深圳" },
-      { id: "app_005", appName: "仓储 WMS 系统", isVip: false, domain: "wms.supplychain.net", appType: "内网应用", region: "华中数据中心", experience: "差", activeUsers: 115, degradedUsers: 14, avgResponseTime: "640 ms", packetLoss: "3.8%", rtt: "92 ms", pop: "武汉" },
-      { id: "app_006", appName: "SaaS 飞书平台", isVip: false, domain: "feishu.cn", appType: "SaaS应用", region: "-", experience: "一般", activeUsers: 580, degradedUsers: 12, avgResponseTime: "180 ms", packetLoss: "0.9%", rtt: "32 ms", pop: "北京" },
-      { id: "app_007", appName: "腾讯会议 System", isVip: false, domain: "meeting.tencent.com", appType: "SaaS应用", region: "-", experience: "一般", activeUsers: 420, degradedUsers: 9, avgResponseTime: "160 ms", packetLoss: "0.8%", rtt: "28 ms", pop: "广州" },
-      { id: "app_008", appName: "Zabbix 监控平台", isVip: false, domain: "zabbix.ops.net", appType: "内网应用", region: "北京数据中心", experience: "一般", activeUsers: 85, degradedUsers: 5, avgResponseTime: "220 ms", packetLoss: "1.2%", rtt: "40 ms", pop: "北京" },
-      { id: "app_009", appName: "金蝶云 ERP", isVip: false, domain: "cloud.kingdee.com", appType: "SaaS应用", region: "-", experience: "正常", activeUsers: 210, degradedUsers: 0, avgResponseTime: "95 ms", packetLoss: "0.1%", rtt: "18 ms", pop: "深圳" },
-      { id: "app_010", appName: "用友财务系统", isVip: false, domain: "yonyou.internal.net", appType: "内网应用", region: "华东数据中心", experience: "正常", activeUsers: 175, degradedUsers: 0, avgResponseTime: "110 ms", packetLoss: "0.2%", rtt: "22 ms", pop: "上海" }
+      { id: "app_001", appName: "Salesforce CRM", isVip: true, domain: "crm.salesforce.com", appType: "SaaS应用", region: "-", experience: "差", activeUsers: 348, degradedUsers: 42, activeBranches: 8, degradedBranches: 2, avgResponseTime: "480 ms", packetLoss: "3.5%", rtt: "88 ms", pop: "北京" },
+      { id: "app_002", appName: "企业内部 ERP", isVip: true, domain: "erp.internal.net", appType: "内网应用", region: "上海数据中心", experience: "差", activeUsers: 290, degradedUsers: 28, activeBranches: 6, degradedBranches: 2, avgResponseTime: "390 ms", packetLoss: "2.8%", rtt: "65 ms", pop: "上海" },
+      { id: "app_003", appName: "Harbor 镜像仓库", isVip: false, domain: "registry.internal.net", appType: "内网应用", region: "西北数据中心", experience: "差", activeUsers: 160, degradedUsers: 24, activeBranches: 5, degradedBranches: 2, avgResponseTime: "520 ms", packetLoss: "4.2%", rtt: "110 ms", pop: "西安" },
+      { id: "app_004", appName: "内网 GitLab", isVip: false, domain: "git.internal.net", appType: "内网应用", region: "华南数据中心", experience: "差", activeUsers: 410, degradedUsers: 19, activeBranches: 9, degradedBranches: 1, avgResponseTime: "310 ms", packetLoss: "2.1%", rtt: "54 ms", pop: "深圳" },
+      { id: "app_005", appName: "仓储 WMS 系统", isVip: false, domain: "wms.supplychain.net", appType: "内网应用", region: "华中数据中心", experience: "差", activeUsers: 115, degradedUsers: 14, activeBranches: 4, degradedBranches: 1, avgResponseTime: "640 ms", packetLoss: "3.8%", rtt: "92 ms", pop: "武汉" },
+      { id: "app_006", appName: "SaaS 飞书平台", isVip: false, domain: "feishu.cn", appType: "SaaS应用", region: "-", experience: "一般", activeUsers: 580, degradedUsers: 12, activeBranches: 12, degradedBranches: 1, avgResponseTime: "180 ms", packetLoss: "0.9%", rtt: "32 ms", pop: "北京" },
+      { id: "app_007", appName: "腾讯会议 System", isVip: false, domain: "meeting.tencent.com", appType: "SaaS应用", region: "-", experience: "一般", activeUsers: 420, degradedUsers: 9, activeBranches: 10, degradedBranches: 1, avgResponseTime: "160 ms", packetLoss: "0.8%", rtt: "28 ms", pop: "广州" },
+      { id: "app_008", appName: "Zabbix 监控平台", isVip: false, domain: "zabbix.ops.net", appType: "内网应用", region: "北京数据中心", experience: "一般", activeUsers: 85, degradedUsers: 5, activeBranches: 3, degradedBranches: 0, avgResponseTime: "220 ms", packetLoss: "1.2%", rtt: "40 ms", pop: "北京" },
+      { id: "app_009", appName: "金蝶云 ERP", isVip: false, domain: "cloud.kingdee.com", appType: "SaaS应用", region: "-", experience: "正常", activeUsers: 210, degradedUsers: 0, activeBranches: 7, degradedBranches: 0, avgResponseTime: "95 ms", packetLoss: "0.1%", rtt: "18 ms", pop: "深圳" },
+      { id: "app_010", appName: "用友财务系统", isVip: false, domain: "yonyou.internal.net", appType: "内网应用", region: "华东数据中心", experience: "正常", activeUsers: 175, degradedUsers: 0, activeBranches: 5, degradedBranches: 0, avgResponseTime: "110 ms", packetLoss: "0.2%", rtt: "22 ms", pop: "上海" }
     ];
 
     const types = ["SaaS应用", "内网应用"];
@@ -161,6 +162,8 @@
       const exp = i % 6 === 0 ? "差" : (i % 4 === 0 ? "一般" : "正常");
       const activeU = (i * 17) % 400 + 60;
       const degU = exp === "差" ? Math.floor(activeU * 0.15) + 3 : (exp === "一般" ? Math.floor(activeU * 0.04) + 1 : 0);
+      const activeB = (i * 3) % 10 + 4;
+      const degB = exp === "差" ? Math.floor(activeB * 0.3) + 1 : (exp === "一般" ? 1 : 0);
       const resp = exp === "差" ? `${(i * 19) % 300 + 350} ms` : (exp === "一般" ? `${(i * 11) % 100 + 180} ms` : `${(i * 7) % 60 + 60} ms`);
       const loss = exp === "差" ? `${((i % 4) + 2.1).toFixed(1)}%` : (exp === "一般" ? `${((i % 2) + 0.6).toFixed(1)}%` : '0.1%');
       const rttVal = exp === "差" ? `${(i * 3) % 50 + 65} ms` : `${(i * 2) % 30 + 15} ms`;
@@ -177,6 +180,8 @@
         experience: exp,
         activeUsers: activeU,
         degradedUsers: degU,
+        activeBranches: activeB,
+        degradedBranches: degB,
         avgResponseTime: resp,
         packetLoss: loss,
         rtt: rttVal,
@@ -192,18 +197,23 @@
   // -------------------------------------------------------------
   window.initDemBranchData = function () {
     const baseBranches = [
-      { id: "br_000", branchName: "Digiplus 马尼拉办公室", region: "海外区域", egressIp: "203.177.12.8", city: "马尼拉", activeUsers: 46, degradedUsers: 34, experience: "差", pop: "马尼拉POP01", degradedApps: ["SaaS 飞书", "Office 365"] },
-      { id: "br_001", branchName: "西安研发中心", region: "西北区域", egressIp: "222.90.8.45", city: "西安", activeUsers: 125, degradedUsers: 24, experience: "差", pop: "西安", degradedApps: ["K8s 集群控制台", "Harbor 镜像仓库", "Grafana 平台"] },
-      { id: "br_002", branchName: "武汉分公司", region: "华中区域", egressIp: "59.173.18.66", city: "武汉", activeUsers: 110, degradedUsers: 18, experience: "差", pop: "武汉", degradedApps: ["仓储 WMS 系统", "物流 TMS 系统"] },
-      { id: "br_003", branchName: "广州分公司", region: "华南区域", egressIp: "113.108.20.12", city: "广州", activeUsers: 95, degradedUsers: 14, experience: "差", pop: "广州", degradedApps: ["Salesforce CRM", "智能客服系统"] },
-      { id: "br_004", branchName: "深圳分公司", region: "华南区域", egressIp: "183.14.2.8", city: "深圳", activeUsers: 210, degradedUsers: 12, experience: "一般", pop: "深圳", degradedApps: ["金蝶云 ERP"] },
-      { id: "br_005", branchName: "上海分公司", region: "华东区域", egressIp: "61.152.12.19", city: "上海", activeUsers: 340, degradedUsers: 8, experience: "一般", pop: "上海", degradedApps: ["内网 GitLab"] },
-      { id: "br_006", branchName: "集团总部 (北京)", region: "华北区域", egressIp: "114.242.10.15", city: "北京", activeUsers: 520, degradedUsers: 5, experience: "正常", pop: "北京", degradedApps: [] },
-      { id: "br_007", branchName: "成都运营中心", region: "西南区域", egressIp: "218.17.158.20", city: "成都", activeUsers: 180, degradedUsers: 0, experience: "正常", pop: "成都", degradedApps: [] },
-      { id: "br_008", branchName: "南京分公司", region: "华东区域", egressIp: "221.226.5.88", city: "南京", activeUsers: 85, degradedUsers: 0, experience: "正常", pop: "南京", degradedApps: [] }
+      { id: "br_000", branchName: "Digiplus 马尼拉办公室", branchType: "NGAF", group: "海外大区", location: "菲律宾 马尼拉", region: "海外区域", egressIp: "203.177.12.8", city: "马尼拉", activeUsers: 46, degradedUsers: 34, appCount: 15, experience: "差", pop: "马尼拉POP", degradedApps: ["SaaS 飞书", "Office 365"] },
+      { id: "br_001", branchName: "西安研发中心", branchType: "NGAF", group: "西北大区", location: "中国 西安", region: "西北区域", egressIp: "222.90.8.45", city: "西安", activeUsers: 125, degradedUsers: 24, appCount: 18, experience: "差", pop: "西安POP", degradedApps: ["K8s 集群控制台", "Harbor 镜像仓库", "Grafana 平台"] },
+      { id: "br_002", branchName: "武汉分公司", branchType: "NGAF", group: "华中大区", location: "中国 武汉", region: "华中区域", egressIp: "59.173.18.66", city: "武汉", activeUsers: 110, degradedUsers: 18, appCount: 12, experience: "差", pop: "武汉POP", degradedApps: ["仓储 WMS 系统", "物流 TMS 系统"] },
+      { id: "br_003", branchName: "广州分公司", branchType: "NGAF", group: "华南大区", location: "中国 广州", region: "华南区域", egressIp: "113.108.20.12", city: "广州", activeUsers: 95, degradedUsers: 14, appCount: 16, experience: "差", pop: "广州POP", degradedApps: ["Salesforce CRM", "智能客服系统"] },
+      { id: "br_004", branchName: "深圳分公司", branchType: "NGAF", group: "华南大区", location: "中国 深圳", region: "华南区域", egressIp: "183.14.2.8", city: "深圳", activeUsers: 210, degradedUsers: 12, appCount: 22, experience: "一般", pop: "深圳POP", degradedApps: ["金蝶云 ERP"] },
+      { id: "br_005", branchName: "上海分公司", branchType: "NGAF", group: "华东大区", location: "中国 上海", region: "华东区域", egressIp: "61.152.12.19", city: "上海", activeUsers: 340, degradedUsers: 8, appCount: 26, experience: "一般", pop: "上海POP", degradedApps: ["内网 GitLab"] },
+      { id: "br_006", branchName: "集团总部 (北京)", branchType: "NGAF", group: "总部职场", location: "中国 北京", region: "华北区域", egressIp: "114.242.10.15", city: "北京", activeUsers: 520, degradedUsers: 5, appCount: 38, experience: "正常", pop: "北京POP", degradedApps: [] },
+      { id: "br_007", branchName: "成都运营中心", branchType: "NGAF", group: "西南大区", location: "中国 成都", region: "西南区域", egressIp: "218.17.158.20", city: "成都", activeUsers: 180, degradedUsers: 0, appCount: 14, experience: "正常", pop: "成都POP", degradedApps: [] },
+      { id: "br_008", branchName: "南京分公司", branchType: "NGAF", group: "华东大区", location: "中国 南京", region: "华东区域", egressIp: "221.226.5.88", city: "南京", activeUsers: 85, degradedUsers: 0, appCount: 9, experience: "正常", pop: "南京POP", degradedApps: [] }
     ];
 
-    const regions = ["华东区域", "华北区域", "华南区域", "西北区域", "西南区域", "华中区域"];
+    const groupList = ["华东大区", "华北大区", "华南大区", "西北大区", "西南大区", "华中大区"];
+    const locMap = {
+      "北京": "中国 北京", "上海": "中国 上海", "深圳": "中国 深圳", "广州": "中国 广州",
+      "成都": "中国 成都", "西安": "中国 西安", "南京": "中国 南京", "武汉": "中国 武汉",
+      "杭州": "中国 杭州", "天津": "中国 天津", "重庆": "中国 重庆", "青岛": "中国 青岛"
+    };
     const cities = ["北京", "上海", "深圳", "广州", "成都", "西安", "南京", "武汉", "杭州", "天津", "重庆", "青岛"];
 
     for (let i = 9; i <= 24; i++) {
@@ -211,7 +221,8 @@
       const activeU = (i * 13) % 200 + 40;
       const degU = exp === "差" ? Math.floor(activeU * 0.18) + 2 : (exp === "一般" ? Math.floor(activeU * 0.05) + 1 : 0);
       const c = cities[i % cities.length];
-      const r = regions[i % regions.length];
+      const g = groupList[i % groupList.length];
+      const loc = locMap[c] || `中国 ${c}`;
       let dApps = [];
       if (exp === "差") {
         dApps = ["Salesforce CRM", "内网 ERP", "Jira 系统"].slice(0, (i % 2) + 1);
@@ -222,13 +233,17 @@
       baseBranches.push({
         id: `br_0${i < 10 ? '0' + i : i}`,
         branchName: `${c}第${i}分支职场`,
-        region: r,
+        branchType: "NGAF",
+        group: g,
+        location: loc,
+        region: g,
         egressIp: `${(i * 11) % 200 + 10}.${(i * 17) % 200 + 20}.${(i * 3) % 250 + 1}.${(i * 7) % 250 + 1}`,
         city: c,
         activeUsers: activeU,
         degradedUsers: degU,
+        appCount: (i * 3) % 20 + 8,
         experience: exp,
-        pop: c,
+        pop: `${c}POP`,
         degradedApps: dApps
       });
     }

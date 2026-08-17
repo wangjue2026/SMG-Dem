@@ -105,6 +105,11 @@
         normalApps: 12,
         fairApps: 3,
         poorApps: 2,
+        userTerminal: 'MacBook Pro (何总专用)',
+        userPop: '北京POP',
+
+        // 顶部概览卡片展开/收起状态 (与应用详情一致)
+        showUserOverview: true,
 
         get userAvatarText() {
           if (!this.userName) return '用';
@@ -168,14 +173,14 @@
             summary: '在当前时间段内，用户共访问此应用 24 次，访问异常 3 次，主要原因是 POP 到连接器专线段丢包率升高 (5.0%) 且应用服务器 CPU 满载 (91.2%)，从而访问体验评估为差。',
             abnormalExplain: 'POP 到连接器专线段丢包率升高 (5.0%) 且应用服务器 CPU 满载 (91.2%)，导致本次访问体验评估为差。',
             aiSummary: {
-              summaryHtml: '本次访问 <span class="font-bold text-[#2F3540]">OA系统</span> 体验差，原因由于<span class="text-[#D9363E] font-bold">“客户端到POP隧道质量下降”</span>与<span class="text-[#D9363E] font-bold">“SASE平台租户限流”</span>。业务表现为访问卡顿与数据包丢失；经链路排查确认该故障具备批量扩散风险，会对<b>马尼拉办公室 34 名用户、马尼拉分支、飞书与 Office 365 应用</b>形成群体性业务影响，建议优先针对 SASE 平台租户限流与客户办公室内网落地解除限流和网关修复处置措施以快速止损。',
+              summaryHtml: '用户本次访问 <span class="font-bold text-[#2F3540]">OA系统</span> 体验差，原因由于<span class="text-[#D9363E] font-bold">“客户端到POP隧道质量下降”</span>与<span class="text-[#D9363E] font-bold">“SASE平台租户限流”</span>。业务表现为访问卡顿与数据包丢失；经链路排查确认该故障具备批量扩散风险，会对<b>马尼拉办公室 34 名用户、马尼拉分支、飞书与 Office 365 应用</b>形成群体性业务影响，建议优先针对 SASE 平台租户限流与客户办公室内网落地解除限流和网关修复处置措施以快速止损。',
               problemLocation: {
                 tag: '段/点双重异常',
                 abnormalPoint: '客户端到POP分段异常（私网Hop2） 与 POP节点处理异常（租户10G限流）',
                 abnormalFeature: 'Underlay丢包3.1%/抖动40ms；Overlay吞吐20M；POP流量10.4G命中限流'
               },
               impactScope: {
-                users: 'Maria 及出口 203.177.12.8 下 34 名用户 (占 73.9%)',
+                users: '用户及出口 203.177.12.8 下 34 名用户 (占 73.9%)',
                 branches: '马尼拉办公室 (出口 IP 203.177.12.8)',
                 apps: '飞书、Office 365 (SaaS 办公系统)'
               },
@@ -626,15 +631,28 @@
             const paramPop = urlParams.get('pop');
 
             if (paramType || paramName || paramEmpId) {
+              // 读取可选的统计字段（由应用详情页跳转时携带）
+              const paramExp = urlParams.get('exp');
+              const paramTotalApps = urlParams.get('totalApps');
+              const paramPoorApps = urlParams.get('poorApps');
+              const paramFairApps = urlParams.get('fairApps');
+              const paramNormalApps = urlParams.get('normalApps');
+
               if (paramType === '分支' || (paramName && paramName.includes('分支')) || (paramName && paramName.includes('办公室'))) {
                 this.queryType = '分支';
                 const branchTitle = paramName || '马尼拉办公室';
-                const locationText = paramLoc ? `地理位置：${paramLoc}` : '菲律宾 马尼拉';
-                const popText = paramPop ? `主要接入 POP：${paramPop}` : '香港POP';
+                const locationText = paramLoc ? `地理位置：${paramLoc}` : '';
+                const popText = paramPop ? `接入 POP：${paramPop}` : '';
+                const deptStr = [locationText, popText].filter(Boolean).join(' | ') || '分支详情';
 
-                this.userName = `${branchTitle} (分支详情)`;
-                this.userDept = `${locationText} | ${popText}`;
-                this.loadChengduBranchScriptData();
+                // 把分支名和描述传入剧本函数，避免被内部硬编码覆盖
+                this.loadChengduBranchScriptData(branchTitle, deptStr);
+                // 覆盖剧本默认统计数据（若 URL 携带了真实数值）
+                if (paramExp) this.overallExperience = paramExp;
+                if (paramTotalApps) this.totalApps = parseInt(paramTotalApps) || this.totalApps;
+                if (paramPoorApps != null && paramTotalApps) this.poorApps = parseInt(paramPoorApps) || 0;
+                if (paramFairApps != null && paramTotalApps) this.fairApps = parseInt(paramFairApps) || 0;
+                if (paramNormalApps != null && paramTotalApps) this.normalApps = parseInt(paramNormalApps) || 0;
                 this.replaceUserMockData(branchTitle);
                 loadedCustom = true;
               } else {
@@ -643,9 +661,19 @@
                 const fullUserName = paramEmpId ? `${paramEmpId}(${nameOnly})` : nameOnly;
                 const deptText = paramDept || '深信服科技 / 研发中心 / DEM产品部';
 
+                if (paramName?.includes('何总') || paramEmpId === '45343' || nameOnly?.includes('何总')) {
+                  this.loadHeZongHotelWifiScriptData(fullUserName, deptText);
+                } else {
+                  this.loadDigiPlusMariaScriptData();
+                }
+                // 覆盖剧本默认头部字段为真实用户信息
                 this.userName = fullUserName;
                 this.userDept = deptText;
-                this.loadDigiPlusMariaScriptData();
+                if (paramExp) this.overallExperience = paramExp;
+                if (paramTotalApps) this.totalApps = parseInt(paramTotalApps) || this.totalApps;
+                if (paramPoorApps != null && paramTotalApps) this.poorApps = parseInt(paramPoorApps) || 0;
+                if (paramFairApps != null && paramTotalApps) this.fairApps = parseInt(paramFairApps) || 0;
+                if (paramNormalApps != null && paramTotalApps) this.normalApps = parseInt(paramNormalApps) || 0;
                 this.replaceUserMockData(nameOnly);
                 loadedCustom = true;
               }
@@ -670,27 +698,60 @@
                 if (dateRange) this.dateRange = dateRange;
 
                 const valLower = (queryValue || '').toLowerCase();
-                const nameLower = (selectedItem?.nameOnly || '').toLowerCase();
+                const nameLower = (selectedItem?.nameOnly || selectedItem?.label || '').toLowerCase();
 
-                // 识别查询对象：如果是成都分支或分支类型，加载成都分支排障剧本 Mock 数据；如果是 Maria，加载 DigiPlus 剧本
-                if (valLower.includes('成都') || nameLower.includes('成都') || queryType === '分支') {
+                // 辅助函数：从 selectedItem 中读取并赋值头部统计字段
+                const applyHeaderStats = (si) => {
+                  if (!si) return;
+                  if (si.experience) this.overallExperience = si.experience;
+                  if (si.totalApps != null) this.totalApps = si.totalApps;
+                  if (si.poorApps != null) this.poorApps = si.poorApps;
+                  if (si.fairApps != null) this.fairApps = si.fairApps;
+                  if (si.normalApps != null) this.normalApps = si.normalApps;
+                };
+
+                // 识别查询对象：所有 queryType='分支' 的均加载分支剧本，并用实际分支名替换
+                if (queryType === '分支') {
                   this.queryType = '分支';
-                  this.loadChengduBranchScriptData();
+                  const branchName = selectedItem?.nameOnly || selectedItem?.label || queryValue || '分支';
+                  const branchSub = selectedItem?.sub || selectedItem?.dept || '';
+                  // 直接把分支名和描述传入剧本函数，避免被内部硬编码覆盖
+                  applyHeaderStats(selectedItem);
+                  this.loadChengduBranchScriptData(branchName, branchSub);
+                  // applyHeaderStats 已将 totalApps/poorApps 等重新覆盖，再次应用以优先使用首页传来的真实数据
+                  applyHeaderStats(selectedItem);
+                  this.replaceUserMockData(branchName);
+                  loadedCustom = true;
+                } else if (valLower.includes('何总') || nameLower.includes('何总') || valLower.includes('45343') || nameLower.includes('45343')) {
+                  // 特殊处理：何总对应出差酒店 Wi-Fi 排障完整剧本
+                  this.queryType = '用户';
+                  const name = selectedItem?.label || `${queryValue}`;
+                  const dept = selectedItem?.sub || selectedItem?.dept || '/深信服/总经办';
+                  this.loadHeZongHotelWifiScriptData(name, dept);
+                  applyHeaderStats(selectedItem);
                   loadedCustom = true;
                 } else if (valLower.includes('maria') || nameLower.includes('maria')) {
+                  // 特殊处理： Maria 用户对应 DigiPlus 完整剧本，保留全数据
                   this.queryType = '用户';
                   this.loadDigiPlusMariaScriptData();
                   loadedCustom = true;
                 } else if (queryType === '用户') {
                   this.queryType = '用户';
-                  const name = selectedItem?.label || `${queryValue} (${queryValue})`;
+                  const name = selectedItem?.label || `${queryValue}`;
                   const dept = selectedItem?.sub || selectedItem?.dept || '深信服科技 / 研发中心 / DEM产品部';
                   const nameOnly = selectedItem?.nameOnly || queryValue;
 
                   this.userName = name;
                   this.userDept = dept;
+                  // 动态赋值头部统计字段（应用数、体验分布）
+                  applyHeaderStats(selectedItem);
 
-                  // 替换 Mock 数据中涉及硬编码的“张三”为当前查询的用户名
+                  // 图表数据复用 DigiPlus 剧本作为演示底座，然后用真实用户名替换显示
+                  this.loadDigiPlusMariaScriptData();
+                  // 重新覆盖 loadDigiPlusMariaScriptData 设置的头部字段
+                  this.userName = name;
+                  this.userDept = dept;
+                  applyHeaderStats(selectedItem);
                   this.replaceUserMockData(nameOnly);
                   loadedCustom = true;
                 } else if (queryType === '应用') {
@@ -717,35 +778,190 @@
             this.loadDigiPlusMariaScriptData();
           }
 
-          // 生成 100 个采样点 (精准控制只有 3 个红条与上面 3 个切片时间严格对齐，避免数据太假)
-          const points = [];
-          for (let i = 0; i < 100; i++) {
-            let exp = '正常';
-            let ttfb = Math.floor(Math.random() * 15 + 65);
-
-            // 精准让 88 (10:00) 对应为故障异常红条
-            if (i === 88 || i === 27 || i === 8) {
-              exp = '差';
-              ttfb = Math.floor(Math.random() * 80 + 580);
-            } else if (i === 42) {
-              exp = '一般';
-              ttfb = 185;
-            }
-
-            const totalMinutes = 8 * 60 + i * 4.8;
-            const h = String(Math.floor(totalMinutes / 60) % 24).padStart(2, '0');
-            const m = String(Math.floor(totalMinutes % 60)).padStart(2, '0');
-
-            points.push({
-              id: i,
-              time: `${h}:${m}`,
-              experience: exp,
-              ttfb: ttfb
-            });
-          }
-          this.samplePoints = points;
+          // 生成真实离散稀疏采样点 (间隔式柱状图，无访问时为空白，模拟真实业务访问)
+          this.generateSamplePoints();
 
           // 默认展开当前切片下所有的异常项
+          this.autoExpandAbnormalItems();
+        },
+
+        // 生成真实离散稀疏采样点 (散点折线趋势图，无访问留白，按 08:00~18:00 真实访问分布)
+        generateSamplePoints() {
+          const points = [];
+          const app = this.currentApp || (this.rawAppList && this.rawAppList[0]) || {};
+          const isPoorApp = app.experience === '差';
+          const isFairApp = app.experience === '一般';
+
+          // 预设离散真实访问槽位配置 (08:00 ~ 18:00，共 600 分钟)
+          const activeSlotConfigs = [
+            { slot: 1, minute: 10, exp: '正常', score: 95, ttfb: 68, loss: '0.0%', sr: '100%' },
+            { slot: 2, minute: 20, exp: '正常', score: 92, ttfb: 72, loss: '0.0%', sr: '100%' },
+            { slot: 4, minute: 40, exp: '正常', score: 88, ttfb: 78, loss: '0.1%', sr: '99.8%' },
+            { slot: 5, minute: 50, exp: '正常', score: 94, ttfb: 66, loss: '0.0%', sr: '100%' },
+            { slot: 8, minute: 80, exp: '正常', score: 90, ttfb: 75, loss: '0.0%', sr: '100%' },
+            { slot: 11, minute: 110, exp: '正常', score: 89, ttfb: 79, loss: '0.1%', sr: '99.8%' },
+            { slot: 12, minute: 120, exp: isPoorApp ? '差' : '正常', score: isPoorApp ? 32 : 96, ttfb: isPoorApp ? 1260 : 64, loss: isPoorApp ? '5.0%' : '0.0%', sr: isPoorApp ? '91.5%' : '100%' },
+            { slot: 13, minute: 130, exp: isPoorApp ? '差' : '正常', score: isPoorApp ? 38 : 91, ttfb: isPoorApp ? 980 : 70, loss: isPoorApp ? '4.2%' : '0.0%', sr: isPoorApp ? '93.2%' : '100%' },
+            { slot: 16, minute: 160, exp: '正常', score: 93, ttfb: 67, loss: '0.0%', sr: '100%' },
+            { slot: 17, minute: 170, exp: '正常', score: 95, ttfb: 63, loss: '0.0%', sr: '100%' },
+            { slot: 19, minute: 190, exp: '正常', score: 90, ttfb: 74, loss: '0.0%', sr: '100%' },
+            { slot: 21, minute: 210, exp: '正常', score: 87, ttfb: 82, loss: '0.1%', sr: '99.8%' },
+            { slot: 22, minute: 220, exp: '正常', score: 92, ttfb: 71, loss: '0.0%', sr: '100%' },
+            { slot: 23, minute: 230, exp: '正常', score: 96, ttfb: 62, loss: '0.0%', sr: '100%' },
+            { slot: 27, minute: 270, exp: isPoorApp ? '差' : '正常', score: isPoorApp ? 45 : 94, ttfb: isPoorApp ? 860 : 68, loss: isPoorApp ? '3.5%' : '0.0%', sr: isPoorApp ? '95.0%' : '100%' },
+            { slot: 28, minute: 280, exp: '正常', score: 91, ttfb: 73, loss: '0.0%', sr: '100%' },
+            { slot: 30, minute: 300, exp: '正常', score: 89, ttfb: 76, loss: '0.0%', sr: '100%' },
+            { slot: 31, minute: 310, exp: '正常', score: 94, ttfb: 65, loss: '0.0%', sr: '100%' },
+            { slot: 35, minute: 350, exp: '正常', score: 92, ttfb: 69, loss: '0.0%', sr: '100%' },
+            { slot: 36, minute: 360, exp: '正常', score: 90, ttfb: 75, loss: '0.0%', sr: '100%' },
+            { slot: 37, minute: 370, exp: '正常', score: 93, ttfb: 68, loss: '0.0%', sr: '100%' },
+            { slot: 40, minute: 400, exp: '正常', score: 95, ttfb: 64, loss: '0.0%', sr: '100%' },
+            { slot: 42, minute: 420, exp: (isPoorApp || isFairApp) ? '一般' : '正常', score: (isPoorApp || isFairApp) ? 72 : 91, ttfb: (isPoorApp || isFairApp) ? 185 : 71, loss: (isPoorApp || isFairApp) ? '1.2%' : '0.0%', sr: (isPoorApp || isFairApp) ? '98.5%' : '100%' },
+            { slot: 43, minute: 430, exp: '正常', score: 88, ttfb: 80, loss: '0.1%', sr: '99.8%' },
+            { slot: 47, minute: 470, exp: '正常', score: 94, ttfb: 65, loss: '0.0%', sr: '100%' },
+            { slot: 48, minute: 480, exp: '正常', score: 92, ttfb: 70, loss: '0.0%', sr: '100%' },
+            { slot: 50, minute: 500, exp: '正常', score: 96, ttfb: 62, loss: '0.0%', sr: '100%' },
+            { slot: 52, minute: 520, exp: '正常', score: 91, ttfb: 72, loss: '0.0%', sr: '100%' },
+            { slot: 53, minute: 530, exp: '正常', score: 89, ttfb: 78, loss: '0.1%', sr: '99.8%' },
+            { slot: 55, minute: 550, exp: '正常', score: 93, ttfb: 67, loss: '0.0%', sr: '100%' },
+            { slot: 58, minute: 580, exp: '正常', score: 95, ttfb: 64, loss: '0.0%', sr: '100%' }
+          ];
+
+          activeSlotConfigs.forEach((cfg, idx) => {
+            const totalMinutes = 8 * 60 + cfg.minute;
+            const h = String(Math.floor(totalMinutes / 60) % 24).padStart(2, '0');
+            const m = String(Math.floor(totalMinutes % 60)).padStart(2, '0');
+            const timeStr = `${h}:${m}`;
+            
+            // 计算时间范围
+            const prevMin = Math.max(0, totalMinutes - 5);
+            const ph = String(Math.floor(prevMin / 60) % 24).padStart(2, '0');
+            const pm = String(Math.floor(prevMin % 60)).padStart(2, '0');
+            const rangeStr = `${ph}:${pm}~${timeStr}`;
+
+            // SVG 坐标计算: X: 48 ~ 976 (600 分钟跨度，为左侧 Y 轴纯灰文字留出空间)
+            const x = 48 + (cfg.minute / 600) * 928;
+            
+            // Y 坐标: 正常 (80~100) -> 16~38; 一般 (60~80) -> 52~74; 差 (0~60) -> 88~110
+            let y = 28;
+            if (cfg.exp === '正常') {
+              y = 38 - ((cfg.score - 80) / 20) * 22;
+            } else if (cfg.exp === '一般') {
+              y = 74 - ((cfg.score - 60) / 20) * 22;
+            } else {
+              y = 110 - (cfg.score / 60) * 22;
+            }
+
+            // 绑定拓扑：如果预置有特定剧本案例且时间/状态匹配，则使用之；否则生成健康链路拓扑
+            let matchedSlice = null;
+            if (app.slices && app.slices.length > 0) {
+              if (cfg.exp === '差' && (cfg.minute === 120 || timeStr === '10:00')) {
+                matchedSlice = app.slices[0]; // 10:00 故障
+              } else if (app.slices.length > 1 && cfg.exp === '差' && cfg.minute === 270) {
+                matchedSlice = app.slices[1];
+              } else if (app.slices.length > 2 && cfg.exp === '差' && cfg.minute === 130) {
+                matchedSlice = app.slices[2];
+              }
+            }
+
+            const topology = matchedSlice ? matchedSlice.topology : this.createHealthyTopology(app, cfg.exp, cfg.ttfb);
+            const segmentDetails = matchedSlice ? matchedSlice.segmentDetails : this.createHealthySegmentDetails(app, cfg.exp);
+            const nodeDetails = matchedSlice ? matchedSlice.nodeDetails : this.createHealthyNodeDetails(app, cfg.exp);
+
+            points.push({
+              id: idx,
+              slot: cfg.slot,
+              time: timeStr,
+              timeMinutes: cfg.minute,
+              range: rangeStr,
+              experience: cfg.exp,
+              score: cfg.score,
+              ttfb: cfg.ttfb,
+              loss: cfg.loss,
+              successRate: cfg.sr,
+              x: Number(x.toFixed(1)),
+              y: Number(y.toFixed(1)),
+              topology: topology,
+              segmentDetails: segmentDetails,
+              nodeDetails: nodeDetails
+            });
+          });
+
+          this.samplePoints = points;
+
+          // 默认选中 10:00 (slot 12 对应的点，如果存在异常点则选最典型的异常红点)
+          const defaultIdx = points.findIndex(p => p.time === '10:00' || p.experience === '差');
+          this.selectedSampleIdx = defaultIdx !== -1 ? defaultIdx : 0;
+        },
+
+        // 构造健康常态链路拓扑
+        createHealthyTopology(app, exp, ttfb) {
+          const isBranchDirect = this.queryType === '分支' && app.name === 'OA系统';
+          return {
+            directProbe: isBranchDirect ? { ttfb: '280ms', base: '< 500ms' } : null,
+            client: { name: this.queryType === '分支' ? '马尼拉办公室终端' : 'ThinkPad X1', sub: '终端', status: '正常' },
+            segment1: { name: 'WiFi', delay: '18ms', loss: '0.0%', status: '正常', targetId: 'seg_client_pop' },
+            pop: { name: this.queryType === '分支' ? '马尼拉POP' : '香港POP', sub: 'POP节点', status: '正常', targetId: 'node_pop' },
+            segment2: { name: '连接器', delay: '35ms', loss: '0.0%', status: '正常', targetId: 'seg_pop_gw' },
+            gw: { name: 'GW连接器', sub: '连接器', status: '正常', targetId: 'node_connector' },
+            segment3: { name: '应用', delay: '15ms', loss: '0.0%', status: '正常', targetId: 'seg_gw_app' },
+            app: { name: app.name || '业务系统', sub: '应用', status: '正常', targetId: 'node_app' },
+            finalApp: isBranchDirect ? { name: '总部OA', sub: '最终应用', status: '正常', targetId: 'node_final_app' } : null,
+            segment4: isBranchDirect ? { name: '总部专线', delay: '2ms', loss: '0.0%', status: '正常', targetId: 'seg_af_oa' } : null
+          };
+        },
+
+        // 构造健康常态链路分段详情
+        createHealthySegmentDetails(app, exp) {
+          return [
+            {
+              id: 'seg_client_pop',
+              name: '终端-pop段',
+              status: '正常',
+              summary: '终端无线接入强劲，与接入 POP 间网络时延低、零丢包，链路非常健康。',
+              metrics: [
+                { label: 'Wi-Fi 信号 (RSSI)', value: '-46 dBm', baseline: '-50 dBm', isAbnormal: false },
+                { label: '丢包率', value: '0.0%', baseline: '< 0.5%', isAbnormal: false },
+                { label: 'RTT 时延', value: '18 ms', baseline: '< 50 ms', isAbnormal: false }
+              ]
+            },
+            {
+              id: 'seg_pop_gw',
+              name: 'pop-连接器段',
+              status: '正常',
+              summary: 'SASE 骨干网传输质量优秀，专线带宽充裕无拥塞。',
+              metrics: [
+                { label: '隧道 RTT 时延', value: '35 ms', baseline: '40 ms', isAbnormal: false },
+                { label: '数据包丢包率', value: '0.0%', baseline: '< 0.5%', isAbnormal: false }
+              ]
+            },
+            {
+              id: 'seg_gw_app',
+              name: '连接器-应用段',
+              status: '正常',
+              summary: '内网连接器到目标服务器内网交互通畅。',
+              metrics: [
+                { label: '内网 RTT 时延', value: '15 ms', baseline: '< 30 ms', isAbnormal: false },
+                { label: 'TCP 连接建立耗时', value: '18 ms', baseline: '< 50 ms', isAbnormal: false }
+              ]
+            }
+          ];
+        },
+
+        // 构造健康常态节点详情
+        createHealthyNodeDetails(app, exp) {
+          return [
+            { id: 'node_terminal', name: '终端', status: '正常', summary: '终端 CPU/内存利用率低，网络接口工作良好。', metrics: [{ label: '系统负载', value: '12%' }, { label: '可用内存', value: '11.8 GB' }] },
+            { id: 'node_pop', name: 'pop', status: '正常', summary: 'POP 接入点流量平稳，未触发任何限流策略。', metrics: [{ label: 'POP 流量', value: '2.4 Gbps' }, { label: '租户限流阈值', value: '10 Gbps' }] },
+            { id: 'node_connector', name: '连接器', status: '正常', summary: '连接器集群健康，活跃会话数正常。', metrics: [{ label: '连接器状态', value: 'Online' }, { label: 'CPU 负载', value: '18%' }] },
+            { id: 'node_app', name: '应用', status: '正常', summary: '目标应用响应迅速，HTTP 状态码 200 OK。', metrics: [{ label: 'HTTP 状态码', value: '200 OK' }, { label: 'TTFB 耗时', value: '68 ms' }] }
+          ];
+        },
+
+        // 采样点数据选择 (点击趋势图散点，更新选中状态并联动下方拓扑)
+        selectSamplePoint(idx) {
+          if (idx < 0 || idx >= this.samplePoints.length) return;
+          this.selectedSampleIdx = idx;
           this.autoExpandAbnormalItems();
         },
 
@@ -770,14 +986,14 @@
               summary: '7月17日上午10:00，DigiPlus 马尼拉办公室多名用户反馈飞书、Office 365 上传下载文件很慢。排查确认同时存在“客户办公室私网丢包和高抖动”与“SASE平台租户限流”两个问题。',
               abnormalExplain: '客户端到POP私网 Hop2 丢包 3.1%/抖动 40ms；马尼拉 POP 节点流量 10.4Gbps 命中 10Gbps 限流。',
               aiSummary: {
-                summaryHtml: '本次访问 <span class="font-bold text-[#2F3540]">飞书</span> 体验差，排查确认同时存在<span class="text-[#D9363E] font-bold">“客户办公室私网丢包与高抖动”</span>（私网 Hop2 丢包 3.1%、抖动 40ms）与<span class="text-[#D9363E] font-bold">“SASE 平台租户限流”</span>（马尼拉 POP 流量 10.4Gbps 命中 10Gbps 限流）。此故障具备群体扩散风险，影响相同公网出口 IP 203.177.12.8 下 <b class="text-[#D9363E]">34 名用户</b>（共 46 名用户），建议客户网络团队排查办公室私网，SASE 平台团队调整/解除租户限流。',
+                summaryHtml: '用户本次访问 <span class="font-bold text-[#2F3540]">飞书</span> 体验差，排查确认同时存在<span class="text-[#D9363E] font-bold">“客户办公室私网丢包与高抖动”</span>（私网 Hop2 丢包 3.1%、抖动 40ms）与<span class="text-[#D9363E] font-bold">“SASE 平台租户限流”</span>（马尼拉 POP 流量 10.4Gbps 命中 10Gbps 限流）。此故障具备群体扩散风险，影响相同公网出口 IP 203.177.12.8 下 <b class="text-[#D9363E]">34 名用户</b>（共 46 名用户），建议客户网络团队排查办公室私网，SASE 平台团队调整/解除租户限流。',
                 problemLocation: {
                   tag: '私网/平台双重异常',
                   abnormalPoint: '客户端到 POP 分段异常（私网 Hop2） 与 马尼拉 POP 节点处理异常（租户 10G 限流）',
                   abnormalFeature: 'Underlay 丢包 3.1%/抖动 40ms；Overlay 有效吞吐降至 20Mbps；POP 流量 10.4Gbps 命中限流。公网出口后路径及飞书服务正常。'
                 },
                 impactScope: {
-                  users: 'Maria 及相同公网出口 IP 203.177.12.8 下 34 名用户 (占 73.9%)',
+                  users: '用户及相同公网出口 IP 203.177.12.8 下 34 名用户 (占 73.9%)',
                   branches: 'DigiPlus 马尼拉办公室 (出口 IP 203.177.12.8)',
                   apps: '飞书、Office 365 (SaaS 办公/协同系统)'
                 },
@@ -942,10 +1158,12 @@
         },
 
         // 加载完整的【成都分支访问总部应用卡慢】排障剧本 Mock 数据
-        loadChengduBranchScriptData() {
+        // branchDisplayName: 可选，当从外部传入真实分支名时覆盖默认"成都分支"
+        // branchDisplayDept: 可选，当从外部传入真实分支描述（位置/POP）时覆盖默认值
+        loadChengduBranchScriptData(branchDisplayName, branchDisplayDept) {
           this.queryType = '分支';
-          this.userName = '成都分支 (Chengdu Branch)';
-          this.userDept = '所属区域：西南大区 / 成都市 · 接入POP：成都GA上车POP01 (202.97.94.126)';
+          this.userName = branchDisplayName || '成都分支 (Chengdu Branch)';
+          this.userDept = branchDisplayDept || '所属区域：西南大区 / 成都市 · 接入POP：成都GA上车POP01 (202.97.94.126)';
           this.userId = 'br_chengdu';
           this.totalApps = 12;
           this.normalApps = 9;
@@ -1153,28 +1371,211 @@
           this.activeAppId = 'app_hq_oa';
         },
 
+        // 加载完整的【何总出差酒店 Wi-Fi 导致访问卡慢】排障剧本 Mock 数据
+loadHeZongHotelWifiScriptData(userDisplayName, userDept) {
+          this.queryType = '用户';
+          this.userName = userDisplayName || '45343（何总）';
+          this.userDept = userDept || '/深信服/总经办 (出差北京 · 接入北京POP)';
+          this.userId = 'usr_hezong';
+          this.overallExperience = '差';
+          this.totalApps = 16;
+          this.poorApps = 2;
+          this.fairApps = 2;
+          this.normalApps = 12;
+
+          this.rawAppList = [
+            {
+              id: 'app_oa',
+              name: 'OA系统',
+              domain: 'https://oa.sangfor.corp',
+              experience: '差',
+              tag: '内网办公',
+              summary: '用户在出差酒店通过 ZTNA 访问 OA系统 响应极慢（TTFB 1,260ms）。排查确认出差酒店 Wi-Fi 信号衰减严重 (-78 dBm) 且重传率高达 31%，局域网网关丢包 3.8%，导致客户端至北京 POP 接入段质量受损。后续 ZTNA 骨干与 OA 应用本身健康。',
+              abnormalExplain: '客户端到 POP 接入段时延 188ms、丢包 4.2%；出差酒店 Wi-Fi 信号强度 -78 dBm、重传率 31%、网关丢包 3.8%。',
+              aiSummary: {
+                summaryHtml: '访问 <span class="font-bold text-[#2F3540]">OA系统</span> 体验差，排查确认异常收敛于<span class="text-[#D9363E] font-bold">“出差酒店 Wi-Fi 接入段”</span>（Wi-Fi 信号强度 -78 dBm、重传率 31%、局域网网关丢包 3.8%、客户端到 POP 时延 188ms / 丢包 4.2%）。后续 POP、ZTNA 连接器与 OA 应用服务器性能均正常（HTTP 200，错误率 0.2%）。同受 Wi-Fi 影响的还有 <span class="font-bold text-[#2F3540]">ERP系统</span>。此故障属个人终端私网 Wi-Fi 偶发问题，建议切换至手机 5G 热点快速恢复。',
+                problemLocation: {
+                  tag: '终端接入 Wi-Fi 异常',
+                  abnormalPoint: '出差酒店 Wi-Fi 信号弱 (-78 dBm) & 接入网关丢包 3.8%',
+                  abnormalFeature: '客户端->POP RTT 188ms / 丢包 4.2% / 抖动 32ms；Wi-Fi 重传 31%；后续 ZTNA 分段与 OA 应用正常'
+                },
+                impactScope: {
+                  users: '出差终端用户',
+                  branches: '北京出差酒店 Wi-Fi (接入北京POP)',
+                  apps: 'OA系统、ERP系统 (所有经此 Wi-Fi 的内网应用均卡慢)'
+                },
+                advice: {
+                  stakeholders: '用户终端 & 酒店网络服务',
+                  actions: '1. 建议用户临时切换至手机 5G 个人热点或插有线网线；2. 建议酒店前台或网络管理员检查客房 Wi-Fi AP 覆盖与信道干扰。'
+                }
+              },
+              slices: [
+                {
+                  id: 'slice_1',
+                  name: '切片1 (10:00)',
+                  time: '10:00',
+                  range: '09:55~10:00',
+                  successRate: '99.8%',
+                  status: '异常',
+                  sampleIdx: 12,
+                  topology: {
+                    client: { name: '何总 MacBook Pro', sub: '终端 (正常)', status: '正常' },
+                    segment1: { name: 'WiFi', delay: '188ms', loss: '4.2%', status: '异常', targetId: 'seg_client_pop' },
+                    pop: { name: '北京POP', sub: 'POP节点 (正常)', status: '正常', targetId: 'node_pop' },
+                    segment2: { name: '连接器', delay: '28ms', loss: '0.1%', status: '正常', targetId: 'seg_pop_gw' },
+                    gw: { name: 'GW连接器', sub: '连接器 (正常)', status: '正常' },
+                    segment3: { name: '应用', delay: '31ms', loss: '0.2%', status: '正常', targetId: 'seg_gw_app' },
+                    app: { name: 'OA系统', sub: '应用 (TTFB变慢)', status: '异常', targetId: 'node_app' }
+                  },
+                  segmentDetails: [
+                    {
+                      id: 'seg_client_pop',
+                      name: '终端-pop段',
+                      status: '异常',
+                      summary: 'Underlay: RTT 188ms、丢包 4.2%、抖动 32ms；Wi-Fi 信号强度 -78 dBm、重传率 31%；LAN 网关 RTT 86ms、丢包 3.8%、抖动 27ms。',
+                      metrics: [
+                        { label: 'Underlay RTT 时延', value: '188 ms', baseline: '< 50 ms', isAbnormal: true },
+                        { label: 'Underlay 丢包率', value: '4.2%', baseline: '< 0.5%', isAbnormal: true },
+                        { label: 'Underlay 抖动 (Jitter)', value: '32 ms', baseline: '< 15 ms', isAbnormal: true },
+                        { label: 'Wi-Fi 信号强度 (RSSI)', value: '-78 dBm', baseline: '> -65 dBm', isAbnormal: true },
+                        { label: 'Wi-Fi 帧重传率', value: '31.0%', baseline: '< 10.0%', isAbnormal: true },
+                        { label: 'LAN 本地网关时延/丢包', value: '86 ms / 3.8%', baseline: '< 10ms / 0%', isAbnormal: true }
+                      ],
+                      cause: '出差酒店无线 AP 信号衰减严重 (-78 dBm)，信道竞争引发 31% 高重传；本地第一跳网关即出现 86ms 时延与 3.8% 丢包。',
+                      hopTraces: [
+                        { hop: 1, ip: '192.168.1.1', asn: '酒店局域网网关', loc: '北京·酒店客房', rtt: '86ms', diffRtt: '+80ms', loss: '3.8%', diffLoss: '+3.8%', jitter: '27ms', diffJitter: '+25ms', status: '异常' },
+                        { hop: 2, ip: '114.242.25.1', asn: '北京电信出口', loc: '北京·朝阳区', rtt: '142ms', diffRtt: '+56ms', loss: '4.0%', diffLoss: '+0.2%', jitter: '30ms', diffJitter: '+3ms', status: '正常' },
+                        { hop: 3, ip: '10.240.0.1', asn: '北京POP', loc: '北京·SASE节点', rtt: '188ms', diffRtt: '+46ms', loss: '4.2%', diffLoss: '+0.2%', jitter: '32ms', diffJitter: '+2ms', status: '正常' }
+                      ],
+                      hopConclusion: '从第 1 个 Hop（酒店无线网关 192.168.1.1）开始即出现 86ms 高时延与 3.8% 丢包，后续进入电信公网与北京 POP 未产生新增异常增量，责任明确收敛于出差酒店局域网与 Wi-Fi。'
+                    },
+                    {
+                      id: 'seg_pop_gw',
+                      name: 'pop-连接器段',
+                      status: '正常',
+                      summary: 'POP 到连接器专线段质量良好，RTT 28ms，丢包率 0.1%，抖动 2ms。',
+                      metrics: [
+                        { label: '隧道 RTT 时延', value: '28 ms', baseline: '< 35 ms', isAbnormal: false },
+                        { label: '数据包丢包率', value: '0.1%', baseline: '< 0.5%', isAbnormal: false },
+                        { label: '隧道抖动 (Jitter)', value: '2 ms', baseline: '< 10 ms', isAbnormal: false }
+                      ]
+                    },
+                    {
+                      id: 'seg_gw_app',
+                      name: '连接器-应用段',
+                      status: '正常',
+                      summary: '连接器至 OA 系统服务器内网千兆互联，RTT 31ms，丢包率 0.2%，抖动 3ms。',
+                      metrics: [
+                        { label: '出网 RTT 时延', value: '31 ms', baseline: '< 35 ms', isAbnormal: false },
+                        { label: '数据包丢包率', value: '0.2%', baseline: '< 0.5%', isAbnormal: false },
+                        { label: '出网抖动', value: '3 ms', baseline: '< 10 ms', isAbnormal: false }
+                      ]
+                    }
+                  ],
+                  nodeDetails: [
+                    {
+                      id: 'node_terminal',
+                      name: '终端',
+                      status: '正常',
+                      summary: 'MacBook Pro 客户端运行正常，CPU 18%、内存 36%，零信任 Agent 正常。',
+                      metrics: [
+                        { label: '终端名称', value: 'MacBook Pro' },
+                        { label: 'CPU 利用率', value: '18.0%' },
+                        { label: '内存占用率', value: '36.0%' },
+                        { label: 'Agent 连接状态', value: 'UP (在线)' }
+                      ]
+                    },
+                    {
+                      id: 'node_pop',
+                      name: 'pop',
+                      status: '正常',
+                      summary: '北京 POP 节点运行健康，RTT 28ms，丢包 0.1%，抖动 2ms，吞吐 620 Mbps。',
+                      metrics: [
+                        { label: '接入 POP 名称', value: '北京POP-01' },
+                        { label: '处理时延 / 丢包', value: '28 ms / 0.1%', isAbnormal: false },
+                        { label: '节点抖动', value: '2 ms', isAbnormal: false },
+                        { label: '节点吞吐量', value: '620 Mbps', isAbnormal: false }
+                      ]
+                    },
+                    {
+                      id: 'node_connector',
+                      name: '连接器',
+                      status: '正常',
+                      summary: '总部连接器集群运行稳定，RTT 24ms，丢包 0.1%，CPU 42%，内存 51%，抖动 2ms，吞吐 480 Mbps。',
+                      metrics: [
+                        { label: '连接器名称', value: '总部连接器-01' },
+                        { label: '时延 / 丢包', value: '24 ms / 0.1%', isAbnormal: false },
+                        { label: 'CPU / 内存利用率', value: '42.0% / 51.0%', isAbnormal: false },
+                        { label: '节点吞吐量', value: '480 Mbps', isAbnormal: false }
+                      ]
+                    },
+                    {
+                      id: 'node_app',
+                      name: '应用',
+                      status: '异常',
+                      summary: 'OA系统真实访问 TTFB 1,260ms (变慢)，HTTP 状态码 200，可用性 99.8%，错误率 0.2%，响应时间 1,310ms；DNS 18ms，TCP 42ms，TLS 76ms。',
+                      metrics: [
+                        { label: '真实访问 TTFB', value: '1,260 ms (基线 < 300ms)', isAbnormal: true },
+                        { label: 'HTTP 响应总耗时', value: '1,310 ms', isAbnormal: true },
+                        { label: 'HTTP 状态码 / 错误率', value: '200 OK / 0.2%', isAbnormal: false },
+                        { label: '服务可用性', value: '99.8%', isAbnormal: false },
+                        { label: 'DNS / TCP / TLS 建连耗时', value: '18ms / 42ms / 76ms', isAbnormal: false }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              id: 'app_erp',
+              name: 'ERP系统',
+              domain: 'https://erp.sangfor.corp',
+              experience: '差',
+              tag: '核心业务',
+              summary: '用户出差期间访问 ERP系统 同样缓慢，TTFB 达 1,180ms。同样由于酒店 Wi-Fi 信号弱及网关丢包，验证为整体网络接入环境问题而非单个应用异常。',
+              abnormalExplain: '酒店 Wi-Fi 信号弱引发多应用普遍慢，ERP系统 TTFB 升至 1,180ms。',
+              slices: []
+            },
+            {
+              id: 'app_feishu',
+              name: '飞书平台',
+              domain: 'https://feishu.cn',
+              experience: '一般',
+              tag: 'SaaS 协同',
+              summary: '飞书消息收发基本可用，但文件传输偶发重试。',
+              abnormalExplain: '轻微时延波动',
+              slices: []
+            },
+            {
+              id: 'app_teams',
+              name: 'Teams',
+              domain: 'https://teams.microsoft.com',
+              experience: '一般',
+              tag: '视频会议',
+              summary: '视频通话偶有卡顿提示。',
+              abnormalExplain: 'Wi-Fi 丢包引起小幅音视频抖动',
+              slices: []
+            },
+            { id: 'app_mail', name: '企业邮箱', domain: 'https://mail.sangfor.com', experience: '正常', tag: 'SaaS 办公', summary: '邮件收发正常。', abnormalExplain: '无异常', slices: [] },
+            { id: 'app_gitlab', name: 'GitLab', domain: 'https://git.sangfor.corp', experience: '正常', tag: '研发平台', summary: '代码仓库访问正常。', abnormalExplain: '无异常', slices: [] },
+            { id: 'app_sap', name: 'SAP 核心系统', domain: 'https://sap.sangfor.corp', experience: '正常', tag: '核心系统', summary: 'SAP 核心查询正常。', abnormalExplain: '无异常', slices: [] },
+            { id: 'app_jira', name: 'Jira 任务管理', domain: 'https://jira.sangfor.corp', experience: '正常', tag: '研发协同', summary: '工单流转正常。', abnormalExplain: '无异常', slices: [] },
+            { id: 'app_wiki', name: 'Confluence 知识库', domain: 'https://wiki.sangfor.corp', experience: '正常', tag: '企业知识', summary: '文档检索正常。', abnormalExplain: '无异常', slices: [] },
+            { id: 'app_finance', name: '财务对账系统', domain: 'https://finance.sangfor.corp', experience: '正常', tag: '财务平台', summary: '财务报表正常。', abnormalExplain: '无异常', slices: [] },
+            { id: 'app_hr', name: 'HR 人事平台', domain: 'https://hr.sangfor.corp', experience: '正常', tag: '行政人力', summary: '人事查询正常。', abnormalExplain: '无异常', slices: [] },
+            { id: 'app_docs', name: '云文档中心', domain: 'https://docs.sangfor.corp', experience: '正常', tag: '文档存储', summary: '文档同步正常。', abnormalExplain: '无异常', slices: [] },
+            { id: 'app_vpn', name: '零信任安全网关', domain: 'https://ztna.sangfor.corp', experience: '正常', tag: '网络安全', summary: '身份校验通过。', abnormalExplain: '无异常', slices: [] },
+            { id: 'app_fapiao', name: '电子发票平台', domain: 'https://invoice.sangfor.corp', experience: '正常', tag: '财务发票', summary: '发票开具正常。', abnormalExplain: '无异常', slices: [] },
+            { id: 'app_kb', name: '业务知识库', domain: 'https://kb.sangfor.corp', experience: '正常', tag: '运营支持', summary: '知识库访问正常。', abnormalExplain: '无异常', slices: [] },
+            { id: 'app_test', name: '研发测试平台', domain: 'https://test.sangfor.corp', experience: '正常', tag: '测试环境', summary: '自动化流水线正常。', abnormalExplain: '无异常', slices: [] }
+          ];
+
+          this.activeAppId = 'app_oa';
+        },
+
         replaceUserMockData(nameOnly) {
           if (!nameOnly) return;
-          this.rawAppList.forEach(app => {
-            if (app.aiSummary && app.aiSummary.impactScope && app.aiSummary.impactScope.users) {
-              app.aiSummary.impactScope.users = app.aiSummary.impactScope.users.replace(/张三/g, nameOnly);
-            }
-            if (app.slices) {
-              app.slices.forEach(slice => {
-                if (slice.nodeDetails) {
-                  slice.nodeDetails.forEach(node => {
-                    if (node.metrics) {
-                      node.metrics.forEach(m => {
-                        if (typeof m.value === 'string' && m.value.includes('张三')) {
-                          m.value = m.value.replace(/张三/g, nameOnly);
-                        }
-                      });
-                    }
-                  });
-                }
-              });
-            }
-          });
+          // 保持 AI 分析总结以客观的“用户”统称，不强制替换成个人姓名
         },
 
         activateOrAddApp(appName, appAddress) {
@@ -1268,7 +1669,7 @@
           }
         },
 
-        // 统一计算属性：合并链路段和节点，先按异常降序，再按物理链路从左到右 (Order 1..7)
+        // 统一计算属性：合并链路段和节点，严格按物理链路从左到右 (点-段-点 Order 1..9) 顺序展示
         get currentSliceDetails() {
           const slice = this.currentSlice;
           if (!slice) return [];
@@ -1293,25 +1694,15 @@
             list.push({ ...node, itemType: 'node', order: itemOrderMap[node.id] || 99 });
           });
 
-          return list.sort((a, b) => {
-            const aAbn = a.status === '异常' ? 0 : 1;
-            const bAbn = b.status === '异常' ? 0 : 1;
-            if (aAbn !== bAbn) return aAbn - bAbn;
-            return a.order - b.order;
-          });
+          // 保持点-段-点物理链路原本的从左至右拓扑顺序
+          return list.sort((a, b) => a.order - b.order);
         },
 
-        // 自动将所有异常项加入 openItemIds 默认展开显示出来
+        // 默认将异常项加入 openItemIds 优先展开，正常项默认保持折叠
         autoExpandAbnormalItems() {
           const details = this.currentSliceDetails;
           const abnIds = details.filter(item => item.status === '异常').map(item => item.id);
-          if (abnIds.length > 0) {
-            this.openItemIds = abnIds;
-          } else if (details.length > 0) {
-            this.openItemIds = [details[0].id];
-          } else {
-            this.openItemIds = [];
-          }
+          this.openItemIds = abnIds;
         },
 
         toggleItem(id) {
@@ -1351,25 +1742,53 @@
           return this.rawAppList.find(a => a.id === this.activeAppId) || this.rawAppList[0];
         },
 
-        get currentSlice() {
-          const slices = this.currentApp.slices || [];
-          return slices.find(s => s.id === this.activeSliceId) || slices[0] || {};
+        // 趋势图折线连线坐标点 (所有真实访问点按时间序列连接)
+        get trendPolylinePoints() {
+          if (!this.samplePoints || this.samplePoints.length === 0) return '';
+          return this.samplePoints.map(p => `${p.x},${p.y}`).join(' ');
         },
 
-        // 切换选中的应用
+        // 当前选中的采样点数据
+        get selectedPoint() {
+          if (!this.samplePoints || this.samplePoints.length === 0) return null;
+          return this.samplePoints[this.selectedSampleIdx] || this.samplePoints[0];
+        },
+
+        // 鼠标悬停的采样点数据 (用于悬浮 Tooltip 定位与展示)
+        get hoveredPoint() {
+          if (this.hoveredSampleIdx === null || !this.samplePoints) return null;
+          return this.samplePoints[this.hoveredSampleIdx] || null;
+        },
+
+        // 统一计算属性：提供当前选中时刻的拓扑与指标数据（无缝兼容拓扑模块与详情渲染）
+        get currentSlice() {
+          if (this.samplePoints && this.samplePoints.length > 0) {
+            const pt = this.samplePoints[this.selectedSampleIdx] || this.samplePoints[0];
+            if (pt) {
+              return {
+                id: 'point_' + pt.id,
+                time: pt.time,
+                range: pt.range,
+                successRate: pt.successRate,
+                status: pt.experience === '差' ? '异常' : (pt.experience === '一般' ? '一般' : '正常'),
+                experience: pt.experience,
+                score: pt.score,
+                ttfb: pt.ttfb,
+                loss: pt.loss,
+                topology: pt.topology,
+                segmentDetails: pt.segmentDetails,
+                nodeDetails: pt.nodeDetails
+              };
+            }
+          }
+          const slices = this.currentApp?.slices || [];
+          return slices[0] || {};
+        },
+
+        // 切换选中的应用 (重新生成该应用对应的时间散点数据)
         selectApp(app) {
           this.activeAppId = app.id;
-          if (app.slices && app.slices.length > 0) {
-            this.activeSliceId = app.slices[0].id;
-            this.selectedSampleIdx = app.slices[0].sampleIdx !== undefined ? app.slices[0].sampleIdx : 88;
-          }
-          this.autoExpandAbnormalItems();
-        },
-
-        // 切换异常切片
-        selectSlice(slice) {
-          this.activeSliceId = slice.id;
-          this.selectedSampleIdx = slice.sampleIdx !== undefined ? slice.sampleIdx : 88;
+          this.generateSamplePoints();
           this.autoExpandAbnormalItems();
         },
 
@@ -1512,51 +1931,93 @@
                 </svg>
               </div>
             </div>
+
+            <!-- 收起概览按钮 (参照应用详情样式与间距) -->
+            <button @click="showUserOverview = !showUserOverview" 
+                    class="h-8 px-2.5 text-xs bg-white border border-[#D3D7DE] rounded-[2px] text-[#2F3540] hover:border-[#1C6EFF] hover:text-[#1C6EFF] inline-flex items-center gap-1.5 transition-colors cursor-pointer select-none">
+              <svg class="w-3.5 h-3.5 transition-transform duration-200" :class="!showUserOverview && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path>
+              </svg>
+              <span x-text="showUserOverview ? '收起概览' : '展开概览'"></span>
+            </button>
           </div>
         </div>
 
         <!-- 主内容区域 -->
         <main class="flex-1 bg-[#F5F7FA] p-3 flex flex-col space-y-2.5 overflow-y-auto custom-scrollbar relative">
 
-          <!-- 4.1 顶部用户卡片 -->
-          <div class="bg-white border border-[#E1E5EB] p-3.5 rounded-none shadow-xs flex-shrink-0 flex items-center justify-between flex-wrap gap-4">
-            
-            <!-- 1. 用户基础信息区 -->
-            <div class="flex items-center gap-3">
-              <div class="w-10 h-10 rounded-full bg-[#1C6EFF] text-white flex items-center justify-center font-semibold text-sm font-outfit shadow-xs flex-shrink-0" x-text="userAvatarText">
+          <!-- 4.1 顶部用户/分支基本信息卡片 (完全对齐应用详情卡片规范与视觉 - 支持一键收起/展开) -->
+          <div x-show="showUserOverview" x-collapse class="bg-white border border-[#E1E5EB] rounded-[2px] p-4 shadow-xs flex-shrink-0">
+            <div class="flex flex-wrap lg:flex-nowrap items-center justify-between gap-4">
+              
+              <!-- 左一: 图标、名称、类型、部门/组织 -->
+              <div class="flex items-center gap-3 shrink-0">
+                <div class="w-10 h-10 rounded-full bg-[#1C6EFF] text-white flex items-center justify-center font-bold text-base shadow-xs shrink-0"
+                     x-text="userAvatarText">
+                </div>
+                <div class="space-y-0.5">
+                  <div class="flex items-center gap-2">
+                    <h1 class="text-sm font-bold text-[#2F3540] whitespace-nowrap" x-text="userName"></h1>
+                    <span class="px-2 py-0.5 text-[11px] rounded bg-[#E6F4FF] text-[#1C6EFF] font-medium whitespace-nowrap" x-text="queryType === '分支' ? '分支机构' : (userName.includes('何总') ? 'VIP用户' : '访问用户')"></span>
+                  </div>
+                  <div class="text-xs text-[#8A92A1] whitespace-nowrap truncate max-w-[320px]" :title="userDept" x-text="userDept"></div>
+                </div>
               </div>
-              <div class="flex flex-col justify-center">
-                <span class="text-sm font-semibold text-[#2F3540]" x-text="userName"></span>
-                <span class="text-xs text-[#5C6270] mt-0.5" x-text="userDept"></span>
-              </div>
-            </div>
 
-            <!-- 3. 右侧应用统计数据 -->
-            <div class="flex items-center gap-6 text-xs select-none">
-              <div class="flex flex-col items-end">
-                <span class="text-[#6F7785]">共访问应用数</span>
-                <span class="text-base font-bold text-[#2F3540] font-outfit mt-0.5" x-text="totalApps + ' 个'"></span>
-              </div>
-              <div class="h-7 w-[1px] bg-[#E1E5EB]"></div>
-              <div class="flex items-center gap-4">
-                <div class="flex items-center gap-1.5 bg-[#12A679]/10 px-2.5 py-1 rounded-[2px]">
-                  <span class="w-2 h-2 rounded-full bg-[#12A679]"></span>
-                  <span class="text-[#5C6270]">正常：</span>
-                  <span class="font-bold text-[#12A679] font-outfit" x-text="normalApps"></span>
-                </div>
-                <div class="flex items-center gap-1.5 bg-[#FA721B]/10 px-2.5 py-1 rounded-[2px]">
-                  <span class="w-2 h-2 rounded-full bg-[#FA721B]"></span>
-                  <span class="text-[#5C6270]">一般：</span>
-                  <span class="font-bold text-[#FA721B] font-outfit" x-text="fairApps"></span>
-                </div>
-                <div class="flex items-center gap-1.5 bg-[#D9363E]/10 px-2.5 py-1 rounded-[2px]">
-                  <span class="w-2 h-2 rounded-full bg-[#D9363E]"></span>
-                  <span class="text-[#5C6270]">体验差：</span>
-                  <span class="font-bold text-[#D9363E] font-outfit" x-text="poorApps"></span>
-                </div>
-              </div>
-            </div>
+              <!-- 分隔线 -->
+              <div class="hidden lg:block w-[1px] h-9 bg-[#E1E5EB] shrink-0"></div>
 
+              <!-- 左二: 体验状态 -->
+              <div class="flex flex-col items-center justify-center shrink-0 px-2 min-w-[72px]">
+                <div class="text-xs text-[#8A92A1] mb-1 whitespace-nowrap">体验状态</div>
+                <div>
+                  <span :class="overallExperience === '差' ? 'bg-[#FFF1F0] text-[#D9363E] border-[#FFA39E]' : (overallExperience === '一般' ? 'bg-[#FFFBE6] text-[#FA8C16] border-[#FFE58F]' : 'bg-[#F6FFED] text-[#52C41A] border-[#B7EB8F]')"
+                        class="px-2.5 py-0.5 text-xs font-semibold rounded-[2px] border inline-block text-center"
+                        x-text="overallExperience"></span>
+                </div>
+              </div>
+
+              <!-- 分隔线 -->
+              <div class="hidden lg:block w-[1px] h-9 bg-[#E1E5EB] shrink-0"></div>
+
+              <!-- 左三: 访问应用数 -->
+              <div class="flex flex-col justify-center shrink-0">
+                <div class="text-xs text-[#8A92A1] mb-1 whitespace-nowrap">访问应用数</div>
+                <div class="flex items-center gap-3 text-xs">
+                  <div class="flex items-center gap-1 font-bold text-[#2F3540] whitespace-nowrap">
+                    <svg class="w-3.5 h-3.5 text-[#8A92A1]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path>
+                    </svg>
+                    <span x-text="totalApps + ' 个'"></span>
+                  </div>
+                  <span class="text-[#D3D7DE]">|</span>
+                  <div class="flex items-center gap-1.5 whitespace-nowrap">
+                    <span class="px-2 py-0.5 text-[11px] rounded bg-[#E6F8F2] text-[#12A679] font-medium">正常: <span x-text="normalApps"></span></span>
+                    <span class="px-2 py-0.5 text-[11px] rounded bg-[#FFF7E6] text-[#FA721B] font-medium">一般: <span x-text="fairApps"></span></span>
+                    <span class="px-2 py-0.5 text-[11px] rounded bg-[#FFF1F0] text-[#D9363E] font-medium">差: <span x-text="poorApps"></span></span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 分隔线 -->
+              <div class="hidden lg:block w-[1px] h-9 bg-[#E1E5EB] shrink-0"></div>
+
+              <!-- 左四: 终端与接入POP -->
+              <div class="flex flex-col justify-center shrink-0">
+                <div class="text-xs text-[#8A92A1] mb-1 whitespace-nowrap">接入设备 / POP</div>
+                <div class="flex items-center gap-2 text-xs">
+                  <span class="font-medium text-[#2F3540] whitespace-nowrap flex items-center gap-1">
+                    <svg class="w-3.5 h-3.5 text-[#8A92A1]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                    </svg>
+                    <span x-text="userTerminal || 'MacBook Pro'"></span>
+                  </span>
+                  <span class="text-[#D3D7DE]">|</span>
+                  <span class="px-2 py-0.5 text-[11px] rounded bg-[#F1F5F9] text-[#475569] font-medium whitespace-nowrap" x-text="userPop || '北京POP'"></span>
+                </div>
+              </div>
+
+            </div>
           </div>
 
           <!-- 4.2 核心下钻两栏布局 -->
@@ -1635,7 +2096,7 @@
                             :class="app.experience === '差' ? 'bg-[#D9363E]/10 text-[#D9363E]' : (app.experience === '一般' ? 'bg-[#FA721B]/10 text-[#FA721B]' : 'bg-[#12A679]/10 text-[#12A679]')">
                         <span class="w-1.5 h-1.5 rounded-full mr-1"
                               :class="app.experience === '差' ? 'bg-[#D9363E]' : (app.experience === '一般' ? 'bg-[#FA721B]' : 'bg-[#12A679]')"></span>
-                        <span x-text="'访问体验：' + app.experience"></span>
+                        <span x-text="app.experience"></span>
                       </span>
                     </div>
 
@@ -1704,359 +2165,391 @@
 
               </div>
 
-              <!-- 模块 2: 访问体验异常切片示例与采样时间线 -->
-              <div class="bg-white border border-[#E1E5EB] p-4 rounded-none shadow-xs flex-shrink-0 flex flex-col">
+              <!-- 模块 2 & 3 统一合并容器: 访问体验时间线 + 访问链路 -->
+              <div class="bg-white border border-[#E1E5EB] p-4 rounded-none shadow-xs flex-shrink-0 flex flex-col space-y-4">
                 
-                <!-- 切片 Tab 选择器 -->
-                <div class="flex items-center justify-between mb-3 border-b border-[#E1E5EB] pb-2.5">
-                  <div class="flex items-center gap-3">
-                    <span class="text-xs font-semibold text-[#2F3540]">访问体验异常切片示例：</span>
+                <!-- 上半部: 访问体验时间线 (散点折线趋势图) -->
+                <div class="flex flex-col">
+                  <!-- 趋势图 Header: 标题与图例 (去切片化) -->
+                  <div class="flex items-center justify-between mb-3 border-b border-[#E1E5EB] pb-2.5">
                     <div class="flex items-center gap-2">
-                      <template x-for="(slice, idx) in (currentApp.slices || [])" :key="slice.id">
-                        <button @click="selectSlice(slice)"
-                                class="px-3 py-1 text-xs rounded-[2px] transition-all cursor-pointer select-none font-normal"
-                                :class="activeSliceId === slice.id 
-                                  ? 'bg-[#EFF6FF] text-[#1C6EFF] border border-[#1C6EFF] font-medium' 
-                                  : 'bg-white text-[#5C6270] border border-[#D3D7DE] hover:border-[#1C6EFF] hover:text-[#1C6EFF]'">
-                          <span x-text="slice.name"></span>
-                          <span class="text-[10px] ml-1 opacity-75 font-mono" x-text="'(' + slice.time + ')'"></span>
-                        </button>
-                      </template>
+                      <span class="text-xs font-semibold text-[#2F3540]">访问体验时间线</span>
+                      <span class="text-[11px] text-[#6F7785]">（点击图中采样点可联动查看对应时刻的访问链路与拓扑）</span>
                     </div>
-                  </div>
-                </div>
-
-                <!-- 100个采样点柱状图 (按照批注要求：去掉背景外框 border) -->
-                <div class="bg-[#F8FAFC] p-3.5 rounded-[2px] relative flex flex-col">
-                  
-                  <div class="h-12 flex items-center justify-between gap-[2px] px-1 relative">
-                    <template x-for="(pt, idx) in samplePoints" :key="pt.id">
-                      <div class="flex-1 flex flex-col items-center justify-center h-full cursor-pointer timeline-bar-wrapper relative group"
-                           @mouseenter="hoveredSampleIdx = idx"
-                           @mouseleave="hoveredSampleIdx = null"
-                           @click="selectSamplePoint(idx)">
-                        
-                        <!-- Tooltip 悬浮浮层 -->
-                        <div x-show="hoveredSampleIdx === idx"
-                             x-transition:enter="transition ease-out duration-150"
-                             x-transition:enter-start="opacity-0 translate-y-1 scale-95"
-                             x-transition:enter-end="opacity-100 translate-y-0 scale-100"
-                             class="absolute -top-12 left-1/2 -translate-x-1/2 bg-[#1E293B] text-white text-[10px] px-2 py-1 rounded shadow-lg whitespace-nowrap z-30 pointer-events-none" x-cloak>
-                          <div class="font-mono" x-text="pt.time"></div>
-                          <div class="flex items-center gap-1 mt-0.5">
-                            <span>TTFB:</span>
-                            <span class="font-outfit" x-text="pt.ttfb + 'ms'"></span>
-                            <span :class="pt.experience === '差' ? 'text-[#D9363E]' : (pt.experience === '一般' ? 'text-amber-400' : 'text-emerald-400')" x-text="'(' + pt.experience + ')'"></span>
-                          </div>
-                        </div>
-
-                        <!-- 采样竖条 (精确控制 3 个红条与切片对齐) -->
-                        <div class="w-full h-full rounded-[1px] relative transition-all duration-200"
-                             :class="{
-                               'bg-[#12A679]': pt.experience === '正常',
-                               'bg-[#FA721B]': pt.experience === '一般',
-                               'bg-[#D9363E]': pt.experience === '差',
-                               'ring-2 ring-[#D9363E] selected-bar-glow z-20 scale-y-105': selectedSampleIdx === idx
-                             }">
-                          <template x-if="selectedSampleIdx === idx">
-                            <div class="absolute -top-2 left-1/2 -translate-x-1/2 text-[#D9363E] text-[9px] leading-none pointer-events-none">▼</div>
-                          </template>
-                        </div>
-
-                      </div>
-                    </template>
-                  </div>
-
-                  <!-- X 轴时间刻度 -->
-                  <div class="flex items-center justify-between text-[10px] text-[#6F7785] mt-2 px-1 border-t border-[#E1E5EB] pt-1.5 font-mono">
-                    <span>08:00</span>
-                    <span>10:00</span>
-                    <span>12:00</span>
-                    <span class="text-[#D9363E] font-medium" x-text="currentSlice.time + ' (当前切片时刻)'"></span>
-                    <span>16:00</span>
-                  </div>
-
-                  <!-- 选中时刻联动信息展示条 -->
-                  <div class="mt-2.5 bg-white border border-[#D3D7DE] px-3.5 py-2 rounded-[2px] flex items-center justify-between text-xs select-none shadow-xs">
-                    <div class="flex items-center gap-6">
-                      <div>
-                        <span class="text-[#6F7785]">选中时间：</span>
-                        <span class="text-[#2F3540] font-mono font-medium" x-text="currentSlice.time || '15:20'"></span>
-                      </div>
-                      <div>
-                        <span class="text-[#6F7785]">拓扑范围：</span>
-                        <span class="text-[#2F3540] font-mono" x-text="currentSlice.range || '15:15~15:20'"></span>
-                      </div>
-                      <div>
-                        <span class="text-[#6F7785]">Connection Success Rate：</span>
-                        <span class="font-outfit text-[#2F3540]" x-text="currentSlice.successRate || '94.8%'"></span>
-                      </div>
-                    </div>
-
-                    <div class="flex items-center gap-1.5">
-                      <span class="text-[#6F7785]">评估状态：</span>
-                      <span class="inline-flex items-center gap-1 text-xs font-normal"
-                            :class="currentSlice.status === '异常' ? 'text-[#D9363E]' : 'text-[#12A679]'">
-                        <span class="w-2 h-2 rounded-full" :class="currentSlice.status === '异常' ? 'bg-[#D9363E]' : 'bg-[#12A679]'"></span>
-                        <span x-text="currentSlice.status || '异常'"></span>
+                    <!-- 体验状态图例 (5px圆点) -->
+                    <div class="flex items-center gap-4 text-[11px] text-[#5C6270]">
+                      <span class="flex items-center gap-1.5">
+                        <span class="w-[5px] h-[5px] rounded-full bg-[#12A679]"></span>
+                        <span>正常</span>
+                      </span>
+                      <span class="flex items-center gap-1.5">
+                        <span class="w-[5px] h-[5px] rounded-full bg-[#FA721B]"></span>
+                        <span>一般</span>
+                      </span>
+                      <span class="flex items-center gap-1.5">
+                        <span class="w-[5px] h-[5px] rounded-full bg-[#D9363E]"></span>
+                        <span>差</span>
                       </span>
                     </div>
                   </div>
 
-                </div>
+                  <!-- 散点趋势图容器 -->
+                  <div class="bg-[#F8FAFC] p-3 rounded-[2px] relative flex flex-col select-none border border-[#EAEEF4]">
+                    
+                    <!-- 图表主体容器 (SVG 趋势背景 + HTML 交互散点层 + Y轴文字 + 底轴时间刻度) -->
+                    <div class="relative w-full h-[142px]">
+                      
+                      <!-- 1. SVG 趋势背景与三段浅色底色分界区域 -->
+                      <svg class="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 1000 142" preserveAspectRatio="none">
+                        <!-- 正常区域 (Y: 6 ~ 42) 浅绿色底色 -->
+                        <rect x="44" y="6" width="940" height="36" fill="#12A679" fill-opacity="0.06" rx="1"/>
+                        <line x1="44" y1="42" x2="984" y2="42" stroke="#E2E8F0" stroke-width="1" stroke-dasharray="3 3"/>
 
-              </div>
+                        <!-- 一般区域 (Y: 42 ~ 78) 浅橙色底色 -->
+                        <rect x="44" y="42" width="940" height="36" fill="#FA721B" fill-opacity="0.05" rx="1"/>
+                        <line x1="44" y1="78" x2="984" y2="78" stroke="#E2E8F0" stroke-width="1" stroke-dasharray="3 3"/>
 
-              <!-- 模块 3: 访问链路 + 链路明细统一下拉整合在一个容器卡片内 -->
-              <div class="bg-white border border-[#E1E5EB] p-4 rounded-none shadow-xs flex-shrink-0 flex flex-col space-y-4">
-                
-                <!-- 访问链路 Header -->
-                <div class="flex items-center justify-between">
-                  <div class="flex items-center gap-2">
-                    <span class="text-xs font-semibold text-[#2F3540]">访问链路</span>
-                    <span class="text-[11px] text-[#6F7785]">（点击链路段或节点可联动展开下方详情）</span>
-                  </div>
-                  <span class="text-xs text-[#6F7785]" x-text="currentApp.name + ' · 联动时刻 ' + currentSlice.time"></span>
-                </div>
+                        <!-- 差区域 (Y: 78 ~ 114) 浅红色底色 -->
+                        <rect x="44" y="78" width="940" height="36" fill="#D9363E" fill-opacity="0.05" rx="1"/>
+                        <line x1="44" y1="114" x2="984" y2="114" stroke="#CBD5E1" stroke-width="1"/>
 
-                <!-- 拓扑图表 (含顶部直连探测旁路虚线弧线) -->
-                <div class="bg-[#F8FAFC] p-5 pt-8 rounded-[2px] flex items-center justify-around relative overflow-visible">
-                  
-                  <!-- 顶部直连探测 (Direct Probe) 旁路弧线 SVG & Pill Tag -->
-                  <template x-if="currentSlice.topology?.directProbe">
-                    <div class="absolute inset-x-0 top-0 bottom-0 pointer-events-none z-0">
-                      <!-- SVG 向上弧形虚线 -->
-                      <svg class="w-full h-full overflow-visible" preserveAspectRatio="none" viewBox="0 0 1000 100">
-                        <!-- 弧线：起点 Node 1 到终点 Node 5 -->
-                        <path d="M 80 44 Q 500 -25 920 44" fill="none" stroke="#D9363E" stroke-width="1.8" stroke-dasharray="5 4" opacity="0.75" />
-                        <!-- 终止箭头 -->
-                        <polygon points="915,38 924,44 913,48" fill="#D9363E" opacity="0.85" />
+                        <!-- 2. 灰色 1px 虚线折线连接所有访问点 -->
+                        <polyline :points="trendPolylinePoints" fill="none" stroke="#94A3B8" stroke-width="1" stroke-dasharray="4 3" opacity="0.85"/>
                       </svg>
-                      <!-- 弧线顶点 Pillar Tag 标签 (点击可联动展开总部OA应用详情) -->
-                      <div class="absolute -top-3 left-1/2 -translate-x-1/2 pointer-events-auto topo-clickable"
-                           @click="clickTopologyItem('node', 'node_final_app')">
-                        <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-white border border-[#D9363E]/40 text-[#D9363E] text-[11px] rounded-full shadow-xs hover:border-[#D9363E] hover:scale-105 transition-all">
-                          <span class="w-1.5 h-1.5 rounded-full bg-[#D9363E] animate-pulse"></span>
-                          <span class="font-medium">分支直探 TTFB 880ms</span>
-                          <span class="text-[#94A3B8] font-normal">|</span>
-                          <span class="font-medium">真实访问 TTFB 920ms</span>
-                          <span class="text-[10px] text-[#D9363E]/80 font-mono">(基线 &lt; 500ms)</span>
-                        </span>
-                      </div>
-                    </div>
-                  </template>
-                  
-                  <!-- 节点 1: 终端 -->
-                  <div class="flex flex-col items-center text-center topo-clickable z-10 group"
-                       @click="clickTopologyItem('node', 'node_terminal')">
-                    <div class="w-11 h-11 rounded-full bg-white border-2 border-[#12A679] flex items-center justify-center shadow-xs group-hover:border-[#1C6EFF]">
-                      <svg class="w-5 h-5 text-[#12A679]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
-                      </svg>
-                    </div>
-                    <span class="text-xs font-medium text-[#2F3540] mt-1.5" x-text="currentSlice.topology?.client?.name || 'ThinkPad X1'"></span>
-                    <span class="inline-flex items-center gap-1 text-[10px] text-[#12A679] mt-0.5">
-                      <span class="w-1.5 h-1.5 rounded-full bg-[#12A679]"></span> 正常
-                    </span>
-                  </div>
 
-                  <!-- 链路段 1: 终端 ➔ POP -->
-                  <div class="flex-1 mx-2 flex flex-col items-center topo-clickable group"
-                       @click="clickTopologyItem('segment', currentSlice.topology?.segment1?.targetId || 'seg_client_pop')">
-                    <div class="w-6 h-6 rounded-full flex items-center justify-center mb-1 text-xs"
-                         :class="currentSlice.topology?.segment1?.status === '异常' ? 'bg-[#D9363E]/10 text-[#D9363E] border border-[#D9363E]' : 'bg-[#12A679]/10 text-[#12A679] border border-[#12A679]'">
-                      <template x-if="currentSlice.topology?.segment1?.status === '异常'">
-                        <svg class="w-3 h-3 text-[#D9363E]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                      </template>
-                      <template x-if="currentSlice.topology?.segment1?.status !== '异常'">
-                        <svg class="w-3 h-3 text-[#12A679]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M5 13l4 4L19 7"></path></svg>
-                      </template>
-                    </div>
-                    <div class="w-full flex flex-col items-center">
-                      <span class="text-[11px] font-mono"
-                            :class="currentSlice.topology?.segment1?.status === '异常' ? 'text-[#D9363E] font-medium' : 'text-[#5C6270]'"
-                            x-text="'时延 ' + (currentSlice.topology?.segment1?.delay || '20ms') + '  丢包 ' + (currentSlice.topology?.segment1?.loss || '0.1%')"></span>
-                      <div class="w-full h-[2px] relative my-1" :class="currentSlice.topology?.segment1?.status === '异常' ? 'bg-[#D9363E]' : 'bg-[#12A679]'">
-                        <div class="absolute right-0 -top-1 border-y-4 border-y-transparent border-l-6"
-                             :class="currentSlice.topology?.segment1?.status === '异常' ? 'border-l-[#D9363E]' : 'border-l-[#12A679]'"></div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <!-- 节点 2: POP -->
-                  <div class="flex flex-col items-center text-center topo-clickable z-10 group"
-                       @click="clickTopologyItem('node', 'node_pop')">
-                    <div class="w-11 h-11 rounded-full bg-white flex items-center justify-center shadow-xs group-hover:border-[#1C6EFF] border-2"
-                         :class="currentSlice.topology?.pop?.status === '异常' ? 'border-[#D9363E]' : 'border-[#12A679]'">
-                      <span class="text-xs font-bold font-outfit"
-                            :class="currentSlice.topology?.pop?.status === '异常' ? 'text-[#D9363E]' : 'text-[#12A679]'">POP</span>
-                    </div>
-                    <span class="text-xs font-medium text-[#2F3540] mt-1.5" x-text="currentSlice.topology?.pop?.name || '马尼拉POP'"></span>
-                    <span class="inline-flex items-center gap-1 text-[10px] mt-0.5"
-                          :class="currentSlice.topology?.pop?.status === '异常' ? 'text-[#D9363E]' : 'text-[#12A679]'">
-                      <span class="w-1.5 h-1.5 rounded-full"
-                            :class="currentSlice.topology?.pop?.status === '异常' ? 'bg-[#D9363E]' : 'bg-[#12A679]'"></span>
-                      <span x-text="currentSlice.topology?.pop?.status || '正常'"></span>
-                    </span>
-                  </div>
-
-                  <!-- 链路段 2: POP ➔ 连接器 -->
-                  <div class="flex-1 mx-2 flex flex-col items-center topo-clickable group"
-                       @click="clickTopologyItem('segment', currentSlice.topology?.segment2?.targetId || 'seg_pop_gw')">
-                    <div class="w-6 h-6 rounded-full flex items-center justify-center mb-1 text-xs"
-                         :class="currentSlice.topology?.segment2?.status === '异常' ? 'bg-[#D9363E]/10 text-[#D9363E] border border-[#D9363E]' : 'bg-[#12A679]/10 text-[#12A679] border border-[#12A679]'">
-                      <template x-if="currentSlice.topology?.segment2?.status === '异常'">
-                        <svg class="w-3 h-3 text-[#D9363E]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                      </template>
-                      <template x-if="currentSlice.topology?.segment2?.status !== '异常'">
-                        <svg class="w-3 h-3 text-[#12A679]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M5 13l4 4L19 7"></path></svg>
-                      </template>
-                    </div>
-                    <div class="w-full flex flex-col items-center">
-                      <span class="text-[11px] font-mono"
-                            :class="currentSlice.topology?.segment2?.status === '异常' ? 'text-[#D9363E] font-medium' : 'text-[#5C6270]'"
-                            x-text="'时延 ' + (currentSlice.topology?.segment2?.delay || '120ms') + '  丢包 ' + (currentSlice.topology?.segment2?.loss || '5.0%')"></span>
-                      <div class="w-full h-[2px] relative my-1" :class="currentSlice.topology?.segment2?.status === '异常' ? 'bg-[#D9363E]' : 'bg-[#12A679]'">
-                        <div class="absolute right-0 -top-1 border-y-4 border-y-transparent border-l-6"
-                             :class="currentSlice.topology?.segment2?.status === '异常' ? 'border-l-[#D9363E]' : 'border-l-[#12A679]'"></div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <!-- 节点 3: GW 连接器 -->
-                  <div class="flex flex-col items-center text-center topo-clickable z-10 group"
-                       @click="clickTopologyItem('node', 'node_connector')">
-                    <div class="w-11 h-11 rounded-full bg-white border-2 border-[#12A679] flex items-center justify-center shadow-xs group-hover:border-[#1C6EFF]">
-                      <span class="text-xs font-bold text-[#12A679] font-outfit">GW</span>
-                    </div>
-                    <span class="text-xs font-medium text-[#2F3540] mt-1.5" x-text="currentSlice.topology?.gw?.name || '连接器'"></span>
-                    <span class="inline-flex items-center gap-1 text-[10px] text-[#12A679] mt-0.5">
-                      <span class="w-1.5 h-1.5 rounded-full bg-[#12A679]"></span> 正常
-                    </span>
-                  </div>
-
-                  <!-- 链路段 3: 连接器 ➔ 应用 -->
-                  <div class="flex-1 mx-2 flex flex-col items-center topo-clickable group"
-                       @click="clickTopologyItem('segment', currentSlice.topology?.segment3?.targetId || 'seg_gw_app')">
-                    <div class="w-6 h-6 rounded-full flex items-center justify-center mb-1 text-xs"
-                         :class="currentSlice.topology?.segment3?.status === '异常' ? 'bg-[#D9363E]/10 text-[#D9363E] border border-[#D9363E]' : 'bg-[#12A679]/10 text-[#12A679] border border-[#12A679]'">
-                      <template x-if="currentSlice.topology?.segment3?.status === '异常'">
-                        <svg class="w-3 h-3 text-[#D9363E]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                      </template>
-                      <template x-if="currentSlice.topology?.segment3?.status !== '异常'">
-                        <svg class="w-3 h-3 text-[#12A679]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M5 13l4 4L19 7"></path></svg>
-                      </template>
-                    </div>
-                    <div class="w-full flex flex-col items-center">
-                      <span class="text-[11px] font-mono"
-                            :class="currentSlice.topology?.segment3?.status === '异常' ? 'text-[#D9363E] font-medium' : 'text-[#5C6270]'"
-                            x-text="'时延 ' + (currentSlice.topology?.segment3?.delay || '35ms') + '  丢包 ' + (currentSlice.topology?.segment3?.loss || '0.0%')"></span>
-                      <div class="w-full h-[2px] relative my-1" :class="currentSlice.topology?.segment3?.status === '异常' ? 'bg-[#D9363E]' : 'bg-[#12A679]'">
-                        <div class="absolute right-0 -top-1 border-y-4 border-y-transparent border-l-6"
-                             :class="currentSlice.topology?.segment3?.status === '异常' ? 'border-l-[#D9363E]' : 'border-l-[#12A679]'"></div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <!-- 节点 4: 应用网关 / 总部AF -->
-                  <div class="flex flex-col items-center text-center topo-clickable z-10 group"
-                       @click="clickTopologyItem('node', 'node_app')">
-                    <div class="w-11 h-11 rounded-full bg-white flex items-center justify-center shadow-xs group-hover:border-[#1C6EFF] border-2"
-                         :class="currentSlice.topology?.app?.status === '异常' ? 'border-[#D9363E]' : 'border-[#12A679]'">
-                      <span class="text-xs font-bold font-outfit"
-                            :class="currentSlice.topology?.app?.status === '异常' ? 'text-[#D9363E]' : 'text-[#12A679]'"
-                            x-text="currentSlice.topology?.finalApp ? 'AF' : 'APP'"></span>
-                    </div>
-                    <span class="text-xs font-medium text-[#2F3540] mt-1.5" x-text="currentSlice.topology?.app?.name || '飞书'"></span>
-                    <span class="inline-flex items-center gap-1 text-[10px] mt-0.5"
-                          :class="currentSlice.topology?.app?.status === '异常' ? 'text-[#D9363E]' : 'text-[#12A679]'">
-                      <span class="w-1.5 h-1.5 rounded-full"
-                            :class="currentSlice.topology?.app?.status === '异常' ? 'bg-[#D9363E]' : 'bg-[#12A679]'"></span>
-                      <span x-text="currentSlice.topology?.app?.status || '正常'"></span>
-                    </span>
-                  </div>
-
-                  <!-- 包含第 5 个点 (如: 总部OA) 时的 链路段4 与 节点5 -->
-                  <template x-if="currentSlice.topology?.finalApp">
-                    <div class="contents">
-                      <!-- 链路段 4: 网关 ➔ 应用 -->
-                      <div class="flex-1 mx-2 flex flex-col items-center topo-clickable group"
-                           @click="clickTopologyItem('segment', currentSlice.topology?.segment4?.targetId || 'seg_af_oa')">
-                        <div class="w-6 h-6 rounded-full flex items-center justify-center mb-1 text-xs"
-                             :class="currentSlice.topology?.segment4?.status === '异常' ? 'bg-[#D9363E]/10 text-[#D9363E] border border-[#D9363E]' : 'bg-[#12A679]/10 text-[#12A679] border border-[#12A679]'">
-                          <template x-if="currentSlice.topology?.segment4?.status === '异常'">
-                            <svg class="w-3 h-3 text-[#D9363E]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                          </template>
-                          <template x-if="currentSlice.topology?.segment4?.status !== '异常'">
-                            <svg class="w-3 h-3 text-[#12A679]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M5 13l4 4L19 7"></path></svg>
-                          </template>
+                      <!-- 2. 左侧 Y 轴纯灰色文字刻度 (无背景色) -->
+                      <div class="absolute left-1 top-[6px] h-[108px] w-9 flex flex-col justify-between pointer-events-none select-none text-[11px] text-[#6F7785]">
+                        <div class="h-[36px] flex items-center justify-center">
+                          <span>正常</span>
                         </div>
-                        <div class="w-full flex flex-col items-center">
-                          <span class="text-[11px] font-mono"
-                                :class="currentSlice.topology?.segment4?.status === '异常' ? 'text-[#D9363E] font-medium' : 'text-[#5C6270]'"
-                                x-text="'时延 ' + (currentSlice.topology?.segment4?.delay || '2ms') + '  丢包 ' + (currentSlice.topology?.segment4?.loss || '0.0%')"></span>
-                          <div class="w-full h-[2px] relative my-1" :class="currentSlice.topology?.segment4?.status === '异常' ? 'bg-[#D9363E]' : 'bg-[#12A679]'">
-                            <div class="absolute right-0 -top-1 border-y-4 border-y-transparent border-l-6"
-                                 :class="currentSlice.topology?.segment4?.status === '异常' ? 'border-l-[#D9363E]' : 'border-l-[#12A679]'"></div>
+                        <div class="h-[36px] flex items-center justify-center">
+                          <span>一般</span>
+                        </div>
+                        <div class="h-[36px] flex items-center justify-center">
+                          <span>差</span>
+                        </div>
+                      </div>
+
+                      <!-- 3. 垂直虚线标尺线 (贯穿选中点至底轴横坐标) -->
+                      <template x-if="selectedPoint">
+                        <div class="absolute top-[4px] h-[110px] pointer-events-none z-10 -translate-x-1/2 flex flex-col items-center"
+                             :style="`left: ${(selectedPoint.x / 1000) * 100}%;`">
+                          <!-- 标尺顶部倒三角指针 -->
+                          <div class="w-0 h-0 border-x-4 border-x-transparent border-t-[5px] border-t-[#1C6EFF]"></div>
+                          <!-- 标尺线 -->
+                          <div class="w-0 flex-1 border-r-[1.5px] border-dashed border-[#1C6EFF]"></div>
+                        </div>
+                      </template>
+
+                      <!-- 4. 真实访问散点渲染交互层 -->
+                      <template x-for="(pt, idx) in samplePoints" :key="pt.id">
+                        <div class="absolute -translate-x-1/2 -translate-y-1/2 cursor-pointer z-20 w-6 h-6 flex items-center justify-center transition-transform hover:scale-125 select-none"
+                             :style="`left: ${(pt.x / 1000) * 100}%; top: ${(pt.y / 142) * 100}%;`"
+                             @mouseenter="hoveredSampleIdx = idx"
+                             @mouseleave="hoveredSampleIdx = null"
+                             @click="selectSamplePoint(idx)">
+
+                          <!-- 选中状态下：外圈高亮光环脉冲 -->
+                          <template x-if="selectedSampleIdx === idx">
+                            <div class="absolute w-4 h-4 rounded-full border-2 border-[#1C6EFF] animate-pulse pointer-events-none"></div>
+                          </template>
+
+                          <!-- 差状态 (红色点) 的警示微外环 -->
+                          <template x-if="pt.experience === '差' && selectedSampleIdx !== idx">
+                            <div class="absolute w-3.5 h-3.5 rounded-full border border-[#D9363E]/40 pointer-events-none"></div>
+                          </template>
+
+                          <!-- 实体彩色数据散点 -->
+                          <div class="rounded-full border-[1.5px] border-white shadow-xs transition-all duration-150 pointer-events-none"
+                               :class="{
+                                 'w-2.5 h-2.5 ring-1 ring-black/10': selectedSampleIdx !== idx && hoveredSampleIdx !== idx,
+                                 'w-3 h-3 ring-2 ring-[#1C6EFF]/50 shadow-sm': selectedSampleIdx === idx || hoveredSampleIdx === idx,
+                                 'bg-[#12A679]': pt.experience === '正常',
+                                 'bg-[#FA721B]': pt.experience === '一般',
+                                 'bg-[#D9363E]': pt.experience === '差'
+                               }">
                           </div>
                         </div>
+                      </template>
+
+                      <!-- 5. 悬浮 Tooltip (跟随鼠标 hover 的点定位) -->
+                      <template x-if="hoveredPoint">
+                        <div class="absolute -top-11 -translate-x-1/2 bg-[#1E293B] text-white text-[10px] px-2.5 py-1.5 rounded shadow-xl whitespace-nowrap z-30 pointer-events-none transition-all duration-75 border border-white/10 flex flex-col gap-0.5"
+                             :style="`left: ${(hoveredPoint.x / 1000) * 100}%;`">
+                          <div class="flex items-center gap-1.5 font-mono">
+                            <span class="font-bold text-[11px]" x-text="hoveredPoint.time"></span>
+                            <span class="px-1.5 py-0.2 rounded text-[9px] font-sans font-semibold"
+                                  :class="hoveredPoint.experience === '差' ? 'bg-[#D9363E]/30 text-rose-300' : (hoveredPoint.experience === '一般' ? 'bg-[#FA721B]/30 text-amber-300' : 'bg-[#12A679]/30 text-emerald-300')"
+                                  x-text="hoveredPoint.experience"></span>
+                          </div>
+                          <div class="flex items-center gap-2 text-[#CBD5E1] text-[10px]">
+                            <span>TTFB: <b class="text-white font-outfit" x-text="hoveredPoint.ttfb + 'ms'"></b></span>
+                            <span>丢包: <b class="text-white font-outfit" x-text="hoveredPoint.loss"></b></span>
+                          </div>
+                        </div>
+                      </template>
+
+                      <!-- 6. 底轴横坐标时间刻度 (精确对齐数据点 X 轴范围 48px ~ 976px) -->
+                      <div class="absolute left-[48px] right-[24px] top-[120px] flex items-center justify-between text-[10px] text-[#6F7785] font-mono pointer-events-none select-none">
+                        <span>08:00</span>
+                        <span>10:00</span>
+                        <span>12:00</span>
+                        <span>14:00</span>
+                        <span>16:00</span>
+                        <span>18:00</span>
                       </div>
 
-                      <!-- 节点 5: 最终应用 (如: 总部OA) -->
-                      <div class="flex flex-col items-center text-center topo-clickable z-10 group"
-                           @click="clickTopologyItem('node', currentSlice.topology?.finalApp?.targetId || 'node_final_app')">
-                        <div class="w-11 h-11 rounded-full bg-white flex items-center justify-center shadow-xs group-hover:border-[#1C6EFF] border-2"
-                             :class="(currentSlice.topology?.finalApp?.status === '异常' || currentSlice.topology?.finalApp?.status === '差') ? 'border-[#D9363E]' : 'border-[#12A679]'">
-                          <span class="text-xs font-bold font-outfit"
-                                :class="(currentSlice.topology?.finalApp?.status === '异常' || currentSlice.topology?.finalApp?.status === '差') ? 'text-[#D9363E]' : 'text-[#12A679]'">APP</span>
-                        </div>
-                        <span class="text-xs font-medium text-[#2F3540] mt-1.5" x-text="currentSlice.topology?.finalApp?.name || '总部OA'"></span>
-                        <span class="inline-flex items-center gap-1 text-[10px] mt-0.5"
-                              :class="(currentSlice.topology?.finalApp?.status === '异常' || currentSlice.topology?.finalApp?.status === '差') ? 'text-[#D9363E]' : 'text-[#12A679]'">
-                          <span class="w-1.5 h-1.5 rounded-full"
-                                :class="(currentSlice.topology?.finalApp?.status === '异常' || currentSlice.topology?.finalApp?.status === '差') ? 'bg-[#D9363E]' : 'bg-[#12A679]'"></span>
-                          <span x-text="currentSlice.topology?.finalApp?.status || '差'"></span>
-                        </span>
-                      </div>
                     </div>
-                  </template>
-
+                  </div>
                 </div>
 
-                <!-- 异常特征释义卡片 -->
-                <div class="bg-[#F4F6F9] border border-[#E1E5EB] px-3.5 py-2.5 rounded-[2px] text-xs text-[#2F3540] flex items-center gap-2">
-                  <span class="font-semibold text-[#1C6EFF]">异常特征释义：</span>
-                  <span x-text="currentApp.abnormalExplain || '给出一句关于异常特征的解释，是什么导致了本次的访问体验差。'"></span>
-                </div>
+                <!-- 上下虚线分割线 -->
+                <div class="border-t border-dashed border-[#D3D7DE] my-1"></div>
 
-                <!-- 统一链路明细手风琴列表 (先按异常优先，再按由左到右顺序，且异常项默认展开) -->
-                <div class="space-y-2 pt-2 border-t border-[#E1E5EB]">
-                  <template x-for="item in currentSliceDetails" :key="item.id">
-                    <div :id="item.id"
-                         class="border rounded-[2px] overflow-hidden bg-white transition-all duration-300"
-                         :class="highlightedItemId === item.id ? 'border-[#1C6EFF] ring-2 ring-[#1C6EFF]/40 shadow-md scale-[1.005]' : 'border-[#E1E5EB]'">
+                <!-- 下半部: 访问链路 + 链路明细 -->
+                <div class="flex flex-col space-y-4">
+                  
+                  <!-- 访问链路 Header -->
+                  <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                      <span class="text-xs font-semibold text-[#2F3540]">访问链路</span>
+                      <span class="text-[11px] text-[#6F7785]">（点击链路段或节点可联动展开下方详情）</span>
+                    </div>
+                    <span class="text-xs text-[#6F7785]" x-text="currentApp.name + ' · 联动时刻 ' + currentSlice.time"></span>
+                  </div>
 
-                      <!-- 手风琴 Header -->
-                      <div @click="toggleItem(item.id)"
-                           class="p-3 flex items-center justify-between cursor-pointer select-none accordion-header"
-                           :class="isItemOpen(item.id) ? 'bg-[#F8FAFC] border-b border-[#E1E5EB]' : ''">
-
-                        <div class="flex items-center gap-2">
-                          <span class="w-2 h-2 rounded-full flex-shrink-0"
-                                :class="item.status === '异常' ? 'bg-[#D9363E]' : 'bg-[#12A679]'"></span>
-                          <span class="text-xs font-medium text-[#2F3540]" x-text="formatItemName(item.name)"></span>
-                          <span class="text-[10px] text-[#A1A7B3] px-1.5 py-0.2 bg-[#6F7785]/10 rounded" x-text="item.itemType === 'segment' ? '链路段' : '节点'"></span>
+                  <!-- 拓扑图表 (含顶部直连探测旁路虚线弧线) -->
+                  <div class="bg-[#F8FAFC] p-5 pt-8 rounded-[2px] flex items-center justify-around relative overflow-visible">
+                    
+                    <!-- 顶部直连探测 (Direct Probe) 旁路弧线 SVG & Pill Tag -->
+                    <template x-if="currentSlice.topology?.directProbe">
+                      <div class="absolute inset-x-0 top-0 bottom-0 pointer-events-none z-0">
+                        <!-- SVG 向上弧形虚线 -->
+                        <svg class="w-full h-full overflow-visible" preserveAspectRatio="none" viewBox="0 0 1000 100">
+                          <!-- 弧线：起点 Node 1 到终点 Node 5 -->
+                          <path d="M 80 44 Q 500 -25 920 44" fill="none" stroke="#D9363E" stroke-width="1.8" stroke-dasharray="5 4" opacity="0.75" />
+                          <!-- 终止箭头 -->
+                          <polygon points="915,38 924,44 913,48" fill="#D9363E" opacity="0.85" />
+                        </svg>
+                        <!-- 弧线顶点 Pillar Tag 标签 (点击可联动展开总部OA应用详情) -->
+                        <div class="absolute -top-3 left-1/2 -translate-x-1/2 pointer-events-auto topo-clickable"
+                             @click="clickTopologyItem('node', 'node_final_app')">
+                          <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-white border border-[#D9363E]/40 text-[#D9363E] text-[11px] rounded-full shadow-xs hover:border-[#D9363E] hover:scale-105 transition-all">
+                            <span class="w-1.5 h-1.5 rounded-full bg-[#D9363E] animate-pulse"></span>
+                            <span class="font-medium">分支直探 TTFB 880ms</span>
+                            <span class="text-[#94A3B8] font-normal">|</span>
+                            <span class="font-medium">真实访问 TTFB 920ms</span>
+                            <span class="text-[10px] text-[#D9363E]/80 font-mono">(基线 &lt; 500ms)</span>
+                          </span>
                         </div>
-
-                        <svg class="w-4 h-4 text-[#A1A7B3] transition-transform duration-200"
-                             :class="isItemOpen(item.id) ? 'rotate-180 text-[#1C6EFF]' : ''"
-                             fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                      </div>
+                    </template>
+                    
+                    <!-- 节点 1: 终端 -->
+                    <div class="flex flex-col items-center text-center topo-clickable z-10 group"
+                         @click="clickTopologyItem('node', 'node_terminal')">
+                      <div class="w-11 h-11 rounded-full bg-white border-2 border-[#12A679] flex items-center justify-center shadow-xs group-hover:border-[#1C6EFF]">
+                        <svg class="w-5 h-5 text-[#12A679]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
                         </svg>
                       </div>
+                      <span class="text-xs font-medium text-[#2F3540] mt-1.5" x-text="currentSlice.topology?.client?.name || 'ThinkPad X1'"></span>
+                      <span class="inline-flex items-center gap-1 text-[10px] text-[#12A679] mt-0.5">
+                        <span class="w-1.5 h-1.5 rounded-full bg-[#12A679]"></span> 正常
+                      </span>
+                    </div>
 
-                      <!-- 手风琴 Body -->
-                      <div x-show="isItemOpen(item.id)" x-collapse>
+                    <!-- 链路段 1: 终端 ➔ POP -->
+                    <div class="flex-1 mx-2 flex flex-col items-center topo-clickable group"
+                         @click="clickTopologyItem('segment', currentSlice.topology?.segment1?.targetId || 'seg_client_pop')">
+                      <div class="w-6 h-6 rounded-full flex items-center justify-center mb-1 text-xs"
+                           :class="currentSlice.topology?.segment1?.status === '异常' ? 'bg-[#D9363E]/10 text-[#D9363E] border border-[#D9363E]' : 'bg-[#12A679]/10 text-[#12A679] border border-[#12A679]'">
+                        <template x-if="currentSlice.topology?.segment1?.status === '异常'">
+                          <svg class="w-3 h-3 text-[#D9363E]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        </template>
+                        <template x-if="currentSlice.topology?.segment1?.status !== '异常'">
+                          <svg class="w-3 h-3 text-[#12A679]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M5 13l4 4L19 7"></path></svg>
+                        </template>
+                      </div>
+                      <div class="w-full flex flex-col items-center">
+                        <span class="text-[11px] font-mono"
+                              :class="currentSlice.topology?.segment1?.status === '异常' ? 'text-[#D9363E] font-medium' : 'text-[#5C6270]'"
+                              x-text="'时延 ' + (currentSlice.topology?.segment1?.delay || '20ms') + '  丢包 ' + (currentSlice.topology?.segment1?.loss || '0.1%')"></span>
+                        <div class="w-full h-[2px] relative my-1" :class="currentSlice.topology?.segment1?.status === '异常' ? 'bg-[#D9363E]' : 'bg-[#12A679]'">
+                          <div class="absolute right-0 -top-1 border-y-4 border-y-transparent border-l-6"
+                               :class="currentSlice.topology?.segment1?.status === '异常' ? 'border-l-[#D9363E]' : 'border-l-[#12A679]'"></div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- 节点 2: POP -->
+                    <div class="flex flex-col items-center text-center topo-clickable z-10 group"
+                         @click="clickTopologyItem('node', 'node_pop')">
+                      <div class="w-11 h-11 rounded-full bg-white flex items-center justify-center shadow-xs group-hover:border-[#1C6EFF] border-2"
+                           :class="currentSlice.topology?.pop?.status === '异常' ? 'border-[#D9363E]' : 'border-[#12A679]'">
+                        <span class="text-xs font-bold font-outfit"
+                              :class="currentSlice.topology?.pop?.status === '异常' ? 'text-[#D9363E]' : 'text-[#12A679]'">POP</span>
+                      </div>
+                      <span class="text-xs font-medium text-[#2F3540] mt-1.5" x-text="currentSlice.topology?.pop?.name || '马尼拉POP'"></span>
+                      <span class="inline-flex items-center gap-1 text-[10px] mt-0.5"
+                            :class="currentSlice.topology?.pop?.status === '异常' ? 'text-[#D9363E]' : 'text-[#12A679]'">
+                        <span class="w-1.5 h-1.5 rounded-full"
+                              :class="currentSlice.topology?.pop?.status === '异常' ? 'bg-[#D9363E]' : 'bg-[#12A679]'"></span>
+                        <span x-text="currentSlice.topology?.pop?.status || '正常'"></span>
+                      </span>
+                    </div>
+
+                    <!-- 链路段 2: POP ➔ 连接器 -->
+                    <div class="flex-1 mx-2 flex flex-col items-center topo-clickable group"
+                         @click="clickTopologyItem('segment', currentSlice.topology?.segment2?.targetId || 'seg_pop_gw')">
+                      <div class="w-6 h-6 rounded-full flex items-center justify-center mb-1 text-xs"
+                           :class="currentSlice.topology?.segment2?.status === '异常' ? 'bg-[#D9363E]/10 text-[#D9363E] border border-[#D9363E]' : 'bg-[#12A679]/10 text-[#12A679] border border-[#12A679]'">
+                        <template x-if="currentSlice.topology?.segment2?.status === '异常'">
+                          <svg class="w-3 h-3 text-[#D9363E]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        </template>
+                        <template x-if="currentSlice.topology?.segment2?.status !== '异常'">
+                          <svg class="w-3 h-3 text-[#12A679]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M5 13l4 4L19 7"></path></svg>
+                        </template>
+                      </div>
+                      <div class="w-full flex flex-col items-center">
+                        <span class="text-[11px] font-mono"
+                              :class="currentSlice.topology?.segment2?.status === '异常' ? 'text-[#D9363E] font-medium' : 'text-[#5C6270]'"
+                              x-text="'时延 ' + (currentSlice.topology?.segment2?.delay || '120ms') + '  丢包 ' + (currentSlice.topology?.segment2?.loss || '5.0%')"></span>
+                        <div class="w-full h-[2px] relative my-1" :class="currentSlice.topology?.segment2?.status === '异常' ? 'bg-[#D9363E]' : 'bg-[#12A679]'">
+                          <div class="absolute right-0 -top-1 border-y-4 border-y-transparent border-l-6"
+                               :class="currentSlice.topology?.segment2?.status === '异常' ? 'border-l-[#D9363E]' : 'border-l-[#12A679]'"></div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- 节点 3: GW 连接器 -->
+                    <div class="flex flex-col items-center text-center topo-clickable z-10 group"
+                         @click="clickTopologyItem('node', 'node_connector')">
+                      <div class="w-11 h-11 rounded-full bg-white border-2 border-[#12A679] flex items-center justify-center shadow-xs group-hover:border-[#1C6EFF]">
+                        <span class="text-xs font-bold text-[#12A679] font-outfit">GW</span>
+                      </div>
+                      <span class="text-xs font-medium text-[#2F3540] mt-1.5" x-text="currentSlice.topology?.gw?.name || '连接器'"></span>
+                      <span class="inline-flex items-center gap-1 text-[10px] text-[#12A679] mt-0.5">
+                        <span class="w-1.5 h-1.5 rounded-full bg-[#12A679]"></span> 正常
+                      </span>
+                    </div>
+
+                    <!-- 链路段 3: 连接器 ➔ 应用 -->
+                    <div class="flex-1 mx-2 flex flex-col items-center topo-clickable group"
+                         @click="clickTopologyItem('segment', currentSlice.topology?.segment3?.targetId || 'seg_gw_app')">
+                      <div class="w-6 h-6 rounded-full flex items-center justify-center mb-1 text-xs"
+                           :class="currentSlice.topology?.segment3?.status === '异常' ? 'bg-[#D9363E]/10 text-[#D9363E] border border-[#D9363E]' : 'bg-[#12A679]/10 text-[#12A679] border border-[#12A679]'">
+                        <template x-if="currentSlice.topology?.segment3?.status === '异常'">
+                          <svg class="w-3 h-3 text-[#D9363E]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        </template>
+                        <template x-if="currentSlice.topology?.segment3?.status !== '异常'">
+                          <svg class="w-3 h-3 text-[#12A679]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M5 13l4 4L19 7"></path></svg>
+                        </template>
+                      </div>
+                      <div class="w-full flex flex-col items-center">
+                        <span class="text-[11px] font-mono"
+                              :class="currentSlice.topology?.segment3?.status === '异常' ? 'text-[#D9363E] font-medium' : 'text-[#5C6270]'"
+                              x-text="'时延 ' + (currentSlice.topology?.segment3?.delay || '35ms') + '  丢包 ' + (currentSlice.topology?.segment3?.loss || '0.0%')"></span>
+                        <div class="w-full h-[2px] relative my-1" :class="currentSlice.topology?.segment3?.status === '异常' ? 'bg-[#D9363E]' : 'bg-[#12A679]'">
+                          <div class="absolute right-0 -top-1 border-y-4 border-y-transparent border-l-6"
+                               :class="currentSlice.topology?.segment3?.status === '异常' ? 'border-l-[#D9363E]' : 'border-l-[#12A679]'"></div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- 节点 4: 应用网关 / 总部AF -->
+                    <div class="flex flex-col items-center text-center topo-clickable z-10 group"
+                         @click="clickTopologyItem('node', 'node_app')">
+                      <div class="w-11 h-11 rounded-full bg-white flex items-center justify-center shadow-xs group-hover:border-[#1C6EFF] border-2"
+                           :class="currentSlice.topology?.app?.status === '异常' ? 'border-[#D9363E]' : 'border-[#12A679]'">
+                        <span class="text-xs font-bold font-outfit"
+                              :class="currentSlice.topology?.app?.status === '异常' ? 'text-[#D9363E]' : 'text-[#12A679]'"
+                              x-text="currentSlice.topology?.finalApp ? 'AF' : 'APP'"></span>
+                      </div>
+                      <span class="text-xs font-medium text-[#2F3540] mt-1.5" x-text="currentSlice.topology?.app?.name || '飞书'"></span>
+                      <span class="inline-flex items-center gap-1 text-[10px] mt-0.5"
+                            :class="currentSlice.topology?.app?.status === '异常' ? 'text-[#D9363E]' : 'text-[#12A679]'">
+                        <span class="w-1.5 h-1.5 rounded-full"
+                              :class="currentSlice.topology?.app?.status === '异常' ? 'bg-[#D9363E]' : 'bg-[#12A679]'"></span>
+                        <span x-text="currentSlice.topology?.app?.status || '正常'"></span>
+                      </span>
+                    </div>
+
+                    <!-- 包含第 5 个点 (如: 总部OA) 时的 链路段4 与 节点5 -->
+                    <template x-if="currentSlice.topology?.finalApp">
+                      <div class="contents">
+                        <!-- 链路段 4: 网关 ➔ 应用 -->
+                        <div class="flex-1 mx-2 flex flex-col items-center topo-clickable group"
+                             @click="clickTopologyItem('segment', currentSlice.topology?.segment4?.targetId || 'seg_af_oa')">
+                          <div class="w-6 h-6 rounded-full flex items-center justify-center mb-1 text-xs"
+                               :class="currentSlice.topology?.segment4?.status === '异常' ? 'bg-[#D9363E]/10 text-[#D9363E] border border-[#D9363E]' : 'bg-[#12A679]/10 text-[#12A679] border border-[#12A679]'">
+                            <template x-if="currentSlice.topology?.segment4?.status === '异常'">
+                              <svg class="w-3 h-3 text-[#D9363E]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            </template>
+                            <template x-if="currentSlice.topology?.segment4?.status !== '异常'">
+                              <svg class="w-3 h-3 text-[#12A679]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M5 13l4 4L19 7"></path></svg>
+                            </template>
+                          </div>
+                          <div class="w-full flex flex-col items-center">
+                            <span class="text-[11px] font-mono"
+                                  :class="currentSlice.topology?.segment4?.status === '异常' ? 'text-[#D9363E] font-medium' : 'text-[#5C6270]'"
+                                  x-text="'时延 ' + (currentSlice.topology?.segment4?.delay || '2ms') + '  丢包 ' + (currentSlice.topology?.segment4?.loss || '0.0%')"></span>
+                            <div class="w-full h-[2px] relative my-1" :class="currentSlice.topology?.segment4?.status === '异常' ? 'bg-[#D9363E]' : 'bg-[#12A679]'">
+                              <div class="absolute right-0 -top-1 border-y-4 border-y-transparent border-l-6"
+                                   :class="currentSlice.topology?.segment4?.status === '异常' ? 'border-l-[#D9363E]' : 'border-l-[#12A679]'"></div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <!-- 节点 5: 最终应用 (如: 总部OA) -->
+                        <div class="flex flex-col items-center text-center topo-clickable z-10 group"
+                             @click="clickTopologyItem('node', currentSlice.topology?.finalApp?.targetId || 'node_final_app')">
+                          <div class="w-11 h-11 rounded-full bg-white flex items-center justify-center shadow-xs group-hover:border-[#1C6EFF] border-2"
+                               :class="(currentSlice.topology?.finalApp?.status === '异常' || currentSlice.topology?.finalApp?.status === '差') ? 'border-[#D9363E]' : 'border-[#12A679]'">
+                            <span class="text-xs font-bold font-outfit"
+                                  :class="(currentSlice.topology?.finalApp?.status === '异常' || currentSlice.topology?.finalApp?.status === '差') ? 'text-[#D9363E]' : 'text-[#12A679]'">APP</span>
+                          </div>
+                          <span class="text-xs font-medium text-[#2F3540] mt-1.5" x-text="currentSlice.topology?.finalApp?.name || '总部OA'"></span>
+                          <span class="inline-flex items-center gap-1 text-[10px] mt-0.5"
+                                :class="(currentSlice.topology?.finalApp?.status === '异常' || currentSlice.topology?.finalApp?.status === '差') ? 'text-[#D9363E]' : 'text-[#12A679]'">
+                            <span class="w-1.5 h-1.5 rounded-full"
+                                  :class="(currentSlice.topology?.finalApp?.status === '异常' || currentSlice.topology?.finalApp?.status === '差') ? 'bg-[#D9363E]' : 'bg-[#12A679]'"></span>
+                            <span x-text="currentSlice.topology?.finalApp?.status || '差'"></span>
+                          </span>
+                        </div>
+                      </div>
+                    </template>
+
+                  </div>
+
+                  <!-- 统一链路明细手风琴列表 (严格按点-段-点物理链路顺序，异常项优先展开) -->
+                  <div class="space-y-2 pt-2 border-t border-[#E1E5EB]">
+                    <template x-for="item in currentSliceDetails" :key="item.id">
+                      <div :id="item.id"
+                           class="border rounded-[2px] overflow-hidden bg-white transition-all duration-300"
+                           :class="highlightedItemId === item.id ? 'border-[#1C6EFF] ring-2 ring-[#1C6EFF]/40 shadow-md scale-[1.005]' : 'border-[#E1E5EB]'">
+
+                        <!-- 手风琴 Header -->
+                        <div @click="toggleItem(item.id)"
+                             class="p-3 flex items-center justify-between cursor-pointer select-none accordion-header"
+                             :class="isItemOpen(item.id) ? 'bg-[#F8FAFC] border-b border-[#E1E5EB]' : ''">
+
+                          <div class="flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full flex-shrink-0"
+                                  :class="item.status === '异常' ? 'bg-[#D9363E]' : 'bg-[#12A679]'"></span>
+                            <span class="text-xs font-medium text-[#2F3540]" x-text="formatItemName(item.name)"></span>
+                            <span class="text-[10px] text-[#A1A7B3] px-1.5 py-0.2 bg-[#6F7785]/10 rounded" x-text="item.itemType === 'segment' ? '链路段' : '节点'"></span>
+                          </div>
+
+                          <svg class="w-4 h-4 text-[#A1A7B3] transition-transform duration-200"
+                               :class="isItemOpen(item.id) ? 'rotate-180 text-[#1C6EFF]' : ''"
+                               fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                          </svg>
+                        </div>
+
+                        <!-- 手风琴 Body -->
+                        <div x-show="isItemOpen(item.id)" x-collapse>
                         <div class="p-3.5 bg-[#FAFCFF] space-y-3">
 
                           <!-- ==========================================

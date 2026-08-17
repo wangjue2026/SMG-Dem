@@ -425,9 +425,10 @@
         userPageSize: 20,
 
         userList: [
-          { empId: '2024019', name: '张三', dept: '深信服科技 / 研发中心 / DEM产品部', exp: '差', isp: '广东深圳 电信', pop: '香港POP', normalCount: 12, fairCount: 5, poorCount: 15 },
-          { empId: '2024088', name: '李四', dept: '深信服科技 / 销售中心 / 华南大区', exp: '差', isp: '香港 PCCW', pop: '香港POP', normalCount: 10, fairCount: 4, poorCount: 12 },
-          { empId: '2024095', name: '王强', dept: '深信服科技 / 部署中心 / 海外实施部', exp: '差', isp: '菲律宾 PLDT', pop: '香港POP', normalCount: 8, fairCount: 6, poorCount: 10 },
+          { empId: '45343', name: '何总', dept: '深信服科技 / 总裁办 / 总经办', exp: '差', isp: '北京 酒店Wi-Fi (电信)', pop: '北京POP', totalApps: 16, normalCount: 12, fairCount: 2, poorCount: 2 },
+          { empId: '2024019', name: '张三', dept: '深信服科技 / 研发中心 / DEM产品部', exp: '差', isp: '广东深圳 电信', pop: '香港POP', totalApps: 17, normalCount: 12, fairCount: 3, poorCount: 2 },
+          { empId: '2024088', name: '李四', dept: '深信服科技 / 销售中心 / 华南大区', exp: '差', isp: '香港 PCCW', pop: '香港POP', totalApps: 15, normalCount: 10, fairCount: 2, poorCount: 3 },
+          { empId: '2024095', name: '王强', dept: '深信服科技 / 部署中心 / 海外实施部', exp: '差', isp: '菲律宾 PLDT', pop: '香港POP', totalApps: 14, normalCount: 8, fairCount: 2, poorCount: 4 },
           { empId: '2024155', name: '赵六', dept: '深信服科技 / 运营中心 / 海外组', exp: '一般', isp: '北京联通', pop: '北京POP', normalCount: 22, fairCount: 8, poorCount: 2 },
           { empId: '2024162', name: '孙伟', dept: '深信服科技 / 市场部 / 华北大区', exp: '一般', isp: '北京联通', pop: '北京POP', normalCount: 25, fairCount: 7, poorCount: 1 },
           { empId: '2024178', name: '周杰', dept: '深信服科技 / 技术支持部 / 华东组', exp: '一般', isp: '上海电信', pop: '上海POP', normalCount: 28, fairCount: 6, poorCount: 1 },
@@ -2031,7 +2032,7 @@
                             <span class="text-[#D9363E]">差 <span :class="item.poorCount > 0 ? 'text-[#D9363E]' : 'text-[#8A92A1]'" x-text="item.poorCount > 0 ? item.poorCount : '-'"></span></span>
                           </td>
                           <td class="text-center">
-                            <a :href="'./DEM-用户详情.html?type=分支&name=' + encodeURIComponent(item.name) + '&location=' + encodeURIComponent(item.location) + '&pop=' + encodeURIComponent(item.pop)" target="_blank" class="text-[#1C6EFF] hover:underline font-medium text-xs cursor-pointer inline-flex items-center justify-center gap-0.5">详情&gt;</a>
+                            <a :href="'./DEM-用户详情.html?type=分支&name=' + encodeURIComponent(item.name) + '&location=' + encodeURIComponent(item.location || '') + '&pop=' + encodeURIComponent(item.pop || '') + '&exp=' + encodeURIComponent(item.exp || '差') + '&totalApps=' + (item.affectedUsers || 12) + '&poorApps=' + (item.poorCount || 0) + '&fairApps=' + (item.fairCount || 0) + '&normalApps=' + (item.normalCount || 0)" target="_blank" class="text-[#1C6EFF] hover:underline font-medium text-xs cursor-pointer inline-flex items-center justify-center gap-0.5">详情&gt;</a>
                           </td>
                         </tr>
                       </template>
@@ -2188,7 +2189,7 @@
                             <span class="text-[#D9363E]">差 <span :class="item.poorCount > 0 ? 'text-[#D9363E]' : 'text-[#8A92A1]'" x-text="item.poorCount > 0 ? item.poorCount : '-'"></span></span>
                           </td>
                           <td class="text-center">
-                            <a :href="'./DEM-用户详情.html?type=用户&empId=' + encodeURIComponent(item.empId) + '&name=' + encodeURIComponent(item.name) + '&dept=' + encodeURIComponent(item.dept)" target="_blank" class="text-[#1C6EFF] hover:underline font-medium text-xs cursor-pointer inline-flex items-center justify-center gap-0.5">详情&gt;</a>
+                            <a :href="'./DEM-用户详情.html?type=用户&empId=' + encodeURIComponent(item.empId) + '&name=' + encodeURIComponent(item.name) + '&dept=' + encodeURIComponent(item.dept) + '&exp=' + encodeURIComponent(item.exp || '差') + '&totalApps=' + (item.totalApps || 17) + '&poorApps=' + (item.poorCount || 0) + '&fairApps=' + (item.fairCount || 0) + '&normalApps=' + (item.normalCount || 0)" target="_blank" class="text-[#1C6EFF] hover:underline font-medium text-xs cursor-pointer inline-flex items-center justify-center gap-0.5">详情&gt;</a>
                           </td>
                         </tr>
                       </template>
