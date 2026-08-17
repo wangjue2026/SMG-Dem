@@ -130,14 +130,10 @@
           return '用户详情';
         },
 
-        // 左侧应用搜索关键词
-        appSearchQuery: '',
-
-        // 左侧应用筛选模式 ('degraded' 仅展示访问体验受损 | 'all' 展示全部应用)
-        appFilter: 'degraded',
-
-        // 左侧面板是否向左折叠收起
-        isLeftPanelCollapsed: false,
+        // 横向应用选择器槽位与收纳状态
+        pinnedAppIds: [],
+        moreSearchQuery: '',
+        moreFilterExp: '',
 
         // AI 智能分析总结是否收起展开 (默认展开 false)
         isAiSummaryCollapsed: false,
@@ -160,6 +156,169 @@
         formatItemName(name) {
           if (!name) return '';
           return name.replace(/^[0-9]+\.\s*/, '');
+        },
+
+        // 新开标签页查看应用详情
+        openAppDetail(app) {
+          const targetApp = app || this.currentApp;
+          const appId = targetApp?.id || 'app_oa';
+          const appName = encodeURIComponent(targetApp?.name || 'OA系统');
+          window.open(`./DEM-应用详情.html?appId=${appId}&appName=${appName}`, '_blank');
+        },
+
+        // 获取点/段定性 HTML (状态以 Tag 形式呈现)
+        getQualitativeHtml(item) {
+          if (!item) return '';
+          const isAbnormal = item.status === '异常' || item.status === '差';
+          const isWarning = item.status === '一般';
+          const name = this.formatItemName(item.name || '');
+
+          let statusTag = '';
+          if (isAbnormal) {
+            statusTag = `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[2px] text-[10px] font-medium bg-[#FFF1F0] text-[#D9363E] border border-[#FFA39E] mx-1.5 align-middle"><span class="w-1.5 h-1.5 rounded-full bg-[#D9363E]"></span>${item.status || '异常'}</span>`;
+          } else if (isWarning) {
+            statusTag = `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[2px] text-[10px] font-medium bg-[#FFF7E6] text-[#FA721B] border border-[#FFD591] mx-1.5 align-middle"><span class="w-1.5 h-1.5 rounded-full bg-[#FA721B]"></span>一般</span>`;
+          } else {
+            statusTag = `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[2px] text-[10px] font-medium bg-[#E6F8F2] text-[#12A679] border border-[#B7EB8F] mx-1.5 align-middle"><span class="w-1.5 h-1.5 rounded-full bg-[#12A679]"></span>正常</span>`;
+          }
+
+          // 优先采用数据对象内自定义的 summary
+          if (item.summary) {
+            const isNode = item.id?.startsWith('node_');
+            const label = isNode ? `节点（${name}）` : `链路段（${name}）`;
+            return `<span class="font-medium text-[#2F3540]">${label}</span>${statusTag}${item.summary}`;
+          }
+
+          // 1. 终端节点
+          if (item.id === 'node_terminal') {
+            const termName = this.currentSlice?.topology?.client?.name || item.clientName || name || 'MacBook Pro';
+            if (isAbnormal) {
+              return `<span class="font-medium text-[#2F3540]">终端（${termName}）</span>${statusTag}客户端 CPU 利用率持续处于高位(>90%)，导致端侧处理排队延迟。`;
+            }
+            return `<span class="font-medium text-[#2F3540]">终端（${termName}）</span>${statusTag}CPU利用率 30.0%、内存利用率 45.0%，端侧资源充裕，无硬件瓶颈。`;
+          }
+
+          // 2. 终端-POP段
+          if (item.id === 'seg_client_pop') {
+            if (isAbnormal) {
+              return `<span class="font-medium text-[#2F3540]">链路段（终端 ➔ POP）</span>${statusTag}客户端到POP段丢包率升高(4.2%)且抖动明显(32ms)，链路质量劣化。`;
+            }
+            return `<span class="font-medium text-[#2F3540]">链路段（终端 ➔ POP）</span>${statusTag}终端到POP接入网络通畅，时延与丢包率均在健康基线内。`;
+          }
+
+          // 3. POP节点 (仅包含 RTT、丢包率、时延、抖动)
+          if (item.id === 'node_pop') {
+            const popName = this.currentSlice?.topology?.pop?.name || item.popName || name || '北京POP';
+            if (isAbnormal) {
+              return `<span class="font-medium text-[#2F3540]">POP节点（${popName}）</span>${statusTag}POP节点处理时延上升(32ms)，丢包率升至2.1%，抖动明显。`;
+            }
+            return `<span class="font-medium text-[#2F3540]">POP节点（${popName}）</span>${statusTag}POP节点网络时延(28ms)、丢包率(0.1%)与抖动(2ms)均处于健康基线以内。`;
+          }
+
+          // 4. POP-连接器段
+          if (item.id === 'seg_pop_gw') {
+            if (isAbnormal) {
+              return `<span class="font-medium text-[#2F3540]">链路段（POP ➔ 连接器）</span>${statusTag}POP到连接器骨干专线发生拥塞与丢包(5.0%)，RTT时延升至120ms。`;
+            }
+            return `<span class="font-medium text-[#2F3540]">链路段（POP ➔ 连接器）</span>${statusTag}POP到连接器骨干专线传输通畅，RTT 28ms，丢包率 0.1%，抖动 2ms。`;
+          }
+
+          // 5. 连接器节点
+          if (item.id === 'node_connector') {
+            const gwName = this.currentSlice?.topology?.gw?.name || item.connectorName || name || 'GW连接器';
+            if (isAbnormal) {
+              return `<span class="font-medium text-[#2F3540]">连接器（${gwName}）</span>${statusTag}连接器CPU负荷超限，转发时延异常升高。`;
+            }
+            return `<span class="font-medium text-[#2F3540]">连接器（${gwName}）</span>${statusTag}连接器负载均衡，CPU 42%、内存 51%，RTT 24ms，丢包 0.1%，无转发积压。`;
+          }
+
+          // 6. 连接器-应用段
+          if (item.id === 'seg_gw_app' || item.id === 'seg_af_oa') {
+            if (isAbnormal) {
+              return `<span class="font-medium text-[#2F3540]">链路段（连接器 ➔ 应用）</span>${statusTag}连接器至内网服务器链路发生丢包重传，连接延迟上升。`;
+            }
+            return `<span class="font-medium text-[#2F3540]">链路段（连接器 ➔ 应用）</span>${statusTag}连接器至内网应用服务器链路畅通，RTT 31ms，丢包率 0.2%，抖动 3ms，代理转发无延迟。`;
+          }
+
+          // 7. 应用节点
+          if (item.id === 'node_app' || item.id === 'node_final_app') {
+            const appName = item.id === 'node_final_app' ? (this.currentSlice?.topology?.finalApp?.name || '总部OA') : (this.currentApp?.name || item.appName || name || 'OA系统');
+            if (isAbnormal) {
+              return `<span class="font-medium text-[#2F3540]">应用（${appName}）</span>${statusTag}真实访问 TTFB 1,260ms(动态基线 300ms)，HTTP 状态码 200，可用性 99.8%，错误率 0.2%。`;
+            }
+            return `<span class="font-medium text-[#2F3540]">应用（${appName}）</span>${statusTag}服务响应迅速，HTTP 200 OK，TTFB首字节延迟与建连耗时均在正常基线内。`;
+          }
+
+          return `<span class="font-medium text-[#2F3540]">链路段/节点</span>${statusTag}各核心指标运行稳定。`;
+        },
+
+        // 获取点/段第一句定性文字 (纯文本备用)
+        getQualitativeText(item) {
+          if (!item) return '';
+          const isAbnormal = item.status === '异常' || item.status === '差';
+          const name = this.formatItemName(item.name || '');
+
+          // 1. 终端节点
+          if (item.id === 'node_terminal') {
+            const termName = this.currentSlice?.topology?.client?.name || item.clientName || name || 'ThinkPad X1';
+            if (isAbnormal) {
+              return `终端（${termName}）状态：异常，客户端 CPU 利用率持续处于高位(>90%)，导致端侧处理排队延迟。`;
+            }
+            return `终端（${termName}）状态：正常，CPU利用率 24.5%、内存利用率 68.2%，端侧资源充裕，无硬件瓶颈。`;
+          }
+
+          // 2. 终端-POP段
+          if (item.id === 'seg_client_pop') {
+            if (isAbnormal) {
+              return `链路段状态：异常，客户端到POP段丢包率升高(3.1%)且抖动明显(40ms)，链路质量劣化。`;
+            }
+            return `链路段状态：正常，终端到POP接入网络通畅，时延与丢包率均在健康基线内。`;
+          }
+
+          // 3. POP节点 (仅包含 RTT、丢包率、时延、抖动)
+          if (item.id === 'node_pop') {
+            const popName = this.currentSlice?.topology?.pop?.name || item.popName || name || '香港POP';
+            if (isAbnormal) {
+              return `POP（${popName}）状态：异常，POP节点处理时延上升(32ms)，丢包率升至2.1%，抖动明显。`;
+            }
+            return `POP（${popName}）状态：正常，POP节点网络时延、丢包率与抖动均处于健康基线以内。`;
+          }
+
+          // 4. POP-连接器段
+          if (item.id === 'seg_pop_gw') {
+            if (isAbnormal) {
+              return `链路段状态：异常，POP到连接器骨干专线发生拥塞与丢包(5.0%)，RTT时延升至120ms。`;
+            }
+            return `链路段状态：正常，POP到连接器骨干专线传输通畅，时延低且无丢包抖动。`;
+          }
+
+          // 5. 连接器节点
+          if (item.id === 'node_connector') {
+            const gwName = this.currentSlice?.topology?.gw?.name || item.connectorName || name || 'GW连接器';
+            if (isAbnormal) {
+              return `连接器（${gwName}）状态：异常，连接器CPU负荷超限，转发时延异常升高。`;
+            }
+            return `连接器（${gwName}）状态：正常，连接器负载均衡，CPU与内存使用平稳，无转发积压。`;
+          }
+
+          // 6. 连接器-应用段
+          if (item.id === 'seg_gw_app' || item.id === 'seg_af_oa') {
+            if (isAbnormal) {
+              return `链路段状态：异常，连接器至内网服务器链路发生丢包重传，连接延迟上升。`;
+            }
+            return `链路段状态：正常，连接器至内网应用服务器链路畅通，端口443连通性100%，代理转发无延迟。`;
+          }
+
+          // 7. 应用节点
+          if (item.id === 'node_app' || item.id === 'node_final_app') {
+            const appName = item.id === 'node_final_app' ? (this.currentSlice?.topology?.finalApp?.name || '总部OA') : (this.currentApp?.name || item.appName || name || 'OA系统');
+            if (isAbnormal) {
+              return `应用（${appName}）状态：异常，TTFB首字节延迟达680ms(基线95ms)，服务器CPU利用率91.2%满载。`;
+            }
+            return `应用（${appName}）状态：正常，服务响应迅速，HTTP 200 OK，TTFB首字节延迟与建连耗时均在正常基线内。`;
+          }
+
+          return `链路状态：${item.status || '正常'}，各核心指标运行稳定。`;
         },
 
         // 应用列表原始数据
@@ -658,11 +817,11 @@
               } else {
                 this.queryType = '用户';
                 const nameOnly = paramName || '张三';
-                const fullUserName = paramEmpId ? `${paramEmpId}(${nameOnly})` : nameOnly;
+                const fullUserName = paramEmpId ? `${paramEmpId}（${nameOnly}）` : nameOnly;
                 const deptText = paramDept || '深信服科技 / 研发中心 / DEM产品部';
 
-                if (paramName?.includes('何总') || paramEmpId === '45343' || nameOnly?.includes('何总')) {
-                  this.loadHeZongHotelWifiScriptData(fullUserName, deptText);
+                if (paramName?.includes('何总') || paramEmpId === '4343' || paramEmpId === '45343' || nameOnly?.includes('何总')) {
+                  this.loadHeZongScriptData(fullUserName, deptText);
                 } else {
                   this.loadDigiPlusMariaScriptData();
                 }
@@ -722,12 +881,12 @@
                   applyHeaderStats(selectedItem);
                   this.replaceUserMockData(branchName);
                   loadedCustom = true;
-                } else if (valLower.includes('何总') || nameLower.includes('何总') || valLower.includes('45343') || nameLower.includes('45343')) {
-                  // 特殊处理：何总对应出差酒店 Wi-Fi 排障完整剧本
+                } else if (valLower.includes('何总') || nameLower.includes('何总') || valLower.includes('4343') || nameLower.includes('4343') || valLower.includes('45343') || nameLower.includes('45343')) {
+                  // 特殊处理：何总对应办公室 Wi-Fi 导致访问卡慢排障完整剧本
                   this.queryType = '用户';
                   const name = selectedItem?.label || `${queryValue}`;
                   const dept = selectedItem?.sub || selectedItem?.dept || '/深信服/总经办';
-                  this.loadHeZongHotelWifiScriptData(name, dept);
+                  this.loadHeZongScriptData(name, dept);
                   applyHeaderStats(selectedItem);
                   loadedCustom = true;
                 } else if (valLower.includes('maria') || nameLower.includes('maria')) {
@@ -778,6 +937,9 @@
             this.loadDigiPlusMariaScriptData();
           }
 
+          // 初始化前置槽位展示应用 (异常应用优先置顶，正常应用收纳)
+          this.initPinnedApps();
+
           // 生成真实离散稀疏采样点 (间隔式柱状图，无访问时为空白，模拟真实业务访问)
           this.generateSamplePoints();
 
@@ -791,41 +953,67 @@
           const app = this.currentApp || (this.rawAppList && this.rawAppList[0]) || {};
           const isPoorApp = app.experience === '差';
           const isFairApp = app.experience === '一般';
+          const isHeZong = this.userName?.includes('何总') || this.userId === 'usr_hezong';
 
           // 预设离散真实访问槽位配置 (08:00 ~ 18:00，共 600 分钟)
-          const activeSlotConfigs = [
-            { slot: 1, minute: 10, exp: '正常', score: 95, ttfb: 68, loss: '0.0%', sr: '100%' },
-            { slot: 2, minute: 20, exp: '正常', score: 92, ttfb: 72, loss: '0.0%', sr: '100%' },
-            { slot: 4, minute: 40, exp: '正常', score: 88, ttfb: 78, loss: '0.1%', sr: '99.8%' },
-            { slot: 5, minute: 50, exp: '正常', score: 94, ttfb: 66, loss: '0.0%', sr: '100%' },
-            { slot: 8, minute: 80, exp: '正常', score: 90, ttfb: 75, loss: '0.0%', sr: '100%' },
-            { slot: 11, minute: 110, exp: '正常', score: 89, ttfb: 79, loss: '0.1%', sr: '99.8%' },
-            { slot: 12, minute: 120, exp: isPoorApp ? '差' : '正常', score: isPoorApp ? 32 : 96, ttfb: isPoorApp ? 1260 : 64, loss: isPoorApp ? '5.0%' : '0.0%', sr: isPoorApp ? '91.5%' : '100%' },
-            { slot: 13, minute: 130, exp: isPoorApp ? '差' : '正常', score: isPoorApp ? 38 : 91, ttfb: isPoorApp ? 980 : 70, loss: isPoorApp ? '4.2%' : '0.0%', sr: isPoorApp ? '93.2%' : '100%' },
-            { slot: 16, minute: 160, exp: '正常', score: 93, ttfb: 67, loss: '0.0%', sr: '100%' },
-            { slot: 17, minute: 170, exp: '正常', score: 95, ttfb: 63, loss: '0.0%', sr: '100%' },
-            { slot: 19, minute: 190, exp: '正常', score: 90, ttfb: 74, loss: '0.0%', sr: '100%' },
-            { slot: 21, minute: 210, exp: '正常', score: 87, ttfb: 82, loss: '0.1%', sr: '99.8%' },
-            { slot: 22, minute: 220, exp: '正常', score: 92, ttfb: 71, loss: '0.0%', sr: '100%' },
-            { slot: 23, minute: 230, exp: '正常', score: 96, ttfb: 62, loss: '0.0%', sr: '100%' },
-            { slot: 27, minute: 270, exp: isPoorApp ? '差' : '正常', score: isPoorApp ? 45 : 94, ttfb: isPoorApp ? 860 : 68, loss: isPoorApp ? '3.5%' : '0.0%', sr: isPoorApp ? '95.0%' : '100%' },
-            { slot: 28, minute: 280, exp: '正常', score: 91, ttfb: 73, loss: '0.0%', sr: '100%' },
-            { slot: 30, minute: 300, exp: '正常', score: 89, ttfb: 76, loss: '0.0%', sr: '100%' },
-            { slot: 31, minute: 310, exp: '正常', score: 94, ttfb: 65, loss: '0.0%', sr: '100%' },
-            { slot: 35, minute: 350, exp: '正常', score: 92, ttfb: 69, loss: '0.0%', sr: '100%' },
-            { slot: 36, minute: 360, exp: '正常', score: 90, ttfb: 75, loss: '0.0%', sr: '100%' },
-            { slot: 37, minute: 370, exp: '正常', score: 93, ttfb: 68, loss: '0.0%', sr: '100%' },
-            { slot: 40, minute: 400, exp: '正常', score: 95, ttfb: 64, loss: '0.0%', sr: '100%' },
-            { slot: 42, minute: 420, exp: (isPoorApp || isFairApp) ? '一般' : '正常', score: (isPoorApp || isFairApp) ? 72 : 91, ttfb: (isPoorApp || isFairApp) ? 185 : 71, loss: (isPoorApp || isFairApp) ? '1.2%' : '0.0%', sr: (isPoorApp || isFairApp) ? '98.5%' : '100%' },
-            { slot: 43, minute: 430, exp: '正常', score: 88, ttfb: 80, loss: '0.1%', sr: '99.8%' },
-            { slot: 47, minute: 470, exp: '正常', score: 94, ttfb: 65, loss: '0.0%', sr: '100%' },
-            { slot: 48, minute: 480, exp: '正常', score: 92, ttfb: 70, loss: '0.0%', sr: '100%' },
-            { slot: 50, minute: 500, exp: '正常', score: 96, ttfb: 62, loss: '0.0%', sr: '100%' },
-            { slot: 52, minute: 520, exp: '正常', score: 91, ttfb: 72, loss: '0.0%', sr: '100%' },
-            { slot: 53, minute: 530, exp: '正常', score: 89, ttfb: 78, loss: '0.1%', sr: '99.8%' },
-            { slot: 55, minute: 550, exp: '正常', score: 93, ttfb: 67, loss: '0.0%', sr: '100%' },
-            { slot: 58, minute: 580, exp: '正常', score: 95, ttfb: 64, loss: '0.0%', sr: '100%' }
-          ];
+          let activeSlotConfigs = [];
+
+          if (isHeZong) {
+            // 何总专属排障剧本：上午与下午前期访问正常，异常点集中在 16:00 - 18:00 (含多个异常点)
+            activeSlotConfigs = [
+              { slot: 1, minute: 30, exp: '正常', score: 95, ttfb: 68, loss: '0.0%', sr: '100%' },   // 08:30
+              { slot: 3, minute: 75, exp: '正常', score: 92, ttfb: 72, loss: '0.0%', sr: '100%' },   // 09:15
+              { slot: 5, minute: 120, exp: '正常', score: 96, ttfb: 64, loss: '0.0%', sr: '100%' },  // 10:00
+              { slot: 8, minute: 190, exp: '正常', score: 90, ttfb: 74, loss: '0.0%', sr: '100%' },  // 11:10
+              { slot: 12, minute: 280, exp: '正常', score: 94, ttfb: 66, loss: '0.0%', sr: '100%' }, // 12:40
+              { slot: 15, minute: 340, exp: '正常', score: 91, ttfb: 71, loss: '0.0%', sr: '100%' }, // 13:40
+              { slot: 18, minute: 390, exp: '正常', score: 93, ttfb: 67, loss: '0.0%', sr: '100%' }, // 14:30
+              { slot: 21, minute: 435, exp: '正常', score: 89, ttfb: 78, loss: '0.1%', sr: '99.8%' },// 15:15
+              { slot: 23, minute: 465, exp: '正常', score: 92, ttfb: 70, loss: '0.0%', sr: '100%' }, // 15:45
+              // === 16:00 - 18:00 异常集中区 (多个异常点) ===
+              { slot: 24, minute: 480, exp: isPoorApp ? '差' : '正常', score: isPoorApp ? 32 : 95, ttfb: isPoorApp ? 1260 : 65, loss: isPoorApp ? '4.2%' : '0.0%', sr: isPoorApp ? '99.8%' : '100%' }, // 16:00 (典型故障主点)
+              { slot: 26, minute: 500, exp: isPoorApp ? '差' : '正常', score: isPoorApp ? 36 : 92, ttfb: isPoorApp ? 1180 : 70, loss: isPoorApp ? '3.9%' : '0.0%', sr: isPoorApp ? '99.8%' : '100%' }, // 16:20
+              { slot: 28, minute: 520, exp: isPoorApp ? '差' : '正常', score: isPoorApp ? 28 : 94, ttfb: isPoorApp ? 1320 : 64, loss: isPoorApp ? '4.5%' : '0.0%', sr: isPoorApp ? '99.7%' : '100%' }, // 16:40
+              { slot: 30, minute: 545, exp: isPoorApp ? '差' : '正常', score: isPoorApp ? 34 : 91, ttfb: isPoorApp ? 1240 : 72, loss: isPoorApp ? '4.1%' : '0.0%', sr: isPoorApp ? '99.8%' : '100%' }, // 17:05
+              { slot: 32, minute: 570, exp: (isPoorApp || isFairApp) ? '一般' : '正常', score: (isPoorApp || isFairApp) ? 68 : 93, ttfb: (isPoorApp || isFairApp) ? 480 : 68, loss: (isPoorApp || isFairApp) ? '1.8%' : '0.0%', sr: (isPoorApp || isFairApp) ? '99.9%' : '100%' }, // 17:30
+              { slot: 34, minute: 585, exp: isPoorApp ? '差' : '正常', score: isPoorApp ? 38 : 95, ttfb: isPoorApp ? 1150 : 66, loss: isPoorApp ? '3.8%' : '0.0%', sr: isPoorApp ? '99.8%' : '100%' }, // 17:45
+              { slot: 35, minute: 598, exp: (isPoorApp || isFairApp) ? '一般' : '正常', score: (isPoorApp || isFairApp) ? 72 : 90, ttfb: (isPoorApp || isFairApp) ? 380 : 75, loss: (isPoorApp || isFairApp) ? '1.2%' : '0.0%', sr: '100%' }  // 17:58
+            ];
+          } else {
+            activeSlotConfigs = [
+              { slot: 1, minute: 10, exp: '正常', score: 95, ttfb: 68, loss: '0.0%', sr: '100%' },
+              { slot: 2, minute: 20, exp: '正常', score: 92, ttfb: 72, loss: '0.0%', sr: '100%' },
+              { slot: 4, minute: 40, exp: '正常', score: 88, ttfb: 78, loss: '0.1%', sr: '99.8%' },
+              { slot: 5, minute: 50, exp: '正常', score: 94, ttfb: 66, loss: '0.0%', sr: '100%' },
+              { slot: 8, minute: 80, exp: '正常', score: 90, ttfb: 75, loss: '0.0%', sr: '100%' },
+              { slot: 11, minute: 110, exp: '正常', score: 89, ttfb: 79, loss: '0.1%', sr: '99.8%' },
+              { slot: 12, minute: 120, exp: isPoorApp ? '差' : '正常', score: isPoorApp ? 32 : 96, ttfb: isPoorApp ? 1260 : 64, loss: isPoorApp ? '5.0%' : '0.0%', sr: isPoorApp ? '91.5%' : '100%' },
+              { slot: 13, minute: 130, exp: isPoorApp ? '差' : '正常', score: isPoorApp ? 38 : 91, ttfb: isPoorApp ? 980 : 70, loss: isPoorApp ? '4.2%' : '0.0%', sr: isPoorApp ? '93.2%' : '100%' },
+              { slot: 16, minute: 160, exp: '正常', score: 93, ttfb: 67, loss: '0.0%', sr: '100%' },
+              { slot: 17, minute: 170, exp: '正常', score: 95, ttfb: 63, loss: '0.0%', sr: '100%' },
+              { slot: 19, minute: 190, exp: '正常', score: 90, ttfb: 74, loss: '0.0%', sr: '100%' },
+              { slot: 21, minute: 210, exp: '正常', score: 87, ttfb: 82, loss: '0.1%', sr: '99.8%' },
+              { slot: 22, minute: 220, exp: '正常', score: 92, ttfb: 71, loss: '0.0%', sr: '100%' },
+              { slot: 23, minute: 230, exp: '正常', score: 96, ttfb: 62, loss: '0.0%', sr: '100%' },
+              { slot: 27, minute: 270, exp: isPoorApp ? '差' : '正常', score: isPoorApp ? 45 : 94, ttfb: isPoorApp ? 860 : 68, loss: isPoorApp ? '3.5%' : '0.0%', sr: isPoorApp ? '95.0%' : '100%' },
+              { slot: 28, minute: 280, exp: '正常', score: 91, ttfb: 73, loss: '0.0%', sr: '100%' },
+              { slot: 30, minute: 300, exp: '正常', score: 89, ttfb: 76, loss: '0.0%', sr: '100%' },
+              { slot: 31, minute: 310, exp: '正常', score: 94, ttfb: 65, loss: '0.0%', sr: '100%' },
+              { slot: 35, minute: 350, exp: '正常', score: 92, ttfb: 69, loss: '0.0%', sr: '100%' },
+              { slot: 36, minute: 360, exp: '正常', score: 90, ttfb: 75, loss: '0.0%', sr: '100%' },
+              { slot: 37, minute: 370, exp: '正常', score: 93, ttfb: 68, loss: '0.0%', sr: '100%' },
+              { slot: 40, minute: 400, exp: '正常', score: 95, ttfb: 64, loss: '0.0%', sr: '100%' },
+              { slot: 42, minute: 420, exp: (isPoorApp || isFairApp) ? '一般' : '正常', score: (isPoorApp || isFairApp) ? 72 : 91, ttfb: (isPoorApp || isFairApp) ? 185 : 71, loss: (isPoorApp || isFairApp) ? '1.2%' : '0.0%', sr: (isPoorApp || isFairApp) ? '98.5%' : '100%' },
+              { slot: 43, minute: 430, exp: '正常', score: 88, ttfb: 80, loss: '0.1%', sr: '99.8%' },
+              { slot: 47, minute: 470, exp: '正常', score: 94, ttfb: 65, loss: '0.0%', sr: '100%' },
+              { slot: 48, minute: 480, exp: '正常', score: 92, ttfb: 70, loss: '0.0%', sr: '100%' },
+              { slot: 50, minute: 500, exp: '正常', score: 96, ttfb: 62, loss: '0.0%', sr: '100%' },
+              { slot: 52, minute: 520, exp: '正常', score: 91, ttfb: 72, loss: '0.0%', sr: '100%' },
+              { slot: 53, minute: 530, exp: '正常', score: 89, ttfb: 78, loss: '0.1%', sr: '99.8%' },
+              { slot: 55, minute: 550, exp: '正常', score: 93, ttfb: 67, loss: '0.0%', sr: '100%' },
+              { slot: 58, minute: 580, exp: '正常', score: 95, ttfb: 64, loss: '0.0%', sr: '100%' }
+            ];
+          }
 
           activeSlotConfigs.forEach((cfg, idx) => {
             const totalMinutes = 8 * 60 + cfg.minute;
@@ -855,12 +1043,9 @@
             // 绑定拓扑：如果预置有特定剧本案例且时间/状态匹配，则使用之；否则生成健康链路拓扑
             let matchedSlice = null;
             if (app.slices && app.slices.length > 0) {
-              if (cfg.exp === '差' && (cfg.minute === 120 || timeStr === '10:00')) {
-                matchedSlice = app.slices[0]; // 10:00 故障
-              } else if (app.slices.length > 1 && cfg.exp === '差' && cfg.minute === 270) {
-                matchedSlice = app.slices[1];
-              } else if (app.slices.length > 2 && cfg.exp === '差' && cfg.minute === 130) {
-                matchedSlice = app.slices[2];
+              matchedSlice = app.slices.find(s => s.time === timeStr || (s.minute != null && s.minute === cfg.minute));
+              if (!matchedSlice && cfg.exp === '差') {
+                matchedSlice = app.slices[0]; // 默认使用主故障切片
               }
             }
 
@@ -889,8 +1074,10 @@
 
           this.samplePoints = points;
 
-          // 默认选中 10:00 (slot 12 对应的点，如果存在异常点则选最典型的异常红点)
-          const defaultIdx = points.findIndex(p => p.time === '10:00' || p.experience === '差');
+          // 默认选中主故障点 (何总剧本选中 16:00，其他默认 10:00 或首个异常点)
+          const defaultIdx = isHeZong 
+            ? points.findIndex(p => p.time === '16:00' || p.experience === '差')
+            : points.findIndex(p => p.time === '10:00' || p.experience === '差');
           this.selectedSampleIdx = defaultIdx !== -1 ? defaultIdx : 0;
         },
 
@@ -1142,19 +1329,25 @@
               },
               slices: []
             },
-            {
-              id: 'app_oa',
-              name: 'OA系统',
-              domain: 'https://oa.corp.com',
-              experience: '正常',
-              tag: '内网应用',
-              summary: '内网 OA 系统访问流畅。',
-              abnormalExplain: '无异常',
-              slices: []
-            }
+            { id: 'app_salesforce', name: 'Salesforce CRM', domain: 'https://salesforce.corp.com', experience: '一般', tag: 'SaaS 业务', summary: 'CRM 访问响应偶发延迟。', abnormalExplain: '偶发时延波动', slices: [] },
+            { id: 'app_teams', name: 'Teams 视频会议', domain: 'https://teams.microsoft.com', experience: '一般', tag: '协同办公', summary: '音视频偶有卡顿提示。', abnormalExplain: 'Wi-Fi 丢包引起小幅音视频抖动', slices: [] },
+            { id: 'app_oa', name: 'OA系统', domain: 'https://oa.corp.com', experience: '正常', tag: '内网应用', summary: '内网 OA 系统访问流畅。', abnormalExplain: '无异常', slices: [] },
+            { id: 'app_mail', name: '企业邮箱', domain: 'https://mail.corp.com', experience: '正常', tag: 'SaaS 办公', summary: '邮件收发正常。', abnormalExplain: '无异常', slices: [] },
+            { id: 'app_gitlab', name: 'GitLab', domain: 'https://git.corp.com', experience: '正常', tag: '研发平台', summary: '代码仓库访问正常。', abnormalExplain: '无异常', slices: [] },
+            { id: 'app_sap', name: 'SAP 核心系统', domain: 'https://sap.corp.com', experience: '正常', tag: '核心系统', summary: 'SAP 核心查询正常。', abnormalExplain: '无异常', slices: [] },
+            { id: 'app_jira', name: 'Jira 任务管理', domain: 'https://jira.corp.com', experience: '正常', tag: '研发协同', summary: '工单流转正常。', abnormalExplain: '无异常', slices: [] },
+            { id: 'app_wiki', name: 'Confluence 知识库', domain: 'https://wiki.corp.com', experience: '正常', tag: '企业知识', summary: '文档检索正常。', abnormalExplain: '无异常', slices: [] },
+            { id: 'app_finance', name: '财务对账系统', domain: 'https://finance.corp.com', experience: '正常', tag: '财务平台', summary: '财务报表正常。', abnormalExplain: '无异常', slices: [] },
+            { id: 'app_hr', name: 'HR 人事平台', domain: 'https://hr.corp.com', experience: '正常', tag: '行政人力', summary: '人事查询正常。', abnormalExplain: '无异常', slices: [] },
+            { id: 'app_docs', name: '云文档中心', domain: 'https://docs.corp.com', experience: '正常', tag: '文档存储', summary: '文档同步正常。', abnormalExplain: '无异常', slices: [] },
+            { id: 'app_vpn', name: '零信任安全网关', domain: 'https://ztna.corp.com', experience: '正常', tag: '网络安全', summary: '身份校验通过。', abnormalExplain: '无异常', slices: [] },
+            { id: 'app_fapiao', name: '电子发票平台', domain: 'https://invoice.corp.com', experience: '正常', tag: '财务发票', summary: '发票开具正常。', abnormalExplain: '无异常', slices: [] },
+            { id: 'app_kb', name: '业务知识库', domain: 'https://kb.corp.com', experience: '正常', tag: '运营支持', summary: '知识库访问正常。', abnormalExplain: '无异常', slices: [] },
+            { id: 'app_test', name: '研发测试平台', domain: 'https://test.corp.com', experience: '正常', tag: '测试环境', summary: '自动化流水线正常。', abnormalExplain: '无异常', slices: [] }
           ];
 
           this.activeAppId = 'app_feishu';
+          this.initPinnedApps();
         },
 
         // 加载完整的【成都分支访问总部应用卡慢】排障剧本 Mock 数据
@@ -1356,27 +1549,30 @@
               abnormalExplain: '第一公里出口链路丢包引起数据重传与 ERP 页面加载延展。',
               slices: []
             },
-            {
-              id: 'app_feishu',
-              name: '飞书平台 (SaaS)',
-              domain: 'https://feishu.cn',
-              experience: '正常',
-              tag: 'SaaS应用',
-              summary: '互联网 SaaS 访问流畅。',
-              abnormalExplain: '链路正常',
-              slices: []
-            }
+            { id: 'app_feishu', name: '飞书平台 (SaaS)', domain: 'https://feishu.cn', experience: '一般', tag: 'SaaS应用', summary: '互联网 SaaS 访问有轻微抖动。', abnormalExplain: '偶发抖动', slices: [] },
+            { id: 'app_mail', name: '企业邮箱', domain: 'https://mail.headquarters.corp', experience: '正常', tag: '总部应用', summary: '邮件收发正常。', abnormalExplain: '无异常', slices: [] },
+            { id: 'app_gitlab', name: 'GitLab', domain: 'https://git.headquarters.corp', experience: '正常', tag: '研发平台', summary: '代码拉取正常。', abnormalExplain: '无异常', slices: [] },
+            { id: 'app_sap', name: 'SAP 核心系统', domain: 'https://sap.headquarters.corp', experience: '正常', tag: '核心系统', summary: 'SAP 业务正常。', abnormalExplain: '无异常', slices: [] },
+            { id: 'app_jira', name: 'Jira 任务管理', domain: 'https://jira.headquarters.corp', experience: '正常', tag: '项目管理', summary: '工单查询正常。', abnormalExplain: '无异常', slices: [] },
+            { id: 'app_wiki', name: 'Confluence 知识库', domain: 'https://wiki.headquarters.corp', experience: '正常', tag: '知识平台', summary: '知识库正常。', abnormalExplain: '无异常', slices: [] },
+            { id: 'app_finance', name: '财务对账系统', domain: 'https://finance.headquarters.corp', experience: '正常', tag: '财务平台', summary: '财务报表正常。', abnormalExplain: '无异常', slices: [] },
+            { id: 'app_hr', name: 'HR 人事系统', domain: 'https://hr.headquarters.corp', experience: '正常', tag: '行政人事', summary: '考勤人事正常。', abnormalExplain: '无异常', slices: [] },
+            { id: 'app_kb', name: '分支知识库', domain: 'https://kb.headquarters.corp', experience: '正常', tag: '运营支持', summary: '知识库访问正常。', abnormalExplain: '无异常', slices: [] },
+            { id: 'app_ztna', name: '分支安全网关', domain: 'https://ztna.headquarters.corp', experience: '正常', tag: '网络安全', summary: '安全网关连接正常。', abnormalExplain: '无异常', slices: [] }
           ];
 
           this.activeAppId = 'app_hq_oa';
+          this.initPinnedApps();
         },
 
-        // 加载完整的【何总出差酒店 Wi-Fi 导致访问卡慢】排障剧本 Mock 数据
-loadHeZongHotelWifiScriptData(userDisplayName, userDept) {
+        // 加载完整的【何总办公室 Wi-Fi / 本地网关导致访问卡慢】排障剧本 Mock 数据
+        loadHeZongScriptData(userDisplayName, userDept) {
           this.queryType = '用户';
-          this.userName = userDisplayName || '45343（何总）';
-          this.userDept = userDept || '/深信服/总经办 (出差北京 · 接入北京POP)';
+          this.userName = userDisplayName || '4343（何总）';
+          this.userDept = userDept || '/深信服/总经办 (接入北京POP)';
           this.userId = 'usr_hezong';
+          this.userTerminal = 'MacBook Pro (何总专用)';
+          this.userPop = '北京POP';
           this.overallExperience = '差';
           this.totalApps = 16;
           this.poorApps = 2;
@@ -1390,41 +1586,42 @@ loadHeZongHotelWifiScriptData(userDisplayName, userDept) {
               domain: 'https://oa.sangfor.corp',
               experience: '差',
               tag: '内网办公',
-              summary: '用户在出差酒店通过 ZTNA 访问 OA系统 响应极慢（TTFB 1,260ms）。排查确认出差酒店 Wi-Fi 信号衰减严重 (-78 dBm) 且重传率高达 31%，局域网网关丢包 3.8%，导致客户端至北京 POP 接入段质量受损。后续 ZTNA 骨干与 OA 应用本身健康。',
-              abnormalExplain: '客户端到 POP 接入段时延 188ms、丢包 4.2%；出差酒店 Wi-Fi 信号强度 -78 dBm、重传率 31%、网关丢包 3.8%。',
+              summary: '用户通过 ZTNA 访问 OA系统 响应变慢（TTFB 1,260ms）。排查确认办公室 Wi-Fi 信号衰减严重 (-78 dBm) 且重传率高达 31%，本地 LAN 网关丢包 3.8%，导致客户端至北京 POP 接入段质量受损。后续 ZTNA 连接器与后端 OA 应用本身性能均健康。',
+              abnormalExplain: '客户端到 POP 接入段时延 188ms、丢包 4.2%；办公室 Wi-Fi 信号强度 -78 dBm、重传率 31%、本地网关丢包 3.8%。',
               aiSummary: {
-                summaryHtml: '访问 <span class="font-bold text-[#2F3540]">OA系统</span> 体验差，排查确认异常收敛于<span class="text-[#D9363E] font-bold">“出差酒店 Wi-Fi 接入段”</span>（Wi-Fi 信号强度 -78 dBm、重传率 31%、局域网网关丢包 3.8%、客户端到 POP 时延 188ms / 丢包 4.2%）。后续 POP、ZTNA 连接器与 OA 应用服务器性能均正常（HTTP 200，错误率 0.2%）。同受 Wi-Fi 影响的还有 <span class="font-bold text-[#2F3540]">ERP系统</span>。此故障属个人终端私网 Wi-Fi 偶发问题，建议切换至手机 5G 热点快速恢复。',
+                summaryHtml: '访问 <span class="font-bold text-[#2F3540]">OA系统</span> 体验差（真实访问 TTFB 1,260ms / 动态基线 300ms），排查确认异常收敛于<span class="text-[#D9363E] font-bold">“办公室无线接入（Wi-Fi）及终端到本地 LAN 网关接入段”</span>（Wi-Fi 信号强度 -78 dBm、重传率 31%、局域网网关丢包 3.8%、客户端到 POP 时延 188ms / 丢包 4.2% / 抖动 32ms）。后续 POP 接入点、ZTNA 连接器与 OA 应用服务器均健康（HTTP 200，可用性 99.8%，错误率 0.2%）。同期访问的 <span class="font-bold text-[#2F3540]">ERP系统</span> 亦呈相同卡慢现象，印证为本地无线接入环境质量导致多应用普遍卡慢，排除单应用服务端故障。建议优化无线 AP 信道或切换至有线网络办公。',
                 problemLocation: {
-                  tag: '终端接入 Wi-Fi 异常',
-                  abnormalPoint: '出差酒店 Wi-Fi 信号弱 (-78 dBm) & 接入网关丢包 3.8%',
+                  tag: '终端无线 Wi-Fi / 本地 LAN 网关接入异常',
+                  abnormalPoint: '办公室 Wi-Fi 信号弱 (-78 dBm) & 接入网关丢包 3.8%',
                   abnormalFeature: '客户端->POP RTT 188ms / 丢包 4.2% / 抖动 32ms；Wi-Fi 重传 31%；后续 ZTNA 分段与 OA 应用正常'
                 },
                 impactScope: {
-                  users: '出差终端用户',
-                  branches: '北京出差酒店 Wi-Fi (接入北京POP)',
-                  apps: 'OA系统、ERP系统 (所有经此 Wi-Fi 的内网应用均卡慢)'
+                  users: '何总 (总经办)',
+                  branches: '北京办公室 (接入北京POP)',
+                  apps: 'OA系统、ERP系统 (所有经此 Wi-Fi 接入的内网应用均卡慢)'
                 },
                 advice: {
-                  stakeholders: '用户终端 & 酒店网络服务',
-                  actions: '1. 建议用户临时切换至手机 5G 个人热点或插有线网线；2. 建议酒店前台或网络管理员检查客房 Wi-Fi AP 覆盖与信道干扰。'
+                  stakeholders: '终端用户 & 办公网络管理员',
+                  actions: '1. 建议终端用户连接邻近 5GHz 强信号 AP 或插有线网线；2. 建议网络管理员检查办公室 AP 覆盖与信道干扰，进行 AP 调优。'
                 }
               },
               slices: [
                 {
                   id: 'slice_1',
-                  name: '切片1 (10:00)',
-                  time: '10:00',
-                  range: '09:55~10:00',
+                  name: '切片1 (16:00)',
+                  time: '16:00',
+                  minute: 480,
+                  range: '15:55~16:00',
                   successRate: '99.8%',
                   status: '异常',
-                  sampleIdx: 12,
+                  sampleIdx: 9,
                   topology: {
                     client: { name: '何总 MacBook Pro', sub: '终端 (正常)', status: '正常' },
-                    segment1: { name: 'WiFi', delay: '188ms', loss: '4.2%', status: '异常', targetId: 'seg_client_pop' },
+                    segment1: { name: 'WiFi', delay: '188ms', loss: '4.2%', jitter: '32ms', status: '异常', targetId: 'seg_client_pop' },
                     pop: { name: '北京POP', sub: 'POP节点 (正常)', status: '正常', targetId: 'node_pop' },
-                    segment2: { name: '连接器', delay: '28ms', loss: '0.1%', status: '正常', targetId: 'seg_pop_gw' },
-                    gw: { name: 'GW连接器', sub: '连接器 (正常)', status: '正常' },
-                    segment3: { name: '应用', delay: '31ms', loss: '0.2%', status: '正常', targetId: 'seg_gw_app' },
+                    segment2: { name: '连接器', delay: '28ms', loss: '0.1%', jitter: '2ms', status: '正常', targetId: 'seg_pop_gw' },
+                    gw: { name: 'GW连接器', sub: '连接器 (正常)', status: '正常', targetId: 'node_connector' },
+                    segment3: { name: '应用', delay: '31ms', loss: '0.2%', jitter: '3ms', status: '正常', targetId: 'seg_gw_app' },
                     app: { name: 'OA系统', sub: '应用 (TTFB变慢)', status: '异常', targetId: 'node_app' }
                   },
                   segmentDetails: [
@@ -1432,44 +1629,26 @@ loadHeZongHotelWifiScriptData(userDisplayName, userDept) {
                       id: 'seg_client_pop',
                       name: '终端-pop段',
                       status: '异常',
-                      summary: 'Underlay: RTT 188ms、丢包 4.2%、抖动 32ms；Wi-Fi 信号强度 -78 dBm、重传率 31%；LAN 网关 RTT 86ms、丢包 3.8%、抖动 27ms。',
-                      metrics: [
-                        { label: 'Underlay RTT 时延', value: '188 ms', baseline: '< 50 ms', isAbnormal: true },
-                        { label: 'Underlay 丢包率', value: '4.2%', baseline: '< 0.5%', isAbnormal: true },
-                        { label: 'Underlay 抖动 (Jitter)', value: '32 ms', baseline: '< 15 ms', isAbnormal: true },
-                        { label: 'Wi-Fi 信号强度 (RSSI)', value: '-78 dBm', baseline: '> -65 dBm', isAbnormal: true },
-                        { label: 'Wi-Fi 帧重传率', value: '31.0%', baseline: '< 10.0%', isAbnormal: true },
-                        { label: 'LAN 本地网关时延/丢包', value: '86 ms / 3.8%', baseline: '< 10ms / 0%', isAbnormal: true }
-                      ],
-                      cause: '出差酒店无线 AP 信号衰减严重 (-78 dBm)，信道竞争引发 31% 高重传；本地第一跳网关即出现 86ms 时延与 3.8% 丢包。',
+                      summary: 'Underlay: RTT 188ms、丢包 4.2%、抖动 32ms；终端-LAN网关: RTT 86ms、丢包 3.8%、抖动 27ms；Wi-Fi: 信号强度 -78 dBm、重传率 31%。',
+                      cause: '办公室无线 AP 信号衰减严重 (-78 dBm)，信道同频竞争引发 31% 高重传；本地第一跳网关即出现 86ms 时延与 3.8% 丢包。',
                       hopTraces: [
-                        { hop: 1, ip: '192.168.1.1', asn: '酒店局域网网关', loc: '北京·酒店客房', rtt: '86ms', diffRtt: '+80ms', loss: '3.8%', diffLoss: '+3.8%', jitter: '27ms', diffJitter: '+25ms', status: '异常' },
+                        { hop: 1, ip: '192.168.1.1', asn: '局域网网关', loc: '本地局域网 / 办公室', rtt: '86ms', diffRtt: '+80ms', loss: '3.8%', diffLoss: '+3.8%', jitter: '27ms', diffJitter: '+25ms', status: '异常' },
                         { hop: 2, ip: '114.242.25.1', asn: '北京电信出口', loc: '北京·朝阳区', rtt: '142ms', diffRtt: '+56ms', loss: '4.0%', diffLoss: '+0.2%', jitter: '30ms', diffJitter: '+3ms', status: '正常' },
                         { hop: 3, ip: '10.240.0.1', asn: '北京POP', loc: '北京·SASE节点', rtt: '188ms', diffRtt: '+46ms', loss: '4.2%', diffLoss: '+0.2%', jitter: '32ms', diffJitter: '+2ms', status: '正常' }
                       ],
-                      hopConclusion: '从第 1 个 Hop（酒店无线网关 192.168.1.1）开始即出现 86ms 高时延与 3.8% 丢包，后续进入电信公网与北京 POP 未产生新增异常增量，责任明确收敛于出差酒店局域网与 Wi-Fi。'
+                      hopConclusion: '从第 1 个 Hop（本地局域网网关 192.168.1.1）开始即出现 86ms 高时延与 3.8% 丢包，后续进入电信公网与北京 POP 未产生新增异常增量，责任明确收敛于办公室无线接入与本地局域网。'
                     },
                     {
                       id: 'seg_pop_gw',
                       name: 'pop-连接器段',
                       status: '正常',
-                      summary: 'POP 到连接器专线段质量良好，RTT 28ms，丢包率 0.1%，抖动 2ms。',
-                      metrics: [
-                        { label: '隧道 RTT 时延', value: '28 ms', baseline: '< 35 ms', isAbnormal: false },
-                        { label: '数据包丢包率', value: '0.1%', baseline: '< 0.5%', isAbnormal: false },
-                        { label: '隧道抖动 (Jitter)', value: '2 ms', baseline: '< 10 ms', isAbnormal: false }
-                      ]
+                      summary: 'POP 到连接器专线段质量良好，RTT 28ms，丢包率 0.1%，抖动 2ms。'
                     },
                     {
                       id: 'seg_gw_app',
                       name: '连接器-应用段',
                       status: '正常',
-                      summary: '连接器至 OA 系统服务器内网千兆互联，RTT 31ms，丢包率 0.2%，抖动 3ms。',
-                      metrics: [
-                        { label: '出网 RTT 时延', value: '31 ms', baseline: '< 35 ms', isAbnormal: false },
-                        { label: '数据包丢包率', value: '0.2%', baseline: '< 0.5%', isAbnormal: false },
-                        { label: '出网抖动', value: '3 ms', baseline: '< 10 ms', isAbnormal: false }
-                      ]
+                      summary: '连接器至 OA 系统服务器内网千兆互联，RTT 31ms，丢包率 0.2%，抖动 3ms。'
                     }
                   ],
                   nodeDetails: [
@@ -1477,51 +1656,110 @@ loadHeZongHotelWifiScriptData(userDisplayName, userDept) {
                       id: 'node_terminal',
                       name: '终端',
                       status: '正常',
-                      summary: 'MacBook Pro 客户端运行正常，CPU 18%、内存 36%，零信任 Agent 正常。',
-                      metrics: [
-                        { label: '终端名称', value: 'MacBook Pro' },
-                        { label: 'CPU 利用率', value: '18.0%' },
-                        { label: '内存占用率', value: '36.0%' },
-                        { label: 'Agent 连接状态', value: 'UP (在线)' }
-                      ]
+                      summary: 'MacBook Pro 客户端运行正常，CPU 30.0%、内存 45.0%，零信任 Agent 在线。'
                     },
                     {
                       id: 'node_pop',
                       name: 'pop',
                       status: '正常',
-                      summary: '北京 POP 节点运行健康，RTT 28ms，丢包 0.1%，抖动 2ms，吞吐 620 Mbps。',
-                      metrics: [
-                        { label: '接入 POP 名称', value: '北京POP-01' },
-                        { label: '处理时延 / 丢包', value: '28 ms / 0.1%', isAbnormal: false },
-                        { label: '节点抖动', value: '2 ms', isAbnormal: false },
-                        { label: '节点吞吐量', value: '620 Mbps', isAbnormal: false }
-                      ]
+                      summary: '北京 POP 节点运行健康，RTT 28ms，丢包 0.1%，抖动 2ms，吞吐 620 Mbps。'
                     },
                     {
                       id: 'node_connector',
                       name: '连接器',
                       status: '正常',
-                      summary: '总部连接器集群运行稳定，RTT 24ms，丢包 0.1%，CPU 42%，内存 51%，抖动 2ms，吞吐 480 Mbps。',
-                      metrics: [
-                        { label: '连接器名称', value: '总部连接器-01' },
-                        { label: '时延 / 丢包', value: '24 ms / 0.1%', isAbnormal: false },
-                        { label: 'CPU / 内存利用率', value: '42.0% / 51.0%', isAbnormal: false },
-                        { label: '节点吞吐量', value: '480 Mbps', isAbnormal: false }
-                      ]
+                      summary: '总部连接器集群运行稳定，RTT 24ms，丢包 0.1%，CPU 42%、内存 51%，抖动 2ms，吞吐 480 Mbps。'
                     },
                     {
                       id: 'node_app',
                       name: '应用',
                       status: '异常',
-                      summary: 'OA系统真实访问 TTFB 1,260ms (变慢)，HTTP 状态码 200，可用性 99.8%，错误率 0.2%，响应时间 1,310ms；DNS 18ms，TCP 42ms，TLS 76ms。',
-                      metrics: [
-                        { label: '真实访问 TTFB', value: '1,260 ms (基线 < 300ms)', isAbnormal: true },
-                        { label: 'HTTP 响应总耗时', value: '1,310 ms', isAbnormal: true },
-                        { label: 'HTTP 状态码 / 错误率', value: '200 OK / 0.2%', isAbnormal: false },
-                        { label: '服务可用性', value: '99.8%', isAbnormal: false },
-                        { label: 'DNS / TCP / TLS 建连耗时', value: '18ms / 42ms / 76ms', isAbnormal: false }
-                      ]
+                      summary: 'OA系统真实访问 TTFB 1,260ms (动态基线 300ms)，HTTP 响应时间 1,310ms (相差 50ms)；HTTP 状态码 200，错误率 0.2%，可用性 99.8%；DNS 18ms，TCP 42ms，TLS 76ms。'
                     }
+                  ]
+                },
+                {
+                  id: 'slice_2',
+                  name: '切片2 (16:20)',
+                  time: '16:20',
+                  minute: 500,
+                  range: '16:15~16:20',
+                  successRate: '99.8%',
+                  status: '异常',
+                  sampleIdx: 10,
+                  topology: {
+                    client: { name: '何总 MacBook Pro', sub: '终端 (正常)', status: '正常' },
+                    segment1: { name: 'WiFi', delay: '175ms', loss: '3.9%', jitter: '30ms', status: '异常', targetId: 'seg_client_pop' },
+                    pop: { name: '北京POP', sub: 'POP节点 (正常)', status: '正常', targetId: 'node_pop' },
+                    segment2: { name: '连接器', delay: '28ms', loss: '0.1%', jitter: '2ms', status: '正常', targetId: 'seg_pop_gw' },
+                    gw: { name: 'GW连接器', sub: '连接器 (正常)', status: '正常', targetId: 'node_connector' },
+                    segment3: { name: '应用', delay: '30ms', loss: '0.1%', jitter: '2ms', status: '正常', targetId: 'seg_gw_app' },
+                    app: { name: 'OA系统', sub: '应用 (TTFB变慢)', status: '异常', targetId: 'node_app' }
+                  },
+                  segmentDetails: [
+                    {
+                      id: 'seg_client_pop',
+                      name: '终端-pop段',
+                      status: '异常',
+                      summary: 'Underlay: RTT 175ms、丢包 3.9%、抖动 30ms；终端-LAN网关: RTT 82ms、丢包 3.5%、抖动 25ms；Wi-Fi: 信号强度 -77 dBm、重传率 29%。',
+                      cause: '办公室无线 AP 持续处于弱信号区 (-77 dBm)，网关丢包 3.5%。',
+                      hopTraces: [
+                        { hop: 1, ip: '192.168.1.1', asn: '局域网网关', loc: '本地局域网 / 办公室', rtt: '82ms', diffRtt: '+76ms', loss: '3.5%', diffLoss: '+3.5%', jitter: '25ms', diffJitter: '+23ms', status: '异常' },
+                        { hop: 2, ip: '114.242.25.1', asn: '北京电信出口', loc: '北京·朝阳区', rtt: '138ms', diffRtt: '+56ms', loss: '3.8%', diffLoss: '+0.3%', jitter: '28ms', diffJitter: '+3ms', status: '正常' },
+                        { hop: 3, ip: '10.240.0.1', asn: '北京POP', loc: '北京·SASE节点', rtt: '175ms', diffRtt: '+37ms', loss: '3.9%', diffLoss: '+0.1%', jitter: '30ms', diffJitter: '+2ms', status: '正常' }
+                      ],
+                      hopConclusion: '本地局域网网关时延 82ms、丢包 3.5%，证实 Wi-Fi 信号劣化持续存在。'
+                    },
+                    { id: 'seg_pop_gw', name: 'pop-连接器段', status: '正常', summary: '专线段传输通畅，RTT 28ms，丢包 0.1%。' },
+                    { id: 'seg_gw_app', name: '连接器-应用段', status: '正常', summary: '内网连接通畅，RTT 30ms，丢包 0.1%。' }
+                  ],
+                  nodeDetails: [
+                    { id: 'node_terminal', name: '终端', status: '正常', summary: '客户端 MacBook Pro 运行正常，CPU 28%、内存 44%。' },
+                    { id: 'node_pop', name: 'pop', status: '正常', summary: '北京 POP 节点正常，RTT 28ms，丢包 0.1%。' },
+                    { id: 'node_connector', name: '连接器', status: '正常', summary: '连接器负载正常，CPU 40%、内存 50%。' },
+                    { id: 'node_app', name: '应用', status: '异常', summary: 'OA系统真实访问 TTFB 1,180ms，HTTP 响应 1,230ms，状态码 200 OK。' }
+                  ]
+                },
+                {
+                  id: 'slice_3',
+                  name: '切片3 (16:40)',
+                  time: '16:40',
+                  minute: 520,
+                  range: '16:35~16:40',
+                  successRate: '99.7%',
+                  status: '异常',
+                  sampleIdx: 11,
+                  topology: {
+                    client: { name: '何总 MacBook Pro', sub: '终端 (正常)', status: '正常' },
+                    segment1: { name: 'WiFi', delay: '192ms', loss: '4.5%', jitter: '35ms', status: '异常', targetId: 'seg_client_pop' },
+                    pop: { name: '北京POP', sub: 'POP节点 (正常)', status: '正常', targetId: 'node_pop' },
+                    segment2: { name: '连接器', delay: '28ms', loss: '0.1%', jitter: '2ms', status: '正常', targetId: 'seg_pop_gw' },
+                    gw: { name: 'GW连接器', sub: '连接器 (正常)', status: '正常', targetId: 'node_connector' },
+                    segment3: { name: '应用', delay: '31ms', loss: '0.2%', jitter: '3ms', status: '正常', targetId: 'seg_gw_app' },
+                    app: { name: 'OA系统', sub: '应用 (TTFB变慢)', status: '异常', targetId: 'node_app' }
+                  },
+                  segmentDetails: [
+                    {
+                      id: 'seg_client_pop',
+                      name: '终端-pop段',
+                      status: '异常',
+                      summary: 'Underlay: RTT 192ms、丢包 4.5%、抖动 35ms；终端-LAN网关: RTT 89ms、丢包 4.1%、抖动 29ms；Wi-Fi: 信号强度 -80 dBm、重传率 34%。',
+                      cause: '办公室无线信号衰减至 -80 dBm，同频竞争达到峰值，重传率升至 34%。',
+                      hopTraces: [
+                        { hop: 1, ip: '192.168.1.1', asn: '局域网网关', loc: '本地局域网 / 办公室', rtt: '89ms', diffRtt: '+83ms', loss: '4.1%', diffLoss: '+4.1%', jitter: '29ms', diffJitter: '+27ms', status: '异常' },
+                        { hop: 2, ip: '114.242.25.1', asn: '北京电信出口', loc: '北京·朝阳区', rtt: '145ms', diffRtt: '+56ms', loss: '4.3%', diffLoss: '+0.2%', jitter: '32ms', diffJitter: '+3ms', status: '正常' },
+                        { hop: 3, ip: '10.240.0.1', asn: '北京POP', loc: '北京·SASE节点', rtt: '192ms', diffRtt: '+47ms', loss: '4.5%', diffLoss: '+0.2%', jitter: '35ms', diffJitter: '+3ms', status: '正常' }
+                      ],
+                      hopConclusion: 'Hop 1 局域网网关出现 89ms 时延与 4.1% 丢包，无线信号深度衰减。'
+                    },
+                    { id: 'seg_pop_gw', name: 'pop-连接器段', status: '正常', summary: '专线段传输通畅，RTT 28ms，丢包 0.1%。' },
+                    { id: 'seg_gw_app', name: '连接器-应用段', status: '正常', summary: '内网连接通畅，RTT 31ms，丢包 0.2%。' }
+                  ],
+                  nodeDetails: [
+                    { id: 'node_terminal', name: '终端', status: '正常', summary: '客户端 MacBook Pro 运行正常，CPU 31%、内存 46%。' },
+                    { id: 'node_pop', name: 'pop', status: '正常', summary: '北京 POP 节点正常，RTT 28ms，丢包 0.1%。' },
+                    { id: 'node_connector', name: '连接器', status: '正常', summary: '连接器负载平稳，CPU 43%、内存 52%。' },
+                    { id: 'node_app', name: '应用', status: '异常', summary: 'OA系统真实访问 TTFB 1,320ms，HTTP 响应 1,370ms，状态码 200 OK。' }
                   ]
                 }
               ]
@@ -1532,8 +1770,8 @@ loadHeZongHotelWifiScriptData(userDisplayName, userDept) {
               domain: 'https://erp.sangfor.corp',
               experience: '差',
               tag: '核心业务',
-              summary: '用户出差期间访问 ERP系统 同样缓慢，TTFB 达 1,180ms。同样由于酒店 Wi-Fi 信号弱及网关丢包，验证为整体网络接入环境问题而非单个应用异常。',
-              abnormalExplain: '酒店 Wi-Fi 信号弱引发多应用普遍慢，ERP系统 TTFB 升至 1,180ms。',
+              summary: '同期访问 ERP系统 同样缓慢，TTFB 达 1,180ms，丢包 3.8%。同样由于办公室 Wi-Fi 信号弱及网关丢包，验证为整体网络接入环境问题而非单个应用异常。',
+              abnormalExplain: '办公室 Wi-Fi 信号弱引发多应用普遍慢，ERP系统 TTFB 升至 1,180ms，丢包 3.8%。',
               slices: []
             },
             {
@@ -1571,6 +1809,12 @@ loadHeZongHotelWifiScriptData(userDisplayName, userDept) {
           ];
 
           this.activeAppId = 'app_oa';
+          this.initPinnedApps();
+        },
+
+        // 兼容旧方法调用的别名
+        loadHeZongHotelWifiScriptData(userDisplayName, userDept) {
+          this.loadHeZongScriptData(userDisplayName, userDept);
         },
 
         replaceUserMockData(nameOnly) {
@@ -1667,6 +1911,7 @@ loadHeZongHotelWifiScriptData(userDisplayName, userDept) {
             this.rawAppList.unshift(newApp);
             this.activeAppId = newAppId;
           }
+          this.initPinnedApps();
         },
 
         // 统一计算属性：合并链路段和节点，严格按物理链路从左到右 (点-段-点 Order 1..9) 顺序展示
@@ -1717,25 +1962,78 @@ loadHeZongHotelWifiScriptData(userDisplayName, userDept) {
           return this.openItemIds.includes(id);
         },
 
-        // 计算属性：按照 差 > 一般 > 正常 降序排列 App 列表 (支持模糊搜索筛选)
-        get filteredApps() {
+        // 排序后的全部应用 (差 > 一般 > 正常)
+        get sortedAppList() {
           const expOrder = { '差': 1, '一般': 2, '正常': 3 };
-          let list = [...this.rawAppList];
+          return [...this.rawAppList].sort((a, b) => (expOrder[a.experience] || 99) - (expOrder[b.experience] || 99));
+        },
+
+        // 统计体验数量 (差 / 一般 / 正常)
+        get appExpStats() {
+          const poor = this.rawAppList.filter(a => a.experience === '差').length;
+          const fair = this.rawAppList.filter(a => a.experience === '一般').length;
+          const normal = this.rawAppList.filter(a => a.experience === '正常').length;
+          return { total: this.rawAppList.length, poor, fair, normal };
+        },
+
+        // 默认前 7 个槽位对应的固定应用 ID 集合
+        get defaultPinnedAppIds() {
+          const sorted = this.sortedAppList;
+          const abnormal = sorted.filter(a => a.experience === '差' || a.experience === '一般');
+          const normal = sorted.filter(a => a.experience !== '差' && a.experience !== '一般');
+          return [...abnormal, ...normal].slice(0, 7).map(a => a.id);
+        },
+
+        // 前 7 个展示槽位对应的应用对象 (4列 x 2行 = 7 个展示槽位 + 1 个更多应用卡片)
+        get displaySlotApps() {
+          if (this.pinnedAppIds && this.pinnedAppIds.length > 0) {
+            const mapped = this.pinnedAppIds.map(id => this.rawAppList.find(a => a.id === id)).filter(Boolean);
+            if (mapped.length > 0) return mapped;
+          }
+          const sorted = this.sortedAppList;
+          const abnormal = sorted.filter(a => a.experience === '差' || a.experience === '一般');
+          const normal = sorted.filter(a => a.experience !== '差' && a.experience !== '一般');
+          return [...abnormal, ...normal].slice(0, 7);
+        },
+
+        // 收纳池中的应用列表 (支持搜索与状态筛选)
+        get moreAppsList() {
+          const displayedIds = this.displaySlotApps.map(a => a.id);
+          return this.sortedAppList.filter(a => {
+            const notInSlot = !displayedIds.includes(a.id);
+            const matchSearch = !this.moreSearchQuery || 
+              (a.name && a.name.toLowerCase().includes(this.moreSearchQuery.toLowerCase())) ||
+              (a.domain && a.domain.toLowerCase().includes(this.moreSearchQuery.toLowerCase())) ||
+              (a.tag && a.tag.toLowerCase().includes(this.moreSearchQuery.toLowerCase()));
+            const matchExp = !this.moreFilterExp || a.experience === this.moreFilterExp;
+            return notInSlot && matchSearch && matchExp;
+          });
+        },
+
+        get moreAppsTotalCount() {
+          const displayedIds = this.displaySlotApps.map(a => a.id);
+          return this.sortedAppList.filter(a => !displayedIds.includes(a.id)).length;
+        },
+
+        // 应用类型 Tag 规范映射（仅支持：内网应用、VIP 应用、SaaS 应用）
+        formatAppTypeTag(tag) {
+          if (!tag) return '内网应用';
+          if (tag.includes('VIP') || tag.includes('vip')) return 'VIP 应用';
+          if (tag.includes('SaaS') || tag.includes('saas') || tag.includes('协同') || tag.includes('办公') || tag.includes('会议') || tag.includes('邮箱') || tag.includes('业务')) return 'SaaS 应用';
+          return '内网应用';
+        },
+
+        // 初始化前置槽位 (优先保证所有差和一般应用置顶，剩余填满至最多 7 个)
+        initPinnedApps() {
+          const sorted = this.sortedAppList;
+          const abnormal = sorted.filter(a => a.experience === '差' || a.experience === '一般');
+          const normal = sorted.filter(a => a.experience !== '差' && a.experience !== '一般');
+          const initial = [...abnormal, ...normal].slice(0, 7);
+          this.pinnedAppIds = initial.map(a => a.id);
           
-          if (this.appFilter === 'degraded') {
-            list = list.filter(a => a.experience === '差' || a.experience === '一般');
+          if (!this.pinnedAppIds.includes(this.activeAppId)) {
+            this.activeAppId = this.pinnedAppIds[0] || (sorted[0] && sorted[0].id) || 'app_oa';
           }
-
-          if (this.appSearchQuery && this.appSearchQuery.trim() !== '') {
-            const q = this.appSearchQuery.trim().toLowerCase();
-            list = list.filter(a => 
-              (a.name && a.name.toLowerCase().includes(q)) || 
-              (a.domain && a.domain.toLowerCase().includes(q)) ||
-              (a.tag && a.tag.toLowerCase().includes(q))
-            );
-          }
-
-          return list.sort((a, b) => (expOrder[a.experience] || 99) - (expOrder[b.experience] || 99));
         },
 
         get currentApp() {
@@ -1787,9 +2085,29 @@ loadHeZongHotelWifiScriptData(userDisplayName, userDept) {
 
         // 切换选中的应用 (重新生成该应用对应的时间散点数据)
         selectApp(app) {
+          if (!app) return;
           this.activeAppId = app.id;
+          const displayedIds = this.displaySlotApps.map(a => a.id);
+          if (!displayedIds.includes(app.id)) {
+            if (this.pinnedAppIds.length >= 7) {
+              this.pinnedAppIds[6] = app.id;
+            } else {
+              this.pinnedAppIds.push(app.id);
+            }
+          }
           this.generateSamplePoints();
           this.autoExpandAbnormalItems();
+        },
+
+        // 从更多收纳下拉中选择应用，并替换至第 7 槽位
+        selectMoreAppAndSwap(appId) {
+          const app = this.rawAppList.find(a => a.id === appId);
+          if (!app) return;
+          if (this.pinnedAppIds.length < 7) {
+            this.pinnedAppIds = this.defaultPinnedAppIds;
+          }
+          this.pinnedAppIds[Math.min(6, this.pinnedAppIds.length - 1)] = appId;
+          this.selectApp(app);
         },
 
         // 当前高亮被点击的链路元素 ID
@@ -1943,8 +2261,8 @@ loadHeZongHotelWifiScriptData(userDisplayName, userDept) {
           </div>
         </div>
 
-        <!-- 主内容区域 -->
-        <main class="flex-1 bg-[#F5F7FA] p-3 flex flex-col space-y-2.5 overflow-y-auto custom-scrollbar relative">
+        <!-- 主内容区域 (统一单层滚动容器：除页头外，所有内容随滚动条整体平滑滚动) -->
+        <main id="detail-scroll-panel" x-ref="detailScrollPanel" class="flex-1 bg-[#F5F7FA] p-4 space-y-3 overflow-y-auto custom-scrollbar relative min-h-0">
 
           <!-- 4.1 顶部用户/分支基本信息卡片 (完全对齐应用详情卡片规范与视觉 - 支持一键收起/展开) -->
           <div x-show="showUserOverview" x-collapse class="bg-white border border-[#E1E5EB] rounded-[2px] p-4 shadow-xs flex-shrink-0">
@@ -2020,162 +2338,195 @@ loadHeZongHotelWifiScriptData(userDisplayName, userDept) {
             </div>
           </div>
 
-          <!-- 4.2 核心下钻两栏布局 -->
-          <div class="flex-1 flex gap-2.5 min-h-0 overflow-hidden relative">
-
-            <!-- 左侧收起状态下的固定占位小竖条 -->
-            <div x-show="isLeftPanelCollapsed" 
-                 x-cloak
-                 class="w-8 min-w-[32px] bg-white border border-[#E1E5EB] flex flex-col items-center py-2 flex-shrink-0 shadow-xs select-none transition-all duration-300">
-              <button @click="isLeftPanelCollapsed = false"
-                      title="展开应用列表"
-                      class="w-6 h-7 rounded flex items-center justify-center text-[#5C6270] hover:text-[#1C6EFF] hover:bg-[#F0F6FF] transition-colors cursor-pointer">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"></path>
-                </svg>
-              </button>
+          <!-- 4.2 横向访问应用选择控制面板 (置于顶部基本信息下方，默认2行展示异常/焦点应用，正常应用收纳进更多下拉卡片) -->
+          <div class="bg-white border border-[#E1E5EB] rounded-[2px] p-3 space-y-2.5 shadow-xs select-none">
+            <!-- 标题栏与统计提示 -->
+            <div class="flex items-center justify-between">
+              <div class="text-xs font-bold text-[#2F3540] flex items-center gap-2">
+                <span class="w-1 h-3.5 bg-[#1C6EFF] rounded-full"></span>
+                <span x-text="queryType === '分支' ? '分支访问应用列表' : '用户访问应用列表'"></span>
+                <span class="px-2 py-0.5 rounded-[2px] bg-white border border-[#D3D7DE] text-[#5C6270] text-[11px] font-normal"
+                      x-text="'共 ' + rawAppList.length + ' 个应用'"></span>
+              </div>
+              <div class="text-[12px] text-[#8A92A1] hidden sm:block">
+                <span>默认优先展示体验受损应用，全部应用访问详情可在更多应用中查看</span>
+              </div>
             </div>
-            
-            <!-- 左侧: 访问应用体验情况分布列表 -->
-            <div x-show="!isLeftPanelCollapsed"
-                 class="w-[310px] min-w-[310px] bg-white border border-[#E1E5EB] flex flex-col flex-shrink-0 overflow-hidden transition-all duration-300">
+
+            <!-- 2行横向卡片网格 (4列 x 2行 = 7个应用槽位 + 1个“更多应用”收纳卡片，每个卡片高度不超过64px) -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
               
-              <!-- 表头与筛选下拉框 + 向左收起图标按钮 -->
-              <div class="p-3 border-b border-[#E1E5EB] flex flex-col gap-2.5 bg-[#F8FAFC]">
-                <div class="flex items-center justify-between">
-                  <span class="text-xs font-semibold text-[#2F3540]">访问应用列表</span>
+              <!-- 卡片 1 ~ 7: 优先展示槽位 (高度严格控制在 58px <= 64px) -->
+              <template x-for="(app, idx) in displaySlotApps" :key="app.id">
+                <div class="h-[58px] p-2 rounded-[2px] border cursor-pointer select-none transition-all duration-150 relative flex flex-col justify-between group"
+                     :class="activeAppId === app.id 
+                       ? 'bg-white border-[#1C6EFF] shadow-xs ring-2 ring-[#1C6EFF]/20' 
+                       : 'bg-white border-[#D8DDE6] hover:border-[#1C6EFF] hover:shadow-2xs'"
+                     @click="selectApp(app)">
                   
-                  <div class="flex items-center gap-1.5">
-                    <select x-model="appFilter" class="dem-select text-xs w-[120px] bg-white">
-                      <option value="degraded">仅展示体验受损</option>
-                      <option value="all">展示全部应用</option>
-                    </select>
-
-                    <button @click="isLeftPanelCollapsed = true"
-                            title="向左收起应用列表"
-                            class="w-6 h-6 rounded flex items-center justify-center text-[#5C6270] hover:text-[#1C6EFF] hover:bg-[#EFF6FF] transition-colors cursor-pointer flex-shrink-0">
-                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7"></path>
-                      </svg>
-                    </button>
+                  <!-- 替换调取角标指示 (如果是从更多列表中调取到槽位的应用) -->
+                  <div x-show="idx === (displaySlotApps.length - 1) && !defaultPinnedAppIds.includes(app.id)" 
+                       class="absolute -top-2 left-2 px-1.5 py-0.2 bg-[#1C6EFF] text-white text-[9px] rounded font-medium shadow-xs">
+                    已调取
                   </div>
-                </div>
 
-                <!-- 访问应用搜索框 (支持搜索应用名称、域名) -->
-                <div class="relative flex items-center">
-                  <input type="text" 
-                         x-model="appSearchQuery" 
-                         placeholder="搜索应用名称/域名..." 
-                         class="w-full h-7 pl-7 pr-7 text-xs bg-white border border-[#D3D7DE] rounded-[2px] focus:outline-none focus:border-[#1C6EFF] text-[#2F3540] placeholder-[#A1A7B3] transition-colors" />
-                  <svg class="w-3.5 h-3.5 text-[#A1A7B3] absolute left-2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                  </svg>
-                  <button x-show="appSearchQuery" 
-                          @click="appSearchQuery = ''" 
-                          class="absolute right-2 text-[#A1A7B3] hover:text-[#5C6270] transition-colors cursor-pointer"
-                          title="清空搜索">
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                  <!-- 选中右上角角标指示 -->
+                  <div x-show="activeAppId === app.id" class="absolute top-0 right-0 w-3 h-3 bg-[#1C6EFF] rounded-bl flex items-center justify-center">
+                    <svg class="w-2 h-2 text-white" fill="currentColor" viewBox="0 0 20 20">
+                      <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
                     </svg>
-                  </button>
-                </div>
-              </div>
-
-              <!-- 应用卡片列表 -->
-              <div class="flex-1 overflow-y-auto custom-scrollbar divide-y divide-[#F0F2F5]">
-                <template x-for="app in filteredApps" :key="app.id">
-                  <div class="p-3 cursor-pointer app-card-item relative"
-                       :class="activeAppId === app.id ? 'active' : ''"
-                       @click="selectApp(app)">
-                    
-                    <div class="flex items-center justify-between">
-                      <span class="text-xs font-semibold text-[#2F3540]" x-text="app.name"></span>
-                      
-                      <!-- 体验状态 Badge -->
-                      <span class="inline-flex items-center justify-center px-2 py-0.5 rounded-[2px] text-[11px] font-normal"
-                            :class="app.experience === '差' ? 'bg-[#D9363E]/10 text-[#D9363E]' : (app.experience === '一般' ? 'bg-[#FA721B]/10 text-[#FA721B]' : 'bg-[#12A679]/10 text-[#12A679]')">
-                        <span class="w-1.5 h-1.5 rounded-full mr-1"
-                              :class="app.experience === '差' ? 'bg-[#D9363E]' : (app.experience === '一般' ? 'bg-[#FA721B]' : 'bg-[#12A679]')"></span>
-                        <span x-text="app.experience"></span>
-                      </span>
-                    </div>
-
-                    <!-- 域名 -->
-                    <div class="mt-2 text-[11px] text-[#6F7785] truncate font-mono" x-text="app.domain"></div>
-
-                    <!-- 标签 -->
-                    <div class="mt-2 flex items-center justify-between">
-                      <span class="text-[10px] text-[#5C6270] bg-[#6F7785]/10 px-1.5 py-0.5 rounded-[2px]" x-text="app.tag"></span>
-                    </div>
-
                   </div>
-                </template>
 
-                <!-- 搜索空状态 -->
-                <template x-if="filteredApps.length === 0">
-                  <div class="p-6 text-center text-xs text-[#A1A7B3] flex flex-col items-center justify-center space-y-1.5 select-none">
-                    <svg class="w-8 h-8 text-[#D3D7DE]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                    </svg>
-                    <span>未搜索到匹配的应用</span>
+                  <!-- 第一行: 应用名称 (不加粗) + 类型 Tag (在名称后 16px，仅内网应用/VIP 应用/SaaS 应用) -->
+                  <div class="flex items-center pr-2 overflow-hidden">
+                    <span class="text-xs truncate font-normal" :class="activeAppId === app.id ? 'text-[#1C6EFF]' : 'text-[#2F3540]'" x-text="app.name"></span>
+                    <span class="ml-4 px-1.5 py-0.2 bg-[#F1F5F9] text-[#5C6270] rounded-[2px] text-[10px] font-normal shrink-0" x-text="formatAppTypeTag(app.tag)"></span>
                   </div>
-                </template>
-              </div>
-            </div>
 
-            <!-- 右侧: 当前选中应用的体验差详情展示面板 -->
-            <div id="detail-scroll-panel" x-ref="detailScrollPanel" class="flex-1 flex flex-col space-y-2.5 min-w-0 overflow-y-auto custom-scrollbar">
-              
-              <!-- 模块 1: 访问体验分析总结 (根据截图范式，整体可收起展开) -->
-              <div class="bg-white border border-[#E1E5EB] p-4 rounded-none shadow-xs flex-shrink-0 flex flex-col transition-all select-none">
-                
-                <!-- 卡片 Header 头部 (包含工程化图表图标、标题与展开/收起按钮) -->
-                <div class="flex items-center justify-between cursor-pointer"
-                     @click="isAiSummaryCollapsed = !isAiSummaryCollapsed">
-                  <div class="flex items-center gap-2">
-                    <!-- 工程化输出图标 Badge: 蓝底白字 -->
-                    <span class="inline-flex items-center justify-center w-5 h-5 rounded-[3px] bg-[#1C6EFF] text-white shadow-xs">
-                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 01-2-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                      </svg>
+                  <!-- 第二行: 地址 (左) + 状态 Tag (右下角) -->
+                  <div class="flex items-center justify-between text-[11px]">
+                    <span class="font-mono text-[10px] text-[#8A92A1] truncate max-w-[170px]" :title="app.domain" x-text="app.domain || 'https://corp.internal'"></span>
+                    <span :class="app.experience === '差' ? 'bg-[#D9363E]/10 text-[#D9363E]' : (app.experience === '一般' ? 'bg-[#FA721B]/10 text-[#FA721B]' : 'bg-[#12A679]/10 text-[#12A679]')"
+                          class="px-1.5 py-0.2 text-[10px] rounded-[2px] font-normal shrink-0 flex items-center gap-1">
+                      <span class="w-1.5 h-1.5 rounded-full" :class="app.experience === '差' ? 'bg-[#D9363E]' : (app.experience === '一般' ? 'bg-[#FA721B]' : 'bg-[#12A679]')"></span>
+                      <span x-text="app.experience"></span>
                     </span>
-                    <span class="text-[14px] font-bold text-[#1F2937] tracking-tight">访问体验分析总结</span>
                   </div>
+                </div>
+              </template>
 
-                  <!-- 展开 / 收起 切换按钮 -->
-                  <div class="flex items-center gap-1 text-xs text-[#6F7785] hover:text-[#1C6EFF] transition-colors">
-                    <span x-text="isAiSummaryCollapsed ? '展开总结' : '收起总结'"></span>
-                    <svg class="w-4 h-4 transform transition-transform duration-200"
-                         :class="isAiSummaryCollapsed ? '-rotate-90' : 'rotate-0'"
-                         fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <!-- 卡片 8: 更多应用下拉收纳卡片 (带搜索、状态过滤与快速调取槽位，支持鼠标悬浮展开，高度 58px <= 64px) -->
+              <div class="relative" 
+                   x-data="{ open: false, timer: null }" 
+                   @mouseenter="clearTimeout(timer); open = true" 
+                   @mouseleave="timer = setTimeout(() => open = false, 200)"
+                   @click.outside="open = false" 
+                   x-show="moreAppsTotalCount > 0">
+                <div class="h-[58px] p-2 rounded-[2px] border border-dashed cursor-pointer select-none transition-all duration-150 flex flex-col justify-between"
+                     :class="open ? 'bg-white border-[#1C6EFF] shadow-xs ring-2 ring-[#1C6EFF]/20' : 'bg-white border-[#B8C2CC] hover:border-[#1C6EFF] hover:shadow-2xs'"
+                     @click="open = !open">
+                  <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-1.5 text-xs font-normal" :class="open ? 'text-[#1C6EFF]' : 'text-[#2F3540]'">
+                      <svg class="w-3.5 h-3.5 text-[#1C6EFF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+                      </svg>
+                      <span>更多应用</span>
+                      <span class="text-[#8A92A1] font-normal" x-text="'(+' + moreAppsTotalCount + ')'"></span>
+                    </div>
+                    <svg class="w-3.5 h-3.5 text-[#8A92A1] transition-transform duration-200" :class="open ? 'rotate-180 text-[#1C6EFF]' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                     </svg>
                   </div>
+                  <div class="text-[11px] text-[#8A92A1]">
+                    <span>悬浮查看更多 <span x-text="moreAppsTotalCount"></span> 个应用</span>
+                  </div>
                 </div>
 
-                <!-- 总结内容主体 (仅保留叙述摘要段落，去除下方细节内容) -->
-                <div x-show="!isAiSummaryCollapsed" x-collapse class="mt-3 pt-3 border-t border-[#F0F2F5]">
+                <!-- 悬浮下拉菜单 (带搜索与列表) -->
+                <div x-show="open" 
+                     x-transition:enter="transition ease-out duration-150"
+                     x-transition:enter-start="opacity-0 translate-y-1 scale-98"
+                     x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+                     class="absolute right-0 top-full mt-1.5 z-50 w-84 bg-white rounded-[2px] shadow-xl border border-[#D3D7DE] p-3 space-y-2.5">
                   
-                  <!-- 叙述摘要段落 -->
-                  <div class="text-[13px] leading-relaxed text-[#374151] bg-[#F8FAFC] p-3.5 rounded-[2px] border border-[#EAEFF5] font-normal"
-                       x-html="currentApp.aiSummary?.summaryHtml || currentApp.summary">
+                  <div class="flex items-center justify-between border-b border-[#F0F2F5] pb-2">
+                    <span class="font-bold text-xs text-[#2F3540]">选择应用 (调取至展示槽位并查看)</span>
+                    <span class="text-[11px] text-[#8A92A1]" x-text="'收纳池共 ' + moreAppsTotalCount + ' 个'"></span>
+                  </div>
+
+                  <!-- 搜索与状态筛选 -->
+                  <div class="space-y-1.5">
+                    <input type="text" 
+                           x-model="moreSearchQuery" 
+                           placeholder="快速搜索应用名称、域名、类型..." 
+                           class="w-full h-7 px-2 text-xs border border-[#D3D7DE] rounded-[2px] focus:outline-none focus:border-[#1C6EFF]">
+                    <div class="flex items-center gap-1 text-[11px]">
+                      <button class="px-2 py-0.5 rounded-[2px]" :class="!moreFilterExp ? 'bg-[#1C6EFF] text-white font-medium' : 'bg-gray-100 text-[#5C6270] hover:bg-gray-200'" @click="moreFilterExp = ''">全部</button>
+                      <button class="px-2 py-0.5 rounded-[2px]" :class="moreFilterExp === '差' ? 'bg-[#D9363E] text-white font-medium' : 'bg-[#FFF1F0] text-[#D9363E] hover:bg-[#FFE8E6]'" @click="moreFilterExp = '差'">差</button>
+                      <button class="px-2 py-0.5 rounded-[2px]" :class="moreFilterExp === '一般' ? 'bg-[#FA721B] text-white font-medium' : 'bg-[#FFF7E6] text-[#FA721B] hover:bg-[#FFEED4]'" @click="moreFilterExp = '一般'">一般</button>
+                      <button class="px-2 py-0.5 rounded-[2px]" :class="moreFilterExp === '正常' ? 'bg-[#12A679] text-white font-medium' : 'bg-[#E6F8F2] text-[#12A679] hover:bg-[#D1F2E7]'" @click="moreFilterExp = '正常'">正常</button>
+                    </div>
+                  </div>
+
+                  <!-- 应用列表 (滚动容器) -->
+                  <div class="max-h-60 overflow-y-auto divide-y divide-[#F5F7FA] custom-scrollbar pr-0.5">
+                    <template x-for="app in moreAppsList" :key="app.id">
+                      <div class="p-2 hover:bg-[#F0F5FF] rounded cursor-pointer transition-colors flex items-center justify-between group"
+                           @click="selectMoreAppAndSwap(app.id); open = false">
+                        <div class="min-w-0 pr-2">
+                          <div class="text-xs text-[#2F3540] truncate font-normal group-hover:text-[#1C6EFF]">
+                            <span x-text="app.name"></span>
+                            <span class="ml-2 px-1 py-0.1 bg-[#F1F5F9] text-[#5C6270] rounded-[2px] text-[10px] font-normal" x-text="formatAppTypeTag(app.tag)"></span>
+                          </div>
+                          <div class="text-[11px] text-[#8A92A1] truncate font-mono mt-0.5" x-text="app.domain || ''"></div>
+                        </div>
+                        <span :class="app.experience === '差' ? 'bg-[#D9363E]/10 text-[#D9363E]' : (app.experience === '一般' ? 'bg-[#FA721B]/10 text-[#FA721B]' : 'bg-[#12A679]/10 text-[#12A679]')"
+                              class="px-1.5 py-0.5 text-[10px] rounded-[2px] font-normal shrink-0" x-text="app.experience"></span>
+                      </div>
+                    </template>
+                    <div x-show="moreAppsList.length === 0" class="py-6 text-center text-xs text-[#8A92A1]">
+                      未找到匹配的收纳应用
+                    </div>
                   </div>
 
                 </div>
 
               </div>
 
-              <!-- 模块 2 & 3 统一合并容器: 访问体验时间线 + 访问链路 -->
-              <div class="bg-white border border-[#E1E5EB] p-4 rounded-none shadow-xs flex-shrink-0 flex flex-col space-y-4">
-                
-                <!-- 上半部: 访问体验时间线 (散点折线趋势图) -->
-                <div class="flex flex-col">
-                  <!-- 趋势图 Header: 标题与图例 (去切片化) -->
-                  <div class="flex items-center justify-between mb-3 border-b border-[#E1E5EB] pb-2.5">
-                    <div class="flex items-center gap-2">
-                      <span class="text-xs font-semibold text-[#2F3540]">访问体验时间线</span>
-                      <span class="text-[11px] text-[#6F7785]">（点击图中采样点可联动查看对应时刻的访问链路与拓扑）</span>
-                    </div>
+            </div>
+          </div>
+
+          <!-- 4.3 下方全宽应用排障与下钻看板 (满宽展示AI总结、时间线趋势图、多段拓扑与指标明细) -->
+          <!-- 模块 1: 应用访问体验总结 (整体可收起展开) -->
+          <div class="bg-white border border-[#E1E5EB] p-4 rounded-none shadow-xs flex-shrink-0 flex flex-col transition-all select-none">
+            
+            <!-- 卡片 Header 头部 (包含工程化图表图标、标题与展开/收起按钮) -->
+            <div class="flex items-center justify-between cursor-pointer"
+                 @click="isAiSummaryCollapsed = !isAiSummaryCollapsed">
+              <div class="flex items-center gap-2">
+                <!-- 工程化输出图标 Badge: 蓝底白字 -->
+                <span class="inline-flex items-center justify-center w-5 h-5 rounded-[3px] bg-[#1C6EFF] text-white shadow-xs">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 01-2-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                  </svg>
+                </span>
+                <span class="text-xs font-bold text-[#1F2937] tracking-tight">应用访问体验总结</span>
+              </div>
+
+              <!-- 展开 / 收起 切换按钮 -->
+              <div class="flex items-center gap-1 text-xs text-[#6F7785] hover:text-[#1C6EFF] transition-colors">
+                <span x-text="isAiSummaryCollapsed ? '展开总结' : '收起总结'"></span>
+                <svg class="w-4 h-4 transform transition-transform duration-200"
+                     :class="isAiSummaryCollapsed ? '-rotate-90' : 'rotate-0'"
+                     fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                </svg>
+              </div>
+            </div>
+
+            <!-- 总结内容主体 (12px, 去除底色、边框与上部分割线) -->
+            <div x-show="!isAiSummaryCollapsed" x-collapse class="mt-2.5">
+              
+              <!-- 叙述摘要段落 -->
+              <div class="text-xs leading-relaxed text-[#374151] font-normal"
+                   x-html="currentApp.aiSummary?.summaryHtml || currentApp.summary">
+              </div>
+
+            </div>
+
+          </div>
+
+          <!-- 模块 2 & 3 统一合并容器: 访问体验时间线 + 访问链路 -->
+          <div class="bg-white border border-[#E1E5EB] p-4 rounded-none shadow-xs flex-shrink-0 flex flex-col space-y-4">
+            
+            <!-- 上半部: 访问体验时间线 (散点折线趋势图) -->
+            <div class="flex flex-col">
+              <!-- 趋势图 Header: 标题与图例 (去切片化，去除底部分割线) -->
+              <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center gap-2">
+                  <span class="text-xs font-semibold text-[#2F3540]">访问体验时间线</span>
+                  <span class="text-[11px] text-[#6F7785]">（点击图中采样点可联动查看对应时刻的访问链路与拓扑）</span>
+                </div>
                     <!-- 体验状态图例 (5px圆点) -->
                     <div class="flex items-center gap-4 text-[11px] text-[#5C6270]">
                       <span class="flex items-center gap-1.5">
@@ -2319,7 +2670,7 @@ loadHeZongHotelWifiScriptData(userDisplayName, userDept) {
                   </div>
 
                   <!-- 拓扑图表 (含顶部直连探测旁路虚线弧线) -->
-                  <div class="bg-[#F8FAFC] p-5 pt-8 rounded-[2px] flex items-center justify-around relative overflow-visible">
+                  <div class="bg-[#F8FAFC] p-5 pt-8 rounded-[2px] border border-[#EAEEF4] flex items-center justify-around relative overflow-visible">
                     
                     <!-- 顶部直连探测 (Direct Probe) 旁路弧线 SVG & Pill Tag -->
                     <template x-if="currentSlice.topology?.directProbe">
@@ -2348,62 +2699,67 @@ loadHeZongHotelWifiScriptData(userDisplayName, userDept) {
                     <!-- 节点 1: 终端 -->
                     <div class="flex flex-col items-center text-center topo-clickable z-10 group"
                          @click="clickTopologyItem('node', 'node_terminal')">
-                      <div class="w-11 h-11 rounded-full bg-white border-2 border-[#12A679] flex items-center justify-center shadow-xs group-hover:border-[#1C6EFF]">
-                        <svg class="w-5 h-5 text-[#12A679]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                      <div class="w-11 h-11 rounded-full bg-white border-2 flex items-center justify-center shadow-xs group-hover:border-[#1C6EFF] transition-colors"
+                           :class="(currentSlice.topology?.client?.status === '异常' || currentSlice.topology?.client?.status === '差') ? 'border-[#D9363E]' : 'border-[#12A679]'">
+                        <svg class="w-5 h-5" :class="(currentSlice.topology?.client?.status === '异常' || currentSlice.topology?.client?.status === '差') ? 'text-[#D9363E]' : 'text-[#12A679]'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2-2v10a2 2 0 002 2z"></path>
                         </svg>
                       </div>
                       <span class="text-xs font-medium text-[#2F3540] mt-1.5" x-text="currentSlice.topology?.client?.name || 'ThinkPad X1'"></span>
-                      <span class="inline-flex items-center gap-1 text-[10px] text-[#12A679] mt-0.5">
-                        <span class="w-1.5 h-1.5 rounded-full bg-[#12A679]"></span> 正常
-                      </span>
                     </div>
 
                     <!-- 链路段 1: 终端 ➔ POP -->
-                    <div class="flex-1 mx-2 flex flex-col items-center topo-clickable group"
+                    <div class="flex-1 mx-3 flex flex-col items-center justify-center topo-clickable group relative"
                          @click="clickTopologyItem('segment', currentSlice.topology?.segment1?.targetId || 'seg_client_pop')">
-                      <div class="w-6 h-6 rounded-full flex items-center justify-center mb-1 text-xs"
-                           :class="currentSlice.topology?.segment1?.status === '异常' ? 'bg-[#D9363E]/10 text-[#D9363E] border border-[#D9363E]' : 'bg-[#12A679]/10 text-[#12A679] border border-[#12A679]'">
+                      <!-- 状态图标 (打钩 / 打叉) + 右侧指标信息 -->
+                      <div class="flex items-center gap-1.5 mb-1.5">
+                        <div class="w-5 h-5 rounded-full flex items-center justify-center text-xs shadow-2xs transition-transform group-hover:scale-110 shrink-0"
+                             :class="currentSlice.topology?.segment1?.status === '异常' ? 'bg-[#FFF1F0] text-[#D9363E] border border-[#FFA39E]' : 'bg-[#E6F8F2] text-[#12A679] border border-[#B7EB8F]'">
+                          <template x-if="currentSlice.topology?.segment1?.status === '异常'">
+                            <svg class="w-2.5 h-2.5 text-[#D9363E]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg>
+                          </template>
+                          <template x-if="currentSlice.topology?.segment1?.status !== '异常'">
+                            <svg class="w-3 h-3 text-[#12A679]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M5 13l4 4L19 7"></path></svg>
+                          </template>
+                        </div>
+                        <!-- 异常时在打叉图标右侧展示 RTT、丢包指标信息 -->
                         <template x-if="currentSlice.topology?.segment1?.status === '异常'">
-                          <svg class="w-3 h-3 text-[#D9363E]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                        </template>
-                        <template x-if="currentSlice.topology?.segment1?.status !== '异常'">
-                          <svg class="w-3 h-3 text-[#12A679]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M5 13l4 4L19 7"></path></svg>
+                          <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-[#FFF1F0] border border-[#FFA39E]/60 text-[10px] font-mono text-[#D9363E] whitespace-nowrap shadow-2xs">
+                            <span>RTT <b x-text="currentSlice.topology?.segment1?.delay || '188ms'"></b></span>
+                            <span class="text-[#FFA39E]">|</span>
+                            <span>丢包 <b x-text="currentSlice.topology?.segment1?.loss || '4.2%'"></b></span>
+                          </span>
                         </template>
                       </div>
-                      <div class="w-full flex flex-col items-center">
-                        <span class="text-[11px] font-mono"
-                              :class="currentSlice.topology?.segment1?.status === '异常' ? 'text-[#D9363E] font-medium' : 'text-[#5C6270]'"
-                              x-text="'时延 ' + (currentSlice.topology?.segment1?.delay || '20ms') + '  丢包 ' + (currentSlice.topology?.segment1?.loss || '0.1%')"></span>
-                        <div class="w-full h-[2px] relative my-1" :class="currentSlice.topology?.segment1?.status === '异常' ? 'bg-[#D9363E]' : 'bg-[#12A679]'">
-                          <div class="absolute right-0 -top-1 border-y-4 border-y-transparent border-l-6"
-                               :class="currentSlice.topology?.segment1?.status === '异常' ? 'border-l-[#D9363E]' : 'border-l-[#12A679]'"></div>
-                        </div>
+                      <!-- 连线 + 箭头 -->
+                      <div class="w-full flex items-center relative">
+                        <div class="w-full h-[2px] rounded-full"
+                             :class="currentSlice.topology?.segment1?.status === '异常' ? 'bg-[#D9363E]' : 'bg-[#12A679]'"></div>
+                        <svg class="w-2.5 h-2.5 absolute right-0 -mr-0.5 shrink-0"
+                             :class="currentSlice.topology?.segment1?.status === '异常' ? 'text-[#D9363E]' : 'text-[#12A679]'"
+                             viewBox="0 0 6 8" fill="currentColor">
+                          <polygon points="0,0 6,4 0,8" />
+                        </svg>
                       </div>
                     </div>
 
                     <!-- 节点 2: POP -->
                     <div class="flex flex-col items-center text-center topo-clickable z-10 group"
                          @click="clickTopologyItem('node', 'node_pop')">
-                      <div class="w-11 h-11 rounded-full bg-white flex items-center justify-center shadow-xs group-hover:border-[#1C6EFF] border-2"
+                      <div class="w-11 h-11 rounded-full bg-white flex items-center justify-center shadow-xs group-hover:border-[#1C6EFF] border-2 transition-colors"
                            :class="currentSlice.topology?.pop?.status === '异常' ? 'border-[#D9363E]' : 'border-[#12A679]'">
                         <span class="text-xs font-bold font-outfit"
                               :class="currentSlice.topology?.pop?.status === '异常' ? 'text-[#D9363E]' : 'text-[#12A679]'">POP</span>
                       </div>
                       <span class="text-xs font-medium text-[#2F3540] mt-1.5" x-text="currentSlice.topology?.pop?.name || '马尼拉POP'"></span>
-                      <span class="inline-flex items-center gap-1 text-[10px] mt-0.5"
-                            :class="currentSlice.topology?.pop?.status === '异常' ? 'text-[#D9363E]' : 'text-[#12A679]'">
-                        <span class="w-1.5 h-1.5 rounded-full"
-                              :class="currentSlice.topology?.pop?.status === '异常' ? 'bg-[#D9363E]' : 'bg-[#12A679]'"></span>
-                        <span x-text="currentSlice.topology?.pop?.status || '正常'"></span>
-                      </span>
                     </div>
 
                     <!-- 链路段 2: POP ➔ 连接器 -->
-                    <div class="flex-1 mx-2 flex flex-col items-center topo-clickable group"
+                    <div class="flex-1 mx-3 flex flex-col items-center justify-center topo-clickable group relative"
                          @click="clickTopologyItem('segment', currentSlice.topology?.segment2?.targetId || 'seg_pop_gw')">
-                      <div class="w-6 h-6 rounded-full flex items-center justify-center mb-1 text-xs"
-                           :class="currentSlice.topology?.segment2?.status === '异常' ? 'bg-[#D9363E]/10 text-[#D9363E] border border-[#D9363E]' : 'bg-[#12A679]/10 text-[#12A679] border border-[#12A679]'">
+                      <!-- 状态图标 (打钩 / 异常) -->
+                      <div class="w-5 h-5 rounded-full flex items-center justify-center mb-1.5 text-xs shadow-2xs transition-transform group-hover:scale-110"
+                           :class="currentSlice.topology?.segment2?.status === '异常' ? 'bg-[#FFF1F0] text-[#D9363E] border border-[#FFA39E]' : 'bg-[#E6F8F2] text-[#12A679] border border-[#B7EB8F]'">
                         <template x-if="currentSlice.topology?.segment2?.status === '异常'">
                           <svg class="w-3 h-3 text-[#D9363E]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                         </template>
@@ -2411,34 +2767,35 @@ loadHeZongHotelWifiScriptData(userDisplayName, userDept) {
                           <svg class="w-3 h-3 text-[#12A679]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M5 13l4 4L19 7"></path></svg>
                         </template>
                       </div>
-                      <div class="w-full flex flex-col items-center">
-                        <span class="text-[11px] font-mono"
-                              :class="currentSlice.topology?.segment2?.status === '异常' ? 'text-[#D9363E] font-medium' : 'text-[#5C6270]'"
-                              x-text="'时延 ' + (currentSlice.topology?.segment2?.delay || '120ms') + '  丢包 ' + (currentSlice.topology?.segment2?.loss || '5.0%')"></span>
-                        <div class="w-full h-[2px] relative my-1" :class="currentSlice.topology?.segment2?.status === '异常' ? 'bg-[#D9363E]' : 'bg-[#12A679]'">
-                          <div class="absolute right-0 -top-1 border-y-4 border-y-transparent border-l-6"
-                               :class="currentSlice.topology?.segment2?.status === '异常' ? 'border-l-[#D9363E]' : 'border-l-[#12A679]'"></div>
-                        </div>
+                      <!-- 连线 + 箭头 -->
+                      <div class="w-full flex items-center relative">
+                        <div class="w-full h-[2px] rounded-full"
+                             :class="currentSlice.topology?.segment2?.status === '异常' ? 'bg-[#D9363E]' : 'bg-[#12A679]'"></div>
+                        <svg class="w-2.5 h-2.5 absolute right-0 -mr-0.5 shrink-0"
+                             :class="currentSlice.topology?.segment2?.status === '异常' ? 'text-[#D9363E]' : 'text-[#12A679]'"
+                             viewBox="0 0 6 8" fill="currentColor">
+                          <polygon points="0,0 6,4 0,8" />
+                        </svg>
                       </div>
                     </div>
 
                     <!-- 节点 3: GW 连接器 -->
                     <div class="flex flex-col items-center text-center topo-clickable z-10 group"
                          @click="clickTopologyItem('node', 'node_connector')">
-                      <div class="w-11 h-11 rounded-full bg-white border-2 border-[#12A679] flex items-center justify-center shadow-xs group-hover:border-[#1C6EFF]">
-                        <span class="text-xs font-bold text-[#12A679] font-outfit">GW</span>
+                      <div class="w-11 h-11 rounded-full bg-white border-2 flex items-center justify-center shadow-xs group-hover:border-[#1C6EFF] transition-colors"
+                           :class="currentSlice.topology?.gw?.status === '异常' ? 'border-[#D9363E]' : 'border-[#12A679]'">
+                        <span class="text-xs font-bold font-outfit"
+                             :class="currentSlice.topology?.gw?.status === '异常' ? 'text-[#D9363E]' : 'text-[#12A679]'">GW</span>
                       </div>
                       <span class="text-xs font-medium text-[#2F3540] mt-1.5" x-text="currentSlice.topology?.gw?.name || '连接器'"></span>
-                      <span class="inline-flex items-center gap-1 text-[10px] text-[#12A679] mt-0.5">
-                        <span class="w-1.5 h-1.5 rounded-full bg-[#12A679]"></span> 正常
-                      </span>
                     </div>
 
                     <!-- 链路段 3: 连接器 ➔ 应用 -->
-                    <div class="flex-1 mx-2 flex flex-col items-center topo-clickable group"
+                    <div class="flex-1 mx-3 flex flex-col items-center justify-center topo-clickable group relative"
                          @click="clickTopologyItem('segment', currentSlice.topology?.segment3?.targetId || 'seg_gw_app')">
-                      <div class="w-6 h-6 rounded-full flex items-center justify-center mb-1 text-xs"
-                           :class="currentSlice.topology?.segment3?.status === '异常' ? 'bg-[#D9363E]/10 text-[#D9363E] border border-[#D9363E]' : 'bg-[#12A679]/10 text-[#12A679] border border-[#12A679]'">
+                      <!-- 状态图标 (打钩 / 异常) -->
+                      <div class="w-5 h-5 rounded-full flex items-center justify-center mb-1.5 text-xs shadow-2xs transition-transform group-hover:scale-110"
+                           :class="currentSlice.topology?.segment3?.status === '异常' ? 'bg-[#FFF1F0] text-[#D9363E] border border-[#FFA39E]' : 'bg-[#E6F8F2] text-[#12A679] border border-[#B7EB8F]'">
                         <template x-if="currentSlice.topology?.segment3?.status === '异常'">
                           <svg class="w-3 h-3 text-[#D9363E]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                         </template>
@@ -2446,43 +2803,39 @@ loadHeZongHotelWifiScriptData(userDisplayName, userDept) {
                           <svg class="w-3 h-3 text-[#12A679]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M5 13l4 4L19 7"></path></svg>
                         </template>
                       </div>
-                      <div class="w-full flex flex-col items-center">
-                        <span class="text-[11px] font-mono"
-                              :class="currentSlice.topology?.segment3?.status === '异常' ? 'text-[#D9363E] font-medium' : 'text-[#5C6270]'"
-                              x-text="'时延 ' + (currentSlice.topology?.segment3?.delay || '35ms') + '  丢包 ' + (currentSlice.topology?.segment3?.loss || '0.0%')"></span>
-                        <div class="w-full h-[2px] relative my-1" :class="currentSlice.topology?.segment3?.status === '异常' ? 'bg-[#D9363E]' : 'bg-[#12A679]'">
-                          <div class="absolute right-0 -top-1 border-y-4 border-y-transparent border-l-6"
-                               :class="currentSlice.topology?.segment3?.status === '异常' ? 'border-l-[#D9363E]' : 'border-l-[#12A679]'"></div>
-                        </div>
+                      <!-- 连线 + 箭头 -->
+                      <div class="w-full flex items-center relative">
+                        <div class="w-full h-[2px] rounded-full"
+                             :class="currentSlice.topology?.segment3?.status === '异常' ? 'bg-[#D9363E]' : 'bg-[#12A679]'"></div>
+                        <svg class="w-2.5 h-2.5 absolute right-0 -mr-0.5 shrink-0"
+                             :class="currentSlice.topology?.segment3?.status === '异常' ? 'text-[#D9363E]' : 'text-[#12A679]'"
+                             viewBox="0 0 6 8" fill="currentColor">
+                          <polygon points="0,0 6,4 0,8" />
+                        </svg>
                       </div>
                     </div>
 
                     <!-- 节点 4: 应用网关 / 总部AF -->
                     <div class="flex flex-col items-center text-center topo-clickable z-10 group"
                          @click="clickTopologyItem('node', 'node_app')">
-                      <div class="w-11 h-11 rounded-full bg-white flex items-center justify-center shadow-xs group-hover:border-[#1C6EFF] border-2"
+                      <div class="w-11 h-11 rounded-full bg-white flex items-center justify-center shadow-xs group-hover:border-[#1C6EFF] border-2 transition-colors"
                            :class="currentSlice.topology?.app?.status === '异常' ? 'border-[#D9363E]' : 'border-[#12A679]'">
                         <span class="text-xs font-bold font-outfit"
                               :class="currentSlice.topology?.app?.status === '异常' ? 'text-[#D9363E]' : 'text-[#12A679]'"
                               x-text="currentSlice.topology?.finalApp ? 'AF' : 'APP'"></span>
                       </div>
                       <span class="text-xs font-medium text-[#2F3540] mt-1.5" x-text="currentSlice.topology?.app?.name || '飞书'"></span>
-                      <span class="inline-flex items-center gap-1 text-[10px] mt-0.5"
-                            :class="currentSlice.topology?.app?.status === '异常' ? 'text-[#D9363E]' : 'text-[#12A679]'">
-                        <span class="w-1.5 h-1.5 rounded-full"
-                              :class="currentSlice.topology?.app?.status === '异常' ? 'bg-[#D9363E]' : 'bg-[#12A679]'"></span>
-                        <span x-text="currentSlice.topology?.app?.status || '正常'"></span>
-                      </span>
                     </div>
 
                     <!-- 包含第 5 个点 (如: 总部OA) 时的 链路段4 与 节点5 -->
                     <template x-if="currentSlice.topology?.finalApp">
                       <div class="contents">
                         <!-- 链路段 4: 网关 ➔ 应用 -->
-                        <div class="flex-1 mx-2 flex flex-col items-center topo-clickable group"
+                        <div class="flex-1 mx-3 flex flex-col items-center justify-center topo-clickable group relative"
                              @click="clickTopologyItem('segment', currentSlice.topology?.segment4?.targetId || 'seg_af_oa')">
-                          <div class="w-6 h-6 rounded-full flex items-center justify-center mb-1 text-xs"
-                               :class="currentSlice.topology?.segment4?.status === '异常' ? 'bg-[#D9363E]/10 text-[#D9363E] border border-[#D9363E]' : 'bg-[#12A679]/10 text-[#12A679] border border-[#12A679]'">
+                          <!-- 状态图标 (打钩 / 异常) -->
+                          <div class="w-5 h-5 rounded-full flex items-center justify-center mb-1.5 text-xs shadow-2xs transition-transform group-hover:scale-110"
+                               :class="currentSlice.topology?.segment4?.status === '异常' ? 'bg-[#FFF1F0] text-[#D9363E] border border-[#FFA39E]' : 'bg-[#E6F8F2] text-[#12A679] border border-[#B7EB8F]'">
                             <template x-if="currentSlice.topology?.segment4?.status === '异常'">
                               <svg class="w-3 h-3 text-[#D9363E]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                             </template>
@@ -2490,32 +2843,27 @@ loadHeZongHotelWifiScriptData(userDisplayName, userDept) {
                               <svg class="w-3 h-3 text-[#12A679]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M5 13l4 4L19 7"></path></svg>
                             </template>
                           </div>
-                          <div class="w-full flex flex-col items-center">
-                            <span class="text-[11px] font-mono"
-                                  :class="currentSlice.topology?.segment4?.status === '异常' ? 'text-[#D9363E] font-medium' : 'text-[#5C6270]'"
-                                  x-text="'时延 ' + (currentSlice.topology?.segment4?.delay || '2ms') + '  丢包 ' + (currentSlice.topology?.segment4?.loss || '0.0%')"></span>
-                            <div class="w-full h-[2px] relative my-1" :class="currentSlice.topology?.segment4?.status === '异常' ? 'bg-[#D9363E]' : 'bg-[#12A679]'">
-                              <div class="absolute right-0 -top-1 border-y-4 border-y-transparent border-l-6"
-                                   :class="currentSlice.topology?.segment4?.status === '异常' ? 'border-l-[#D9363E]' : 'border-l-[#12A679]'"></div>
-                            </div>
+                          <!-- 连线 + 箭头 -->
+                          <div class="w-full flex items-center relative">
+                            <div class="w-full h-[2px] rounded-full"
+                                 :class="currentSlice.topology?.segment4?.status === '异常' ? 'bg-[#D9363E]' : 'bg-[#12A679]'"></div>
+                            <svg class="w-2.5 h-2.5 absolute right-0 -mr-0.5 shrink-0"
+                                 :class="currentSlice.topology?.segment4?.status === '异常' ? 'text-[#D9363E]' : 'text-[#12A679]'"
+                                 viewBox="0 0 6 8" fill="currentColor">
+                              <polygon points="0,0 6,4 0,8" />
+                            </svg>
                           </div>
                         </div>
 
                         <!-- 节点 5: 最终应用 (如: 总部OA) -->
                         <div class="flex flex-col items-center text-center topo-clickable z-10 group"
                              @click="clickTopologyItem('node', currentSlice.topology?.finalApp?.targetId || 'node_final_app')">
-                          <div class="w-11 h-11 rounded-full bg-white flex items-center justify-center shadow-xs group-hover:border-[#1C6EFF] border-2"
+                          <div class="w-11 h-11 rounded-full bg-white flex items-center justify-center shadow-xs group-hover:border-[#1C6EFF] border-2 transition-colors"
                                :class="(currentSlice.topology?.finalApp?.status === '异常' || currentSlice.topology?.finalApp?.status === '差') ? 'border-[#D9363E]' : 'border-[#12A679]'">
                             <span class="text-xs font-bold font-outfit"
                                   :class="(currentSlice.topology?.finalApp?.status === '异常' || currentSlice.topology?.finalApp?.status === '差') ? 'text-[#D9363E]' : 'text-[#12A679]'">APP</span>
                           </div>
                           <span class="text-xs font-medium text-[#2F3540] mt-1.5" x-text="currentSlice.topology?.finalApp?.name || '总部OA'"></span>
-                          <span class="inline-flex items-center gap-1 text-[10px] mt-0.5"
-                                :class="(currentSlice.topology?.finalApp?.status === '异常' || currentSlice.topology?.finalApp?.status === '差') ? 'text-[#D9363E]' : 'text-[#12A679]'">
-                            <span class="w-1.5 h-1.5 rounded-full"
-                                  :class="(currentSlice.topology?.finalApp?.status === '异常' || currentSlice.topology?.finalApp?.status === '差') ? 'bg-[#D9363E]' : 'bg-[#12A679]'"></span>
-                            <span x-text="currentSlice.topology?.finalApp?.status || '差'"></span>
-                          </span>
                         </div>
                       </div>
                     </template>
@@ -2536,556 +2884,645 @@ loadHeZongHotelWifiScriptData(userDisplayName, userDept) {
 
                           <div class="flex items-center gap-2">
                             <span class="w-2 h-2 rounded-full flex-shrink-0"
-                                  :class="item.status === '异常' ? 'bg-[#D9363E]' : 'bg-[#12A679]'"></span>
+                                  :class="(item.status === '异常' || item.status === '差') ? 'bg-[#D9363E]' : 'bg-[#12A679]'"></span>
                             <span class="text-xs font-medium text-[#2F3540]" x-text="formatItemName(item.name)"></span>
                             <span class="text-[10px] text-[#A1A7B3] px-1.5 py-0.2 bg-[#6F7785]/10 rounded" x-text="item.itemType === 'segment' ? '链路段' : '节点'"></span>
                           </div>
 
-                          <svg class="w-4 h-4 text-[#A1A7B3] transition-transform duration-200"
-                               :class="isItemOpen(item.id) ? 'rotate-180 text-[#1C6EFF]' : ''"
-                               fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                          </svg>
+                          <div class="flex items-center gap-3">
+                            <!-- 若为应用节点 (node_app 或 node_final_app)，展示“查看应用详情 >”入口 -->
+                            <template x-if="item.id === 'node_app' || item.id === 'node_final_app'">
+                              <a @click.stop="openAppDetail(currentApp)"
+                                 class="inline-flex items-center gap-1 text-[11px] text-[#1C6EFF] hover:text-[#1855C4] hover:underline font-normal cursor-pointer px-2 py-0.5 rounded hover:bg-[#1C6EFF]/5 transition-colors">
+                                查看应用详情 <span class="font-mono">&gt;</span>
+                              </a>
+                            </template>
+
+                            <svg class="w-4 h-4 text-[#A1A7B3] transition-transform duration-200"
+                                 :class="isItemOpen(item.id) ? 'rotate-180 text-[#1C6EFF]' : ''"
+                                 fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                          </div>
                         </div>
 
                         <!-- 手风琴 Body -->
                         <div x-show="isItemOpen(item.id)" x-collapse>
-                        <div class="p-3.5 bg-[#FAFCFF] space-y-3">
+                          <div class="p-3.5 bg-[#FAFCFF] space-y-3">
 
-                          <!-- ==========================================
-                               1. 终端-POP段 (seg_client_pop) 定责对比视图
-                               ========================================== -->
-<template x-if="item.id === 'seg_client_pop'">
-                             <div class="space-y-3">
-                               <!-- 段摘要说明 -->
-                               <p class="text-xs text-[#5C6270] leading-relaxed" x-text="item.summary || ''"></p>
-                               <!-- 顶部 7 大核心指标卡片（轻量优雅白底 + 局部红点警示设计） -->
-                               <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2">
-                                 <div class="bg-white border border-[#E1E5EB] p-2.5 rounded-[2px] shadow-xs flex flex-col justify-between relative group hover:border-[#CBD5E1]">
-                                                                      <span class="text-[10px] text-[#64748B]">Underlay RTT</span>
-                                   <div class="mt-1 flex items-baseline gap-1">
-                                     <span class="text-base font-bold font-outfit text-[#E11D48]">82<span class="text-[10px] ml-0.5 font-normal">ms</span></span>
-                                   </div>
-                                   <span class="text-[10px] text-[#94A3B8]">基线 &lt; 80ms</span>
-                                 </div>
-                                 <div class="bg-white border border-[#E1E5EB] p-2.5 rounded-[2px] shadow-xs flex flex-col justify-between relative group hover:border-[#CBD5E1]">
-                                                                      <span class="text-[10px] text-[#64748B]">Overlay RTT</span>
-                                   <div class="mt-1 flex items-baseline gap-1">
-                                     <span class="text-base font-bold font-outfit text-[#E11D48]">109<span class="text-[10px] ml-0.5 font-normal">ms</span></span>
-                                   </div>
-                                   <span class="text-[10px] text-[#94A3B8]">基线 &lt; 80ms</span>
-                                 </div>
-                                 <div class="bg-white border border-[#E1E5EB] p-2.5 rounded-[2px] shadow-xs flex flex-col justify-between relative group hover:border-[#CBD5E1]">
-                                                                      <span class="text-[10px] text-[#64748B]">Underlay 丢包</span>
-                                   <div class="mt-1 flex items-baseline gap-1">
-                                     <span class="text-base font-bold font-outfit text-[#E11D48]">3.1<span class="text-[10px] ml-0.5 font-normal">%</span></span>
-                                   </div>
-                                   <span class="text-[10px] text-[#94A3B8]">基线 &lt; 0.3%</span>
-                                 </div>
-                                 <div class="bg-white border border-[#E1E5EB] p-2.5 rounded-[2px] shadow-xs flex flex-col justify-between relative group hover:border-[#CBD5E1]">
-                                                                      <span class="text-[10px] text-[#64748B]">Overlay 丢包</span>
-                                   <div class="mt-1 flex items-baseline gap-1">
-                                     <span class="text-base font-bold font-outfit text-[#E11D48]">3.4<span class="text-[10px] ml-0.5 font-normal">%</span></span>
-                                   </div>
-                                   <span class="text-[10px] text-[#94A3B8]">基线 &lt; 0.3%</span>
-                                 </div>
-                                 <div class="bg-white border border-[#E1E5EB] p-2.5 rounded-[2px] shadow-xs flex flex-col justify-between relative group hover:border-[#CBD5E1]">
-                                                                      <span class="text-[10px] text-[#64748B]">Underlay 抖动</span>
-                                   <div class="mt-1 flex items-baseline gap-1">
-                                     <span class="text-base font-bold font-outfit text-[#E11D48]">40<span class="text-[10px] ml-0.5 font-normal">ms</span></span>
-                                   </div>
-                                   <span class="text-[10px] text-[#94A3B8]">基线 &lt; 20ms</span>
-                                 </div>
-                                 <div class="bg-white border border-[#E1E5EB] p-2.5 rounded-[2px] shadow-xs flex flex-col justify-between relative group hover:border-[#CBD5E1]">
-                                                                      <span class="text-[10px] text-[#64748B]">Overlay 抖动</span>
-                                   <div class="mt-1 flex items-baseline gap-1">
-                                     <span class="text-base font-bold font-outfit text-[#E11D48]">56<span class="text-[10px] ml-0.5 font-normal">ms</span></span>
-                                   </div>
-                                   <span class="text-[10px] text-[#94A3B8]">基线 &lt; 20ms</span>
-                                 </div>
-                                 <div class="bg-white border border-[#E1E5EB] p-2.5 rounded-[2px] shadow-xs flex flex-col justify-between relative group hover:border-[#CBD5E1]">
-                                                                      <span class="text-[10px] text-[#64748B]">有效吞吐</span>
-                                   <div class="mt-1 flex items-baseline gap-1">
-                                     <span class="text-base font-bold font-outfit text-[#E11D48]">20<span class="text-[10px] ml-0.5 font-normal">Mbps</span></span>
-                                   </div>
-                                   <span class="text-[10px] text-[#94A3B8]">历史 50Mbps</span>
-                                 </div>
-                               </div>
+                            <!-- ==========================================
+                                 1. 终端节点 (node_terminal)
+                                 ========================================== -->
+                            <template x-if="item.id === 'node_terminal'">
+                              <div class="space-y-3">
+                                <!-- ① 首判定性文字 (状态以 Tag 呈现) -->
+                                <p class="text-xs text-[#2F3540] leading-relaxed font-normal flex items-center flex-wrap gap-y-1" x-html="getQualitativeHtml(item)"></p>
 
-                               <!-- 客户端到 POP 逐跳链路诊断 -->
-                               <template x-if="item.hopTraces">
-                                 <div class="mt-3 bg-white border border-[#E1E5EB] p-3 rounded-[2px] shadow-xs">
-                                   <div class="flex items-center justify-between pb-2 border-b border-[#F0F2F5]">
-                                     <div class="flex items-center gap-2">
-                                       <span class="text-xs font-normal text-[#2F3540]">客户端到POP的逐跳链路诊断 (Hop-by-Hop Trace)</span>
-                                       <span class="px-1.5 py-0.2 bg-[#FFF1F2] text-[#E11D48] text-[10px] rounded border border-[#FECDD3] font-normal">自动识别异常 Hop</span>
-                                     </div>
-                                     <span class="text-[11px] text-[#6F7785] font-mono">自动探测 · 链路分析</span>
-                                   </div>
+                                <!-- ② 就近探测结果、客户端状态、CPU、内存 (加细灰描边) -->
+                                <div class="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+                                  <!-- 就近探测结果 -->
+                                  <div class="bg-white p-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
+                                    <span class="text-[11px] text-[#6F7785]">就近探测结果</span>
+                                    <div class="mt-1">
+                                      <span class="text-xs font-mono font-medium text-[#2F3540]" x-text="currentSlice.time ? (currentSlice.time + ' (耗时 12ms)') : '10:00 (耗时 12ms)'"></span>
+                                    </div>
+                                    <span class="text-[10px] text-[#94A3B8]">近端自动探测</span>
+                                  </div>
 
-                                   <!-- 逐跳证据表格 -->
-                                   <div class="mt-2 overflow-x-auto">
-                                     <table class="w-full text-left text-xs border-collapse">
-                                       <thead>
-                                         <tr class="bg-[#FAFBFD] border-b border-[#E1E5EB] text-[#5C6270] font-normal text-[11px]">
-                                           <th class="py-1.5 px-2.5 w-10 text-center font-normal">Hop</th>
-                                           <th class="py-1.5 px-2.5 font-normal">节点 IP</th>
-                                           <th class="py-1.5 px-2.5 font-normal">ISP / ASN 属性</th>
-                                           <th class="py-1.5 px-2.5 font-normal">地区</th>
-                                           <th class="py-1.5 px-2.5 font-normal">RTT (较上一跳)</th>
-                                           <th class="py-1.5 px-2.5 font-normal">丢包 (较上一跳)</th>
-                                           <th class="py-1.5 px-2.5 font-normal">抖动 (较上一跳)</th>
-                                         </tr>
-                                       </thead>
-                                       <tbody class="divide-y divide-[#F1F5F9] text-[11px] font-mono font-normal">
-                                         <template x-for="hop in item.hopTraces" :key="hop.hop">
-                                           <tr :class="hop.status === '异常' ? 'bg-[#FFF1F2]/40 text-[#E11D48]' : 'hover:bg-[#FAFBFD] text-[#334155]'">
-                                             <td class="py-1.5 px-2.5 text-center font-normal" x-text="hop.hop"></td>
-                                             <td class="py-1.5 px-2.5 font-normal">
-                                               <span x-text="hop.ip"></span>
-                                               <template x-if="hop.status === '异常'">
-                                                 <span class="ml-1.5 px-1.5 py-0.2 text-[10px] bg-[#FFF1F2] text-[#E11D48] rounded border border-[#FECDD3] font-normal">异常定责点</span>
-                                               </template>
-                                             </td>
-                                             <td class="py-1.5 px-2.5 font-sans font-normal" x-text="hop.asn"></td>
-                                             <td class="py-1.5 px-2.5 font-sans text-[#64748B] font-normal" x-text="hop.loc"></td>
-                                             <td class="py-1.5 px-2.5 font-normal" x-text="hop.rtt + (hop.diffRtt && hop.diffRtt !== '-' ? ' (' + hop.diffRtt + ')' : '')"></td>
-                                             <td class="py-1.5 px-2.5 font-normal" :class="hop.status === '异常' ? 'text-[#E11D48]' : ''" x-text="hop.loss + (hop.diffLoss && hop.diffLoss !== '-' ? ' (' + hop.diffLoss + ')' : '')"></td>
-                                             <td class="py-1.5 px-2.5 font-normal" :class="hop.status === '异常' ? 'text-[#E11D48]' : ''" x-text="hop.jitter + (hop.diffJitter && hop.diffJitter !== '-' ? ' (' + hop.diffJitter + ')' : '')"></td>
-                                           </tr>
-                                         </template>
-                                       </tbody>
-                                     </table>
-                                   </div>
+                                  <!-- 客户端状态 -->
+                                  <div class="bg-white p-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
+                                    <span class="text-[11px] text-[#6F7785]">客户端状态</span>
+                                    <div class="mt-1">
+                                      <span class="inline-flex items-center gap-1.5 text-xs font-medium text-[#12A679]">
+                                        <span class="w-2 h-2 rounded-full bg-[#12A679]"></span> 在线 (Agent UP)
+                                      </span>
+                                    </div>
+                                    <span class="text-[10px] text-[#94A3B8]">探针心跳正常</span>
+                                  </div>
 
-                                   <!-- 结论提示框 -->
-                                   <template x-if="item.hopConclusion">
-                                     <div class="mt-2.5 p-2.5 bg-[#FAFBFD] border-l-2 border-l-[#1C6EFF] border-y border-r border-[#E2E8F0] rounded-[2px] text-xs text-[#334155] leading-relaxed font-normal">
-                                       <span class="font-medium text-[#1C6EFF]">验证推导结论：</span>
-                                       <span class="font-normal" x-text="item.hopConclusion"></span>
-                                     </div>
-                                   </template>
-                                 </div>
-                               </template>
-                             </div>
-                           </template>
+                                  <!-- CPU利用率 -->
+                                  <div class="bg-white p-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
+                                    <span class="text-[11px] text-[#6F7785]">CPU利用率</span>
+                                    <div class="mt-1 flex items-baseline gap-1">
+                                      <span class="text-base font-bold font-outfit text-[#2F3540]">24.5<span class="text-[10px] ml-0.5 font-normal">%</span></span>
+                                    </div>
+                                    <span class="text-[10px] text-[#12A679]">正常 (&lt; 70%)</span>
+                                  </div>
 
-                          <!-- ==========================================
-                               2. POP 节点 (node_pop) 马尼拉POP限流异常视图
-                               ========================================== -->
-                          <template x-if="item.id === 'node_pop' && item.status === '异常'">
-                             <div class="space-y-3">
-                               <!-- 顶部 Header Row -->
-                               <div class="flex items-center justify-between border-b border-[#E1E5EB] pb-2">
-                                 <div class="flex items-center gap-2">
-                                   <span class="text-xs font-bold text-[#2F3540]" x-text="(item.metrics && item.metrics[0]) ? item.metrics[0].value : '马尼拉POP'"></span>
-                                   <span class="px-2 py-0.5 bg-[#FFF1F2] text-[#E11D48] text-[10px] rounded-[2px] border border-[#FECDD3] font-medium inline-flex items-center gap-1">
-                                     <span class="w-1.5 h-1.5 rounded-full bg-[#E11D48]"></span> 节点异常 · 租户限流命中
-                                   </span>
-                                 </div>
-                                 <span class="text-[11px] text-[#6F7785] font-mono">10:00 故障时刻 · 平台遥测</span>
-                               </div>
+                                  <!-- 内存利用率 -->
+                                  <div class="bg-white p-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
+                                    <span class="text-[11px] text-[#6F7785]">内存利用率</span>
+                                    <div class="mt-1 flex items-baseline gap-1">
+                                      <span class="text-base font-bold font-outfit text-[#2F3540]">68.2<span class="text-[10px] ml-0.5 font-normal">%</span></span>
+                                    </div>
+                                    <span class="text-[10px] text-[#FA721B]">一般 (≥60%且&lt;80%)</span>
+                                  </div>
+                                </div>
 
-                               <!-- POP 节点摘要 -->
-                               <p class="text-xs text-[#5C6270] leading-relaxed" x-text="item.summary || ''"></p>
+                                <!-- ③ 2 副趋势图 (CPU利用率趋势图 & 内存利用率趋势图 - 加细灰描边) -->
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                                  <!-- CPU利用率趋势图 -->
+                                  <div class="bg-white p-3 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
+                                    <div class="flex items-center justify-between text-xs mb-2">
+                                      <div class="flex items-center gap-2">
+                                        <span class="font-medium text-[#2F3540]">CPU利用率趋势</span>
+                                        <span class="text-[10px] text-[#1C6EFF] font-mono font-medium">实时 24.5%</span>
+                                      </div>
+                                      <span class="text-[10px] text-[#94A3B8]">采样: 5分钟</span>
+                                    </div>
+                                    <div class="h-20 w-full bg-white rounded p-1.5 border border-[#EAEEF4]">
+                                      <svg viewBox="0 0 200 50" class="w-full h-full overflow-visible">
+                                        <!-- 70% 警戒基线 -->
+                                        <line x1="0" y1="20" x2="200" y2="20" stroke="#CBD5E1" stroke-width="1" stroke-dasharray="3 2"/>
+                                        <polyline fill="none" stroke="#1C6EFF" stroke-width="1.8" points="0,38 20,36 40,32 60,30 80,24 100,16 120,20 140,28 160,34 180,35 200,34"/>
+                                        <circle cx="0" cy="38" r="2" fill="#1C6EFF"/><circle cx="40" cy="32" r="2" fill="#1C6EFF"/><circle cx="80" cy="24" r="2" fill="#1C6EFF"/><circle cx="100" cy="16" r="2.5" fill="#1C6EFF"/><circle cx="140" cy="28" r="2" fill="#1C6EFF"/><circle cx="200" cy="34" r="2" fill="#1C6EFF"/>
+                                      </svg>
+                                    </div>
+                                    <div class="mt-2 text-[10px] text-[#64748B] flex items-center justify-between bg-[#F8FAFC] px-2 py-1 rounded border border-[#EAEEF4]">
+                                      <span>评估标准：正常 &lt;70% ｜ 一般 ≥70%且&lt;90% ｜ 差 ≥90%</span>
+                                    </div>
+                                  </div>
 
-                               <!-- 顶部 5 个核心指标卡片（轻量白底 + 局部红点警示设计，去刺眼感） -->
-                               <div class="grid grid-cols-2 md:grid-cols-5 gap-2">
-                                 <div class="bg-white border border-[#E1E5EB] p-2.5 rounded-[2px] shadow-xs flex flex-col justify-between relative group hover:border-[#CBD5E1]">
-                                                                      <span class="text-[10px] text-[#64748B]">处理时延</span>
-                                   <div class="mt-1">
-                                     <div class="text-base font-bold font-outfit text-[#E11D48]">32<span class="text-[10px] font-normal ml-0.5">ms</span></div>
-                                     <div class="text-[10px] text-[#94A3B8]">基线 &lt; 15ms</div>
-                                   </div>
-                                 </div>
-                                 <div class="bg-white border border-[#E1E5EB] p-2.5 rounded-[2px] shadow-xs flex flex-col justify-between relative group hover:border-[#CBD5E1]">
-                                                                      <span class="text-[10px] text-[#64748B]">处理丢包率</span>
-                                   <div class="mt-1">
-                                     <div class="text-base font-bold font-outfit text-[#E11D48]">2.1<span class="text-[10px] font-normal ml-0.5">%</span></div>
-                                     <div class="text-[10px] text-[#94A3B8]">基线 &lt; 0.1%</div>
-                                   </div>
-                                 </div>
-                                 <div class="bg-white border border-[#E1E5EB] p-2.5 rounded-[2px] shadow-xs flex flex-col justify-between relative group hover:border-[#CBD5E1]">
-                                                                      <span class="text-[10px] text-[#64748B]">处理时延波动</span>
-                                   <div class="mt-1">
-                                     <div class="text-base font-bold font-outfit text-[#E11D48]">11<span class="text-[10px] font-normal ml-0.5">ms</span></div>
-                                     <div class="text-[10px] text-[#94A3B8]">基线 &lt; 5ms</div>
-                                   </div>
-                                 </div>
-                                 <div class="bg-white border border-[#E1E5EB] p-2.5 rounded-[2px] shadow-xs flex flex-col justify-between relative group hover:border-[#CBD5E1]">
-                                                                      <span class="text-[10px] text-[#64748B]">租户入站流量</span>
-                                   <div class="mt-1">
-                                     <div class="text-base font-bold font-outfit text-[#E11D48]">10.4<span class="text-[10px] font-normal ml-0.5">Gbps</span></div>
-                                     <div class="text-[10px] text-[#94A3B8]">限流上限 10Gbps</div>
-                                   </div>
-                                 </div>
-                                 <div class="bg-white border border-[#E1E5EB] p-2.5 rounded-[2px] shadow-xs flex flex-col justify-between">
-                                   <span class="text-[10px] text-[#64748B]">租户出站流量</span>
-                                   <div class="mt-1">
-                                     <div class="text-base font-bold font-outfit text-[#2F3540]">9.7<span class="text-[10px] font-normal ml-0.5">Gbps</span></div>
-                                     <div class="text-[10px] text-[#94A3B8]">参考值</div>
-                                   </div>
-                                 </div>
-                               </div>
-
-                               <!-- 限流告警提示 Callout (精致左边框 + 淡灰柔和底，舒缓视压) -->
-                               <div class="bg-[#FAFBFD] border-l-4 border-l-[#E11D48] border-y border-r border-[#E2E8F0] rounded-[2px] px-3.5 py-2.5 flex items-start gap-2.5 shadow-xs">
-                                 <svg class="w-4 h-4 text-[#E11D48] flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                                 <div>
-                                   <span class="text-xs font-bold text-[#E11D48]">租户限流命中：</span>
-                                   <span class="text-xs text-[#475569]">马尼拉 POP 入站流量 10.4 Gbps 超过租户 10 Gbps 限流上限，导致 POP 节点处理时延上升 (32ms)、丢包率升至 2.1%，所有经由该 POP 的用户均受影响。</span>
-                                 </div>
-                               </div>
-
-                               <!-- POP 趋势图区 3 列 -->
-                               <div class="grid grid-cols-1 md:grid-cols-3 gap-2.5">
-
-                                 <!-- POP 处理时延趋势 -->
-                                 <div class="bg-white border border-[#E1E5EB] p-2.5 rounded-[2px] shadow-xs">
-                                   <div class="flex items-center justify-between text-[11px] mb-1.5">
-                                     <span class="font-medium text-[#2F3540]">处理时延 <span class="text-[10px] text-[#94A3B8]">(ms)</span></span>
-                                     <div class="flex items-center gap-1.5 text-[10px]">
-                                       <span class="inline-flex items-center gap-1 text-[#D9363E]"><span class="w-1.5 h-1.5 rounded-full bg-[#D9363E]"></span>时延</span>
-                                       <span class="text-[#94A3B8]">基线 15ms</span>
-                                     </div>
-                                   </div>
-                                   <div class="h-20 w-full bg-[#FAFBFD] rounded border border-[#F1F5F9] p-1.5">
-                                     <svg viewBox="0 0 200 50" class="w-full h-full overflow-visible">
-                                       <!-- 15ms 基线 -->
-                                       <line x1="0" y1="34" x2="200" y2="34" stroke="#94A3B8" stroke-width="1" stroke-dasharray="3 2"/>
-                                       <!-- 正常->急剧上升到32ms -->
-                                       <polyline fill="none" stroke="#D9363E" stroke-width="1.8" points="0,42 40,40 80,38 120,34 160,22 200,14"/>
-                                       <circle cx="0" cy="42" r="2" fill="#D9363E"/><circle cx="40" cy="40" r="2" fill="#D9363E"/><circle cx="80" cy="38" r="2" fill="#D9363E"/><circle cx="120" cy="34" r="2" fill="#D9363E"/><circle cx="160" cy="22" r="2" fill="#D9363E"/><circle cx="200" cy="14" r="3" fill="#D9363E"/>
-                                       <text x="155" y="11" fill="#D9363E" font-size="7" font-weight="bold">32ms↑</text>
-                                     </svg>
-                                   </div>
-                                 </div>
-
-                                 <!-- POP 处理丢包趋势 -->
-                                 <div class="bg-white border border-[#E1E5EB] p-2.5 rounded-[2px] shadow-xs">
-                                   <div class="flex items-center justify-between text-[11px] mb-1.5">
-                                     <span class="font-medium text-[#2F3540]">处理丢包率 <span class="text-[10px] text-[#94A3B8]">(%)</span></span>
-                                     <div class="flex items-center gap-1.5 text-[10px]">
-                                       <span class="inline-flex items-center gap-1 text-[#FA721B]"><span class="w-1.5 h-1.5 rounded-full bg-[#FA721B]"></span>丢包</span>
-                                       <span class="text-[#94A3B8]">基线 0.1%</span>
-                                     </div>
-                                   </div>
-                                   <div class="h-20 w-full bg-[#FAFBFD] rounded border border-[#F1F5F9] p-1.5">
-                                     <svg viewBox="0 0 200 50" class="w-full h-full overflow-visible">
-                                       <line x1="0" y1="40" x2="200" y2="40" stroke="#94A3B8" stroke-width="1" stroke-dasharray="3 2"/>
-                                       <polyline fill="none" stroke="#FA721B" stroke-width="1.8" points="0,44 40,44 80,43 120,40 160,28 200,18"/>
-                                       <circle cx="0" cy="44" r="2" fill="#FA721B"/><circle cx="40" cy="44" r="2" fill="#FA721B"/><circle cx="80" cy="43" r="2" fill="#FA721B"/><circle cx="120" cy="40" r="2" fill="#FA721B"/><circle cx="160" cy="28" r="2" fill="#FA721B"/><circle cx="200" cy="18" r="3" fill="#D9363E"/>
-                                       <text x="155" y="15" fill="#D9363E" font-size="7" font-weight="bold">2.1%↑</text>
-                                     </svg>
-                                   </div>
-                                 </div>
-
-                                 <!-- 租户入站流量趋势（命中限流） -->
-                                 <div class="bg-white border border-[#E1E5EB] p-2.5 rounded-[2px] shadow-xs">
-                                   <div class="flex items-center justify-between text-[11px] mb-1.5">
-                                     <span class="font-medium text-[#2F3540]">租户入站流量 <span class="text-[10px] text-[#94A3B8]">(Gbps)</span></span>
-                                     <div class="flex items-center gap-1.5 text-[10px]">
-                                       <span class="inline-flex items-center gap-1 text-[#D9363E]"><span class="w-1.5 h-1.5 rounded-full bg-[#D9363E]"></span>入站</span>
-                                       <span class="text-[#94A3B8]">限流 10G</span>
-                                     </div>
-                                   </div>
-                                   <div class="h-20 w-full bg-[#FAFBFD] rounded border border-[#F1F5F9] p-1.5">
-                                     <svg viewBox="0 0 200 50" class="w-full h-full overflow-visible">
-                                       <!-- 限流线 10Gbps -->
-                                       <line x1="0" y1="16" x2="200" y2="16" stroke="#D9363E" stroke-width="1" stroke-dasharray="4 2"/>
-                                       <text x="2" y="14" fill="#D9363E" font-size="7">限流 10G</text>
-                                       <!-- 入站流量上升曲线 -->
-                                       <polyline fill="none" stroke="#D9363E" stroke-width="1.8" points="0,44 40,40 80,34 120,26 160,18 200,14"/>
-                                       <circle cx="0" cy="44" r="2" fill="#D9363E"/><circle cx="40" cy="40" r="2" fill="#D9363E"/><circle cx="80" cy="34" r="2" fill="#D9363E"/><circle cx="120" cy="26" r="2" fill="#D9363E"/><circle cx="160" cy="18" r="2" fill="#D9363E"/><circle cx="200" cy="14" r="3" fill="#D9363E"/>
-                                       <text x="148" y="10" fill="#D9363E" font-size="7" font-weight="bold">10.4G↑</text>
-                                     </svg>
-                                   </div>
-                                 </div>
-
-                               </div>
-
-                               <!-- 原有 POP 节点详细属性 -->
-                               <div class="pt-2 border-t border-[#E1E5EB]">
-                                 <div class="text-[11px] font-semibold text-[#5C6270] mb-2">POP 节点详细属性：</div>
-                                 <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-2">
-                                   <template x-for="(m, mIdx) in (item.metrics || [])" :key="mIdx">
-                                     <div class="bg-white border border-[#E1E5EB] p-2 rounded-[2px] relative group hover:border-[#CBD5E1]">
-                                       <template x-if="m.isAbnormal">
-                                                                                </template>
-                                       <div class="text-[10px] text-[#6F7785]" x-text="m.label"></div>
-                                       <div class="text-xs font-medium font-mono mt-0.5"
-                                            :class="m.isAbnormal ? 'text-[#E11D48] font-semibold' : 'text-[#2F3540]'" x-text="m.value"></div>
-                                     </div>
-                                   </template>
-                                 </div>
-                               </div>
-                             </div>
-                           </template>
-
-                          <!-- 2.2 POP 节点正常视图 (如: 四川-成都GA上车POP01) -->
-                          <template x-if="item.id === 'node_pop' && item.status !== '异常'">
-                             <div class="space-y-3">
-                               <!-- 顶部 Header Row -->
-                               <div class="flex items-center justify-between border-b border-[#E1E5EB] pb-2">
-                                 <div class="flex items-center gap-2">
-                                   <span class="text-xs font-bold text-[#2F3540]" x-text="(item.metrics && item.metrics[0]) ? item.metrics[0].value : (item.name || 'GA上车POP')"></span>
-                                   <span class="px-2 py-0.5 bg-[#E6F4EA] text-[#137333] text-[10px] rounded-[2px] border border-[#CEEAD6] font-medium inline-flex items-center gap-1">
-                                     <span class="w-1.5 h-1.5 rounded-full bg-[#137333]"></span> 节点集群正常
-                                   </span>
-                                 </div>
-                                 <span class="text-[11px] text-[#6F7785] font-mono">平台实时遥测</span>
-                               </div>
-
-                               <!-- POP 节点摘要 -->
-                               <p class="text-xs text-[#5C6270] leading-relaxed" x-text="item.summary || 'POP 节点集群运行正常，遥测指标均在基线范围内。'"></p>
-
-                               <!-- 顶部 5 个核心指标卡片 -->
-                               <div class="grid grid-cols-2 md:grid-cols-5 gap-2">
-                                 <div class="bg-white border border-[#E1E5EB] p-2.5 rounded-[2px] shadow-xs flex flex-col justify-between">
-                                   <span class="text-[10px] text-[#64748B]">POP 处理时延</span>
-                                   <div class="mt-1">
-                                     <div class="text-base font-bold font-outfit text-[#12A679]">6<span class="text-[10px] font-normal ml-0.5">ms</span></div>
-                                     <div class="text-[10px] text-[#94A3B8]">基线 &lt; 15ms</div>
-                                   </div>
-                                 </div>
-                                 <div class="bg-white border border-[#E1E5EB] p-2.5 rounded-[2px] shadow-xs flex flex-col justify-between">
-                                   <span class="text-[10px] text-[#64748B]">处理丢弃率</span>
-                                   <div class="mt-1">
-                                     <div class="text-base font-bold font-outfit text-[#12A679]">0.02<span class="text-[10px] font-normal ml-0.5">%</span></div>
-                                     <div class="text-[10px] text-[#94A3B8]">基线 &lt; 0.1%</div>
-                                   </div>
-                                 </div>
-                                 <div class="bg-white border border-[#E1E5EB] p-2.5 rounded-[2px] shadow-xs flex flex-col justify-between">
-                                   <span class="text-[10px] text-[#64748B]">处理时延波动</span>
-                                   <div class="mt-1">
-                                     <div class="text-base font-bold font-outfit text-[#12A679]">2<span class="text-[10px] font-normal ml-0.5">ms</span></div>
-                                     <div class="text-[10px] text-[#94A3B8]">基线 &lt; 5ms</div>
-                                   </div>
-                                 </div>
-                                 <div class="bg-white border border-[#E1E5EB] p-2.5 rounded-[2px] shadow-xs flex flex-col justify-between">
-                                   <span class="text-[10px] text-[#64748B]">租户入站流量</span>
-                                   <div class="mt-1">
-                                     <div class="text-base font-bold font-outfit text-[#2F3540]">1.2<span class="text-[10px] font-normal ml-0.5">Gbps</span></div>
-                                     <div class="text-[10px] text-[#94A3B8]">限流上限 10Gbps</div>
-                                   </div>
-                                 </div>
-                                 <div class="bg-white border border-[#E1E5EB] p-2.5 rounded-[2px] shadow-xs flex flex-col justify-between">
-                                   <span class="text-[10px] text-[#64748B]">租户出站流量</span>
-                                   <div class="mt-1">
-                                     <div class="text-base font-bold font-outfit text-[#2F3540]">1.1<span class="text-[10px] font-normal ml-0.5">Gbps</span></div>
-                                     <div class="text-[10px] text-[#94A3B8]">参考值</div>
-                                   </div>
-                                 </div>
-                               </div>
-
-                               <!-- 正常提示 Callout (绿边框) -->
-                               <div class="bg-[#F0FDF4] border-l-4 border-l-[#12A679] border-y border-r border-[#DCFCE7] rounded-[2px] px-3.5 py-2.5 flex items-start gap-2.5 shadow-xs">
-                                 <svg class="w-4 h-4 text-[#12A679] flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                                 <div>
-                                   <span class="text-xs font-bold text-[#12A679]">POP 节点正常：</span>
-                                   <span class="text-xs text-[#334155]">POP 节点集群正常，POP 处理时延 6ms、处理丢弃率 0.02%、处理波动 2ms，均处于优秀基线范围，同 POP 承载的其他分支访问均正常。</span>
-                                 </div>
-                               </div>
-
-                               <!-- POP 趋势图区 (平稳绿线) -->
-                               <div class="grid grid-cols-1 md:grid-cols-3 gap-2.5">
-                                 <!-- POP 处理时延趋势 -->
-                                 <div class="bg-white border border-[#E1E5EB] p-2.5 rounded-[2px] shadow-xs">
-                                   <div class="flex items-center justify-between text-[11px] mb-1.5">
-                                     <span class="font-medium text-[#2F3540]">处理时延 <span class="text-[10px] text-[#94A3B8]">(ms)</span></span>
-                                     <div class="flex items-center gap-1.5 text-[10px]">
-                                       <span class="inline-flex items-center gap-1 text-[#12A679]"><span class="w-1.5 h-1.5 rounded-full bg-[#12A679]"></span>6ms</span>
-                                       <span class="text-[#94A3B8]">基线 15ms</span>
-                                     </div>
-                                   </div>
-                                   <div class="h-20 w-full bg-[#FAFBFD] rounded border border-[#F1F5F9] p-1.5">
-                                     <svg viewBox="0 0 200 50" class="w-full h-full overflow-visible">
-                                       <line x1="0" y1="20" x2="200" y2="20" stroke="#94A3B8" stroke-width="1" stroke-dasharray="3 2"/>
-                                       <polyline fill="none" stroke="#12A679" stroke-width="1.8" points="0,38 40,38 80,37 120,38 160,37 200,38"/>
-                                       <circle cx="200" cy="38" r="3" fill="#12A679"/>
-                                       <text x="165" y="32" fill="#12A679" font-size="7" font-weight="bold">6ms</text>
-                                     </svg>
-                                   </div>
-                                 </div>
-
-                                 <!-- POP 处理丢包趋势 -->
-                                 <div class="bg-white border border-[#E1E5EB] p-2.5 rounded-[2px] shadow-xs">
-                                   <div class="flex items-center justify-between text-[11px] mb-1.5">
-                                     <span class="font-medium text-[#2F3540]">处理丢包率 <span class="text-[10px] text-[#94A3B8]">(%)</span></span>
-                                     <div class="flex items-center gap-1.5 text-[10px]">
-                                       <span class="inline-flex items-center gap-1 text-[#12A679]"><span class="w-1.5 h-1.5 rounded-full bg-[#12A679]"></span>0.02%</span>
-                                       <span class="text-[#94A3B8]">基线 0.1%</span>
-                                     </div>
-                                   </div>
-                                   <div class="h-20 w-full bg-[#FAFBFD] rounded border border-[#F1F5F9] p-1.5">
-                                     <svg viewBox="0 0 200 50" class="w-full h-full overflow-visible">
-                                       <line x1="0" y1="20" x2="200" y2="20" stroke="#94A3B8" stroke-width="1" stroke-dasharray="3 2"/>
-                                       <polyline fill="none" stroke="#12A679" stroke-width="1.8" points="0,44 40,44 80,44 120,44 160,44 200,44"/>
-                                       <circle cx="200" cy="44" r="3" fill="#12A679"/>
-                                       <text x="155" y="38" fill="#12A679" font-size="7" font-weight="bold">0.02%</text>
-                                     </svg>
-                                   </div>
-                                 </div>
-
-                                 <!-- 租户入站流量趋势 -->
-                                 <div class="bg-white border border-[#E1E5EB] p-2.5 rounded-[2px] shadow-xs">
-                                   <div class="flex items-center justify-between text-[11px] mb-1.5">
-                                     <span class="font-medium text-[#2F3540]">租户入站流量 <span class="text-[10px] text-[#94A3B8]">(Gbps)</span></span>
-                                     <div class="flex items-center gap-1.5 text-[10px]">
-                                       <span class="inline-flex items-center gap-1 text-[#12A679]"><span class="w-1.5 h-1.5 rounded-full bg-[#12A679]"></span>1.2G</span>
-                                       <span class="text-[#94A3B8]">限流 10G</span>
-                                     </div>
-                                   </div>
-                                   <div class="h-20 w-full bg-[#FAFBFD] rounded border border-[#F1F5F9] p-1.5">
-                                     <svg viewBox="0 0 200 50" class="w-full h-full overflow-visible">
-                                       <line x1="0" y1="16" x2="200" y2="16" stroke="#94A3B8" stroke-width="1" stroke-dasharray="4 2"/>
-                                       <polyline fill="none" stroke="#12A679" stroke-width="1.8" points="0,42 40,41 80,42 120,40 160,41 200,40"/>
-                                       <circle cx="200" cy="40" r="3" fill="#12A679"/>
-                                       <text x="160" y="34" fill="#12A679" font-size="7" font-weight="bold">1.2G</text>
-                                     </svg>
-                                   </div>
-                                 </div>
-                               </div>
-
-                               <!-- POP 节点详细属性 -->
-                               <div class="pt-2 border-t border-[#E1E5EB]">
-                                 <div class="text-[11px] font-semibold text-[#5C6270] mb-2">POP 节点详细属性：</div>
-                                 <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-2">
-                                   <template x-for="(m, mIdx) in (item.metrics || [])" :key="mIdx">
-                                     <div class="bg-white border border-[#E1E5EB] p-2 rounded-[2px] relative group hover:border-[#CBD5E1]">
-                                       <div class="text-[10px] text-[#6F7785]" x-text="m.label"></div>
-                                       <div class="text-xs font-medium font-mono mt-0.5"
-                                            :class="m.isAbnormal ? 'text-[#E11D48] font-semibold' : 'text-[#2F3540]'" x-text="m.value"></div>
-                                     </div>
-                                   </template>
-                                 </div>
-                               </div>
-                             </div>
-                           </template>
-
-                          <!-- ==========================================
-                               3. 终端节点 (node_terminal) 5分钟遥测趋势图 (新增 CPU/内存/WiFi 趋势)
-                               ========================================== -->
-                          <template x-if="item.id === 'node_terminal'">
-                            <div class="space-y-3">
-                              <!-- 顶部 Summary 说明 -->
-                              <div class="flex items-center justify-between text-xs text-[#5C6270]">
-                                <p x-text="item.summary || ''"></p>
-                                <span class="px-2 py-0.5 bg-[#F1F5F9] text-[#64748B] text-[10px] rounded border border-[#E2E8F0] whitespace-nowrap">设备遥测数据 (采样间隔: 5分钟/次)</span>
+                                  <!-- 内存利用率趋势图 -->
+                                  <div class="bg-white p-3 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
+                                    <div class="flex items-center justify-between text-xs mb-2">
+                                      <div class="flex items-center gap-2">
+                                        <span class="font-medium text-[#2F3540]">内存利用率趋势</span>
+                                        <span class="text-[10px] text-[#8B5CF6] font-mono font-medium">实时 68.2%</span>
+                                      </div>
+                                      <span class="text-[10px] text-[#94A3B8]">采样: 5分钟</span>
+                                    </div>
+                                    <div class="h-20 w-full bg-white rounded p-1.5 border border-[#EAEEF4]">
+                                      <svg viewBox="0 0 200 50" class="w-full h-full overflow-visible">
+                                        <!-- 60% 警戒基线 -->
+                                        <line x1="0" y1="24" x2="200" y2="24" stroke="#CBD5E1" stroke-width="1" stroke-dasharray="3 2"/>
+                                        <polyline fill="none" stroke="#8B5CF6" stroke-width="1.8" points="0,32 40,30 80,26 100,18 120,15 160,22 200,25"/>
+                                        <circle cx="0" cy="32" r="2" fill="#8B5CF6"/><circle cx="40" cy="30" r="2" fill="#8B5CF6"/><circle cx="80" cy="26" r="2" fill="#8B5CF6"/><circle cx="120" cy="15" r="2" fill="#8B5CF6"/><circle cx="160" cy="22" r="2" fill="#8B5CF6"/><circle cx="200" cy="25" r="2" fill="#8B5CF6"/>
+                                      </svg>
+                                    </div>
+                                    <div class="mt-2 text-[10px] text-[#64748B] flex items-center justify-between bg-[#F8FAFC] px-2 py-1 rounded border border-[#EAEEF4]">
+                                      <span>评估标准：正常 &lt;60% ｜ 一般 ≥60%且&lt;80% ｜ 差 ≥80%</span>
+                                    </div>
+                                  </div>
+                                </div>
                               </div>
+                            </template>
 
-                              <!-- 原有终端基础指标 -->
-                              <div class="grid grid-cols-2 md:grid-cols-4 gap-2.5">
-                                <template x-for="(m, mIdx) in (item.metrics || [])" :key="mIdx">
-                                  <div class="bg-white border border-[#E1E5EB] p-2.5 rounded-[2px] relative group hover:border-[#CBD5E1]">
-                                    <template x-if="m.isAbnormal">
-                                                                          </template>
-                                    <div class="text-[11px] text-[#6F7785]" x-text="m.label"></div>
-                                    <div class="text-xs font-medium font-mono mt-1"
-                                         :class="m.isAbnormal ? 'text-[#E11D48] font-semibold' : 'text-[#2F3540]'" x-text="m.value"></div>
-                                    <template x-if="m.baseline">
-                                      <div class="text-[10px] text-[#A1A7B3] mt-0.5" x-text="'基线: ' + m.baseline"></div>
-                                    </template>
+                            <!-- ==========================================
+                                 2. 终端-POP段 (seg_client_pop)
+                                 ========================================== -->
+                            <template x-if="item.id === 'seg_client_pop'">
+                              <div class="space-y-3">
+                                <!-- ① 首判定性文字 (状态以 Tag 呈现) -->
+                                <p class="text-xs text-[#2F3540] leading-relaxed font-normal flex items-center flex-wrap gap-y-1" x-html="getQualitativeHtml(item)"></p>
+
+                                <!-- ② 终端-POP段 整体统计值 (RTT、丢包率、抖动) -->
+                                <div class="bg-white p-3 rounded-[2px] border border-[#EAEEF4] shadow-xs">
+                                  <div class="flex items-center justify-between pb-2 mb-2 border-b border-[#F0F2F5]">
+                                    <div class="flex items-center gap-2">
+                                      <span class="text-xs font-normal text-[#2F3540]">终端 ➔ POP段 整体网络性能</span>
+                                    </div>
+                                    <span class="text-[11px] text-[#8A92A1] font-mono">Underlay 链路层</span>
+                                  </div>
+                                  <div class="grid grid-cols-1 md:grid-cols-3 gap-2.5">
+                                    <!-- RTT 卡片 -->
+                                    <div class="bg-[#FAFBFD] p-2 rounded-[2px] border border-[#EAEEF4] flex flex-col justify-between">
+                                      <div class="flex items-center justify-between text-[11px]">
+                                        <span class="text-[#6F7785]">Underlay RTT</span>
+                                        <span class="text-[10px] text-[#94A3B8]">基线 &lt; 50ms</span>
+                                      </div>
+                                      <div class="mt-1 flex items-baseline gap-2 text-xs font-mono">
+                                        <span class="text-[#2F3540]">
+                                          <span class="text-[11px] text-[#6F7785] font-sans">隧道</span>
+                                          <span class="text-base font-bold font-outfit" :class="item.status === '异常' ? 'text-[#E11D48]' : 'text-[#2F3540]'" x-text="item.status === '异常' ? (currentSlice.topology?.segment1?.delay || '188ms') : '18ms'"></span>
+                                        </span>
+                                        <span class="text-[#CBD5E1]">|</span>
+                                        <span class="text-[#2F3540]">
+                                          <span class="text-[11px] text-[#6F7785] font-sans">物理</span>
+                                          <span class="text-base font-bold font-outfit text-[#2F3540]" x-text="item.status === '异常' ? '142ms' : '16ms'"></span>
+                                        </span>
+                                      </div>
+                                    </div>
+
+                                    <!-- 丢包率 卡片 -->
+                                    <div class="bg-[#FAFBFD] p-2 rounded-[2px] border border-[#EAEEF4] flex flex-col justify-between">
+                                      <div class="flex items-center justify-between text-[11px]">
+                                        <span class="text-[#6F7785]">数据包丢包率</span>
+                                        <span class="text-[10px] text-[#94A3B8]">基线 &lt; 0.5%</span>
+                                      </div>
+                                      <div class="mt-1 flex items-baseline gap-2 text-xs font-mono">
+                                        <span class="text-[#2F3540]">
+                                          <span class="text-[11px] text-[#6F7785] font-sans">隧道</span>
+                                          <span class="text-base font-bold font-outfit" :class="item.status === '异常' ? 'text-[#E11D48]' : 'text-[#2F3540]'" x-text="item.status === '异常' ? (currentSlice.topology?.segment1?.loss || '4.2%') : '0.0%'"></span>
+                                        </span>
+                                        <span class="text-[#CBD5E1]">|</span>
+                                        <span class="text-[#2F3540]">
+                                          <span class="text-[11px] text-[#6F7785] font-sans">物理</span>
+                                          <span class="text-base font-bold font-outfit text-[#2F3540]" x-text="item.status === '异常' ? '4.0%' : '0.0%'"></span>
+                                        </span>
+                                      </div>
+                                    </div>
+
+                                    <!-- 抖动 卡片 -->
+                                    <div class="bg-[#FAFBFD] p-2 rounded-[2px] border border-[#EAEEF4] flex flex-col justify-between">
+                                      <div class="flex items-center justify-between text-[11px]">
+                                        <span class="text-[#6F7785]">网络抖动 (Jitter)</span>
+                                        <span class="text-[10px] text-[#94A3B8]">基线 &lt; 15ms</span>
+                                      </div>
+                                      <div class="mt-1 flex items-baseline gap-2 text-xs font-mono">
+                                        <span class="text-[#2F3540]">
+                                          <span class="text-[11px] text-[#6F7785] font-sans">隧道</span>
+                                          <span class="text-base font-bold font-outfit" :class="item.status === '异常' ? 'text-[#E11D48]' : 'text-[#2F3540]'" x-text="item.status === '异常' ? (currentSlice.topology?.segment1?.jitter || '32ms') : '2ms'"></span>
+                                        </span>
+                                        <span class="text-[#CBD5E1]">|</span>
+                                        <span class="text-[#2F3540]">
+                                          <span class="text-[11px] text-[#6F7785] font-sans">物理</span>
+                                          <span class="text-base font-bold font-outfit text-[#2F3540]" x-text="item.status === '异常' ? '30ms' : '2ms'"></span>
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <!-- ③ 终端-LAN网关 三合一卡片 (RTT、丢包、抖动合并归属于终端-LAN网关) -->
+                                <div class="bg-white p-3 rounded-[2px] border border-[#EAEEF4] shadow-xs">
+                                  <div class="flex items-center justify-between pb-2 mb-2 border-b border-[#F0F2F5]">
+                                    <div class="flex items-center gap-2">
+                                      <span class="text-xs font-normal text-[#2F3540]">终端-LAN网关</span>
+                                      <span class="text-[11px] text-[#8A92A1] font-mono">(网关 IP: 192.168.1.1)</span>
+                                    </div>
+                                    <span class="text-[11px] text-[#8A92A1]">本地局域网第一跳</span>
+                                  </div>
+                                  <div class="grid grid-cols-1 md:grid-cols-3 gap-2.5">
+                                    <!-- LAN RTT -->
+                                    <div class="bg-[#FAFBFD] p-2 rounded-[2px] border border-[#EAEEF4] flex flex-col justify-between">
+                                      <div class="flex items-center justify-between text-[11px]">
+                                        <span class="text-[#6F7785]">LAN 网关 RTT 时延</span>
+                                        <span class="text-[10px] text-[#94A3B8]">基线 &lt; 10ms</span>
+                                      </div>
+                                      <div class="mt-1 flex items-baseline gap-1">
+                                        <span class="text-base font-bold font-outfit" :class="item.status === '异常' ? 'text-[#E11D48]' : 'text-[#2F3540]'" x-text="item.status === '异常' ? '86ms' : '2ms'"></span>
+                                      </div>
+                                    </div>
+                                    <!-- LAN 丢包率 -->
+                                    <div class="bg-[#FAFBFD] p-2 rounded-[2px] border border-[#EAEEF4] flex flex-col justify-between">
+                                      <div class="flex items-center justify-between text-[11px]">
+                                        <span class="text-[#6F7785]">LAN 网关丢包率</span>
+                                        <span class="text-[10px] text-[#94A3B8]">基线 0%</span>
+                                      </div>
+                                      <div class="mt-1 flex items-baseline gap-1">
+                                        <span class="text-base font-bold font-outfit" :class="item.status === '异常' ? 'text-[#E11D48]' : 'text-[#2F3540]'" x-text="item.status === '异常' ? '3.8%' : '0.0%'"></span>
+                                      </div>
+                                    </div>
+                                    <!-- LAN 抖动 -->
+                                    <div class="bg-[#FAFBFD] p-2 rounded-[2px] border border-[#EAEEF4] flex flex-col justify-between">
+                                      <div class="flex items-center justify-between text-[11px]">
+                                        <span class="text-[#6F7785]">LAN 网关抖动</span>
+                                        <span class="text-[10px] text-[#94A3B8]">基线 &lt; 5ms</span>
+                                      </div>
+                                      <div class="mt-1 flex items-baseline gap-1">
+                                        <span class="text-base font-bold font-outfit" :class="item.status === '异常' ? 'text-[#E11D48]' : 'text-[#2F3540]'" x-text="item.status === '异常' ? '27ms' : '1ms'"></span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <!-- ④ WiFi 接入信息 (放在终端-LAN网关信息下面) -->
+                                <div class="bg-white p-3 rounded-[2px] border border-[#EAEEF4] shadow-xs">
+                                  <div class="flex items-center justify-between pb-2 mb-2 border-b border-[#F0F2F5]">
+                                    <div class="flex items-center gap-2">
+                                      <svg class="w-3.5 h-3.5 text-[#1C6EFF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.14 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0"></path>
+                                      </svg>
+                                      <span class="text-xs font-normal text-[#2F3540]">WiFi 接入信息</span>
+                                      <span class="text-[11px] text-[#8A92A1] font-mono">(SSID: Sangfor-Office-VIP · 2.4GHz 信道 6)</span>
+                                    </div>
+                                    <span class="text-[11px] text-[#8A92A1]">无线接入层 (Air Interface)</span>
+                                  </div>
+                                  <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                                    <!-- 信号强度 (RSSI) -->
+                                    <div class="bg-[#FAFBFD] p-2 rounded-[2px] border border-[#EAEEF4] flex flex-col justify-between">
+                                      <div class="flex items-center justify-between text-[11px]">
+                                        <span class="text-[#6F7785]">信号强度 (RSSI)</span>
+                                        <span class="text-[10px] text-[#94A3B8]">评估基线 &gt; -65 dBm</span>
+                                      </div>
+                                      <div class="mt-1 flex items-baseline gap-1.5">
+                                        <span class="text-base font-bold font-outfit" :class="item.status === '异常' ? 'text-[#E11D48]' : 'text-[#2F3540]'" x-text="item.status === '异常' ? '-78 dBm' : '-52 dBm'"></span>
+                                        <span class="text-[10px] font-normal" :class="item.status === '异常' ? 'text-[#E11D48]' : 'text-[#12A679]'" x-text="item.status === '异常' ? '(信号衰减严重)' : '(优)'"></span>
+                                      </div>
+                                    </div>
+
+                                    <!-- 帧重传率 -->
+                                    <div class="bg-[#FAFBFD] p-2 rounded-[2px] border border-[#EAEEF4] flex flex-col justify-between">
+                                      <div class="flex items-center justify-between text-[11px]">
+                                        <span class="text-[#6F7785]">帧重传率 (Retransmission Rate)</span>
+                                        <span class="text-[10px] text-[#94A3B8]">评估基线 &lt; 10.0%</span>
+                                      </div>
+                                      <div class="mt-1 flex items-baseline gap-1.5">
+                                        <span class="text-base font-bold font-outfit" :class="item.status === '异常' ? 'text-[#E11D48]' : 'text-[#2F3540]'" x-text="item.status === '异常' ? '31.0%' : '2.1%'"></span>
+                                        <span class="text-[10px] font-normal" :class="item.status === '异常' ? 'text-[#E11D48]' : 'text-[#12A679]'" x-text="item.status === '异常' ? '(信道竞争同频干扰)' : '(正常)'"></span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <!-- ⑤ 客户端到 POP 逐跳链路诊断 (加细灰描边) -->
+                                <template x-if="item.hopTraces">
+                                  <div class="mt-3 bg-white p-3 rounded-[2px] border border-[#EAEEF4] shadow-xs">
+                                    <div class="flex items-center justify-between pb-2 border-b border-[#F0F2F5]">
+                                      <div class="flex items-center gap-2">
+                                        <span class="text-xs font-normal text-[#2F3540]">客户端到POP的逐跳链路诊断 (Hop-by-Hop Trace)</span>
+                                      </div>
+                                      <span class="text-[11px] text-[#6F7785] font-mono">自动探测 · 链路分析</span>
+                                    </div>
+
+                                    <!-- 逐跳证据表格 -->
+                                    <div class="mt-2 overflow-x-auto">
+                                      <table class="w-full text-left text-xs border-collapse">
+                                        <thead>
+                                          <tr class="bg-[#FAFBFD] border-b border-[#E1E5EB] text-[#5C6270] font-normal text-[11px]">
+                                            <th class="py-1.5 px-2.5 w-10 text-center font-normal">Hop</th>
+                                            <th class="py-1.5 px-2.5 font-normal">节点 IP</th>
+                                            <th class="py-1.5 px-2.5 font-normal">ISP / ASN 属性</th>
+                                            <th class="py-1.5 px-2.5 font-normal">地区</th>
+                                            <th class="py-1.5 px-2.5 font-normal">RTT (较上一跳)</th>
+                                            <th class="py-1.5 px-2.5 font-normal">丢包 (较上一跳)</th>
+                                            <th class="py-1.5 px-2.5 font-normal">抖动 (较上一跳)</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody class="divide-y divide-[#F1F5F9] text-[11px] font-mono font-normal">
+                                          <template x-for="hop in item.hopTraces" :key="hop.hop">
+                                            <tr :class="hop.status === '异常' ? 'bg-[#FFF1F2]/40 text-[#E11D48]' : 'hover:bg-[#FAFBFD] text-[#334155]'">
+                                              <td class="py-1.5 px-2.5 text-center font-normal" x-text="hop.hop"></td>
+                                              <td class="py-1.5 px-2.5 font-normal">
+                                                <span x-text="hop.ip"></span>
+                                                <template x-if="hop.status === '异常'">
+                                                  <span class="ml-1.5 px-1.5 py-0.2 text-[10px] bg-[#FFF1F2] text-[#E11D48] rounded font-normal">异常定责点</span>
+                                                </template>
+                                              </td>
+                                              <td class="py-1.5 px-2.5 font-sans font-normal" x-text="hop.asn"></td>
+                                              <td class="py-1.5 px-2.5 font-sans text-[#64748B] font-normal" x-text="hop.loc"></td>
+                                              <td class="py-1.5 px-2.5 font-normal" x-text="hop.rtt + (hop.diffRtt && hop.diffRtt !== '-' ? ' (' + hop.diffRtt + ')' : '')"></td>
+                                              <td class="py-1.5 px-2.5 font-normal" :class="hop.status === '异常' ? 'text-[#E11D48]' : ''" x-text="hop.loss + (hop.diffLoss && hop.diffLoss !== '-' ? ' (' + hop.diffLoss + ')' : '')"></td>
+                                              <td class="py-1.5 px-2.5 font-normal" :class="hop.status === '异常' ? 'text-[#E11D48]' : ''" x-text="hop.jitter + (hop.diffJitter && hop.diffJitter !== '-' ? ' (' + hop.diffJitter + ')' : '')"></td>
+                                            </tr>
+                                          </template>
+                                        </tbody>
+                                      </table>
+                                    </div>
                                   </div>
                                 </template>
                               </div>
+                            </template>
 
-                              <!-- 3 大简要趋势图 (5分钟/次设备遥测) -->
-                              <div class="grid grid-cols-1 md:grid-cols-3 gap-2.5 pt-1">
-                                
-                                <!-- CPU 使用率趋势图 -->
-                                <div class="bg-white border border-[#E1E5EB] p-3 rounded-[2px] shadow-xs flex flex-col justify-between">
-                                  <div class="flex items-center justify-between text-xs mb-2">
-                                    <span class="font-medium text-[#2F3540]">CPU 使用率 <span class="text-[10px] text-[#94A3B8]">(5分钟遥测)</span></span>
-                                    <div class="flex items-center gap-2 text-[10px]">
-                                      <span class="inline-flex items-center gap-1 text-[#1C6EFF]"><span class="w-1.5 h-1.5 rounded-full bg-[#1C6EFF]"></span> 24.5%</span>
-                                      <span class="text-[#94A3B8]">基线 20%</span>
+                            <!-- ==========================================
+                                 3. POP 节点 (node_pop) - 仅展示 RTT、丢包率、时延、抖动
+                                 ========================================== -->
+                            <template x-if="item.id === 'node_pop'">
+                              <div class="space-y-3">
+                                <!-- ① 首判定性文字 (状态以 Tag 呈现) -->
+                                <p class="text-xs text-[#2F3540] leading-relaxed font-normal flex items-center flex-wrap gap-y-1" x-html="getQualitativeHtml(item)"></p>
+
+                                <!-- ② 只有 4 个核心指标卡片 (加细灰描边) -->
+                                <div class="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+                                  <!-- RTT -->
+                                  <div class="bg-white p-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
+                                    <span class="text-[11px] text-[#6F7785]">RTT</span>
+                                    <div class="mt-1">
+                                      <span class="text-base font-bold font-outfit" :class="item.status === '异常' ? 'text-[#E11D48]' : 'text-[#2F3540]'" x-text="item.status === '异常' ? '48ms' : '28ms'"></span>
                                     </div>
+                                    <span class="text-[10px] text-[#94A3B8]">基线 &lt; 40ms</span>
                                   </div>
-                                  <div class="h-20 w-full bg-[#FAFBFD] rounded border border-[#F1F5F9] p-1.5">
-                                    <svg viewBox="0 0 200 50" class="w-full h-full overflow-visible">
-                                      <line x1="0" y1="35" x2="200" y2="35" stroke="#94A3B8" stroke-width="1" stroke-dasharray="3 2"/>
-                                      <polyline fill="none" stroke="#1C6EFF" stroke-width="1.8" points="0,38 20,36 40,32 60,30 80,22 100,10 120,15 140,28 160,34 180,35 200,34"/>
-                                      <circle cx="0" cy="38" r="2" fill="#1C6EFF"/><circle cx="40" cy="32" r="2" fill="#1C6EFF"/><circle cx="80" cy="22" r="2" fill="#1C6EFF"/><circle cx="100" cy="10" r="2.5" fill="#D9363E"/><circle cx="140" cy="28" r="2" fill="#1C6EFF"/><circle cx="200" cy="34" r="2" fill="#1C6EFF"/>
-                                    </svg>
+
+                                  <!-- 丢包率 -->
+                                  <div class="bg-white p-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
+                                    <span class="text-[11px] text-[#6F7785]">丢包率</span>
+                                    <div class="mt-1">
+                                      <span class="text-base font-bold font-outfit" :class="item.status === '异常' ? 'text-[#E11D48]' : 'text-[#2F3540]'" x-text="item.status === '异常' ? '2.1%' : '0.02%'"></span>
+                                    </div>
+                                    <span class="text-[10px] text-[#94A3B8]">基线 &lt; 0.1%</span>
+                                  </div>
+
+                                  <!-- 时延 -->
+                                  <div class="bg-white p-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
+                                    <span class="text-[11px] text-[#6F7785]">时延</span>
+                                    <div class="mt-1">
+                                      <span class="text-base font-bold font-outfit" :class="item.status === '异常' ? 'text-[#E11D48]' : 'text-[#2F3540]'" x-text="item.status === '异常' ? '32ms' : '6ms'"></span>
+                                    </div>
+                                    <span class="text-[10px] text-[#94A3B8]">基线 &lt; 15ms</span>
+                                  </div>
+
+                                  <!-- 抖动 -->
+                                  <div class="bg-white p-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
+                                    <span class="text-[11px] text-[#6F7785]">抖动</span>
+                                    <div class="mt-1">
+                                      <span class="text-base font-bold font-outfit" :class="item.status === '异常' ? 'text-[#E11D48]' : 'text-[#2F3540]'" x-text="item.status === '异常' ? '11ms' : '2ms'"></span>
+                                    </div>
+                                    <span class="text-[10px] text-[#94A3B8]">基线 &lt; 5ms</span>
                                   </div>
                                 </div>
-
-                                <!-- 内存使用率趋势图 -->
-                                <div class="bg-white border border-[#E1E5EB] p-3 rounded-[2px] shadow-xs flex flex-col justify-between">
-                                  <div class="flex items-center justify-between text-xs mb-2">
-                                    <span class="font-medium text-[#2F3540]">内存使用率 <span class="text-[10px] text-[#94A3B8]">(5分钟遥测)</span></span>
-                                    <div class="flex items-center gap-2 text-[10px]">
-                                      <span class="inline-flex items-center gap-1 text-[#8B5CF6]"><span class="w-1.5 h-1.5 rounded-full bg-[#8B5CF6]"></span> 68.2%</span>
-                                      <span class="text-[#94A3B8]">基线 60%</span>
-                                    </div>
-                                  </div>
-                                  <div class="h-20 w-full bg-[#FAFBFD] rounded border border-[#F1F5F9] p-1.5">
-                                    <svg viewBox="0 0 200 50" class="w-full h-full overflow-visible">
-                                      <line x1="0" y1="30" x2="200" y2="30" stroke="#94A3B8" stroke-width="1" stroke-dasharray="3 2"/>
-                                      <polyline fill="none" stroke="#8B5CF6" stroke-width="1.8" points="0,32 40,30 80,26 100,18 120,12 160,22 200,25"/>
-                                      <circle cx="0" cy="32" r="2" fill="#8B5CF6"/><circle cx="40" cy="30" r="2" fill="#8B5CF6"/><circle cx="80" cy="26" r="2" fill="#8B5CF6"/><circle cx="120" cy="12" r="2" fill="#8B5CF6"/><circle cx="160" cy="22" r="2" fill="#8B5CF6"/><circle cx="200" cy="25" r="2" fill="#8B5CF6"/>
-                                    </svg>
-                                  </div>
-                                </div>
-
-                                <!-- WiFi 信号强度 (RSSI) 趋势图 -->
-                                <div class="bg-white border border-[#E1E5EB] p-3 rounded-[2px] shadow-xs flex flex-col justify-between">
-                                  <div class="flex items-center justify-between text-xs mb-2">
-                                    <span class="font-medium text-[#2F3540]">WiFi 信号强度 <span class="text-[10px] text-[#94A3B8]">(RSSI)</span></span>
-                                    <div class="flex items-center gap-2 text-[10px]">
-                                      <span class="inline-flex items-center gap-1 text-[#06B6D4]"><span class="w-1.5 h-1.5 rounded-full bg-[#06B6D4]"></span> -48dBm</span>
-                                      <span class="text-[#94A3B8]">基线 -45dBm</span>
-                                    </div>
-                                  </div>
-                                  <div class="h-20 w-full bg-[#FAFBFD] rounded border border-[#F1F5F9] p-1.5">
-                                    <svg viewBox="0 0 200 50" class="w-full h-full overflow-visible">
-                                      <line x1="0" y1="20" x2="200" y2="20" stroke="#94A3B8" stroke-width="1" stroke-dasharray="3 2"/>
-                                      <polyline fill="none" stroke="#06B6D4" stroke-width="1.8" points="0,22 40,24 80,32 100,44 120,38 160,28 200,24"/>
-                                      <circle cx="0" cy="22" r="2" fill="#06B6D4"/><circle cx="40" cy="24" r="2" fill="#06B6D4"/><circle cx="80" cy="32" r="2" fill="#06B6D4"/><circle cx="100" cy="44" r="2.5" fill="#D9363E"/><circle cx="160" cy="28" r="2" fill="#06B6D4"/><circle cx="200" cy="24" r="2" fill="#06B6D4"/>
-                                    </svg>
-                                  </div>
-                                </div>
-
                               </div>
-                            </div>
-                          </template>
+                            </template>
 
-                          <!-- ==========================================
-                               4. 默认视图 (常规链路段与节点)
-                               ========================================== -->
-                          <template x-if="item.id !== 'seg_client_pop' && item.id !== 'node_pop' && item.id !== 'node_terminal'">
-                            <div class="space-y-3">
-                              <p class="text-xs text-[#5C6270] leading-relaxed" x-text="item.summary || ''"></p>
-                              <div class="grid grid-cols-2 md:grid-cols-4 gap-2.5">
-                                <template x-for="(m, mIdx) in (item.metrics || [])" :key="mIdx">
-                                  <div class="bg-white border border-[#E1E5EB] p-2.5 rounded-[2px] relative group hover:border-[#CBD5E1]">
-                                    <template x-if="m.isAbnormal">
-                                                                          </template>
-                                    <div class="text-[11px] text-[#6F7785]" x-text="m.label"></div>
-                                    <div class="text-xs font-medium font-mono mt-1"
-                                         :class="m.isAbnormal ? 'text-[#E11D48] font-semibold' : 'text-[#2F3540]'" x-text="m.value"></div>
-                                    <template x-if="m.baseline">
-                                      <div class="text-[10px] text-[#A1A7B3] mt-0.5" x-text="'基线: ' + m.baseline"></div>
-                                    </template>
+                            <!-- ==========================================
+                                 4. POP-连接器段 (seg_pop_gw) - RTT、丢包率、抖动、吞吐
+                                 ========================================== -->
+                            <template x-if="item.id === 'seg_pop_gw'">
+                              <div class="space-y-3">
+                                <!-- ① 首判定性文字 (状态以 Tag 呈现) -->
+                                <p class="text-xs text-[#2F3540] leading-relaxed font-normal flex items-center flex-wrap gap-y-1" x-html="getQualitativeHtml(item)"></p>
+
+                                <!-- ② 4 个指标卡片 (加细灰描边) -->
+                                <div class="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+                                  <!-- RTT -->
+                                  <div class="bg-white p-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
+                                    <span class="text-[11px] text-[#6F7785]">RTT</span>
+                                    <div class="mt-1">
+                                      <span class="text-base font-bold font-outfit" :class="item.status === '异常' ? 'text-[#E11D48]' : 'text-[#2F3540]'" x-text="item.status === '异常' ? '120ms' : '35ms'"></span>
+                                    </div>
+                                    <span class="text-[10px] text-[#94A3B8]">基线 &lt; 40ms</span>
                                   </div>
-                                </template>
-                              </div>
-                            </div>
-                          </template>
 
+                                  <!-- 丢包率 -->
+                                  <div class="bg-white p-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
+                                    <span class="text-[11px] text-[#6F7785]">丢包率</span>
+                                    <div class="mt-1">
+                                      <span class="text-base font-bold font-outfit" :class="item.status === '异常' ? 'text-[#E11D48]' : 'text-[#2F3540]'" x-text="item.status === '异常' ? '5.0%' : '0.0%'"></span>
+                                    </div>
+                                    <span class="text-[10px] text-[#94A3B8]">基线 &lt; 0.5%</span>
+                                  </div>
+
+                                  <!-- 抖动 -->
+                                  <div class="bg-white p-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
+                                    <span class="text-[11px] text-[#6F7785]">抖动</span>
+                                    <div class="mt-1">
+                                      <span class="text-base font-bold font-outfit" :class="item.status === '异常' ? 'text-[#E11D48]' : 'text-[#2F3540]'" x-text="item.status === '异常' ? '18ms' : '2ms'"></span>
+                                    </div>
+                                    <span class="text-[10px] text-[#94A3B8]">基线 &lt; 5ms</span>
+                                  </div>
+
+                                  <!-- 吞吐 -->
+                                  <div class="bg-white p-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
+                                    <span class="text-[11px] text-[#6F7785]">吞吐</span>
+                                    <div class="mt-1">
+                                      <span class="text-base font-bold font-outfit" :class="item.status === '异常' ? 'text-[#E11D48]' : 'text-[#2F3540]'" x-text="item.status === '异常' ? '20 Mbps' : '1.2 Gbps'"></span>
+                                    </div>
+                                    <span class="text-[10px] text-[#94A3B8]">专线带宽</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </template>
+
+                            <!-- ==========================================
+                                 5. 连接器 (node_connector) - RTT、丢包率、抖动、吞吐、CPU、内存
+                                 ========================================== -->
+                            <template x-if="item.id === 'node_connector'">
+                              <div class="space-y-3">
+                                <!-- ① 首判定性文字 (状态以 Tag 呈现) -->
+                                <p class="text-xs text-[#2F3540] leading-relaxed font-normal flex items-center flex-wrap gap-y-1" x-html="getQualitativeHtml(item)"></p>
+
+                                <!-- ② 6 个指标卡片 (加细灰描边) -->
+                                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5">
+                                  <!-- RTT -->
+                                  <div class="bg-white p-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
+                                    <span class="text-[11px] text-[#6F7785]">RTT</span>
+                                    <div class="mt-1">
+                                      <span class="text-base font-bold font-outfit text-[#2F3540]">24ms</span>
+                                    </div>
+                                    <span class="text-[10px] text-[#94A3B8]">基线 &lt; 30ms</span>
+                                  </div>
+
+                                  <!-- 丢包率 -->
+                                  <div class="bg-white p-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
+                                    <span class="text-[11px] text-[#6F7785]">丢包率</span>
+                                    <div class="mt-1">
+                                      <span class="text-base font-bold font-outfit text-[#2F3540]">0.1%</span>
+                                    </div>
+                                    <span class="text-[10px] text-[#94A3B8]">基线 &lt; 0.5%</span>
+                                  </div>
+
+                                  <!-- 抖动 -->
+                                  <div class="bg-white p-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
+                                    <span class="text-[11px] text-[#6F7785]">抖动</span>
+                                    <div class="mt-1">
+                                      <span class="text-base font-bold font-outfit text-[#2F3540]">2ms</span>
+                                    </div>
+                                    <span class="text-[10px] text-[#94A3B8]">基线 &lt; 5ms</span>
+                                  </div>
+
+                                  <!-- 吞吐 -->
+                                  <div class="bg-white p-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
+                                    <span class="text-[11px] text-[#6F7785]">吞吐</span>
+                                    <div class="mt-1">
+                                      <span class="text-base font-bold font-outfit text-[#2F3540]">480 Mbps</span>
+                                    </div>
+                                    <span class="text-[10px] text-[#94A3B8]">转发吞吐</span>
+                                  </div>
+
+                                  <!-- CPU -->
+                                  <div class="bg-white p-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
+                                    <span class="text-[11px] text-[#6F7785]">CPU利用率</span>
+                                    <div class="mt-1">
+                                      <span class="text-base font-bold font-outfit text-[#2F3540]">28.4%</span>
+                                    </div>
+                                    <span class="text-[10px] text-[#12A679]">正常 (&lt; 70%)</span>
+                                  </div>
+
+                                  <!-- 内存 -->
+                                  <div class="bg-white p-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
+                                    <span class="text-[11px] text-[#6F7785]">内存利用率</span>
+                                    <div class="mt-1">
+                                      <span class="text-base font-bold font-outfit text-[#2F3540]">52.5%</span>
+                                    </div>
+                                    <span class="text-[10px] text-[#12A679]">正常 (&lt; 60%)</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </template>
+
+                            <!-- ==========================================
+                                 6. 连接器-应用段 (seg_gw_app / seg_af_oa) - RTT、丢包率、抖动、吞吐
+                                 ========================================== -->
+                            <template x-if="item.id === 'seg_gw_app' || item.id === 'seg_af_oa'">
+                              <div class="space-y-3">
+                                <!-- ① 首判定性文字 (状态以 Tag 呈现) -->
+                                <p class="text-xs text-[#2F3540] leading-relaxed font-normal flex items-center flex-wrap gap-y-1" x-html="getQualitativeHtml(item)"></p>
+
+                                <!-- ② 4 个指标卡片 (加细灰描边) -->
+                                <div class="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+                                  <!-- RTT -->
+                                  <div class="bg-white p-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
+                                    <span class="text-[11px] text-[#6F7785]">RTT</span>
+                                    <div class="mt-1">
+                                      <span class="text-base font-bold font-outfit text-[#2F3540]" x-text="item.id === 'seg_af_oa' ? '2ms' : '15ms'"></span>
+                                    </div>
+                                    <span class="text-[10px] text-[#94A3B8]">基线 &lt; 30ms</span>
+                                  </div>
+
+                                  <!-- 丢包率 -->
+                                  <div class="bg-white p-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
+                                    <span class="text-[11px] text-[#6F7785]">丢包率</span>
+                                    <div class="mt-1">
+                                      <span class="text-base font-bold font-outfit text-[#2F3540]">0.0%</span>
+                                    </div>
+                                    <span class="text-[10px] text-[#94A3B8]">基线 &lt; 0.5%</span>
+                                  </div>
+
+                                  <!-- 抖动 -->
+                                  <div class="bg-white p-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
+                                    <span class="text-[11px] text-[#6F7785]">抖动</span>
+                                    <div class="mt-1">
+                                      <span class="text-base font-bold font-outfit text-[#2F3540]">1ms</span>
+                                    </div>
+                                    <span class="text-[10px] text-[#94A3B8]">基线 &lt; 5ms</span>
+                                  </div>
+
+                                  <!-- 吞吐 -->
+                                  <div class="bg-white p-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
+                                    <span class="text-[11px] text-[#6F7785]">吞吐</span>
+                                    <div class="mt-1">
+                                      <span class="text-base font-bold font-outfit text-[#2F3540]">1.2 Gbps</span>
+                                    </div>
+                                    <span class="text-[10px] text-[#94A3B8]">内网带宽</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </template>
+
+                            <!-- ==========================================
+                                 7. 应用 (node_app / node_final_app) - TTFB、HTTP错误率、DNS、TCP、TLS、RTT、丢包率、抖动
+                                 ========================================== -->
+                            <template x-if="item.id === 'node_app' || item.id === 'node_final_app'">
+                              <div class="space-y-3">
+                                <!-- ① 首判定性文字 (状态以 Tag 呈现) -->
+                                <p class="text-xs text-[#2F3540] leading-relaxed font-normal flex items-center flex-wrap gap-y-1" x-html="getQualitativeHtml(item)"></p>
+
+                                <!-- ② 8 个指标卡片 (加细灰描边) -->
+                                <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-2">
+                                  <!-- TTFB -->
+                                  <div class="bg-white p-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
+                                    <span class="text-[10px] text-[#6F7785]">TTFB</span>
+                                    <div class="mt-1">
+                                      <span class="text-base font-bold font-outfit" :class="item.status === '异常' ? 'text-[#E11D48]' : 'text-[#2F3540]'" x-text="item.status === '异常' ? (selectedPoint && selectedPoint.ttfb ? (Number(selectedPoint.ttfb).toLocaleString() + 'ms') : '1,260ms') : '45ms'"></span>
+                                    </div>
+                                    <span class="text-[10px] text-[#94A3B8]">基线 &lt; 300ms</span>
+                                  </div>
+
+                                  <!-- HTTP 错误率 -->
+                                  <div class="bg-white p-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
+                                    <span class="text-[10px] text-[#6F7785]">HTTP错误率</span>
+                                    <div class="mt-1">
+                                      <span class="text-base font-bold font-outfit text-[#2F3540]">0.2%</span>
+                                    </div>
+                                    <span class="text-[10px] text-[#94A3B8]">基线 &lt; 1%</span>
+                                  </div>
+
+                                  <!-- DNS 解析时间 -->
+                                  <div class="bg-white p-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
+                                    <span class="text-[10px] text-[#6F7785]">DNS解析时间</span>
+                                    <div class="mt-1">
+                                      <span class="text-base font-bold font-outfit text-[#2F3540]">18ms</span>
+                                    </div>
+                                    <span class="text-[10px] text-[#94A3B8]">基线 &lt; 50ms</span>
+                                  </div>
+
+                                  <!-- TCP 连接时间 -->
+                                  <div class="bg-white p-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
+                                    <span class="text-[10px] text-[#6F7785]">TCP连接时间</span>
+                                    <div class="mt-1">
+                                      <span class="text-base font-bold font-outfit text-[#2F3540]">42ms</span>
+                                    </div>
+                                    <span class="text-[10px] text-[#94A3B8]">基线 &lt; 50ms</span>
+                                  </div>
+
+                                  <!-- TLS 握手时间 -->
+                                  <div class="bg-white p-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
+                                    <span class="text-[10px] text-[#6F7785]">TLS握手时间</span>
+                                    <div class="mt-1">
+                                      <span class="text-base font-bold font-outfit text-[#2F3540]">76ms</span>
+                                    </div>
+                                    <span class="text-[10px] text-[#94A3B8]">基线 &lt; 80ms</span>
+                                  </div>
+
+                                  <!-- RTT -->
+                                  <div class="bg-white p-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
+                                    <span class="text-[10px] text-[#6F7785]">RTT</span>
+                                    <div class="mt-1">
+                                      <span class="text-base font-bold font-outfit text-[#2F3540]">31ms</span>
+                                    </div>
+                                    <span class="text-[10px] text-[#94A3B8]">基线 &lt; 50ms</span>
+                                  </div>
+
+                                  <!-- 丢包率 -->
+                                  <div class="bg-white p-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
+                                    <span class="text-[10px] text-[#6F7785]">丢包率</span>
+                                    <div class="mt-1">
+                                      <span class="text-base font-bold font-outfit text-[#2F3540]">0.2%</span>
+                                    </div>
+                                    <span class="text-[10px] text-[#94A3B8]">基线 &lt; 0.5%</span>
+                                  </div>
+
+                                  <!-- 抖动 -->
+                                  <div class="bg-white p-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
+                                    <span class="text-[10px] text-[#6F7785]">抖动</span>
+                                    <div class="mt-1">
+                                      <span class="text-base font-bold font-outfit text-[#2F3540]">3ms</span>
+                                    </div>
+                                    <span class="text-[10px] text-[#94A3B8]">基线 &lt; 5ms</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </template>
+
+                          </div>
                         </div>
                       </div>
+                    </template>
+                  </div>
 
-                    </div>
-                  </template>
                 </div>
 
               </div>
-
-            </div>
-
-          </div>
 
         </main>
 

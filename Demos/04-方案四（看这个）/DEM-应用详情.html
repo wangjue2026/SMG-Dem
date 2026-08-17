@@ -425,7 +425,7 @@
         userPageSize: 20,
 
         userList: [
-          { empId: '45343', name: '何总', dept: '深信服科技 / 总裁办 / 总经办', exp: '差', isp: '北京 酒店Wi-Fi (电信)', pop: '北京POP', totalApps: 16, normalCount: 12, fairCount: 2, poorCount: 2 },
+          { empId: '4343', name: '何总', dept: '深信服科技 / 总裁办 / 总经办', exp: '差', isp: '北京 办公室Wi-Fi (电信)', pop: '北京POP', totalApps: 16, normalCount: 12, fairCount: 2, poorCount: 2 },
           { empId: '2024019', name: '张三', dept: '深信服科技 / 研发中心 / DEM产品部', exp: '差', isp: '广东深圳 电信', pop: '香港POP', totalApps: 17, normalCount: 12, fairCount: 3, poorCount: 2 },
           { empId: '2024088', name: '李四', dept: '深信服科技 / 销售中心 / 华南大区', exp: '差', isp: '香港 PCCW', pop: '香港POP', totalApps: 15, normalCount: 10, fairCount: 2, poorCount: 3 },
           { empId: '2024095', name: '王强', dept: '深信服科技 / 部署中心 / 海外实施部', exp: '差', isp: '菲律宾 PLDT', pop: '香港POP', totalApps: 14, normalCount: 8, fairCount: 2, poorCount: 4 },
@@ -2286,8 +2286,12 @@
                       </div>
                     </template>
 
-                    <!-- 卡片 4: 更多线路下拉收纳卡片 (带搜索、状态过滤与槽位替换) -->
-                    <div class="relative" x-data="{ open: false }" @click.outside="open = false">
+                    <!-- 卡片 4: 更多线路下拉收纳卡片 (带搜索、状态过滤与槽位替换，支持鼠标悬浮展开) -->
+                    <div class="relative" 
+                         x-data="{ open: false, timer: null }" 
+                         @mouseenter="clearTimeout(timer); open = true" 
+                         @mouseleave="timer = setTimeout(() => open = false, 200)"
+                         @click.outside="open = false">
                       <div class="h-full min-h-[66px] p-3 rounded-[2px] border border-dashed cursor-pointer select-none transition-all duration-150 flex flex-col justify-between"
                            :class="open ? 'bg-white border-[#1C6EFF] shadow-xs ring-2 ring-[#1C6EFF]/20' : 'bg-white border-[#B8C2CC] hover:border-[#1C6EFF] hover:shadow-2xs'"
                            @click="open = !open">
@@ -2304,7 +2308,7 @@
                           </svg>
                         </div>
                         <div class="flex items-center justify-between text-[11px] text-[#8A92A1] mt-1.5">
-                          <span>点击展开收纳列表</span>
+                          <span>鼠标悬浮快速展开</span>
                         </div>
                       </div>
 
