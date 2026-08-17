@@ -613,59 +613,101 @@
         ],
 
         init() {
-          // 1. 读取 sessionStorage 中保存的排障定位查询参数
-          let rawLocate = null;
-          try {
-            rawLocate = sessionStorage.getItem('dem_locate_query');
-          } catch(e) {}
-
           let loadedCustom = false;
-          if (rawLocate) {
-            try {
-              const locateObj = JSON.parse(rawLocate);
-              const { queryType, queryValue, selectedItem, dateShortcut, dateRange } = locateObj;
-              if (queryType) this.queryType = queryType;
-              if (dateShortcut) this.dateShortcut = dateShortcut;
-              if (dateRange) this.dateRange = dateRange;
 
-              const valLower = (queryValue || '').toLowerCase();
-              const nameLower = (selectedItem?.nameOnly || '').toLowerCase();
+          // 1. 优先读取 URL Search Params (如 DEM-用户详情.html?type=分支&name=马尼拉办公室 或 ?type=用户&empId=2024019&name=张三)
+          try {
+            const urlParams = new URLSearchParams(window.location.search);
+            const paramType = urlParams.get('type') || urlParams.get('queryType');
+            const paramName = urlParams.get('name') || urlParams.get('userName');
+            const paramEmpId = urlParams.get('empId');
+            const paramDept = urlParams.get('dept');
+            const paramLoc = urlParams.get('location');
+            const paramPop = urlParams.get('pop');
 
-              // 识别查询对象：如果是成都分支或分支类型，加载成都分支排障剧本 Mock 数据；如果是 Maria，加载 DigiPlus 剧本
-              if (valLower.includes('成都') || nameLower.includes('成都') || queryType === '分支') {
+            if (paramType || paramName || paramEmpId) {
+              if (paramType === '分支' || (paramName && paramName.includes('分支')) || (paramName && paramName.includes('办公室'))) {
                 this.queryType = '分支';
+                const branchTitle = paramName || '马尼拉办公室';
+                const locationText = paramLoc ? `地理位置：${paramLoc}` : '菲律宾 马尼拉';
+                const popText = paramPop ? `主要接入 POP：${paramPop}` : '香港POP';
+
+                this.userName = `${branchTitle} (分支详情)`;
+                this.userDept = `${locationText} | ${popText}`;
                 this.loadChengduBranchScriptData();
+                this.replaceUserMockData(branchTitle);
                 loadedCustom = true;
-              } else if (valLower.includes('maria') || nameLower.includes('maria')) {
+              } else {
                 this.queryType = '用户';
+                const nameOnly = paramName || '张三';
+                const fullUserName = paramEmpId ? `${paramEmpId}(${nameOnly})` : nameOnly;
+                const deptText = paramDept || '深信服科技 / 研发中心 / DEM产品部';
+
+                this.userName = fullUserName;
+                this.userDept = deptText;
                 this.loadDigiPlusMariaScriptData();
-                loadedCustom = true;
-              } else if (queryType === '用户') {
-                this.queryType = '用户';
-                const name = selectedItem?.label || `${queryValue} (${queryValue})`;
-                const dept = selectedItem?.sub || selectedItem?.dept || '深信服科技 / 研发中心 / DEM产品部';
-                const nameOnly = selectedItem?.nameOnly || queryValue;
-
-                this.userName = name;
-                this.userDept = dept;
-
-                // 替换 Mock 数据中涉及硬编码的“张三”为当前查询的用户名
                 this.replaceUserMockData(nameOnly);
                 loadedCustom = true;
-              } else if (queryType === '应用') {
-                this.queryType = '应用';
-                const appName = selectedItem?.nameOnly || selectedItem?.label || queryValue;
-                const appAddress = selectedItem?.sub || selectedItem?.address || `https://${appName.toLowerCase().replace(/\s+/g, '')}.corp.com`;
-
-                this.userName = `${appName} (应用排障定位)`;
-                this.userDept = `应用入口地址：${appAddress}`;
-
-                // 在应用列表中定位或追加该应用，并切为当前激活应用
-                this.activateOrAddApp(appName, appAddress);
-                loadedCustom = true;
               }
-            } catch (err) {
-              console.error('Failed to parse dem_locate_query', err);
+            }
+          } catch (e) {
+            console.error('Failed to parse URLSearchParams', e);
+          }
+
+          // 2. 读取 sessionStorage 中保存的排障定位查询参数
+          if (!loadedCustom) {
+            let rawLocate = null;
+            try {
+              rawLocate = sessionStorage.getItem('dem_locate_query');
+            } catch(e) {}
+
+            if (rawLocate) {
+              try {
+                const locateObj = JSON.parse(rawLocate);
+                const { queryType, queryValue, selectedItem, dateShortcut, dateRange } = locateObj;
+                if (queryType) this.queryType = queryType;
+                if (dateShortcut) this.dateShortcut = dateShortcut;
+                if (dateRange) this.dateRange = dateRange;
+
+                const valLower = (queryValue || '').toLowerCase();
+                const nameLower = (selectedItem?.nameOnly || '').toLowerCase();
+
+                // 识别查询对象：如果是成都分支或分支类型，加载成都分支排障剧本 Mock 数据；如果是 Maria，加载 DigiPlus 剧本
+                if (valLower.includes('成都') || nameLower.includes('成都') || queryType === '分支') {
+                  this.queryType = '分支';
+                  this.loadChengduBranchScriptData();
+                  loadedCustom = true;
+                } else if (valLower.includes('maria') || nameLower.includes('maria')) {
+                  this.queryType = '用户';
+                  this.loadDigiPlusMariaScriptData();
+                  loadedCustom = true;
+                } else if (queryType === '用户') {
+                  this.queryType = '用户';
+                  const name = selectedItem?.label || `${queryValue} (${queryValue})`;
+                  const dept = selectedItem?.sub || selectedItem?.dept || '深信服科技 / 研发中心 / DEM产品部';
+                  const nameOnly = selectedItem?.nameOnly || queryValue;
+
+                  this.userName = name;
+                  this.userDept = dept;
+
+                  // 替换 Mock 数据中涉及硬编码的“张三”为当前查询的用户名
+                  this.replaceUserMockData(nameOnly);
+                  loadedCustom = true;
+                } else if (queryType === '应用') {
+                  this.queryType = '应用';
+                  const appName = selectedItem?.nameOnly || selectedItem?.label || queryValue;
+                  const appAddress = selectedItem?.sub || selectedItem?.address || `https://${appName.toLowerCase().replace(/\s+/g, '')}.corp.com`;
+
+                  this.userName = `${appName} (应用排障定位)`;
+                  this.userDept = `应用入口地址：${appAddress}`;
+
+                  // 在应用列表中定位或追加该应用，并切为当前激活应用
+                  this.activateOrAddApp(appName, appAddress);
+                  loadedCustom = true;
+                }
+              } catch (err) {
+                console.error('Failed to parse dem_locate_query', err);
+              }
             }
           }
 
@@ -1371,11 +1413,12 @@
         },
 
         goBackUserList() {
-          if (document.referrer && document.referrer.includes('DEM-')) {
-            window.history.back();
-          } else {
-            window.location.href = './DEM-用户.html';
-          }
+          try {
+            if (this.queryType) {
+              sessionStorage.setItem('dem_active_tab', this.queryType);
+            }
+          } catch(e) {}
+          window.location.href = './DEM-首页.html';
         }
       };
     }
@@ -1434,15 +1477,17 @@
         
         <!-- 页面 Sub Header (面包屑与时间筛选器) -->
         <div class="h-[48px] min-h-[48px] bg-white border-b border-[#E1E5EB] px-6 flex items-center justify-between flex-shrink-0 select-none z-20">
-          <div class="flex items-center gap-3">
-            <button @click="goBackUserList()" class="inline-flex items-center gap-1.5 text-xs text-[#2F3540] hover:text-[#1C6EFF] font-medium transition-colors cursor-pointer group">
+          <div class="flex items-center gap-2">
+            <button @click="goBackUserList()" class="inline-flex items-center gap-1.5 text-xs text-[#2F3540] hover:text-[#1C6EFF] font-medium transition-colors cursor-pointer group" title="返回体验监控首页">
               <svg class="w-4 h-4 text-[#5C6270] group-hover:text-[#1C6EFF] transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
               </svg>
-              <span class="text-[14px] font-semibold text-[#2F3540] group-hover:text-[#1C6EFF]" x-text="pageHeaderTitle"></span>
+              <span class="text-[14px] font-semibold text-[#2F3540] group-hover:text-[#1C6EFF]">体验监控</span>
             </button>
             <span class="text-xs text-[#D3D7DE]">/</span>
-            <span class="text-xs text-[#5C6270] font-medium" x-text="userName"></span>
+            <span class="text-xs text-[#5C6270] font-medium" x-text="pageHeaderTitle"></span>
+            <span class="text-xs text-[#D3D7DE]">/</span>
+            <span class="text-xs text-[#2F3540] font-medium" x-text="userName"></span>
           </div>
 
           <div class="flex items-center gap-2 select-none">

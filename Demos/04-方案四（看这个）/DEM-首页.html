@@ -69,6 +69,12 @@
       color: #A1A7B3;
     }
 
+    /* 表格整体首列左边距留出 2px 规范 */
+    .dem-table th:first-child,
+    .dem-table td:first-child {
+      padding-left: 14px !important;
+    }
+
     /* 端到端链路高亮特效 */
     @keyframes pulse-red-subtle {
       0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.35); }
@@ -140,19 +146,44 @@
     function demHomeTabState() {
       return {
         ...window.dualShellAppStore('体验监控'),
-        pageTab: '概览',
-        selectedAlertId: 'cl_003',
-        alerts: [],
-        searchQuery: '',
-        selectedLevel: 'all',
-        selectedDimension: 'all',
-        currentPage: 1,
-        pageSize: 10,
-        jumpPageInput: '',
-        dateShortcut: '今天',
-        dateRange: '2026-06-04 00:00:00 ~ 2026-06-04 23:59:59',
+        pageTab: '体验监控',
+        contentTab: '分支', // '分支' | '用户' | '应用'
         showOverview: true,
         vipTab: 'user',
+
+        // 各种数据集合
+        branches: [],
+        users: [],
+        apps: [],
+
+        // --- 1. 分支状态 ---
+        branchSearchQuery: '',
+        branchSelectedExperience: [],
+        branchExpSortDir: 'desc',
+        branchCurrentPage: 1,
+        branchPageSize: 10,
+        branchJumpPageInput: '',
+
+        // --- 2. 用户状态 ---
+        userSearchQuery: '',
+        userSelectedExperience: [],
+        userSelectedPop: [],
+        userExpSortDir: 'desc',
+        userCurrentPage: 1,
+        userPageSize: 10,
+        userJumpPageInput: '',
+
+        // --- 3. 应用状态 ---
+        appSearchQuery: '',
+        appSelectedExperience: [],
+        appSelectedType: [],
+        appExpSortDir: 'desc',
+        appCurrentPage: 1,
+        appPageSize: 10,
+        appJumpPageInput: '',
+
+        dateShortcut: '今天',
+        dateRange: '2026-06-04 00:00:00 ~ 2026-06-04 23:59:59',
 
         // AI 排障 Agent 抽屉状态
         showAiDrawer1: false,
@@ -174,131 +205,247 @@
         ],
 
         init() {
-          if (window.initDemClusteredAlerts) {
-            this.alerts = window.initDemClusteredAlerts();
-          }
-        },
+          const designUsers = [
+            { id: "usr_d1", userName: "14810（郝星伍）", isVip: false, department: "/本地用户/安全BG/零信任", ipLocation: "202.108.22.5 (电信-长沙)", experience: "差", terminals: ["WIN-DESK-88--WIN-YZ"], pop: "POP (香港)", appCount: 9, degradedApps: ["Salesforce"] },
+            { id: "usr_d2", userName: "63728（王浩）", isVip: false, department: "/本地用户/安全BG/零信任", ipLocation: "183.14.5.12 (移动-深圳)", experience: "差", terminals: ["WIN-DESK-62--OKP"], pop: "POP (新加坡)", appCount: 15, degradedApps: ["Salesforce", "Teams", "Yahoo"] },
+            { id: "usr_d3", userName: "84261（柯特）", isVip: false, department: "/国内市场体系/华东区", ipLocation: "119.12.8.20 (联通-深圳)", experience: "差", terminals: ["WIN-DESK-97JUA-OKP"], pop: "POP (新加坡)", appCount: 11, degradedApps: ["Yahoo", "内部 CRM 系统", "OA审批平台"] },
+            { id: "usr_d4", userName: "35627（黎维祁）", isVip: false, department: "/本地用户/安全BG/零信任", ipLocation: "202.108.22.8 (电信-长沙)", experience: "一般", terminals: ["MacBook Air"], pop: "POP (成都)", appCount: 7, degradedApps: ["Yahoo"] },
+            { id: "usr_d5", userName: "15628（文惠辰）", isVip: false, department: "/本地用户/安全BG/零信任", ipLocation: "202.108.22.9 (电信-长沙)", experience: "一般", terminals: ["WIN-DESK-243JUA-OKP"], pop: "POP (新加坡)", appCount: 14, degradedApps: [] }
+          ];
 
-        get filteredAlerts() {
-          const levelOrder = { '高优': 0, '中优': 1, '低优': 2 };
-          return (this.alerts || []).filter(a => {
-            if (!a) return false;
-            const query = (this.searchQuery || '').trim().toLowerCase();
-            const titleMatch = (a.title || '').toLowerCase().includes(query);
-            const descMatch = (a.attributionText || a.description || '').toLowerCase().includes(query);
-            const appMatch = (a.scope && a.scope.appName ? a.scope.appName : '').toLowerCase().includes(query);
-            const matchSearch = !query || titleMatch || descMatch || appMatch;
+          if (window.initDemBranchData) this.branches = window.initDemBranchData();
+          let baseUsers = window.initDemUserData ? window.initDemUserData() : [];
+          this.users = [...designUsers, ...baseUsers];
+          if (window.initDemAppData) this.apps = window.initDemAppData();
 
-            const matchLevel = this.selectedLevel === 'all' || a.level === this.selectedLevel;
-            const matchDim = this.selectedDimension === 'all' || a.dimension === this.selectedDimension;
+          this.contentTab = '用户'; // Default to 访问用户 tab as in design mockup
 
-            return matchSearch && matchLevel && matchDim;
-          }).sort((a, b) => {
-            const lvDiff = (levelOrder[a.level] ?? 9) - (levelOrder[b.level] ?? 9);
-            if (lvDiff !== 0) return lvDiff;
-            return (b.time || '').localeCompare(a.time || '');
-          });
-        },
-
-        get paginatedAlerts() {
-          const start = (this.currentPage - 1) * this.pageSize;
-          return this.filteredAlerts.slice(start, start + this.pageSize);
-        },
-
-        get totalPages() {
-          return Math.ceil(this.filteredAlerts.length / this.pageSize) || 1;
+          try {
+            const activeTab = sessionStorage.getItem('dem_active_tab');
+            if (activeTab && ['分支', '用户', '应用'].includes(activeTab)) {
+              this.contentTab = activeTab;
+              sessionStorage.removeItem('dem_active_tab');
+            }
+          } catch(e) {}
         },
 
         get metrics() {
-          const total = this.alerts.length;
-          const highCount = this.alerts.filter(a => a.level === '高优').length;
-          const medCount = this.alerts.filter(a => a.level === '中优').length;
-          const lowCount = this.alerts.filter(a => a.level === '低优').length;
-
           return {
+            pendingCount: 16,
             total: 23,
-            pendingCount: (highCount || 4) + (medCount || 12),
-            highCount: highCount || 4,
-            medCount: medCount || 12,
-            lowCount: lowCount || 1,
-            resolvedCount: 4,
-            globalSummary: {
-              status: '良好',
-              statusDetail: '偶发轻度丢包',
-              conclusion: 'ISP 跨网节点丢包绕行，主要应用符合基线',
-              impact: '涉及 2 个分支职场、42 名用户 (重度影响 12 人)'
-            },
-            vipStats: {
-              userTotal: 12,
-              userAbnormal: 2,
-              userAbnormalNames: '张伟 (研发)、李娜 (市场)',
-              appTotal: 5,
-              appAbnormal: 1,
-              appAbnormalName: 'Salesforce CRM'
-            },
-            branchStats: { total: 24, normal: 22, fair: 1, poor: 1 },
-            userStats: { total: 3789, normal: 3648, fair: 84, poor: 35 },
-            appStats: { total: 172, normal: 166, fair: 3, poor: 3 }
+            highCount: 4,
+            medCount: 12,
+            lowCount: 1,
+            resolvedCount: 4
           };
         },
 
-        getLevelBadgeClass(lvl) {
-          if (lvl === '高优') return 'bg-[#CF171D]/10 text-[#CF171D] rounded-[2px] font-normal border-0 w-[36px] h-5 inline-flex items-center justify-center text-xs';
-          if (lvl === '中优') return 'bg-[#FA721B]/10 text-[#FA721B] rounded-[2px] font-normal border-0 w-[36px] h-5 inline-flex items-center justify-center text-xs';
-          return 'bg-[#6F7785]/10 text-[#2F3540] rounded-[2px] font-normal border-0 w-[36px] h-5 inline-flex items-center justify-center text-xs';
+        // --- 分支逻辑 ---
+        toggleBranchExpSort() {
+          this.branchExpSortDir = this.branchExpSortDir === 'desc' ? 'asc' : 'desc';
         },
+        get filteredBranches() {
+          const expOrder = this.branchExpSortDir === 'desc' 
+            ? { '差': 1, '一般': 2, '正常': 3 }
+            : { '正常': 1, '一般': 2, '差': 3 };
 
-        changePage(p) {
-          if (p < 1 || p > this.totalPages) return;
-          this.currentPage = p;
-        },
+          const list = (this.branches || []).filter(b => {
+            const query = (this.branchSearchQuery || '').trim().toLowerCase();
+            const matchSearch = !query || 
+              b.branchName.toLowerCase().includes(query) ||
+              b.city.toLowerCase().includes(query) ||
+              b.egressIp.toLowerCase().includes(query);
 
-        handleJumpPage() {
-          const p = parseInt(this.jumpPageInput);
-          if (p >= 1 && p <= this.totalPages) {
-            this.currentPage = p;
-            this.jumpPageInput = '';
-          }
-        },
-
-        sendAiMessage(text) {
-          if (!text || !text.trim()) return;
-          const userText = text.trim();
-          const now = new Date().toLocaleTimeString('zh-CN', { hour12: false, hour: '2-digit', minute: '2-digit' });
-          this.chatMessages.push({
-            role: 'user',
-            time: now,
-            content: userText
+            const matchExp = this.branchSelectedExperience.length === 0 || this.branchSelectedExperience.includes(b.experience);
+            return matchSearch && matchExp;
           });
-          this.aiInput = '';
-          this.isThinking = true;
 
-          setTimeout(() => {
-            this.isThinking = false;
-            this.chatMessages.push({
-              role: 'ai',
-              time: new Date().toLocaleTimeString('zh-CN', { hour12: false, hour: '2-digit', minute: '2-digit' }),
-              content: `针对您输入的排障分析请求【${userText}】，DEM AI 智能 Agent 已完成全路径多维感知探针数据与关键日志的实时调取推导：\n\n1. 根因定位：发现上海 SD-WAN 出口节点 (Node-SH-02) 出现跨境 Bottleneck 丢包 (14.2%) 与高延时。\n2. 受损影响：涉及 3 个分支办公区、共 48 名员工，CRM 核心应用 RTT 升高至 185ms。\n3. 推导结论：属 SD-WAN 专线出口队列拥塞与 ISP 路由瓶颈，后端应用服务器正常。`,
-              hasAnalysisChain: true
-            });
-            this.$nextTick(() => {
-              const body = document.getElementById('ai-chat-body');
-              if (body) body.scrollTop = body.scrollHeight;
-            });
-          }, 600);
+          return list.sort((a, b) => (expOrder[a.experience] || 99) - (expOrder[b.experience] || 99));
         },
-
-        openAlertDetail(item) {
-          this.showAiDrawer1 = true;
-          this.sendAiMessage(`对告警项【${item.title}】进行 AI 排障定位与根因举证分析`);
+        get paginatedBranches() {
+          const start = (this.branchCurrentPage - 1) * this.branchPageSize;
+          return this.filteredBranches.slice(start, start + this.branchPageSize);
         },
-
-        filterAlertLevel(lvl) {
-          if (this.selectedLevel === lvl) {
-            this.selectedLevel = 'all';
-          } else {
-            this.selectedLevel = lvl;
+        get branchTotalPages() {
+          return Math.ceil(this.filteredBranches.length / this.branchPageSize) || 1;
+        },
+        changeBranchPage(p) {
+          if (p < 1 || p > this.branchTotalPages) return;
+          this.branchCurrentPage = p;
+        },
+        handleJumpBranchPage() {
+          const p = parseInt(this.branchJumpPageInput);
+          if (p >= 1 && p <= this.branchTotalPages) {
+            this.branchCurrentPage = p;
+            this.branchJumpPageInput = '';
           }
+        },
+
+        // --- 用户逻辑 ---
+        toggleUserExpSort() {
+          this.userExpSortDir = this.userExpSortDir === 'desc' ? 'asc' : 'desc';
+        },
+        get filteredUsers() {
+          const expOrder = this.userExpSortDir === 'desc' 
+            ? { '差': 1, '一般': 2, '正常': 3 }
+            : { '正常': 1, '一般': 2, '差': 3 };
+
+          const list = (this.users || []).filter(u => {
+            const query = (this.userSearchQuery || '').trim().toLowerCase();
+            const matchSearch = !query || 
+              u.userName.toLowerCase().includes(query) ||
+              u.department.toLowerCase().includes(query) ||
+              u.ipLocation.toLowerCase().includes(query);
+
+            const matchExp = this.userSelectedExperience.length === 0 || this.userSelectedExperience.includes(u.experience);
+            const matchPop = this.userSelectedPop.length === 0 || this.userSelectedPop.includes(u.pop);
+
+            return matchSearch && matchExp && matchPop;
+          });
+
+          return list.sort((a, b) => (expOrder[a.experience] || 99) - (expOrder[b.experience] || 99));
+        },
+        get paginatedUsers() {
+          const start = (this.userCurrentPage - 1) * this.userPageSize;
+          return this.filteredUsers.slice(start, start + this.userPageSize);
+        },
+        get userTotalPages() {
+          return Math.ceil(this.filteredUsers.length / this.userPageSize) || 1;
+        },
+        changeUserPage(p) {
+          if (p < 1 || p > this.userTotalPages) return;
+          this.userCurrentPage = p;
+        },
+        handleJumpUserPage() {
+          const p = parseInt(this.userJumpPageInput);
+          if (p >= 1 && p <= this.userTotalPages) {
+            this.userCurrentPage = p;
+            this.userJumpPageInput = '';
+          }
+        },
+
+        formatIpLocation(ipLoc) {
+          if (!ipLoc) return '-';
+          if (ipLoc.includes('(') || ipLoc.includes('（')) {
+            const parts = ipLoc.trim().split(' ');
+            const ip = parts[0] || '-';
+            const location = parts[1] ? parts[1].replace(/[（()）]/g, '') : '';
+            return location ? `${ip} (${location})` : ip;
+          }
+          if (ipLoc.includes('·')) {
+            const parts = ipLoc.split('·');
+            return `${parts[0]} (${parts[1]})`;
+          }
+          return ipLoc;
+        },
+        formatCityName(popStr) {
+          if (!popStr) return '-';
+          const match = popStr.match(/(北京|上海|深圳|广州|成都|西安|南京|武汉|杭州|香港|新加坡|马尼拉)/);
+          return match ? match[0] : popStr.replace(/POP\d*/gi, '').replace(/^[^\s-]+-/, '');
+        },
+        formatDegradedApps(apps) {
+          if (!apps || apps.length === 0) return { isDegraded: false, count: 0, textPrefix: '', showMore: false, fullText: '' };
+          if (apps.length <= 2) {
+            return { isDegraded: true, count: apps.length, textPrefix: apps.join('、'), showMore: false, fullText: apps.join('、') };
+          }
+          return { 
+            isDegraded: true, 
+            count: apps.length, 
+            textPrefix: `${apps[0]}、${apps[1]} 等 `, 
+            showMore: true, 
+            fullText: apps.join('、') 
+          };
+        },
+
+        // --- 应用逻辑 ---
+        toggleAppExpSort() {
+          this.appExpSortDir = this.appExpSortDir === 'desc' ? 'asc' : 'desc';
+        },
+        get filteredApps() {
+          const expOrder = this.appExpSortDir === 'desc' 
+            ? { '差': 1, '一般': 2, '正常': 3 }
+            : { '正常': 1, '一般': 2, '差': 3 };
+
+          const list = (this.apps || []).filter(a => {
+            const query = (this.appSearchQuery || '').trim().toLowerCase();
+            const matchSearch = !query || 
+              a.appName.toLowerCase().includes(query) ||
+              a.domain.toLowerCase().includes(query) ||
+              a.region.toLowerCase().includes(query);
+
+            const matchExp = this.appSelectedExperience.length === 0 || this.appSelectedExperience.includes(a.experience);
+            const matchType = this.appSelectedType.length === 0 || this.appSelectedType.includes(a.appType);
+
+            return matchSearch && matchExp && matchType;
+          });
+
+          return list.sort((a, b) => (expOrder[a.experience] || 99) - (expOrder[b.experience] || 99));
+        },
+        get paginatedApps() {
+          const start = (this.appCurrentPage - 1) * this.appPageSize;
+          return this.filteredApps.slice(start, start + this.appPageSize);
+        },
+        get appTotalPages() {
+          return Math.ceil(this.filteredApps.length / this.appPageSize) || 1;
+        },
+        changeAppPage(p) {
+          if (p < 1 || p > this.appTotalPages) return;
+          this.appCurrentPage = p;
+        },
+        handleJumpAppPage() {
+          const p = parseInt(this.appJumpPageInput);
+          if (p >= 1 && p <= this.appTotalPages) {
+            this.appCurrentPage = p;
+            this.appJumpPageInput = '';
+          }
+        },
+
+        // --- 核心联动：卡片点击联动到最下方对应的 Tab 并填入筛选条件 ---
+        navigateToDimension(dimension, status) {
+          let tab = dimension;
+          if (tab === '站点分支') tab = '分支';
+          if (tab === '访问用户') tab = '用户';
+          this.contentTab = tab;
+          if (tab === '分支') {
+            this.branchSelectedExperience = status ? [status] : [];
+            this.branchCurrentPage = 1;
+          } else if (tab === '用户') {
+            this.userSelectedExperience = status ? [status] : [];
+            this.userCurrentPage = 1;
+          } else if (tab === '应用') {
+            this.appSelectedExperience = status ? [status] : [];
+            this.appCurrentPage = 1;
+          }
+          this.$nextTick(() => {
+            const el = document.getElementById('home-bottom-content-area');
+            if (el) el.scrollIntoView({ behavior: 'smooth' });
+          });
+        },
+
+        getExpBadgeClass(exp) {
+          if (exp === '差') return 'bg-[#CF171D]/10 text-[#CF171D] rounded-[2px] font-normal border-0 w-[36px] h-5 inline-flex items-center justify-center text-xs';
+          if (exp === '一般') return 'bg-[#FA721B]/10 text-[#FA721B] rounded-[2px] font-normal border-0 w-[36px] h-5 inline-flex items-center justify-center text-xs';
+          return 'bg-[#12A679]/10 text-[#12A679] rounded-[2px] font-normal border-0 w-[36px] h-5 inline-flex items-center justify-center text-xs';
+        },
+
+        formatCityName(popStr) {
+          if (!popStr) return '-';
+          const match = popStr.match(/(北京|上海|深圳|广州|成都|西安|南京|武汉|杭州)/);
+          return match ? match[0] : popStr;
+        },
+
+        formatDegradedApps(apps) {
+          if (!apps || apps.length === 0) return { isDegraded: false, count: 0, textPrefix: '', showMore: false, fullText: '' };
+          if (apps.length <= 2) {
+            return { isDegraded: true, count: apps.length, textPrefix: apps.join('、'), showMore: false, fullText: apps.join('、') };
+          }
+          return { 
+            isDegraded: true, 
+            count: apps.length, 
+            textPrefix: `${apps[0]}、${apps[1]} 等 `, 
+            showMore: true, 
+            fullText: apps.join('、') 
+          };
         },
 
         goToVipDetail(itemName, type) {
@@ -317,28 +464,98 @@
             }));
           } catch(e) {}
           if (type === 'app') {
-            window.location.href = './DEM-应用.html';
+            this.navigateToDimension('应用');
           } else {
             window.location.href = './DEM-用户详情.html';
           }
         },
 
-        navigateToDimension(dimension, status) {
+        goToBranchDetail(branch) {
           try {
-            sessionStorage.setItem('dem_tab_filter', JSON.stringify({
-              dimension: dimension,
-              status: status || '',
-              dateShortcut: this.dateShortcut,
-              dateRange: this.dateRange
+            sessionStorage.setItem('dem_locate_query', JSON.stringify({
+              queryType: '分支',
+              queryValue: branch.branchName || branch.city || branch.id,
+              selectedItem: {
+                label: branch.branchName,
+                nameOnly: branch.branchName,
+                sub: `出口 IP: ${branch.egressIp} | ${branch.region}`,
+                dept: branch.region
+              }
             }));
           } catch(e) {}
-          if (dimension === '分支') {
-            window.location.href = './DEM-分支.html';
-          } else if (dimension === '用户') {
-            window.location.href = './DEM-用户.html';
-          } else if (dimension === '应用') {
-            window.location.href = './DEM-应用.html';
-          }
+          window.location.href = './DEM-用户详情.html';
+        },
+
+        goToUserDetail(user) {
+          try {
+            sessionStorage.setItem('dem_locate_query', JSON.stringify({
+              queryType: '用户',
+              queryValue: user.userName || user.id,
+              selectedItem: {
+                label: user.userName,
+                nameOnly: (user.userName || '').replace(/^[0-9]+[（(]/, '').replace(/[）)]$/, '').trim(),
+                sub: user.department,
+                dept: user.department
+              }
+            }));
+          } catch(e) {}
+          window.location.href = './DEM-用户详情.html';
+        },
+
+        goToAppDetail(app) {
+          try {
+            sessionStorage.setItem('dem_locate_query', JSON.stringify({
+              queryType: '应用',
+              queryValue: app.appName || app.id,
+              selectedItem: {
+                label: app.appName,
+                nameOnly: app.appName,
+                sub: `域名: ${app.domain} | ${app.appType}`,
+                dept: app.appType
+              }
+            }));
+          } catch(e) {}
+          window.location.href = `./DEM-应用详情.html?appId=${app.id || 'app_oa'}`;
+        },
+
+        sendAiMessage(text) {
+          if (!text || !text.trim()) return;
+          const userText = text.trim();
+          const now = new Date().toLocaleTimeString('zh-CN', { hour12: false, hour: '2-digit', minute: '2-digit' });
+          this.chatMessages.push({ role: 'user', time: now, content: userText });
+          this.aiInput = '';
+          this.isThinking = true;
+
+          setTimeout(() => {
+            this.isThinking = false;
+            this.chatMessages.push({
+              role: 'ai',
+              time: new Date().toLocaleTimeString('zh-CN', { hour12: false, hour: '2-digit', minute: '2-digit' }),
+              content: `针对您输入的排障分析请求【${userText}】，DEM AI 智能 Agent 已完成全路径多维感知探针数据与关键日志的实时调取推导：\n\n1. 根因定位：发现上海 SD-WAN 出口节点 (Node-SH-02) 出现跨境 Bottleneck 丢包 (14.2%) 与高延时。\n2. 受损影响：涉及 3 个分支办公区员工，核心应用 RTT 升高至 185ms。\n3. 推导结论：属专线出口队列拥塞与 ISP 路由瓶颈，后端应用服务器正常。`,
+              hasAnalysisChain: true
+            });
+            this.$nextTick(() => {
+              const body = document.getElementById('ai-chat-body');
+              if (body) body.scrollTop = body.scrollHeight;
+            });
+          }, 600);
+        },
+
+        openBranchAiDetail(branch) {
+          this.showAiDrawer1 = true;
+          this.sendAiMessage(`对分支【${branch.branchName || branch.city}】进行 AI 排障定位与出口丢包根因分析`);
+        },
+        openUserAiDetail(user) {
+          this.showAiDrawer1 = true;
+          this.sendAiMessage(`对用户【${user.userName}】进行 AI 排障定位与访问体验诊断`);
+        },
+        openAppAiDetail(app) {
+          this.showAiDrawer1 = true;
+          this.sendAiMessage(`对应用【${app.appName}】进行 AI 排障定位与全路径可用性诊断`);
+        },
+        openAlertDetail(item) {
+          this.showAiDrawer1 = true;
+          this.sendAiMessage(`对体验告警【${item.title}】进行 AI 智能根因诊断与全路径分析`);
         }
       };
     }
@@ -375,324 +592,241 @@
     <!-- 首页 Workspace 内容模板 -->
     <template id="page-content-template">
       <div class="flex flex-col w-full h-full overflow-hidden">
-        <!-- 体验监控 Tab 页头 -->
+        <!-- 体验监控 单标题页头 -->
         <div class="h-[48px] min-h-[48px] bg-white border-b border-bg-line px-6 flex items-center justify-between flex-shrink-0 select-none z-20">
           <div class="flex items-center h-full">
-            <span class="text-[14px] font-semibold text-text-title">体验监控</span>
-            <div class="w-[1px] h-[16px] mx-[16px] bg-bg-line"></div>
-            <div class="flex items-center h-full gap-6 relative">
-              <template x-for="tab in ['概览', '分支', '用户', '应用']">
-                <div class="relative h-full flex items-center cursor-pointer select-none group"
-                     @click="pageTab = tab; navigateTo(tab)">
-                  <span class="text-[14px] transition-colors"
-                        :class="pageTab === tab ? 'text-brand font-semibold' : 'text-text-title font-normal group-hover:text-brand'"
-                        x-text="tab"></span>
-                  <div x-show="pageTab === tab" class="absolute bottom-0 left-0 right-0 h-[2px] bg-brand" x-cloak></div>
-                </div>
-              </template>
-            </div>
+            <span class="text-[14px] font-bold text-[#3D3D3D]">体验监控</span>
           </div>
 
-          <div class="p-[1px] bg-gradient-to-r from-[#1C6EFF] to-[#10B981] rounded-full shadow-xs hover:shadow transition-all cursor-pointer inline-flex items-center flex-shrink-0 group">
-            <button @click="showAiDrawer1 = true; aiDrawerOpen = true;" 
-                    class="relative inline-flex items-center gap-1.5 h-7 px-3.5 bg-gradient-to-r from-[#E6F4FF] via-[#E6FFFA] to-[#F0FDF4] hover:from-[#D4EDFF] hover:to-[#D1F5EE] text-[#095859] font-medium text-xs rounded-full group-hover:bg-opacity-90 transition-all overflow-hidden cursor-pointer">
-              <span class="absolute inset-0 bg-white/40 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 ease-in-out pointer-events-none"></span>
-              <svg class="w-3.5 h-3.5 text-[#006666] animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
-              </svg>
-              <span class="font-medium text-[#095859] whitespace-nowrap">AI排障定位</span>
-            </button>
-          </div>
+          <button @click="showAiDrawer1 = true; aiDrawerOpen = true;" 
+                  class="h-8 px-3 bg-white border border-[#1C6EFF] hover:bg-[#1C6EFF]/5 text-[#1C6EFF] font-normal text-xs rounded-[2px] transition-colors inline-flex items-center gap-1.5 cursor-pointer">
+            <svg class="w-3.5 h-3.5 text-[#1C6EFF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+            </svg>
+            <span class="whitespace-nowrap">智能排障</span>
+          </button>
         </div>
 
         <!-- 主内容区域 -->
         <main class="flex-1 bg-[#F4F6F9] px-4 py-2 flex flex-col gap-2 overflow-y-auto custom-scrollbar">
 
-          <!-- 1. 时间日期筛选 (@comp-date-picker 规范) 及收起/展开概览按钮 -->
-          <div class="flex items-center justify-end flex-shrink-0 select-none gap-2">
-            
-            <div class="inline-flex items-center h-8 bg-white border border-[#D3D7DE] rounded-[2px] hover:border-[#1C6EFF] transition-colors text-xs">
-              <!-- 左侧快捷选择区 -->
-              <div class="relative bg-[#F7F9FC] h-full px-2 flex items-center justify-between border-r border-[#D3D7DE] min-w-[88px] cursor-pointer group">
-                <select x-model="dateShortcut" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full text-xs">
-                  <option value="今天">今天</option>
-                  <option value="近24小时">近24小时</option>
-                  <option value="近3天">近3天</option>
-                  <option value="近7天">近7天</option>
-                  <option value="近30天">近30天</option>
-                  <option value="自定义">自定义</option>
-                </select>
-                <span class="text-[#2F3540] font-normal text-xs" x-text="dateShortcut || '今天'"></span>
-                <svg class="w-3.5 h-3.5 text-[#A1A7B3] ml-2 group-hover:text-[#1C6EFF] transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                </svg>
-              </div>
-
-              <!-- 右侧日期范围展示区 -->
-              <div class="h-full pl-3 pr-2 flex items-center justify-between cursor-pointer whitespace-nowrap">
-                <span class="font-mono text-xs text-[#2F3540] whitespace-nowrap" x-text="dateRange || '2026-06-04 00:00:00 ~ 2026-06-04 23:59:59'"></span>
-                <svg class="w-3.5 h-3.5 text-[#A1A7B3] flex-shrink-0 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                </svg>
-              </div>
+          <!-- 1. 时间日期筛选与租户体验定性 -->
+          <div class="bg-white border border-[#E2E8F0] rounded-[4px] px-5 py-2.5 flex items-center justify-between flex-shrink-0 select-none shadow-2xs">
+            <!-- 左侧：租户整体体验定性 -->
+            <div class="flex items-center gap-2 text-xs">
+              <span class="text-[#262626] font-medium">整体访问体验状态：</span>
+              <span class="bg-[#FFF1F0] border border-[#FFA39E] text-[#CF1322] rounded-[2px] font-normal px-2 h-5 inline-flex items-center justify-center text-xs select-none">差</span>
+              <span class="text-[#8C8C8C] ml-2">
+                本期共访问2372次，访问体验差次数（238次）占比超过5%
+              </span>
             </div>
 
-            <!-- 收起/展开概览按钮 (间距 8px) -->
-            <button @click="showOverview = !showOverview" 
-                    class="h-8 px-2.5 bg-white border border-[#D3D7DE] rounded-[2px] hover:border-[#1C6EFF] hover:text-[#1C6EFF] transition-colors text-xs text-[#2F3540] inline-flex items-center gap-1 cursor-pointer select-none">
-              <span x-text="showOverview ? '收起概览' : '展开概览'"></span>
-              <svg class="w-3.5 h-3.5 text-[#A1A7B3] transition-transform duration-200" :class="!showOverview && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path>
-              </svg>
-            </button>
+            <!-- 右侧：时间筛选器 + 刷新按钮 -->
+            <div class="flex items-center gap-3">
+              <div class="inline-flex items-center h-8 bg-white border border-[#D9D9D9] rounded-[2px] hover:border-[#1890FF] transition-colors text-xs">
+                <!-- 左侧快捷选择区 -->
+                <div class="relative bg-[#FAFAFA] h-full px-2.5 flex items-center justify-between border-r border-[#D9D9D9] min-w-[80px] cursor-pointer group">
+                  <select x-model="dateShortcut" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full text-xs">
+                    <option value="今天">今天</option>
+                    <option value="近24小时">近24小时</option>
+                    <option value="近3天">近3天</option>
+                    <option value="近7天">近7天</option>
+                    <option value="近30天">近30天</option>
+                    <option value="自定义">自定义</option>
+                  </select>
+                  <span class="text-[#262626] font-normal text-xs" x-text="dateShortcut || '今天'"></span>
+                  <svg class="w-3.5 h-3.5 text-[#BFBFBF] ml-2 group-hover:text-[#1890FF] transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                  </svg>
+                </div>
 
-          </div>
-
-          <!-- 2. 顶部概览4张独立卡片容器 (支持展开/收起，自适应平铺，无滚动条、无内容遮挡) -->
-          <div x-show="showOverview" x-collapse class="flex-shrink-0 w-full overflow-hidden">
-            <div class="flex flex-nowrap items-center gap-[8px] min-[1280px]:gap-[12px] w-full">
-              
-              <!-- 卡片 1: 全局总结 -->
-              <div class="bg-white border border-[#E2E8F0] rounded-[4px] p-3 shadow-2xs flex flex-col justify-between hover:border-[#1C6EFF] transition-all flex-1 min-w-0 max-w-[286px] h-[164px] box-border">
-                <div class="flex flex-col h-full justify-between">
-                  <div>
-                    <div class="flex items-center justify-between mb-1.5">
-                      <span class="text-[14px] font-bold text-[#2F3540]">全局总结</span>
-                    </div>
-                    <div class="inline-flex items-center px-2 py-0.5 rounded-[2px] text-[11px] font-medium bg-[#FFF4E5] text-[#FA8C16] mb-1.5 border border-[#FFE7BA] whitespace-nowrap">
-                      体验一般，预计8%对象体验受损
-                    </div>
-                    <div class="text-[12px] text-[#5E6573] leading-[1.45] space-y-1.5 cursor-pointer group relative overflow-hidden"
-                         title="• 发生了4起群体体验问题以及存在3名VIP对象访问体验差。&#10;• 体验受损范围主要涵盖上海与广州分支、Salesforce CRM / SAP ERP 业务及 48 名终端员工。">
-                      <div class="flex items-start gap-1 min-w-0">
-                        <span class="text-[#1C6EFF] font-bold text-[13px] leading-tight flex-shrink-0">•</span>
-                        <span class="leading-snug text-justify">发生了4起群体体验问题以及存在3名VIP对象访问体验差。</span>
-                      </div>
-                      <div class="flex items-start gap-1 min-w-0">
-                        <span class="text-[#1C6EFF] font-bold text-[13px] leading-tight flex-shrink-0">•</span>
-                        <span class="line-clamp-3 leading-snug text-justify">体验受损范围主要涵盖上海与广州分支、Salesforce CRM / SAP ERP 业务及 48 名终端员工。</span>
-                      </div>
-                    </div>
-                  </div>
+                <!-- 右侧日期范围展示区 -->
+                <div class="h-full pl-3 pr-2.5 flex items-center justify-between cursor-pointer whitespace-nowrap">
+                  <span class="font-mono text-xs text-[#595959] whitespace-nowrap" x-text="dateRange || '2025-08-01 00:00:00 至 2025-08-01 23:59:59'"></span>
+                  <svg class="w-3.5 h-3.5 text-[#BFBFBF] flex-shrink-0 ml-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                  </svg>
                 </div>
               </div>
 
-              <!-- 卡片 2: 体验预警事件分布 (1:1 截图布局：点击扇区/图例筛选告警等级，含悬浮微动效) -->
-              <div class="bg-white border border-[#E2E8F0] rounded-[4px] p-3 shadow-2xs flex flex-col justify-between hover:border-[#1C6EFF] transition-all flex-1 min-w-0 max-w-[286px] h-[164px] box-border">
-                <div class="flex items-center justify-between mb-1">
-                  <span class="text-[14px] font-bold text-[#2F3540]">体验预警事件分布</span>
+              <!-- 刷新按钮 -->
+              <button class="w-8 h-8 bg-white border border-[#D9D9D9] rounded-[2px] hover:border-[#1890FF] hover:text-[#1890FF] transition-colors text-[#595959] inline-flex items-center justify-center cursor-pointer select-none" title="刷新数据">
+                <svg class="w-4 h-4 text-[#595959] hover:text-[#1890FF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- 2. 顶部综合概览大卡片 (尺寸 1172x188，合并 预警分布 + 体验质量 + 受损群体聚类) -->
+          <div x-show="showOverview" x-collapse class="flex-shrink-0 w-full overflow-hidden mt-1">
+            <div class="bg-white border border-[#E2E8F0] rounded-[4px] p-5 shadow-2xs grid grid-cols-12 gap-0 divide-x divide-[#F0F0F0] box-border min-h-[170px]">
+              
+              <!-- 模块 1: 体验预警事件分布 (佔 3 列 - 宽度调小) -->
+              <div class="col-span-3 pr-4 flex flex-col justify-between select-none h-full">
+                <div class="flex items-center justify-between mb-2">
+                  <span class="text-[14px] font-bold text-[#262626]">体验预警事件分布</span>
                 </div>
-                <div class="flex items-center justify-between gap-1 flex-1 min-w-0">
-                  <!-- 左侧：待处置数字 -->
-                  <div class="flex flex-col items-center justify-center min-w-[44px] flex-shrink-0">
-                    <span class="text-[26px] font-bold text-[#2F3540] font-outfit leading-none" x-text="metrics.pendingCount || 16">16</span>
-                    <span class="text-[12px] text-[#6F7785] mt-2 font-normal">待处置</span>
+                <div class="flex items-center justify-between gap-1.5 flex-1 min-w-0">
+                  <!-- 左侧：待处置数字 (24px, 加粗) -->
+                  <div class="flex flex-col items-center justify-center min-w-[48px] flex-shrink-0">
+                    <span class="text-[24px] font-bold text-[#262626] font-outfit leading-none" x-text="metrics.pendingCount">16</span>
+                    <span class="text-[12px] text-[#8C8C8C] mt-2 font-normal">待处置</span>
                   </div>
 
-                  <!-- 中间：环形图 (扇区悬浮变粗，点击按预警等级过滤) -->
-                  <div class="relative w-[66px] h-[66px] min-[1280px]:w-[68px] min-[1280px]:h-[68px] flex items-center justify-center flex-shrink-0 cursor-pointer group" title="点击环形弧线按告警等级筛选">
+                  <!-- 中间：环形图 -->
+                  <div class="relative w-[78px] h-[78px] flex items-center justify-center flex-shrink-0 cursor-pointer group" title="点击环形弧线按告警等级筛选">
                     <svg class="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
-                      <!-- 内部浅蓝底填充 -->
-                      <circle cx="50" cy="50" r="33" fill="#F4F8FF" />
-                      <!-- 内部虚线边框 -->
+                      <circle cx="50" cy="50" r="33" fill="#F0F5FF" />
                       <circle cx="50" cy="50" r="36" fill="none" stroke="#D0E2FF" stroke-width="1" stroke-dasharray="2.5 2.5" />
-                      <!-- 环形背景轨 -->
-                      <circle cx="50" cy="50" r="43" fill="none" stroke="#F0F2F5" stroke-width="6.5" />
-                      <!-- 环形多色弧线 (高优/中优/低优/已修复) -->
-                      <circle @click="filterAlertLevel('高优')" cx="50" cy="50" r="43" fill="none" stroke="#FF5A45" stroke-width="6.5" stroke-dasharray="47 223" stroke-dashoffset="0" class="cursor-pointer transition-all duration-200 hover:stroke-[9px]" title="高优告警 (4)" />
-                      <circle @click="filterAlertLevel('中优')" cx="50" cy="50" r="43" fill="none" stroke="#FF8526" stroke-width="6.5" stroke-dasharray="141 129" stroke-dashoffset="-49" class="cursor-pointer transition-all duration-200 hover:stroke-[9px]" title="中优告警 (12)" />
-                      <circle @click="filterAlertLevel('低优')" cx="50" cy="50" r="43" fill="none" stroke="#36B9FF" stroke-width="6.5" stroke-dasharray="12 258" stroke-dashoffset="-241" class="cursor-pointer transition-all duration-200 hover:stroke-[9px]" title="低优告警 (1)" />
-                      <circle @click="filterAlertLevel('all')" cx="50" cy="50" r="43" fill="none" stroke="#00D084" stroke-width="6.5" stroke-dasharray="47 223" stroke-dashoffset="-192" class="cursor-pointer transition-all duration-200 hover:stroke-[9px]" title="已修复 (4)" />
+                      <circle cx="50" cy="50" r="43" fill="none" stroke="#F0F2F5" stroke-width="8" />
+                      <circle @click="filterAlertLevel('高优')" cx="50" cy="50" r="43" fill="none" stroke="#FF5752" stroke-width="8" stroke-dasharray="47 223" stroke-dashoffset="0" class="cursor-pointer transition-all duration-200 hover:stroke-[10px]" title="高优告警 (4)" />
+                      <circle @click="filterAlertLevel('中优')" cx="50" cy="50" r="43" fill="none" stroke="#FF9245" stroke-width="8" stroke-dasharray="141 129" stroke-dashoffset="-49" class="cursor-pointer transition-all duration-200 hover:stroke-[10px]" title="中优告警 (12)" />
+                      <circle @click="filterAlertLevel('低优')" cx="50" cy="50" r="43" fill="none" stroke="#5BD8A6" stroke-width="8" stroke-dasharray="12 258" stroke-dashoffset="-241" class="cursor-pointer transition-all duration-200 hover:stroke-[10px]" title="低优告警 (1)" />
+                      <circle @click="filterAlertLevel('all')" cx="50" cy="50" r="43" fill="none" stroke="#39C317" stroke-width="8" stroke-dasharray="47 223" stroke-dashoffset="-192" class="cursor-pointer transition-all duration-200 hover:stroke-[10px]" title="已修复 (4)" />
                     </svg>
-                    <!-- 中心文字 -->
                     <div class="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
-                      <span class="text-[16px] font-bold text-[#2F3540] leading-none" x-text="metrics.total || 23">23</span>
-                      <span class="text-[10px] text-[#6F7785] scale-90 transform origin-center mt-1">问题总数</span>
+                      <span class="text-[18px] font-bold text-[#262626] leading-none" x-text="metrics.total">23</span>
+                      <span class="text-[9px] text-[#8C8C8C] transform origin-center mt-1 font-normal">问题总数</span>
                     </div>
                   </div>
 
-                  <!-- 右侧：单列 4 行图例列表 (支持悬浮微平移、选中高亮与点击联动) -->
-                  <div class="flex flex-col space-y-1 text-[12px] min-w-[72px] flex-shrink-0 select-none">
-                    <div @click="filterAlertLevel('高优')" 
-                         :class="selectedLevel === '高优' ? 'bg-[#FFEAEB] font-bold text-[#FF5A45] shadow-2xs border-[#FF5A45]/30' : 'hover:bg-[#F8FAFC] hover:translate-x-0.5'"
-                         class="flex items-center justify-between gap-1.5 px-1 py-0.5 rounded transition-all duration-200 cursor-pointer border border-transparent"
-                         title="过滤高优告警">
-                      <div class="flex items-center gap-1.5">
-                        <span class="w-2.5 h-2.5 rounded-[1px] bg-[#FF5A45] flex-shrink-0"></span>
-                        <span :class="selectedLevel === '高优' ? 'text-[#FF5A45]' : 'text-[#6F7785]'">高优</span>
-                      </div>
-                      <span class="font-medium font-outfit" x-text="metrics.highCount || 4">4</span>
+                  <!-- 右侧：图例列表 -->
+                  <div class="flex flex-col gap-[8px] text-[12px] min-w-[64px] flex-shrink-0 select-none">
+                    <div @click="filterAlertLevel('高优')" class="flex items-center justify-between gap-1 cursor-pointer" title="过滤高优告警">
+                      <div class="flex items-center gap-1"><span class="w-2 h-2 rounded-[2px] bg-[#FF5752]"></span><span class="text-[#595959] font-normal">高优</span></div>
+                      <span class="font-normal text-[#262626] font-outfit text-right w-4" x-text="metrics.highCount">4</span>
                     </div>
-                    <div @click="filterAlertLevel('中优')" 
-                         :class="selectedLevel === '中优' ? 'bg-[#FFF3E6] font-bold text-[#FF8526] shadow-2xs border-[#FF8526]/30' : 'hover:bg-[#F8FAFC] hover:translate-x-0.5'"
-                         class="flex items-center justify-between gap-1.5 px-1 py-0.5 rounded transition-all duration-200 cursor-pointer border border-transparent"
-                         title="过滤中优告警">
-                      <div class="flex items-center gap-1.5">
-                        <span class="w-2.5 h-2.5 rounded-[1px] bg-[#FF8526] flex-shrink-0"></span>
-                        <span :class="selectedLevel === '中优' ? 'text-[#FF8526]' : 'text-[#6F7785]'">中优</span>
-                      </div>
-                      <span class="font-medium font-outfit" x-text="metrics.medCount || 12">12</span>
+                    <div @click="filterAlertLevel('中优')" class="flex items-center justify-between gap-1 cursor-pointer" title="过滤中优告警">
+                      <div class="flex items-center gap-1"><span class="w-2 h-2 rounded-[2px] bg-[#FF9245]"></span><span class="text-[#595959] font-normal">中优</span></div>
+                      <span class="font-normal text-[#262626] font-outfit text-right w-4" x-text="metrics.medCount">12</span>
                     </div>
-                    <div @click="filterAlertLevel('低优')" 
-                         :class="selectedLevel === '低优' ? 'bg-[#E6F7FF] font-bold text-[#36B9FF] shadow-2xs border-[#36B9FF]/30' : 'hover:bg-[#F8FAFC] hover:translate-x-0.5'"
-                         class="flex items-center justify-between gap-1.5 px-1 py-0.5 rounded transition-all duration-200 cursor-pointer border border-transparent"
-                         title="过滤低优告警">
-                      <div class="flex items-center gap-1.5">
-                        <span class="w-2.5 h-2.5 rounded-[1px] bg-[#36B9FF] flex-shrink-0"></span>
-                        <span :class="selectedLevel === '低优' ? 'text-[#36B9FF]' : 'text-[#6F7785]'">低优</span>
-                      </div>
-                      <span class="font-medium font-outfit" x-text="metrics.lowCount || 1">1</span>
+                    <div @click="filterAlertLevel('低优')" class="flex items-center justify-between gap-1 cursor-pointer" title="过滤低优告警">
+                      <div class="flex items-center gap-1"><span class="w-2 h-2 rounded-[2px] bg-[#5BD8A6]"></span><span class="text-[#595959] font-normal">低优</span></div>
+                      <span class="font-normal text-[#262626] font-outfit text-right w-4" x-text="metrics.lowCount">1</span>
                     </div>
-                    <div @click="filterAlertLevel('all')" 
-                         :class="(!selectedLevel || selectedLevel === 'all') ? 'bg-[#E6F9F0] text-[#00D084] font-medium' : 'hover:bg-[#F8FAFC] hover:translate-x-0.5'"
-                         class="flex items-center justify-between gap-1.5 px-1 py-0.5 rounded transition-all duration-200 cursor-pointer border border-transparent"
-                         title="显示全部分级">
-                      <div class="flex items-center gap-1.5">
-                        <span class="w-2.5 h-2.5 rounded-[1px] bg-[#00D084] flex-shrink-0"></span>
-                        <span :class="(!selectedLevel || selectedLevel === 'all') ? 'text-[#00D084]' : 'text-[#6F7785]'">已修复</span>
-                      </div>
-                      <span class="font-medium font-outfit" x-text="metrics.resolvedCount || 4">4</span>
-                    </div>
-                  </div>
-
-                </div>
-              </div>
-
-              <!-- 卡片 3: VIP对象体验 (点击用户/应用条目携带时间参数下钻至详情页，含 hover 微放大与变色动效) -->
-              <div class="bg-white border border-[#E2E8F0] rounded-[4px] p-3 shadow-2xs flex flex-col justify-between hover:border-[#1C6EFF] transition-all flex-1 min-w-0 max-w-[286px] h-[164px] box-border">
-                <div class="flex flex-col h-full justify-between">
-                  <div>
-                    <div class="flex items-center justify-between mb-1">
-                      <span class="text-[14px] font-bold text-[#2F3540]">VIP对象体验</span>
-                      <!-- 右上角 [ 用户 | 应用 ] 切换标签页 -->
-                      <div class="inline-flex items-center bg-[#F1F5F9] p-[2px] rounded-[3px] text-[11px] text-[#454C59] flex-shrink-0">
-                        <button @click="vipTab = 'user'" 
-                                :class="vipTab === 'user' ? 'bg-white text-[#454C59] font-medium shadow-2xs' : 'text-[#8C8C8C] hover:text-[#454C59]'" 
-                                class="px-2 py-[1px] rounded-[2px] transition-all cursor-pointer select-none">用户</button>
-                        <button @click="vipTab = 'app'" 
-                                :class="vipTab === 'app' ? 'bg-white text-[#454C59] font-medium shadow-2xs' : 'text-[#8C8C8C] hover:text-[#454C59]'" 
-                                class="px-2 py-[1px] rounded-[2px] transition-all cursor-pointer select-none">应用</button>
-                      </div>
-                    </div>
-
-                    <!-- 监测及异常统计提示词 -->
-                    <div class="text-[11px] text-[#8C8C8C] mb-1 truncate" x-show="vipTab === 'user'">
-                      监测用户 <span class="text-[#3D3D3D] font-medium">18</span> 人，体验异常 <span class="text-[#FF4D4F] font-bold">3</span> 人：
-                    </div>
-                    <div class="text-[11px] text-[#8C8C8C] mb-1 truncate" x-show="vipTab === 'app'" x-cloak>
-                      监测应用 <span class="text-[#3D3D3D] font-medium">12</span> 个，体验异常 <span class="text-[#FF4D4F] font-bold">2</span> 个：
-                    </div>
-
-                    <!-- 受损明细列表 (每条固定高度 24px，悬浮轻微放大与背景高亮) -->
-                    <div class="space-y-[8px] text-[11px]" x-show="vipTab === 'user'">
-                      <div @click="goToVipDetail('张前进', 'user')" class="bg-[#FFF5F5] px-2 h-[24px] rounded-[2px] flex items-center gap-1.5 text-[#3D3D3D] truncate cursor-pointer transition-all duration-200 hover:scale-[1.015] hover:bg-[#FFEAEB] hover:shadow-2xs group" title="点击下钻查看 34534（张前进）在该时间段的访问数据">
-                        <span class="text-[#FF4D4F] font-bold leading-none transition-transform group-hover:scale-125">•</span>
-                        <span class="truncate group-hover:text-[#CF171D] group-hover:font-medium">34534（张前进） /xx科技/总经办</span>
-                      </div>
-                      <div @click="goToVipDetail('李秀英', 'user')" class="bg-[#FFF5F5] px-2 h-[24px] rounded-[2px] flex items-center gap-1.5 text-[#3D3D3D] truncate cursor-pointer transition-all duration-200 hover:scale-[1.015] hover:bg-[#FFEAEB] hover:shadow-2xs group" title="点击下钻查看 28105（李秀英）在该时间段的访问数据">
-                        <span class="text-[#FF4D4F] font-bold leading-none transition-transform group-hover:scale-125">•</span>
-                        <span class="truncate group-hover:text-[#CF171D] group-hover:font-medium">28105（李秀英） /xx科技/研发部</span>
-                      </div>
-                      <div @click="goToVipDetail('王建国', 'user')" class="bg-[#FFF5F5] px-2 h-[24px] rounded-[2px] flex items-center gap-1.5 text-[#3D3D3D] truncate cursor-pointer transition-all duration-200 hover:scale-[1.015] hover:bg-[#FFEAEB] hover:shadow-2xs group" title="点击下钻查看 19042（王建国）在该时间段的访问数据">
-                        <span class="text-[#FF4D4F] font-bold leading-none transition-transform group-hover:scale-125">•</span>
-                        <span class="truncate group-hover:text-[#CF171D] group-hover:font-medium">19042（王建国） /xx科技/市场部</span>
-                      </div>
-                    </div>
-
-                    <div class="space-y-[8px] text-[11px]" x-show="vipTab === 'app'" x-cloak>
-                      <div @click="goToVipDetail('Salesforce CRM', 'app')" class="bg-[#FFF5F5] px-2 h-[24px] rounded-[2px] flex items-center gap-1.5 text-[#3D3D3D] truncate cursor-pointer transition-all duration-200 hover:scale-[1.015] hover:bg-[#FFEAEB] hover:shadow-2xs group" title="点击跳转至 Salesforce CRM 应用体验监控页">
-                        <span class="text-[#FF4D4F] font-bold leading-none transition-transform group-hover:scale-125">•</span>
-                        <span class="truncate group-hover:text-[#CF171D] group-hover:font-medium">Salesforce CRM</span>
-                      </div>
-                      <div @click="goToVipDetail('SAP ERP', 'app')" class="bg-[#FFF5F5] px-2 h-[24px] rounded-[2px] flex items-center gap-1.5 text-[#3D3D3D] truncate cursor-pointer transition-all duration-200 hover:scale-[1.015] hover:bg-[#FFEAEB] hover:shadow-2xs group" title="点击跳转至 SAP ERP 应用体验监控页">
-                        <span class="text-[#FF4D4F] font-bold leading-none transition-transform group-hover:scale-125">•</span>
-                        <span class="truncate group-hover:text-[#CF171D] group-hover:font-medium">SAP ERP</span>
-                      </div>
+                    <div @click="filterAlertLevel('all')" class="flex items-center justify-between gap-1 cursor-pointer" title="显示全部分级">
+                      <div class="flex items-center gap-1"><span class="w-2 h-2 rounded-[2px] bg-[#39C317]"></span><span class="text-[#595959] font-normal">已修复</span></div>
+                      <span class="font-normal text-[#262626] font-outfit text-right w-4" x-text="metrics.resolvedCount">4</span>
                     </div>
                   </div>
                 </div>
               </div>
 
-              <!-- 卡片 4: 访问体验情况 (点击行或内部差/一般/正常文字与进度段，携带时间与体验状态跨页过滤，支持 hover 微凸动效) -->
-              <div class="bg-white border border-[#E2E8F0] rounded-[4px] p-3 shadow-2xs flex flex-col justify-between hover:border-[#1C6EFF] transition-all flex-1 min-w-0 max-w-[286px] h-[164px] box-border">
-                <div class="flex flex-col h-full justify-between">
-                  <div>
-                    <div class="flex items-center justify-between mb-1.5">
-                      <span class="text-[14px] font-bold text-[#2F3540]">访问体验情况</span>
+              <!-- 模块 2: 访问体验质量 (佔 5 列 - 宽度与内容调大) -->
+              <div class="col-span-5 px-6 flex flex-col justify-between select-none h-full">
+                <div class="flex items-center justify-between mb-2">
+                  <span class="text-[14px] font-bold text-[#262626]">访问体验质量</span>
+                </div>
+                <div class="flex flex-col gap-[10px] text-[12px] flex-1 justify-center items-start">
+                  <!-- 行1：分支 -->
+                  <div @click="navigateToDimension('分支')" class="w-full bg-[#F7F9FC] px-3.5 h-[38px] rounded-[4px] flex items-center justify-between cursor-pointer transition-all hover:bg-white hover:border-[#1890FF]/40 border border-transparent group" title="切换至下方分支 Tab">
+                    <div class="flex items-center gap-2 text-[#262626] font-normal flex-shrink-0">
+                      <svg class="w-3.5 h-3.5 text-[#8C8C8C]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                      <span class="text-[13px] text-[#262626] font-normal">分支</span>
+                      <span class="text-[13px] text-[#8C8C8C] font-normal ml-1">24个 <span class="text-[#E0E0E0] ml-1">|</span></span>
                     </div>
-                    <div class="space-y-[4px] text-[11px] select-none">
-                      <!-- 行1：分支 (36px高, 灰底框) -->
-                      <div @click="navigateToDimension('分支')" 
-                           class="bg-[#F8FAFC] px-2.5 h-[36px] rounded-[2px] flex items-center justify-between border border-[#F1F5F9] cursor-pointer transition-all duration-200 hover:bg-white hover:border-[#1C6EFF]/40 hover:shadow-xs hover:scale-[1.005] group"
-                           title="点击跳转至分支体验监控">
-                        <div class="flex items-center gap-1.5 text-[#3D3D3D] font-normal flex-shrink-0 group-hover:text-[#1C6EFF]">
-                          <svg class="w-3.5 h-3.5 text-[#5C6270] group-hover:text-[#1C6EFF] transition-colors flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                          <span class="text-[#3D3D3D] text-[12px] font-normal group-hover:text-[#1C6EFF] group-hover:font-semibold">分支</span>
-                        </div>
-                        <div class="flex flex-col justify-center items-end min-w-[138px] flex-shrink-0">
-                          <div class="flex items-center gap-1.5 text-[#6F7785] font-normal text-[10px] leading-tight">
-                            <span @click.stop="navigateToDimension('分支', '正常')" class="hover:text-[#00D084] hover:font-bold transition-colors cursor-pointer" title="跳转分支页并筛选正常状态">正常 22</span>
-                            <span class="text-[#D3D7DE]">|</span>
-                            <span @click.stop="navigateToDimension('分支', '一般')" class="hover:text-[#FF8526] hover:font-bold transition-colors cursor-pointer" title="跳转分支页并筛选一般状态">一般 2</span>
-                            <span class="text-[#D3D7DE]">|</span>
-                            <span @click.stop="navigateToDimension('分支', '差')" class="hover:text-[#FF5A45] hover:font-bold transition-colors cursor-pointer" title="跳转分支页并筛选差状态">差 2</span>
-                          </div>
-                          <div class="w-full h-[4px] bg-[#E2E8F0] rounded-full overflow-hidden flex mt-1">
-                            <div @click.stop="navigateToDimension('分支', '正常')" class="h-full bg-[#00D084] hover:opacity-80 transition-opacity cursor-pointer" style="width: 65%;" title="正常 65%"></div>
-                            <div @click.stop="navigateToDimension('分支', '一般')" class="h-full bg-[#FF8526] hover:opacity-80 transition-opacity cursor-pointer" style="width: 18%;" title="一般 18%"></div>
-                            <div @click.stop="navigateToDimension('分支', '差')" class="h-full bg-[#FF5A45] hover:opacity-80 transition-opacity cursor-pointer" style="width: 17%;" title="差 17%"></div>
-                          </div>
-                        </div>
+                    <div class="flex flex-col justify-center items-end">
+                      <div class="flex items-center text-[#8C8C8C] text-[12px] font-normal justify-end">
+                        <span class="inline-flex items-center justify-end w-[76px]">正常<span class="w-[30px] text-right font-outfit text-[#595959]">22</span></span>
+                        <span class="text-[#E0E0E0] mx-2">|</span>
+                        <span class="inline-flex items-center justify-end w-[56px]">一般<span class="w-[18px] text-right font-outfit text-[#595959]">2</span></span>
+                        <span class="text-[#E0E0E0] mx-2">|</span>
+                        <span class="inline-flex items-center justify-end w-[44px]">差<span class="w-[18px] text-right font-outfit text-[#595959]">2</span></span>
                       </div>
-
-                      <!-- 行2：用户 (36px高, 灰底框) -->
-                      <div @click="navigateToDimension('用户')" 
-                           class="bg-[#F8FAFC] px-2.5 h-[36px] rounded-[2px] flex items-center justify-between border border-[#F1F5F9] cursor-pointer transition-all duration-200 hover:bg-white hover:border-[#1C6EFF]/40 hover:shadow-xs hover:scale-[1.005] group"
-                           title="点击跳转至用户体验监控">
-                        <div class="flex items-center gap-1.5 text-[#3D3D3D] font-normal flex-shrink-0 group-hover:text-[#1C6EFF]">
-                          <svg class="w-3.5 h-3.5 text-[#5C6270] group-hover:text-[#1C6EFF] transition-colors flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-                          <span class="text-[#3D3D3D] text-[12px] font-normal group-hover:text-[#1C6EFF] group-hover:font-semibold">用户</span>
-                        </div>
-                        <div class="flex flex-col justify-center items-end min-w-[138px] flex-shrink-0">
-                          <div class="flex items-center gap-1.5 text-[#6F7785] font-normal text-[10px] leading-tight">
-                            <span @click.stop="navigateToDimension('用户', '正常')" class="hover:text-[#00D084] hover:font-bold transition-colors cursor-pointer" title="跳转用户页并筛选正常状态">正常 3546</span>
-                            <span class="text-[#D3D7DE]">|</span>
-                            <span @click.stop="navigateToDimension('用户', '一般')" class="hover:text-[#FF8526] hover:font-bold transition-colors cursor-pointer" title="跳转用户页并筛选一般状态">一般 2</span>
-                            <span class="text-[#D3D7DE]">|</span>
-                            <span @click.stop="navigateToDimension('用户', '差')" class="hover:text-[#FF5A45] hover:font-bold transition-colors cursor-pointer" title="跳转用户页并筛选差状态">差 2</span>
-                          </div>
-                          <div class="w-full h-[4px] bg-[#E2E8F0] rounded-full overflow-hidden flex mt-1">
-                            <div @click.stop="navigateToDimension('用户', '正常')" class="h-full bg-[#00D084] hover:opacity-80 transition-opacity cursor-pointer" style="width: 65%;" title="正常 65%"></div>
-                            <div @click.stop="navigateToDimension('用户', '一般')" class="h-full bg-[#FF8526] hover:opacity-80 transition-opacity cursor-pointer" style="width: 18%;" title="一般 18%"></div>
-                            <div @click.stop="navigateToDimension('用户', '差')" class="h-full bg-[#FF5A45] hover:opacity-80 transition-opacity cursor-pointer" style="width: 17%;" title="差 17%"></div>
-                          </div>
-                        </div>
-                      </div>
-
-                      <!-- 行3：应用 (36px高, 灰底框) -->
-                      <div @click="navigateToDimension('应用')" 
-                           class="bg-[#F8FAFC] px-2.5 h-[36px] rounded-[2px] flex items-center justify-between border border-[#F1F5F9] cursor-pointer transition-all duration-200 hover:bg-white hover:border-[#1C6EFF]/40 hover:shadow-xs hover:scale-[1.005] group"
-                           title="点击跳转至应用体验监控">
-                        <div class="flex items-center gap-1.5 text-[#3D3D3D] font-normal flex-shrink-0 group-hover:text-[#1C6EFF]">
-                          <svg class="w-3.5 h-3.5 text-[#5C6270] group-hover:text-[#1C6EFF] transition-colors flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
-                          <span class="text-[#3D3D3D] text-[12px] font-normal group-hover:text-[#1C6EFF] group-hover:font-semibold">应用</span>
-                        </div>
-                        <div class="flex flex-col justify-center items-end min-w-[138px] flex-shrink-0">
-                          <div class="flex items-center gap-1.5 text-[#6F7785] font-normal text-[10px] leading-tight">
-                            <span @click.stop="navigateToDimension('应用', '正常')" class="hover:text-[#00D084] hover:font-bold transition-colors cursor-pointer" title="跳转应用页并筛选正常状态">正常 167</span>
-                            <span class="text-[#D3D7DE]">|</span>
-                            <span @click.stop="navigateToDimension('应用', '一般')" class="hover:text-[#FF8526] hover:font-bold transition-colors cursor-pointer" title="跳转应用页并筛选一般状态">一般 2</span>
-                            <span class="text-[#D3D7DE]">|</span>
-                            <span @click.stop="navigateToDimension('应用', '差')" class="hover:text-[#FF5A45] hover:font-bold transition-colors cursor-pointer" title="跳转应用页并筛选差状态">差 2</span>
-                          </div>
-                          <div class="w-full h-[4px] bg-[#E2E8F0] rounded-full overflow-hidden flex mt-1">
-                            <div @click.stop="navigateToDimension('应用', '正常')" class="h-full bg-[#00D084] hover:opacity-80 transition-opacity cursor-pointer" style="width: 65%;" title="正常 65%"></div>
-                            <div @click.stop="navigateToDimension('应用', '一般')" class="h-full bg-[#FF8526] hover:opacity-80 transition-opacity cursor-pointer" style="width: 18%;" title="一般 18%"></div>
-                            <div @click.stop="navigateToDimension('应用', '差')" class="h-full bg-[#FF5A45] hover:opacity-80 transition-opacity cursor-pointer" style="width: 17%;" title="差 17%"></div>
-                          </div>
-                        </div>
+                      <div class="w-[200px] h-[5px] bg-[#F0F0F0] rounded-full overflow-hidden flex mt-1">
+                        <div class="h-full bg-[#39C317]" style="width: 70%;"></div>
+                        <div class="h-full bg-[#FF9245]" style="width: 15%;"></div>
+                        <div class="h-full bg-[#FF5752]" style="width: 15%;"></div>
                       </div>
                     </div>
+                  </div>
+
+                  <!-- 行2：用户 -->
+                  <div @click="navigateToDimension('用户')" class="w-full bg-[#F7F9FC] px-3.5 h-[38px] rounded-[4px] flex items-center justify-between cursor-pointer transition-all hover:bg-white hover:border-[#1890FF]/40 border border-transparent group" title="切换至下方用户 Tab">
+                    <div class="flex items-center gap-2 text-[#262626] font-normal flex-shrink-0">
+                      <svg class="w-3.5 h-3.5 text-[#8C8C8C]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                      <span class="text-[13px] text-[#262626] font-normal">用户</span>
+                      <span class="text-[13px] text-[#8C8C8C] font-normal ml-1">3568个 <span class="text-[#E0E0E0] ml-1">|</span></span>
+                    </div>
+                    <div class="flex flex-col justify-center items-end">
+                      <div class="flex items-center text-[#8C8C8C] text-[12px] font-normal justify-end">
+                        <span class="inline-flex items-center justify-end w-[76px]">正常<span class="w-[30px] text-right font-outfit text-[#595959]">3546</span></span>
+                        <span class="text-[#E0E0E0] mx-2">|</span>
+                        <span class="inline-flex items-center justify-end w-[56px]">一般<span class="w-[18px] text-right font-outfit text-[#595959]">13</span></span>
+                        <span class="text-[#E0E0E0] mx-2">|</span>
+                        <span class="inline-flex items-center justify-end w-[44px]">差<span class="w-[18px] text-right font-outfit text-[#595959]">9</span></span>
+                      </div>
+                      <div class="w-[200px] h-[5px] bg-[#F0F0F0] rounded-full overflow-hidden flex mt-1">
+                        <div class="h-full bg-[#39C317]" style="width: 80%;"></div>
+                        <div class="h-full bg-[#FF9245]" style="width: 12%;"></div>
+                        <div class="h-full bg-[#FF5752]" style="width: 8%;"></div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- 行3：应用 -->
+                  <div @click="navigateToDimension('应用')" class="w-full bg-[#F7F9FC] px-3.5 h-[38px] rounded-[4px] flex items-center justify-between cursor-pointer transition-all hover:bg-white hover:border-[#1890FF]/40 border border-transparent group" title="切换至下方应用 Tab">
+                    <div class="flex items-center gap-2 text-[#262626] font-normal flex-shrink-0">
+                      <svg class="w-3.5 h-3.5 text-[#8C8C8C]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
+                      <span class="text-[13px] text-[#262626] font-normal">应用</span>
+                      <span class="text-[13px] text-[#8C8C8C] font-normal ml-1">1456个 <span class="text-[#E0E0E0] ml-1">|</span></span>
+                    </div>
+                    <div class="flex flex-col justify-center items-end">
+                      <div class="flex items-center text-[#8C8C8C] text-[12px] font-normal justify-end">
+                        <span class="inline-flex items-center justify-end w-[76px]">正常<span class="w-[30px] text-right font-outfit text-[#595959]">167</span></span>
+                        <span class="text-[#E0E0E0] mx-2">|</span>
+                        <span class="inline-flex items-center justify-end w-[56px]">一般<span class="w-[18px] text-right font-outfit text-[#595959]">2</span></span>
+                        <span class="text-[#E0E0E0] mx-2">|</span>
+                        <span class="inline-flex items-center justify-end w-[44px]">差<span class="w-[18px] text-right font-outfit text-[#595959]">2</span></span>
+                      </div>
+                      <div class="w-[200px] h-[5px] bg-[#F0F0F0] rounded-full overflow-hidden flex mt-1">
+                        <div class="h-full bg-[#39C317]" style="width: 75%;"></div>
+                        <div class="h-full bg-[#FF9245]" style="width: 15%;"></div>
+                        <div class="h-full bg-[#FF5752]" style="width: 10%;"></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 模块 3: 体验受损群体聚类 (佔 4 列，对齐下方 VIP卡片) -->
+              <div class="col-span-4 pl-6 flex flex-col justify-between select-none h-full">
+                <div class="flex items-center justify-between mb-2">
+                  <span class="text-[14px] font-bold text-[#262626]">体验受损群体聚类</span>
+                  <span class="text-[12px] text-[#8C8C8C] font-normal">(体验差人数/活跃人数)</span>
+                </div>
+                <div class="flex flex-col gap-[8px] text-[13px] flex-1 justify-center">
+                  <!-- 行1 -->
+                  <div @click="navigateToDimension('用户', '差')" class="bg-[#F7F9FC] px-4 h-[32px] rounded-[4px] flex items-center justify-between hover:bg-white transition-all cursor-pointer group">
+                    <span class="text-[13px] text-[#262626] font-normal group-hover:text-[#1890FF]">
+                      IP归属地-深圳 <span class="text-[#8C8C8C] font-normal ml-1">| 同地区</span>
+                    </span>
+                    <span class="text-[13px] text-right font-medium text-[#FF5752]">567<span class="text-[#8C8C8C] font-normal">/641</span></span>
+                  </div>
+
+                  <!-- 行2 -->
+                  <div @click="navigateToDimension('用户', '差')" class="bg-[#F7F9FC] px-4 h-[32px] rounded-[4px] flex items-center justify-between hover:bg-white transition-all cursor-pointer group">
+                    <span class="text-[13px] text-[#262626] font-normal group-hover:text-[#1890FF]">
+                      IP归属地-广州 <span class="text-[#8C8C8C] font-normal ml-1">| 同地区</span>
+                    </span>
+                    <span class="text-[13px] text-right font-medium text-[#FF5752]">198<span class="text-[#8C8C8C] font-normal">/588</span></span>
+                  </div>
+
+                  <!-- 行3 -->
+                  <div @click="navigateToDimension('用户', '差')" class="bg-[#F7F9FC] px-4 h-[32px] rounded-[4px] flex items-center justify-between hover:bg-white transition-all cursor-pointer group">
+                    <span class="text-[13px] text-[#262626] font-normal group-hover:text-[#1890FF]">
+                      出口IP：203.123.22.2 <span class="text-[#8C8C8C] font-normal ml-1">| 同办公室</span>
+                    </span>
+                    <span class="text-[13px] text-right font-medium text-[#FF5752]">35<span class="text-[#8C8C8C] font-normal">/39</span></span>
+                  </div>
+
+                  <!-- 行4 -->
+                  <div @click="navigateToDimension('分支', '差')" class="bg-[#F7F9FC] px-4 h-[32px] rounded-[4px] flex items-center justify-between hover:bg-white transition-all cursor-pointer group">
+                    <span class="text-[13px] text-[#262626] font-normal group-hover:text-[#1890FF]">
+                      吉隆坡：203.123.22.2 <span class="text-[#8C8C8C] font-normal ml-1">| 同pop</span>
+                    </span>
+                    <span class="text-[13px] text-right font-medium text-[#FF5752]">35<span class="text-[#8C8C8C] font-normal">/45</span></span>
                   </div>
                 </div>
               </div>
@@ -700,260 +834,530 @@
             </div>
           </div>
 
-          <!-- 3. 聚类体验告警卡片列表主体容器 -->
-          <div class="bg-white border border-[#E2E8F0] rounded-[4px] shadow-2xs">
+          <!-- 3. 中部双卡片区 (卡片 5: 体验预警 8列 | 卡片 6: VIP对象体验 4列) -->
+          <div class="grid grid-cols-12 gap-3 flex-shrink-0 select-none">
+            
+            <!-- 卡片 5: 体验预警 (尺寸 col-span-8，展示4条告警信息) -->
+            <div class="col-span-8 bg-white border border-[#E2E8F0] rounded-[4px] p-3 shadow-2xs h-[195px] flex flex-col justify-between hover:border-[#1890FF] transition-all">
+              <div>
+                <div class="flex items-center justify-between mb-2">
+                  <span class="text-[14px] font-bold text-[#262626]">体验预警</span>
+                  <button @click="showAiDrawer1 = true; aiDrawerOpen = true;" class="text-xs text-[#1890FF] hover:text-[#0052D9] font-normal inline-flex items-center gap-0.5 cursor-pointer">
+                    <span>查看更多&gt;</span>
+                  </button>
+                </div>
 
-            <!-- 顶部工具栏 (支持一键快捷清除已选对象) -->
-            <div class="p-2.5 px-3 pb-0 flex items-center justify-end gap-3 flex-wrap bg-white">
-              
-              <!-- 告警等级下拉 + 快捷清除 -->
-              <div class="relative inline-flex items-center">
-                <select x-model="selectedLevel" 
-                        @change="currentPage = 1" 
-                        class="dem-select w-32 font-normal transition-colors"
-                        :class="selectedLevel === 'all' ? '!text-[#A1A7B3]' : '!text-[#2F3540] !pr-7'">
-                  <option value="all" class="text-[#2F3540]">全量告警等级</option>
-                  <option value="高优" class="text-[#2F3540]">高优</option>
-                  <option value="中优" class="text-[#2F3540]">中优</option>
-                  <option value="低优" class="text-[#2F3540]">低优</option>
-                </select>
-                <button x-show="selectedLevel !== 'all'" 
-                        @click.stop="selectedLevel = 'all'; currentPage = 1;" 
-                        title="清除已选等级"
-                        class="absolute right-6 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full hover:bg-gray-200 text-[#94A3B8] hover:text-[#2F3540] flex items-center justify-center transition-colors">
-                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                </button>
-              </div>
-
-              <!-- 受损维度下拉 + 快捷清除 -->
-              <div class="relative inline-flex items-center">
-                <select x-model="selectedDimension" 
-                        @change="currentPage = 1" 
-                        class="dem-select w-36 font-normal transition-colors"
-                        :class="selectedDimension === 'all' ? '!text-[#A1A7B3]' : '!text-[#2F3540] !pr-7'">
-                  <option value="all" class="text-[#2F3540]">全量受损维度</option>
-                  <option value="分支问题" class="text-[#2F3540]">分支问题</option>
-                  <option value="用户问题" class="text-[#2F3540]">用户问题</option>
-                  <option value="应用问题" class="text-[#2F3540]">应用问题</option>
-                  <option value="网络链路" class="text-[#2F3540]">网络链路</option>
-                </select>
-                <button x-show="selectedDimension !== 'all'" 
-                        @click.stop="selectedDimension = 'all'; currentPage = 1;" 
-                        title="清除已选维度"
-                        class="absolute right-6 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full hover:bg-gray-200 text-[#94A3B8] hover:text-[#2F3540] flex items-center justify-center transition-colors">
-                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                </button>
-              </div>
-
-              <!-- 搜索框 + 快捷清除 -->
-              <div class="relative min-w-[240px] flex-1 max-w-sm">
-                <input type="text" 
-                       x-model="searchQuery" 
-                       @input="currentPage = 1" 
-                       placeholder="搜索告警标题 / 影响用户 / 应用..." 
-                       class="dem-input w-full pl-8 text-xs font-normal"
-                       :class="searchQuery ? 'pr-7' : 'pr-3'">
-                <svg class="w-3.5 h-3.5 text-[#94A3B8] absolute left-2.5 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-                <button x-show="searchQuery !== ''" 
-                        @click="searchQuery = ''; currentPage = 1;" 
-                        title="清除搜索框"
-                        class="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full hover:bg-gray-200 text-[#94A3B8] hover:text-[#2F3540] flex items-center justify-center transition-colors">
-                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                </button>
-              </div>
-
-
-
-            </div>
-
-            <!-- 告警卡片列表展示区 (与工具栏间距 8px) -->
-            <div class="p-3 pt-2 space-y-4 bg-white">
-              
-              <template x-for="item in paginatedAlerts" :key="item.id">
-                <div class="dem-alert-card rounded-[4px] border border-[#E2E8F0] overflow-hidden relative bg-white transition-all hover:border-[#1C6EFF] hover:shadow-xs cursor-pointer">
-                  
-
-                  <!-- 1. 标题栏 (拉通 40px 高度，背景底色 #F7F9FC) -->
-                  <div class="h-[40px] px-3.5 flex items-center justify-between border-b border-[#E2E8F0] bg-[#F7F9FC] relative z-10">
-                    <div class="flex items-center gap-2 flex-1 min-w-0 pr-4">
-                      <!-- 等级 Tag (高优 / 中优 / 低优) -->
-                      <span :class="getLevelBadgeClass(item.level)" x-text="item.level"></span>
-                      <!-- 事件 Tag (统一使用灰色 Tag) -->
-                      <span class="rounded-[2px] font-normal px-1.5 py-0.5 text-[11px] whitespace-nowrap bg-[#F1F5F9] text-[#5C6270] border border-[#E2E8F0]"
-                            x-text="item.impactType || '群体异常'"></span>
-                      <!-- 标题 -->
-                      <h3 class="text-xs font-semibold text-[#1E293B] truncate hover:text-[#1C6EFF] transition-colors" x-text="item.title"></h3>
+                <!-- 4 条体验预警告警信息列表 (影响面固定左对齐) -->
+                <div class="flex flex-col gap-1.5 text-[12px]">
+                  <!-- 告警 1 -->
+                  <div @click="openAlertDetail({ id: 1, title: '上海分支与马尼拉办公室 CRM 访问卡顿与高丢包' })" class="flex items-center justify-between py-1 px-2.5 rounded-[4px] hover:bg-[#F7F9FC] transition-colors cursor-pointer group">
+                    <div class="flex items-center gap-3 min-w-0 flex-1">
+                      <span class="bg-[#FF5752]/10 text-[#FF5752] rounded-[2px] font-normal px-1.5 py-0.5 text-[11px] flex-shrink-0 w-[36px] text-center">高优</span>
+                      <span class="text-[12px] font-normal text-[#262626] w-[270px] max-w-[270px] flex-shrink-0 truncate group-hover:text-[#1890FF]" title="上海分支与马尼拉办公室 CRM 访问卡顿与高丢包">上海分支与马尼拉办公室 CRM 访问卡顿与高丢包</span>
+                      <span class="text-[12px] text-[#8C8C8C] truncate flex-1">影响 42 人、2 分支、Salesforce 应用</span>
                     </div>
-
-                    <!-- 时间 & 查看详情 -->
-                    <div class="flex items-center gap-3 flex-shrink-0">
-                      <span class="text-[11px] text-[#94A3B8] font-mono whitespace-nowrap" x-text="item.time"></span>
-                      <button @click.stop="openAlertDetail(item)" class="text-xs text-[#1C6EFF] hover:text-[#0052D9] font-medium cursor-pointer transition-colors whitespace-nowrap">查看详情</button>
+                    <div class="flex items-center gap-4 flex-shrink-0 ml-4">
+                      <span class="text-[12px] text-[#8C8C8C] font-mono">2026/08/01 12:34:22</span>
+                      <span class="text-[12px] text-[#1890FF] hover:underline">详情</span>
                     </div>
                   </div>
 
-                  <!-- 2. 卡片核心主体 (左侧诊断归因 + 右侧极简抽象链路流) -->
-                  <div class="p-3 py-2.5 flex items-center justify-between gap-4 relative z-10">
-                    
-                    <!-- 左侧：影响范围与诊断归因信息 -->
-                    <div class="flex-1 min-w-0 flex flex-col gap-1.5 text-xs">
-                      <!-- 第 1 行：4 个 Tag 并排 (分支、用户、应用、真实分段 Tag) -->
-                      <div class="flex items-center gap-2 text-[11px] text-[#475569] flex-wrap">
-                        <span class="inline-flex items-center gap-1 bg-[#F8FAFC] border border-[#E2E8F0] px-2 py-0.5 rounded-[2px]">
-                          <svg class="w-3 h-3 text-[#64748B]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
-                          <span>涉及 <strong class="text-[#1E293B] font-medium" x-text="item.scope.branchCount"></strong> 个分支</span>
-                        </span>
-                        <span class="inline-flex items-center gap-1 bg-[#F8FAFC] border border-[#E2E8F0] px-2 py-0.5 rounded-[2px]">
-                          <svg class="w-3 h-3 text-[#64748B]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
-                          <span>影响 <strong class="text-[#CF171D] font-bold" x-text="item.scope.userCount"></strong> 名用户</span>
-                        </span>
-                        <span class="inline-flex items-center gap-1 bg-[#F8FAFC] border border-[#E2E8F0] px-2 py-0.5 rounded-[2px]">
-                          <svg class="w-3 h-3 text-[#64748B]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
-                          <span x-text="item.scope.appName"></span>
-                        </span>
-                        <!-- 问题原因真实分段 Tag -->
-                        <span class="inline-flex items-center px-2 py-0.5 rounded border text-[11px] font-medium bg-[#FFFAF0] text-[#DD6B20] border-[#FEEBC8]"
-                              x-text="item.popHighlight || 'POP — 传输段丢包 5.0%'"></span>
-                      </div>
-
-                      <!-- 第 2 行：诊断归因详细说明 -->
-                      <div class="text-[11px] text-[#475569] leading-relaxed">
-                        <span class="font-medium text-[#1E293B]">诊断归因：</span>
-                        <span x-text="item.attributionText || item.description"></span>
-                      </div>
-
-                      <!-- 第 3 行：影响说明 -->
-                      <div class="text-[11px] text-[#64748B] leading-relaxed">
-                        <span class="font-medium text-[#475569]">影响说明：</span>
-                        <span x-text="item.impactDesc || '由于此故障原因，具备群体扩散风险，影响相同出口下接入用户体验。'"></span>
-                      </div>
+                  <!-- 告警 2 -->
+                  <div @click="openAlertDetail({ id: 2, title: '总部 3 名 VIP 访问企业内部 ERP 锁等待延迟' })" class="flex items-center justify-between py-1 px-2.5 rounded-[4px] hover:bg-[#F7F9FC] transition-colors cursor-pointer group">
+                    <div class="flex items-center gap-3 min-w-0 flex-1">
+                      <span class="bg-[#FF5752]/10 text-[#FF5752] rounded-[2px] font-normal px-1.5 py-0.5 text-[11px] flex-shrink-0 w-[36px] text-center">高优</span>
+                      <span class="text-[12px] font-normal text-[#262626] w-[270px] max-w-[270px] flex-shrink-0 truncate group-hover:text-[#1890FF]" title="总部 3 名 VIP 访问企业内部 ERP 锁等待延迟">总部 3 名 VIP 访问企业内部 ERP 锁等待延迟</span>
+                      <span class="text-[12px] text-[#8C8C8C] truncate flex-1">影响 3 人、1 部门、SAP ERP 应用</span>
                     </div>
-
-                    <!-- 右侧空白处：极简抽象拓扑链路 (无标题 / 节点去固定常驻文本 / 鼠标悬浮展示节点详细信息) -->
-                    <div class="flex-shrink-0 flex flex-col justify-center pl-3 border-l border-[#F1F5F9] w-[350px] min-w-[310px] max-w-[380px]">
-                      <div class="p-2.5 px-3 flex items-center justify-between">
-
-                        <!-- 精简节点链路流 (无拓扑标题) -->
-                        <div class="flex items-center justify-between relative w-full py-0.5">
-                          <template x-for="(node, nIdx) in item.nodes" :key="nIdx">
-                            <div class="flex items-center flex-1 min-w-0 relative">
-                              <!-- 节点 Icon 与 Hover 浮层 -->
-                              <div class="flex flex-col items-center flex-shrink-0 relative group cursor-pointer z-10" :title="node.name + (node.sub ? ' (' + node.sub + ')' : '')">
-                                
-                                <!-- 鼠标悬浮 Hover Tooltip 浮层 -->
-                                <div class="absolute bottom-full mb-1.5 hidden group-hover:flex flex-col items-center z-30 pointer-events-none transition-all">
-                                  <div class="bg-[#1E293B] text-white text-[10px] py-1 px-2 rounded-[3px] whitespace-nowrap shadow-md flex items-center gap-1">
-                                    <span class="font-semibold text-white" x-text="node.name"></span>
-                                    <span class="text-[9px] text-[#94A3B8]" x-show="node.sub" x-text="'(' + node.sub + ')'"></span>
-                                  </div>
-                                  <div class="w-0 h-0 border-x-4 border-x-transparent border-t-4 border-t-[#1E293B]"></div>
-                                </div>
-
-                                <!-- Warning Badge (如 CPU 91.2% / NAT 98%) -->
-                                <div x-show="node.alertBadge" 
-                                     class="absolute -top-3.5 left-1/2 -translate-x-1/2 text-[8px] font-bold bg-[#E05252] text-white px-1 rounded-full whitespace-nowrap z-20 shadow-2xs scale-90" 
-                                     x-text="node.alertBadge"></div>
-                                
-                                <!-- 节点 Icon (24x24px，POP与App图标清晰规范) -->
-                                <div class="w-6 h-6 flex items-center justify-center transition-transform group-hover:scale-110"
-                                     :class="node.status === 'error' ? 'text-[#E05252]' : node.status === 'warning' ? 'text-[#FA721B]' : 'text-[#10B981]'">
-                                  <svg x-show="node.type === 'terminal' || node.name.includes('终端')" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
-                                  <svg x-show="node.type === 'branch' || node.name.includes('分支')" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
-                                  <svg x-show="node.type === 'pop' || node.name.includes('POP')" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 00-9.78 2.096A4.001 4.001 0 003 15z"></path></svg>
-                                  <svg x-show="node.type === 'connector' || node.name.includes('连接器')" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-                                  <svg x-show="node.type === 'af' || node.name.includes('AF')" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
-                                  <!-- 应用 App 窗口标准图标 -->
-                                  <svg x-show="node.type === 'app' || (!node.type && nIdx >= 2)" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 6a2 2 0 012-2h16a2 2 0 012 2v12a2 2 0 01-2 2H4a2 2 0 01-2-2V6zm0 4h20M8 7h.01M11 7h.01M14 7h.01"></path></svg>
-                                </div>
-                              </div>
-
-                              <!-- 连接线：固定 24px 高度严格居中，指标文字绝对定位浮于线上，防止线条被推低变型 -->
-                              <div x-show="nIdx < item.nodes.length - 1" class="flex-1 h-6 flex items-center relative mx-0.5">
-                                <!-- 连线上的异常指标 (绝对定位浮于线正上方，不占高度) -->
-                                <span x-show="node.metric" 
-                                      class="absolute -top-3.5 left-1/2 -translate-x-1/2 text-[9px] font-mono whitespace-nowrap font-bold text-[#E05252] bg-white/90 px-0.5 rounded z-20"
-                                      x-text="node.metric"></span>
-                                <!-- 连线主体 (严格水平平直) -->
-                                <div class="w-full h-[1.5px] relative" :class="node.status === 'error' || item.nodes[nIdx+1].status === 'error' ? 'bg-[#E05252]' : node.metric ? 'bg-[#FA721B]' : 'bg-[#CBD5E1]'">
-                                  <div class="absolute right-0 top-1/2 -translate-y-1/2 w-0 h-0 border-y-[3px] border-y-transparent border-l-[4px]"
-                                       :class="node.status === 'error' || item.nodes[nIdx+1].status === 'error' ? 'border-l-[#E05252]' : node.metric ? 'border-l-[#FA721B]' : 'border-l-[#CBD5E1]'"></div>
-                                </div>
-                              </div>
-                            </div>
-                          </template>
-                        </div>
-                      </div>
+                    <div class="flex items-center gap-4 flex-shrink-0 ml-4">
+                      <span class="text-[12px] text-[#8C8C8C] font-mono">2026/08/01 12:15:10</span>
+                      <span class="text-[12px] text-[#1890FF] hover:underline">详情</span>
                     </div>
+                  </div>
 
+                  <!-- 告警 3 -->
+                  <div @click="openAlertDetail({ id: 3, title: '广州数据中心 Web 应用 TCP 握手超时' })" class="flex items-center justify-between py-1 px-2.5 rounded-[4px] hover:bg-[#F7F9FC] transition-colors cursor-pointer group">
+                    <div class="flex items-center gap-3 min-w-0 flex-1">
+                      <span class="bg-[#FF9245]/10 text-[#FF9245] rounded-[2px] font-normal px-1.5 py-0.5 text-[11px] flex-shrink-0 w-[36px] text-center">中优</span>
+                      <span class="text-[12px] font-normal text-[#262626] w-[270px] max-w-[270px] flex-shrink-0 truncate group-hover:text-[#1890FF]" title="广州数据中心 Web 应用 TCP 握手超时">广州数据中心 Web 应用 TCP 握手超时</span>
+                      <span class="text-[12px] text-[#8C8C8C] truncate flex-1">影响 128 人、4 分支、内部 OA 应用</span>
+                    </div>
+                    <div class="flex items-center gap-4 flex-shrink-0 ml-4">
+                      <span class="text-[12px] text-[#8C8C8C] font-mono">2026/08/01 11:42:05</span>
+                      <span class="text-[12px] text-[#1890FF] hover:underline">详情</span>
+                    </div>
+                  </div>
+
+                  <!-- 告警 4 -->
+                  <div @click="openAlertDetail({ id: 4, title: '北京总部 POP-BJ-01 出口传输链路双向抖动' })" class="flex items-center justify-between py-1 px-2.5 rounded-[4px] hover:bg-[#F7F9FC] transition-colors cursor-pointer group">
+                    <div class="flex items-center gap-3 min-w-0 flex-1">
+                      <span class="bg-[#5BD8A6]/10 text-[#5BD8A6] rounded-[2px] font-normal px-1.5 py-0.5 text-[11px] flex-shrink-0 w-[36px] text-center">低优</span>
+                      <span class="text-[12px] font-normal text-[#262626] w-[270px] max-w-[270px] flex-shrink-0 truncate group-hover:text-[#1890FF]" title="北京总部 POP-BJ-01 出口传输链路双向抖动">北京总部 POP-BJ-01 出口传输链路双向抖动</span>
+                      <span class="text-[12px] text-[#8C8C8C] truncate flex-1">影响 85 人、1 分支、Teams 视频应用</span>
+                    </div>
+                    <div class="flex items-center gap-4 flex-shrink-0 ml-4">
+                      <span class="text-[12px] text-[#8C8C8C] font-mono">2026/08/01 10:18:50</span>
+                      <span class="text-[12px] text-[#1890FF] hover:underline">详情</span>
+                    </div>
                   </div>
                 </div>
-              </template>
-            </div>
-<template x-if="paginatedAlerts.length === 0">
-                <div class="bg-white border border-[#E2E8F0] p-12 text-center text-text-mute rounded-[4px]">
-                  <svg class="w-12 h-12 mx-auto text-[#10B981] mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                  </svg>
-                  <p class="text-sm font-medium text-text-title">当前时间段未发现高风险体验异常</p>
-                </div>
-              </template>
 
-            </div>
-
-            <!-- 分页器 (放在列表最后跟随整页滚动，默认 10 条一页) -->
-            <div class="dem-pagination-bar select-none">
-              <!-- 总条数 -->
-              <span>共 <strong class="text-text-title font-medium" x-text="filteredAlerts.length"></strong> 起告警问题</span>
-
-              <!-- 单页条数设置 -->
-              <div class="flex items-center gap-1">
-                <span>每页显示</span>
-                <select x-model.number="pageSize" @change="currentPage = 1" class="h-6 text-xs bg-gray-50 border border-bg-line rounded-none px-1 focus:outline-none cursor-pointer">
-                  <option :value="5">5 条</option>
-                  <option :value="10">10 条</option>
-                  <option :value="20">20 条</option>
-                </select>
               </div>
+            </div>
 
-              <!-- 页码与上下翻页 -->
-              <div class="flex items-center gap-1">
-                <!-- 上一页 -->
-                <button class="dem-page-btn" 
-                        :class="currentPage === 1 && 'disabled'" 
-                        @click="changePage(currentPage - 1)">
-                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
-                  </svg>
-                </button>
+            <!-- 卡片 6: VIP对象体验 (尺寸 col-span-4，每行 32px，底色 F7F9FC) -->
+            <div class="col-span-4 bg-white border border-[#E2E8F0] rounded-[4px] p-3 shadow-2xs h-[195px] flex flex-col justify-between hover:border-[#1890FF] transition-all">
+              <div>
+                <div class="flex items-center justify-between mb-1">
+                  <span class="text-[14px] font-bold text-[#262626]">VIP对象体验</span>
+                  <!-- 右上角切换页 -->
+                  <div class="inline-flex items-center bg-[#F1F5F9] p-[2px] rounded-[3px] text-[11px] text-[#454C59] flex-shrink-0">
+                    <button @click="vipTab = 'user'" :class="vipTab === 'user' ? 'bg-white text-[#1890FF] font-medium shadow-2xs' : 'text-[#8C8C8C] hover:text-[#262626]'" class="px-2 py-[1px] rounded-[2px] transition-all cursor-pointer">用户</button>
+                    <button @click="vipTab = 'app'" :class="vipTab === 'app' ? 'bg-white text-[#1890FF] font-medium shadow-2xs' : 'text-[#8C8C8C] hover:text-[#262626]'" class="px-2 py-[1px] rounded-[2px] transition-all cursor-pointer">应用</button>
+                  </div>
+                </div>
 
-                <!-- 页码列表 -->
-                <template x-for="p in totalPages" :key="p">
-                  <button class="dem-page-btn" 
-                          :class="currentPage === p && 'active'" 
-                          @click="changePage(p)" 
-                          x-text="p"></button>
+                <div class="text-[12px] text-[#8C8C8C] mb-1.5 font-normal">
+                  监测用户 <span class="text-[#262626] font-normal">18</span> 人，体验异常 <span class="text-[#FF5752] font-normal">3</span> 人：
+                </div>
+
+                <!-- VIP 用户明细列表 (每行 32px，底色 F7F9FC，间距 4px) -->
+                <div class="flex flex-col gap-[4px] text-[12px]" x-show="vipTab === 'user'">
+                  <!-- VIP 1 -->
+                  <div @click="goToVipDetail('张前进', 'user')" class="h-[32px] px-2.5 bg-[#F7F9FC] rounded-[4px] flex items-center justify-between cursor-pointer hover:bg-white hover:border-[#1890FF]/40 border border-transparent transition-all group">
+                    <div class="flex items-center gap-2 min-w-0 flex-1">
+                      <span class="w-1.5 h-1.5 rounded-full bg-[#FF5752] flex-shrink-0"></span>
+                      <span class="text-[12px] text-[#262626] font-normal group-hover:text-[#1890FF] truncate">34534（张前进）</span>
+                      <span class="text-[12px] text-[#8C8C8C] font-normal truncate">/深信服/总经办</span>
+                    </div>
+                    <span class="text-[12px] text-right font-normal text-[#FF5752] flex-shrink-0 ml-2">35<span class="text-[#8C8C8C] font-normal">/45</span></span>
+                  </div>
+
+                  <!-- VIP 2 -->
+                  <div @click="goToVipDetail('李达', 'user')" class="h-[32px] px-2.5 bg-[#F7F9FC] rounded-[4px] flex items-center justify-between cursor-pointer hover:bg-white hover:border-[#1890FF]/40 border border-transparent transition-all group">
+                    <div class="flex items-center gap-2 min-w-0 flex-1">
+                      <span class="w-1.5 h-1.5 rounded-full bg-[#FF5752] flex-shrink-0"></span>
+                      <span class="text-[12px] text-[#262626] font-normal group-hover:text-[#1890FF] truncate">23222（李达）</span>
+                      <span class="text-[12px] text-[#8C8C8C] font-normal truncate">/深信服/总经办</span>
+                    </div>
+                    <span class="text-[12px] text-right font-normal text-[#FF5752] flex-shrink-0 ml-2">35<span class="text-[#8C8C8C] font-normal">/45</span></span>
+                  </div>
+
+                  <!-- VIP 3 -->
+                  <div @click="goToVipDetail('吴刚', 'user')" class="h-[32px] px-2.5 bg-[#F7F9FC] rounded-[4px] flex items-center justify-between cursor-pointer hover:bg-white hover:border-[#1890FF]/40 border border-transparent transition-all group">
+                    <div class="flex items-center gap-2 min-w-0 flex-1">
+                      <span class="w-1.5 h-1.5 rounded-full bg-[#FF5752] flex-shrink-0"></span>
+                      <span class="text-[12px] text-[#262626] font-normal group-hover:text-[#1890FF] truncate">45452（吴刚）</span>
+                      <span class="text-[12px] text-[#8C8C8C] font-normal truncate">/深信服/总经办</span>
+                    </div>
+                    <span class="text-[12px] text-right font-normal text-[#FF5752] flex-shrink-0 ml-2">35<span class="text-[#8C8C8C] font-normal">/45</span></span>
+                  </div>
+                </div>
+
+                <!-- VIP 应用明细列表 (每行 32px，底色 F7F9FC，间距 4px) -->
+                <div class="flex flex-col gap-[4px] text-[12px]" x-show="vipTab === 'app'" x-cloak>
+                  <div @click="goToVipDetail('Salesforce CRM', 'app')" class="h-[32px] px-2.5 bg-[#F7F9FC] rounded-[4px] flex items-center justify-between cursor-pointer hover:bg-white hover:border-[#1890FF]/40 border border-transparent transition-all group">
+                    <div class="flex items-center gap-2 min-w-0 flex-1">
+                      <span class="w-1.5 h-1.5 rounded-full bg-[#FF5752] flex-shrink-0"></span>
+                      <span class="text-[12px] text-[#262626] font-normal group-hover:text-[#1890FF] truncate">Salesforce CRM</span>
+                      <span class="text-[12px] text-[#8C8C8C] truncate">SaaS 核心业务</span>
+                    </div>
+                    <span class="text-[12px] text-right font-medium text-[#FF5752] flex-shrink-0 ml-2">28<span class="text-[#8C8C8C] font-normal">/30</span></span>
+                  </div>
+                  <div @click="goToVipDetail('SAP ERP', 'app')" class="h-[32px] px-2.5 bg-[#F7F9FC] rounded-[4px] flex items-center justify-between cursor-pointer hover:bg-white hover:border-[#1890FF]/40 border border-transparent transition-all group">
+                    <div class="flex items-center gap-2 min-w-0 flex-1">
+                      <span class="w-1.5 h-1.5 rounded-full bg-[#FF5752] flex-shrink-0"></span>
+                      <span class="text-[12px] text-[#262626] font-normal group-hover:text-[#1890FF] truncate">SAP ERP</span>
+                      <span class="text-[12px] text-[#8C8C8C] truncate">企业内部核心</span>
+                    </div>
+                    <span class="text-[12px] text-right font-medium text-[#FF5752] flex-shrink-0 ml-2">12<span class="text-[#8C8C8C] font-normal">/15</span></span>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+          </div>
+
+          <!-- 4. 下方 站点分支 / 访问用户 / 应用 3-Tab 监控数据容器 -->
+          <div id="home-bottom-content-area" class="bg-white border border-[#E2E8F0] rounded-[4px] shadow-2xs flex flex-col dem-table-container">
+
+            <!-- 3-Tab 头部 (固定 40px 高度, 无底色纯白) -->
+            <div class="h-[40px] min-h-[40px] px-4 bg-white border-b border-[#E2E8F0] flex items-center justify-between flex-shrink-0 select-none z-10">
+              <div class="flex items-center gap-6 h-full relative">
+                <template x-for="t in [
+                  { id: '分支', label: '站点分支' },
+                  { id: '用户', label: '访问用户' },
+                  { id: '应用', label: '应用' }
+                ]" :key="t.id">
+                  <div @click="contentTab = t.id" 
+                       class="h-full flex items-center cursor-pointer select-none relative font-medium text-xs transition-colors px-1 group">
+                    <span :class="contentTab === t.id ? 'text-[#1C6EFF] font-semibold' : 'text-[#5C6270] group-hover:text-[#1C6EFF]'"
+                          x-text="t.label"></span>
+                    <div x-show="contentTab === t.id" class="absolute bottom-0 left-0 right-0 h-[2px] bg-[#1C6EFF]" x-cloak></div>
+                  </div>
                 </template>
-
-                <!-- 下一页 -->
-                <button class="dem-page-btn" 
-                        :class="currentPage === totalPages && 'disabled'" 
-                        @click="changePage(currentPage + 1)">
-                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-                  </svg>
-                </button>
               </div>
+            </div>
 
-              <!-- 快速跳转 -->
-              <div class="flex items-center gap-1">
-                <span>前往</span>
-                <input type="number" 
-                       x-model="jumpPageInput" 
-                       @keyup.enter="handleJumpPage()" 
-                       min="1" 
-                       :max="totalPages" 
-                       class="w-12 h-6 text-center text-xs bg-gray-50 border border-[#E2E8F0] rounded-none focus:outline-none focus:border-[#1C6EFF]" />
-                <span>页</span>
+            <!-- Tab 1: 分支监控视图 -->
+            <div x-show="contentTab === '分支'" class="flex flex-col">
+              <!-- 工具栏 -->
+              <div class="p-3 flex items-center justify-end gap-3 flex-wrap flex-shrink-0 bg-white">
+                <div class="relative" x-data="{ open: false }" @click.outside="open = false">
+                  <div @click="open = !open" 
+                       class="h-8 min-w-[130px] px-2.5 bg-white border border-[#D3D7DE] rounded-[2px] hover:border-[#1C6EFF] transition-colors flex items-center justify-between cursor-pointer select-none text-xs">
+                    <template x-if="branchSelectedExperience.length === 0">
+                      <span class="text-[#A1A7B3] font-normal">全部健康状态</span>
+                    </template>
+                    <template x-if="branchSelectedExperience.length > 0">
+                      <span class="text-[#2F3540] font-normal truncate max-w-[100px]" x-text="'体验: ' + branchSelectedExperience.join(',')"></span>
+                    </template>
+                    <div class="flex items-center gap-1 ml-1.5 flex-shrink-0">
+                      <template x-if="branchSelectedExperience.length > 0">
+                        <span @click.stop="branchSelectedExperience = []; branchCurrentPage = 1" 
+                              class="w-3.5 h-3.5 rounded-full hover:bg-gray-200 inline-flex items-center justify-center text-[#A1A7B3] hover:text-[#5C6270] transition-colors cursor-pointer"
+                              title="清除选择">
+                          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                        </span>
+                      </template>
+                      <svg class="w-3.5 h-3.5 text-[#A1A7B3] transition-transform" :class="open && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                    </div>
+                  </div>
+                  <div x-show="open" x-cloak class="absolute right-0 top-full mt-1 w-[140px] bg-white border border-[#E1E5EB] shadow-lg rounded-[2px] py-1 z-50 text-xs text-[#2F3540]">
+                    <template x-for="opt in ['差', '一般', '正常']" :key="opt">
+                      <label class="flex items-center gap-2 px-3 py-1.5 hover:bg-[#F4F6F9] cursor-pointer select-none">
+                        <input type="checkbox" :value="opt" x-model="branchSelectedExperience" @change="branchCurrentPage = 1" class="rounded border-gray-300 text-[#1C6EFF] focus:ring-0 w-3.5 h-3.5">
+                        <span x-text="opt"></span>
+                      </label>
+                    </template>
+                  </div>
+                </div>
+                <div class="relative w-64 flex-shrink-0">
+                  <input type="text" x-model="branchSearchQuery" @input="branchCurrentPage = 1" placeholder="搜索分支名称 / 关联城市 / 出口 IP..." class="w-full h-8 pl-8 pr-3 text-xs bg-white border border-[#D3D7DE] rounded-[2px] focus:outline-none focus:border-[#1C6EFF] transition-colors text-[#2F3540]" />
+                  <svg class="w-3.5 h-3.5 text-[#A1A7B3] absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                </div>
+              </div>
+              <!-- 表格 -->
+              <div class="overflow-x-auto custom-scrollbar pl-[2px]">
+                <table class="dem-table">
+                  <thead>
+                    <tr>
+                      <th class="w-56">分支名称</th>
+                      <th class="w-48">出口 IP / 城市</th>
+                      <th class="w-32 cursor-pointer select-none hover:text-[#1C6EFF] transition-colors" @click="toggleBranchExpSort()">
+                        <div class="inline-flex items-center gap-1.5">
+                          <span>访问体验</span>
+                          <div class="inline-flex flex-col gap-[2px] flex-shrink-0">
+                            <svg class="w-2 h-1.5 transition-colors" :class="branchExpSortDir === 'asc' ? 'text-[#1C6EFF]' : 'text-[#A1A7B3]'" viewBox="0 0 8 6" fill="currentColor"><path d="M4 0L8 6H0L4 0Z"/></svg>
+                            <svg class="w-2 h-1.5 transition-colors" :class="branchExpSortDir === 'desc' ? 'text-[#1C6EFF]' : 'text-[#A1A7B3]'" viewBox="0 0 8 6" fill="currentColor"><path d="M4 6L0 0H8L4 6Z"/></svg>
+                          </div>
+                        </div>
+                      </th>
+                      <th class="w-36">主用接入 POP</th>
+                      <th class="w-72">受阻高频应用</th>
+                      <th class="w-24">操作</th>
+                      <th class="dem-table-col-more">...</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <template x-for="branch in paginatedBranches" :key="branch.id">
+                      <tr>
+                        <td><a href="javascript:void(0)" @click="goToBranchDetail(branch)" class="dem-table-action-link font-normal text-xs" x-text="branch.branchName"></a></td>
+                        <td>
+                          <div class="font-mono text-xs text-text-title leading-tight" x-text="branch.egressIp"></div>
+                          <div class="text-[11px] text-text-mute leading-tight mt-0.5" x-text="branch.city"></div>
+                        </td>
+                        <td><span :class="getExpBadgeClass(branch.experience)"><span x-text="branch.experience"></span></span></td>
+                        <td><span class="text-text-title font-normal text-xs" x-text="formatCityName(branch.pop)"></span></td>
+                        <td>
+                          <div class="truncate max-w-[280px]" :title="formatDegradedApps(branch.degradedApps).fullText">
+                            <template x-if="!formatDegradedApps(branch.degradedApps).isDegraded"><span class="text-[#5C6270]">-</span></template>
+                            <template x-if="formatDegradedApps(branch.degradedApps).isDegraded">
+                              <span class="text-[#5C6270] font-normal text-xs">
+                                <span x-text="formatDegradedApps(branch.degradedApps).textPrefix"></span>
+                                <template x-if="formatDegradedApps(branch.degradedApps).showMore">
+                                  <span><span class="text-red-600 font-semibold" x-text="formatDegradedApps(branch.degradedApps).count"></span> 个</span>
+                                </template>
+                              </span>
+                            </template>
+                          </div>
+                        </td>
+                        <td><a href="javascript:void(0)" @click="goToBranchDetail(branch)" class="dem-table-action-link">查看详情</a></td>
+                        <td class="dem-table-col-more"></td>
+                      </tr>
+                    </template>
+                    <template x-if="paginatedBranches.length === 0">
+                      <tr><td colspan="7" class="text-center py-12 text-text-mute"><span>没有匹配的分支机构体验数据</span></td></tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+              <!-- 分页器 -->
+              <div class="dem-pagination-bar select-none">
+                <span>共 <strong class="text-text-title font-medium" x-text="filteredBranches.length"></strong> 条数据</span>
+                <div class="flex items-center gap-1">
+                  <span>每页显示</span>
+                  <select x-model.number="branchPageSize" @change="branchCurrentPage = 1" class="h-6 text-xs bg-gray-50 border border-bg-line rounded-none px-1 focus:outline-none">
+                    <option :value="10">10 条</option><option :value="20">20 条</option><option :value="50">50 条</option>
+                  </select>
+                </div>
+                <div class="flex items-center gap-1">
+                  <button class="dem-page-btn" :class="branchCurrentPage === 1 && 'disabled'" @click="changeBranchPage(branchCurrentPage - 1)"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg></button>
+                  <template x-for="p in branchTotalPages" :key="p"><button class="dem-page-btn" :class="branchCurrentPage === p && 'active'" @click="changeBranchPage(p)" x-text="p"></button></template>
+                  <button class="dem-page-btn" :class="branchCurrentPage === branchTotalPages && 'disabled'" @click="changeBranchPage(branchCurrentPage + 1)"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg></button>
+                </div>
+                <div class="flex items-center gap-1">
+                  <span>前往</span>
+                  <input type="number" x-model="branchJumpPageInput" @keyup.enter="handleJumpBranchPage()" min="1" :max="branchTotalPages" class="w-12 h-6 text-center text-xs bg-gray-50 border border-bg-line rounded-none focus:outline-none focus:border-brand" />
+                  <span>页</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Tab 2: 用户监控视图 -->
+            <div x-show="contentTab === '用户'" class="flex flex-col" x-cloak>
+              <!-- 工具栏 -->
+              <div class="p-3 flex items-center justify-end gap-3 flex-wrap flex-shrink-0 bg-white">
+                <div class="relative" x-data="{ open: false }" @click.outside="open = false">
+                  <div @click="open = !open" class="h-8 min-w-[130px] px-2.5 bg-white border border-[#D3D7DE] rounded-[2px] hover:border-[#1C6EFF] transition-colors flex items-center justify-between cursor-pointer select-none text-xs">
+                    <template x-if="userSelectedExperience.length === 0"><span class="text-[#A1A7B3] font-normal">全部体验状态</span></template>
+                    <template x-if="userSelectedExperience.length > 0"><span class="text-[#2F3540] font-normal truncate max-w-[100px]" x-text="'体验: ' + userSelectedExperience.join(',')"></span></template>
+                    <div class="flex items-center gap-1 ml-1.5 flex-shrink-0">
+                      <template x-if="userSelectedExperience.length > 0">
+                        <span @click.stop="userSelectedExperience = []; userCurrentPage = 1" class="w-3.5 h-3.5 rounded-full hover:bg-gray-200 inline-flex items-center justify-center text-[#A1A7B3] hover:text-[#5C6270] transition-colors cursor-pointer" title="清除选择">
+                          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                        </span>
+                      </template>
+                      <svg class="w-3.5 h-3.5 text-[#A1A7B3] transition-transform" :class="open && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                    </div>
+                  </div>
+                  <div x-show="open" x-cloak class="absolute right-0 top-full mt-1 w-[140px] bg-white border border-[#E1E5EB] shadow-lg rounded-[2px] py-1 z-50 text-xs text-[#2F3540]">
+                    <template x-for="opt in ['差', '一般', '正常']" :key="opt">
+                      <label class="flex items-center gap-2 px-3 py-1.5 hover:bg-[#F4F6F9] cursor-pointer select-none">
+                        <input type="checkbox" :value="opt" x-model="userSelectedExperience" @change="userCurrentPage = 1" class="rounded border-gray-300 text-[#1C6EFF] focus:ring-0 w-3.5 h-3.5">
+                        <span x-text="opt"></span>
+                      </label>
+                    </template>
+                  </div>
+                </div>
+                <div class="relative w-64 flex-shrink-0">
+                  <input type="text" x-model="userSearchQuery" @input="userCurrentPage = 1" placeholder="搜索用户 / 终端 / IP / 组织 / 应用..." class="w-full h-8 pl-8 pr-3 text-xs bg-white border border-[#D3D7DE] rounded-[2px] focus:outline-none focus:border-[#1C6EFF] transition-colors text-[#2F3540]" />
+                  <svg class="w-3.5 h-3.5 text-[#A1A7B3] absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                </div>
+              </div>
+              <!-- 表格 -->
+              <div class="overflow-x-auto custom-scrollbar pl-[2px]">
+                <table class="dem-table">
+                  <thead>
+                    <tr>
+                      <th class="w-52 whitespace-nowrap">用户</th>
+                      <th class="w-36">所属组织架构</th>
+                      <th class="w-44">最近使用终端</th>
+                      <th class="w-44">IP 归属地</th>
+                      <th class="w-36">最近接入 POP</th>
+                      <th class="w-28 cursor-pointer select-none hover:text-[#1C6EFF] transition-colors" @click="toggleUserExpSort()">
+                        <div class="inline-flex items-center gap-1.5">
+                          <span>体验状态</span>
+                          <div class="inline-flex flex-col gap-[2px] flex-shrink-0">
+                            <svg class="w-2 h-1.5 transition-colors" :class="userExpSortDir === 'asc' ? 'text-[#1C6EFF]' : 'text-[#A1A7B3]'" viewBox="0 0 8 6" fill="currentColor"><path d="M4 0L8 6H0L4 0Z"/></svg>
+                            <svg class="w-2 h-1.5 transition-colors" :class="userExpSortDir === 'desc' ? 'text-[#1C6EFF]' : 'text-[#A1A7B3]'" viewBox="0 0 8 6" fill="currentColor"><path d="M4 6L0 0H8L4 6Z"/></svg>
+                          </div>
+                        </div>
+                      </th>
+                      <th class="w-32 num-col cursor-pointer select-none hover:text-[#1C6EFF] transition-colors" @click="toggleUserExpSort()">
+                        <div class="inline-flex items-center justify-end gap-1.5 w-full">
+                          <span>访问应用数</span>
+                          <div class="inline-flex flex-col gap-[2px] flex-shrink-0">
+                            <svg class="w-2 h-1.5 text-[#A1A7B3]" viewBox="0 0 8 6" fill="currentColor"><path d="M4 0L8 6H0L4 0Z"/></svg>
+                            <svg class="w-2 h-1.5 text-[#A1A7B3]" viewBox="0 0 8 6" fill="currentColor"><path d="M4 6L0 0H8L4 6Z"/></svg>
+                          </div>
+                        </div>
+                      </th>
+                      <th class="w-64">体验受损应用</th>
+                      <th class="w-20">操作</th>
+                      <th class="dem-table-col-more">...</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <template x-for="user in paginatedUsers" :key="user.id">
+                      <tr>
+                        <!-- 1. 用户 -->
+                        <td class="whitespace-nowrap">
+                          <div class="flex items-center gap-1.5">
+                            <template x-if="user.isVip">
+                              <svg class="w-3.5 h-3.5 text-[#D97706] flex-shrink-0" fill="currentColor" viewBox="0 0 24 24" title="VIP 关键保障用户">
+                                <path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm14 3c0 .6-.4 1-1 1H6c-.6 0-1-.4-1-1v-1h14v1z"/>
+                              </svg>
+                            </template>
+                            <a href="javascript:void(0)" @click="goToUserDetail(user)" class="dem-table-action-link font-normal text-xs" x-text="user.userName"></a>
+                          </div>
+                        </td>
+                        <!-- 2. 所属组织架构 -->
+                        <td><div class="truncate max-w-[140px] text-xs text-[#3D3D3D] whitespace-nowrap block" :title="user.department" x-text="user.department"></div></td>
+                        <!-- 3. 最近使用终端 -->
+                        <td><div class="truncate max-w-[170px] text-xs font-mono text-[#3D3D3D] whitespace-nowrap block" :title="user.terminals ? user.terminals.join('、') : (user.terminalName || 'WIN-DESK-88--WIN-YZ')" x-text="user.terminals ? user.terminals.join('、') : (user.terminalName || 'WIN-DESK-88--WIN-YZ')"></div></td>
+                        <!-- 4. IP 归属地 -->
+                        <td><span class="font-mono text-xs text-[#3D3D3D]" x-text="formatIpLocation(user.ipLocation)"></span></td>
+                        <!-- 5. 最近接入 POP -->
+                        <td><span class="text-[#3D3D3D] font-normal text-xs" x-text="formatCityName(user.pop)"></span></td>
+                        <!-- 6. 体验状态 -->
+                        <td><span :class="getExpBadgeClass(user.experience)"><span x-text="user.experience"></span></span></td>
+                        <!-- 7. 访问应用数 -->
+                        <td class="num-col font-outfit font-normal text-[#2F3540]" x-text="user.appCount || (user.degradedApps ? user.degradedApps.length + 5 : 8)"></td>
+                        <!-- 8. 体验受损应用 -->
+                        <td>
+                          <div class="truncate max-w-[240px]" :title="formatDegradedApps(user.degradedApps).fullText">
+                            <template x-if="!formatDegradedApps(user.degradedApps).isDegraded">
+                              <span class="text-[#5C6270]">-</span>
+                            </template>
+                            <template x-if="formatDegradedApps(user.degradedApps).isDegraded">
+                              <span class="text-[#5C6270] font-normal text-xs">
+                                <span x-text="formatDegradedApps(user.degradedApps).textPrefix"></span>
+                                <template x-if="formatDegradedApps(user.degradedApps).showMore">
+                                  <span><span class="text-red-600 font-semibold" x-text="formatDegradedApps(user.degradedApps).count"></span> 个</span>
+                                </template>
+                              </span>
+                            </template>
+                          </div>
+                        </td>
+                        <!-- 9. 操作 -->
+                        <td><a href="javascript:void(0)" @click="goToUserDetail(user)" class="dem-table-action-link">详情</a></td>
+                        <td class="dem-table-col-more"></td>
+                      </tr>
+                    </template>
+                    <template x-if="paginatedUsers.length === 0">
+                      <tr><td colspan="9" class="text-center py-12 text-text-mute"><span>没有匹配的用户体验数据</span></td></tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+              <!-- 分页器 -->
+              <div class="dem-pagination-bar select-none">
+                <span>共 <strong class="text-text-title font-medium" x-text="filteredUsers.length"></strong> 条数据</span>
+                <div class="flex items-center gap-1">
+                  <span>每页显示</span>
+                  <select x-model.number="userPageSize" @change="userCurrentPage = 1" class="h-6 text-xs bg-gray-50 border border-bg-line rounded-none px-1 focus:outline-none">
+                    <option :value="10">10 条</option><option :value="20">20 条</option><option :value="50">50 条</option>
+                  </select>
+                </div>
+                <div class="flex items-center gap-1">
+                  <button class="dem-page-btn" :class="userCurrentPage === 1 && 'disabled'" @click="changeUserPage(userCurrentPage - 1)"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg></button>
+                  <template x-for="p in userTotalPages" :key="p"><button class="dem-page-btn" :class="userCurrentPage === p && 'active'" @click="changeUserPage(p)" x-text="p"></button></template>
+                  <button class="dem-page-btn" :class="userCurrentPage === userTotalPages && 'disabled'" @click="changeUserPage(userCurrentPage + 1)"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg></button>
+                </div>
+                <div class="flex items-center gap-1">
+                  <span>前往</span>
+                  <input type="number" x-model="userJumpPageInput" @keyup.enter="handleJumpUserPage()" min="1" :max="userTotalPages" class="w-12 h-6 text-center text-xs bg-gray-50 border border-bg-line rounded-none focus:outline-none focus:border-brand" />
+                  <span>页</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Tab 3: 应用监控视图 -->
+            <div x-show="contentTab === '应用'" class="flex flex-col" x-cloak>
+              <!-- 工具栏 -->
+              <div class="p-3 flex items-center justify-end gap-3 flex-wrap flex-shrink-0 bg-white">
+                <div class="relative" x-data="{ open: false }" @click.outside="open = false">
+                  <div @click="open = !open" class="h-8 min-w-[130px] px-2.5 bg-white border border-[#D3D7DE] rounded-[2px] hover:border-[#1C6EFF] transition-colors flex items-center justify-between cursor-pointer select-none text-xs">
+                    <template x-if="appSelectedExperience.length === 0"><span class="text-[#A1A7B3] font-normal">全部健康状态</span></template>
+                    <template x-if="appSelectedExperience.length > 0"><span class="text-[#2F3540] font-normal truncate max-w-[100px]" x-text="'体验: ' + appSelectedExperience.join(',')"></span></template>
+                    <div class="flex items-center gap-1 ml-1.5 flex-shrink-0">
+                      <template x-if="appSelectedExperience.length > 0">
+                        <span @click.stop="appSelectedExperience = []; appCurrentPage = 1" class="w-3.5 h-3.5 rounded-full hover:bg-gray-200 inline-flex items-center justify-center text-[#A1A7B3] hover:text-[#5C6270] transition-colors cursor-pointer" title="清除选择">
+                          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                        </span>
+                      </template>
+                      <svg class="w-3.5 h-3.5 text-[#A1A7B3] transition-transform" :class="open && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                    </div>
+                  </div>
+                  <div x-show="open" x-cloak class="absolute right-0 top-full mt-1 w-[140px] bg-white border border-[#E1E5EB] shadow-lg rounded-[2px] py-1 z-50 text-xs text-[#2F3540]">
+                    <template x-for="opt in ['差', '一般', '正常']" :key="opt">
+                      <label class="flex items-center gap-2 px-3 py-1.5 hover:bg-[#F4F6F9] cursor-pointer select-none">
+                        <input type="checkbox" :value="opt" x-model="appSelectedExperience" @change="appCurrentPage = 1" class="rounded border-gray-300 text-[#1C6EFF] focus:ring-0 w-3.5 h-3.5">
+                        <span x-text="opt"></span>
+                      </label>
+                    </template>
+                  </div>
+                </div>
+                <div class="relative w-64 flex-shrink-0">
+                  <input type="text" x-model="appSearchQuery" @input="appCurrentPage = 1" placeholder="搜索应用名称 / 域名 / 所属数据中心..." class="w-full h-8 pl-8 pr-3 text-xs bg-white border border-[#D3D7DE] rounded-[2px] focus:outline-none focus:border-[#1C6EFF] transition-colors text-[#2F3540]" />
+                  <svg class="w-3.5 h-3.5 text-[#A1A7B3] absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                </div>
+              </div>
+              <!-- 表格 -->
+              <div class="overflow-x-auto custom-scrollbar pl-[2px]">
+                <table class="dem-table">
+                  <thead>
+                    <tr>
+                      <th class="w-56">应用名称</th>
+                      <th class="w-48">访问域名 / 类型</th>
+                      <th class="w-32 cursor-pointer select-none hover:text-[#1C6EFF] transition-colors" @click="toggleAppExpSort()">
+                        <div class="inline-flex items-center gap-1.5">
+                          <span>访问体验</span>
+                          <div class="inline-flex flex-col gap-[2px] flex-shrink-0">
+                            <svg class="w-2 h-1.5 transition-colors" :class="appExpSortDir === 'asc' ? 'text-[#1C6EFF]' : 'text-[#A1A7B3]'" viewBox="0 0 8 6" fill="currentColor"><path d="M4 0L8 6H0L4 0Z"/></svg>
+                            <svg class="w-2 h-1.5 transition-colors" :class="appExpSortDir === 'desc' ? 'text-[#1C6EFF]' : 'text-[#A1A7B3]'" viewBox="0 0 8 6" fill="currentColor"><path d="M4 6L0 0H8L4 6Z"/></svg>
+                          </div>
+                        </div>
+                      </th>
+                      <th class="w-36">所属区域/数据中心</th>
+                      <th class="w-32">活跃/受阻用户</th>
+                      <th class="w-28">平均响应时间</th>
+                      <th class="w-24">操作</th>
+                      <th class="dem-table-col-more">...</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <template x-for="app in paginatedApps" :key="app.id">
+                      <tr>
+                        <td>
+                          <div class="flex items-center gap-1.5">
+                            <a href="javascript:void(0)" @click="goToAppDetail(app)" class="dem-table-action-link font-normal text-xs" x-text="app.appName"></a>
+                            <template x-if="app.isVip"><span class="bg-[#FFF1F0] text-[#FF4D4F] border border-[#FFA39E] text-[10px] px-1 rounded font-semibold">VIP</span></template>
+                          </div>
+                        </td>
+                        <td>
+                          <div class="font-mono text-xs text-text-title leading-tight" x-text="app.domain"></div>
+                          <div class="text-[11px] text-text-mute leading-tight mt-0.5" x-text="app.appType"></div>
+                        </td>
+                        <td><span :class="getExpBadgeClass(app.experience)"><span x-text="app.experience"></span></span></td>
+                        <td><span class="text-text-title font-normal text-xs" x-text="app.region"></span></td>
+                        <td>
+                          <span class="text-xs text-[#2F3540]">
+                            <span x-text="app.activeUsers"></span> / <span class="text-red-600 font-semibold" x-text="app.degradedUsers"></span> 人
+                          </span>
+                        </td>
+                        <td><span class="font-mono text-xs text-text-title" x-text="app.avgResponseTime"></span></td>
+                        <td><a href="javascript:void(0)" @click="goToAppDetail(app)" class="dem-table-action-link">详情</a></td>
+                        <td class="dem-table-col-more"></td>
+                      </tr>
+                    </template>
+                    <template x-if="paginatedApps.length === 0">
+                      <tr><td colspan="8" class="text-center py-12 text-text-mute"><span>没有匹配的应用体验数据</span></td></tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+              <!-- 分页器 -->
+              <div class="dem-pagination-bar select-none">
+                <span>共 <strong class="text-text-title font-medium" x-text="filteredApps.length"></strong> 条数据</span>
+                <div class="flex items-center gap-1">
+                  <span>每页显示</span>
+                  <select x-model.number="appPageSize" @change="appCurrentPage = 1" class="h-6 text-xs bg-gray-50 border border-bg-line rounded-none px-1 focus:outline-none">
+                    <option :value="10">10 条</option><option :value="20">20 条</option><option :value="50">50 条</option>
+                  </select>
+                </div>
+                <div class="flex items-center gap-1">
+                  <button class="dem-page-btn" :class="appCurrentPage === 1 && 'disabled'" @click="changeAppPage(appCurrentPage - 1)"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg></button>
+                  <template x-for="p in appTotalPages" :key="p"><button class="dem-page-btn" :class="appCurrentPage === p && 'active'" @click="changeAppPage(p)" x-text="p"></button></template>
+                  <button class="dem-page-btn" :class="appCurrentPage === appTotalPages && 'disabled'" @click="changeAppPage(appCurrentPage + 1)"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg></button>
+                </div>
+                <div class="flex items-center gap-1">
+                  <span>前往</span>
+                  <input type="number" x-model="appJumpPageInput" @keyup.enter="handleJumpAppPage()" min="1" :max="appTotalPages" class="w-12 h-6 text-center text-xs bg-gray-50 border border-bg-line rounded-none focus:outline-none focus:border-brand" />
+                  <span>页</span>
+                </div>
               </div>
             </div>
 

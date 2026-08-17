@@ -21,13 +21,14 @@
     '告警排障':   './DEM-首页.html',
     '首页':       './DEM-首页.html',
     '概览':       './DEM-首页.html',
-    '分支':       './DEM-分支.html',
-    '用户':       './DEM-用户.html',
-    '应用':       './DEM-应用.html',
-    '站点':       './DEM-分支.html',
+    '分支':       './DEM-首页.html',
+    '用户':       './DEM-首页.html',
+    '应用':       './DEM-首页.html',
+    '站点':       './DEM-首页.html',
     '监控配置':   './DEM-监控配置.html',
     '用户详情':   './DEM-用户详情.html',
-    '用户查询详情': './DEM-用户详情.html'
+    '用户查询详情': './DEM-用户详情.html',
+    '应用详情':   './DEM-应用详情.html'
   };
 
   /* ──────────────────────────────────────────────
@@ -437,6 +438,8 @@
           document.addEventListener('click', function(e) {
             var link = e.target.closest('a[href]');
             if (!link) return;
+            // 如果是新标签页链接，直接放行，不拦截
+            if (link.target === '_blank') return;
             var href = link.getAttribute('href');
             if (!href || /^(#|javascript|http|mailto|tel)/.test(href)) return;
             e.preventDefault();

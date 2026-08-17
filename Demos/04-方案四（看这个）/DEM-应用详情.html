@@ -1,0 +1,2562 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DEM-应用详情 - 访问体验监控</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="../assets/css/css-overrides.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/collapse@3.x.x/dist/cdn.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="../assets/js/tailwind-config.js"></script>
+  <link rel="stylesheet" href="../assets/css/ai-dem.css" />
+
+  <!-- ECharts 5.4.3 可视化图表库 -->
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+
+  <!-- 集中维护的双底座公共 Shell 样式与脚本 -->
+  <link rel="stylesheet" href="./_shell/shell.css" />
+  <script src="./_shell/shell.js"></script>
+
+  <style>
+    /* 下拉选择框通用规范 */
+    .dem-select {
+      height: 32px;
+      font-size: 12px;
+      color: #2F3540;
+      background-color: #FFFFFF;
+      border: 1px solid #D3D7DE;
+      border-radius: 2px;
+      padding-left: 10px;
+      padding-right: 24px;
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23A1A7B3'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 6px center;
+      background-size: 14px 14px;
+      cursor: pointer;
+      transition: border-color 0.15s;
+    }
+    .dem-select:hover, .dem-select:focus {
+      border-color: #1C6EFF;
+      outline: none;
+    }
+
+    /* 下拉选择框快捷清除包装器与图标 */
+    .dem-select-wrapper {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+    }
+    .dem-clear-btn {
+      display: none;
+      position: absolute;
+      right: 6px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 16px;
+      height: 16px;
+      background-color: #FFFFFF;
+      border-radius: 50%;
+      color: #8A92A1;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      z-index: 10;
+      transition: all 0.15s;
+    }
+    .dem-clear-btn:hover {
+      color: #1C6EFF;
+      background-color: #F0F5FF;
+    }
+    .dem-select-wrapper:hover .dem-clear-btn.has-value {
+      display: flex;
+    }
+
+    /* 表格核心规范 */
+    .dem-table-container {
+      border: 1px solid #E1E5EB;
+      border-radius: 0px !important;
+      background: #ffffff;
+    }
+    .dem-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+    }
+    .dem-table thead tr {
+      height: 32px;
+    }
+    .dem-table th:first-child,
+    .dem-table td:first-child {
+      padding-left: 14px !important;
+    }
+    .dem-table th {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      height: 32px;
+      padding: 0 12px;
+      font-size: 12px;
+      font-weight: 400;
+      color: #454C59;
+      background-color: #EDF1F7;
+      white-space: nowrap;
+      text-align: left;
+      border-bottom: 1px solid #E1E5EB;
+      box-shadow: inset 0 -1px 0 #E1E5EB;
+      user-select: none;
+    }
+    .dem-table td {
+      padding: 8px 12px;
+      font-size: 12px;
+      color: #2F3540;
+      border-bottom: 1px solid #F0F2F5;
+      white-space: nowrap;
+    }
+    .dem-table tbody tr:hover {
+      background-color: #F8FAFC;
+    }
+
+    /* Tab 激活下划线指示器 */
+    .tab-btn {
+      position: relative;
+      padding: 8px 16px;
+      font-size: 13px;
+      font-weight: 500;
+      color: #5C6270;
+      cursor: pointer;
+      transition: color 0.15s;
+    }
+    .tab-btn.active {
+      color: #1C6EFF;
+      font-weight: 600;
+    }
+    .tab-btn.active::after {
+      content: '';
+      position: absolute;
+      bottom: -1px;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background-color: #1C6EFF;
+    }
+
+    /* 探测线路列表 Active 态 */
+    .probe-line-card {
+      border-left: 3px solid transparent;
+      transition: all 0.15s ease-in-out;
+    }
+    .probe-line-card:hover {
+      background-color: #F8FAFC;
+    }
+    .probe-line-card.active {
+      background-color: #F0F6FF;
+      border-left-color: #1C6EFF;
+    }
+  </style>
+
+  <script>
+    function demAppDetailState() {
+      return {
+        ...window.dualShellAppStore('应用详情'),
+
+        // 时间筛选器
+        dateShortcut: '今天',
+        dateRange: '2026-06-04 00:00:00 ~ 2026-06-04 23:59:59',
+
+        // 默认激活的应用
+        activeAppId: 'app_oa',
+
+        // 顶部应用概览卡片展开/收起状态
+        showAppOverview: true,
+        
+        // 应用数据字典
+        appsData: {
+          app_oa: {
+            id: 'app_oa',
+            appName: 'OA办公系统',
+            appAddress: 'https://230.213.2.22',
+            appType: '内网应用',
+            overallStatus: '差',
+            
+            // 覆盖统计
+            branchesCount: 4,
+            usersCount: 34,
+            probesCount: 1440,
+
+            // 1. 访问对象体验
+            objectExperience: {
+              normal: 23,
+              normalRatio: '67.6%',
+              fair: 11,
+              fairRatio: '32.4%',
+              poor: 8,
+              poorRatio: '23.5%'
+            },
+
+            // 2. 主动探测体验
+            probeExperience: {
+              normal: 1378,
+              normalRatio: '95.7%',
+              fair: 34,
+              fairRatio: '2.4%',
+              poor: 28,
+              poorRatio: '1.9%'
+            },
+
+            // 性能汇总
+            metrics: {
+              validCount: '15,820 次',
+              availability: '96.2%',
+              httpErrorRate: '1.25%',
+              packetLossRate: '0.8%',
+              avgTtfb: '185 ms',
+              errorBreakdown: [
+                { code: '504', desc: 'Gateway Timeout', count: 18, ratio: '48.6%' },
+                { code: '429', desc: 'Too Many Requests', count: 13, ratio: '35.1%' },
+                { code: '502', desc: 'Bad Gateway', count: 4, ratio: '10.8%' },
+                { code: '500', desc: 'Internal Server Error', count: 2, ratio: '5.4%' }
+              ]
+            },
+
+            // 局部总结 (总分结构)
+            summary: {
+              status: 'warn', // 'healthy' | 'warn' | 'error'
+              title: '应用存在阶段性性能卡慢与丢包波动',
+              points: [
+                '在 14:00 - 15:30 时间段内，TTFB (850ms) 与 TLS 握手时延显著突升，海外 POP 专线段丢包率升至 5.0%；',
+                '应用服务器 CPU 负载攀升至 91.2%，引发 HTTP 504 错误率升至 4.2%，存在阶段性慢 SQL 锁等待。'
+              ],
+              suggestion: '推荐优先排查海外 POP 专线选路及服务器慢 SQL 优化。'
+            }
+          },
+
+          app_sf: {
+            id: 'app_sf',
+            appName: 'Salesforce CRM',
+            appAddress: 'https://salesforce.company.com',
+            appType: 'SaaS应用',
+            overallStatus: '差',
+            branchesCount: 8,
+            usersCount: 156,
+            probesCount: 1440,
+            objectExperience: {
+              normal: 110,
+              normalRatio: '70.5%',
+              fair: 28,
+              fairRatio: '17.9%',
+              poor: 18,
+              poorRatio: '11.5%'
+            },
+            probeExperience: {
+              normal: 1080,
+              normalRatio: '75.0%',
+              fair: 240,
+              fairRatio: '16.7%',
+              poor: 120,
+              poorRatio: '8.3%'
+            },
+            metrics: {
+              validCount: '8,450 次',
+              availability: '91.5%',
+              httpErrorRate: '2.80%',
+              packetLossRate: '1.4%',
+              avgTtfb: '320 ms',
+              errorBreakdown: [
+                { code: '502', desc: 'Bad Gateway', count: 35, ratio: '74.5%' },
+                { code: '504', desc: 'Gateway Timeout', count: 8, ratio: '17.0%' },
+                { code: '403', desc: 'Forbidden', count: 4, ratio: '8.5%' }
+              ]
+            },
+            summary: {
+              status: 'error',
+              title: '海外跨国 BGP 骨干网绕行引发响应超时',
+              points: [
+                '11:00 - 14:30 期间遭遇海外 ISP 路由绕行，专线段丢包率升至 4.2%；',
+                '华南大区及香港分支 18 名用户遭遇页面加载超时，HTTP 502 错误集中爆发。'
+              ],
+              suggestion: '建议联系 SASE 运营团队切换海外专线选路。'
+            }
+          },
+
+          app_erp: {
+            id: 'app_erp',
+            appName: '企业内部 ERP',
+            appAddress: 'https://erp.internal.net',
+            appType: '内网应用',
+            overallStatus: '正常',
+            branchesCount: 12,
+            usersCount: 210,
+            probesCount: 1440,
+            objectExperience: {
+              normal: 185,
+              normalRatio: '88.1%',
+              fair: 15,
+              fairRatio: '7.1%',
+              poor: 10,
+              poorRatio: '4.8%'
+            },
+            probeExperience: {
+              normal: 1320,
+              normalRatio: '91.7%',
+              fair: 80,
+              fairRatio: '5.6%',
+              poor: 40,
+              poorRatio: '2.8%'
+            },
+            metrics: {
+              validCount: '12,300 次',
+              availability: '99.2%',
+              httpErrorRate: '0.35%',
+              packetLossRate: '0.1%',
+              avgTtfb: '45 ms',
+              errorBreakdown: [
+                { code: '500', desc: 'Internal Server Error', count: 3, ratio: '60.0%' },
+                { code: '404', desc: 'Not Found', count: 2, ratio: '40.0%' }
+              ]
+            },
+            summary: {
+              status: 'warn',
+              title: '内网数据库锁等待引起局域卡顿',
+              points: [
+                '早高峰财务结算期间后台 MySQL 数据库锁等待，TTFB 延展至 410ms；',
+                '局域网与 POP 节点链路整体正常，丢包率处于 0.1% 的极低水平。'
+              ],
+              suggestion: '建议联系 IT 运维团队优化慢 SQL 与并发事务。'
+            }
+          }
+        },
+
+        get currentApp() {
+          return this.appsData[this.activeAppId] || this.appsData['app_oa'];
+        },
+
+        // Tab 控制 ('branch' | 'user' | 'probe')
+        activeTab: 'branch',
+
+        // 分支访问表格搜索与筛选
+        branchSearchQuery: '',
+        branchFilterExp: '',
+        branchFilterLoc: '',
+        branchFilterPop: '',
+
+        // 分支分页状态
+        branchPage: 1,
+        branchPageSize: 20,
+
+        // 包含固定值 NGAF、城市+POP 格式、分数字统计
+        branchList: [
+          { name: '马尼拉办公室', type: 'NGAF', group: '海外大区', location: '菲律宾 马尼拉', exp: '差', isp: '菲律宾 PLDT', pop: '香港POP', affectedUsers: 34, normalCount: 320, fairCount: 140, poorCount: 180 },
+          { name: '香港办事处', type: 'NGAF', group: '海外大区', location: '中国 香港', exp: '差', isp: '香港 PCCW', pop: '香港POP', affectedUsers: 18, normalCount: 410, fairCount: 110, poorCount: 160 },
+          { name: '曼谷办事处', type: 'NGAF', group: '海外大区', location: '泰国 曼谷', exp: '差', isp: '泰国 AIS', pop: '香港POP', affectedUsers: 14, normalCount: 350, fairCount: 90, poorCount: 145 },
+          { name: '吉隆坡分公司', type: 'NGAF', group: '海外大区', location: '马来西亚 吉隆坡', exp: '差', isp: 'TM Unifi', pop: '香港POP', affectedUsers: 9, normalCount: 280, fairCount: 75, poorCount: 138 },
+          { name: '北京研发中心', type: 'NGAF', group: '华北大区', location: '中国 北京', exp: '一般', isp: '北京联通', pop: '北京POP', affectedUsers: 12, normalCount: 1800, fairCount: 320, poorCount: 25 },
+          { name: '天津分公司', type: 'NGAF', group: '华北大区', location: '中国 天津', exp: '一般', isp: '天津电信', pop: '北京POP', affectedUsers: 8, normalCount: 1200, fairCount: 180, poorCount: 18 },
+          { name: '南京办事处', type: 'NGAF', group: '华东大区', location: '中国 南京', exp: '一般', isp: '江苏移动', pop: '上海POP', affectedUsers: 6, normalCount: 1400, fairCount: 160, poorCount: 15 },
+          { name: '杭州研发中心', type: 'NGAF', group: '华东大区', location: '中国 杭州', exp: '一般', isp: '浙江电信', pop: '上海POP', affectedUsers: 5, normalCount: 2100, fairCount: 190, poorCount: 12 },
+          { name: '广州分公司', type: 'NGAF', group: '华南大区', location: '中国 广州', exp: '一般', isp: '广东电信', pop: '深圳POP', affectedUsers: 4, normalCount: 1950, fairCount: 170, poorCount: 10 },
+          { name: '上海总部大楼', type: 'NGAF', group: '华东大区', location: '中国 上海', exp: '正常', isp: '上海电信', pop: '上海POP', affectedUsers: 0, normalCount: 8520, fairCount: 20, poorCount: 0 },
+          { name: '深圳分公司', type: 'NGAF', group: '华南大区', location: '中国 深圳', exp: '正常', isp: '深圳移动', pop: '深圳POP', affectedUsers: 0, normalCount: 2140, fairCount: 8, poorCount: 0 },
+          { name: '成都研发基地', type: 'NGAF', group: '西南大区', location: '中国 成都', exp: '正常', isp: '四川电信', pop: '成都POP', affectedUsers: 0, normalCount: 1820, fairCount: 5, poorCount: 0 },
+          { name: '重庆分公司', type: 'NGAF', group: '西南大区', location: '中国 重庆', exp: '正常', isp: '重庆联通', pop: '成都POP', affectedUsers: 0, normalCount: 1660, fairCount: 4, poorCount: 0 },
+          { name: '武汉研发中心', type: 'NGAF', group: '华中大区', location: '中国 武汉', exp: '正常', isp: '湖北电信', pop: '上海POP', affectedUsers: 0, normalCount: 2130, fairCount: 3, poorCount: 0 },
+          { name: '西安办事处', type: 'NGAF', group: '西北大区', location: '中国 西安', exp: '正常', isp: '陕西电信', pop: '北京POP', affectedUsers: 0, normalCount: 1440, fairCount: 2, poorCount: 0 },
+          { name: '长沙分公司', type: 'NGAF', group: '华中大区', location: '中国 长沙', exp: '正常', isp: '湖南移动', pop: '深圳POP', affectedUsers: 0, normalCount: 1590, fairCount: 2, poorCount: 0 },
+          { name: '苏州办公区', type: 'NGAF', group: '华东大区', location: '中国 苏州', exp: '正常', isp: '江苏电信', pop: '上海POP', affectedUsers: 0, normalCount: 1930, fairCount: 1, poorCount: 0 },
+          { name: '无锡办事处', type: 'NGAF', group: '华东大区', location: '中国 无锡', exp: '正常', isp: '江苏联通', pop: '上海POP', affectedUsers: 0, normalCount: 1160, fairCount: 1, poorCount: 0 },
+          { name: '福州分公司', type: 'NGAF', group: '华南大区', location: '中国 福州', exp: '正常', isp: '福建电信', pop: '深圳POP', affectedUsers: 0, normalCount: 1350, fairCount: 0, poorCount: 0 },
+          { name: '厦门研发中心', type: 'NGAF', group: '华南大区', location: '中国 厦门', exp: '正常', isp: '福建电信', pop: '深圳POP', affectedUsers: 0, normalCount: 1770, fairCount: 0, poorCount: 0 },
+          { name: '青岛办事处', type: 'NGAF', group: '华北大区', location: '中国 青岛', exp: '正常', isp: '山东联通', pop: '北京POP', affectedUsers: 0, normalCount: 1280, fairCount: 0, poorCount: 0 },
+          { name: '大连分公司', type: 'NGAF', group: '东北大区', location: '中国 大连', exp: '正常', isp: '辽宁电信', pop: '北京POP', affectedUsers: 0, normalCount: 1190, fairCount: 0, poorCount: 0 },
+          { name: '沈阳办事处', type: 'NGAF', group: '东北大区', location: '中国 沈阳', exp: '正常', isp: '辽宁联通', pop: '北京POP', affectedUsers: 0, normalCount: 1050, fairCount: 0, poorCount: 0 },
+          { name: '哈尔滨办公区', type: 'NGAF', group: '东北大区', location: '中国 哈尔滨', exp: '正常', isp: '黑龙江电信', pop: '北京POP', affectedUsers: 0, normalCount: 980, fairCount: 0, poorCount: 0 },
+          { name: '昆明分公司', type: 'NGAF', group: '西南大区', location: '中国 昆明', exp: '正常', isp: '云南电信', pop: '成都POP', affectedUsers: 0, normalCount: 1120, fairCount: 0, poorCount: 0 }
+        ],
+
+        get filteredBranchList() {
+          const expWeight = { '差': 3, '一般': 2, '正常': 1 };
+          const filtered = this.branchList.filter(item => {
+            const matchSearch = !this.branchSearchQuery || 
+              item.name.toLowerCase().includes(this.branchSearchQuery.toLowerCase()) ||
+              item.location.toLowerCase().includes(this.branchSearchQuery.toLowerCase()) ||
+              item.pop.toLowerCase().includes(this.branchSearchQuery.toLowerCase());
+            const matchExp = !this.branchFilterExp || item.exp === this.branchFilterExp;
+            const matchLoc = !this.branchFilterLoc || item.location === this.branchFilterLoc;
+            const matchPop = !this.branchFilterPop || item.pop === this.branchFilterPop;
+            return matchSearch && matchExp && matchLoc && matchPop;
+          });
+
+          return filtered.sort((a, b) => {
+            const wA = expWeight[a.exp] || 0;
+            const wB = expWeight[b.exp] || 0;
+            if (wA !== wB) return wB - wA;
+            return (b.poorCount || 0) - (a.poorCount || 0);
+          });
+        },
+
+        get totalBranchCount() {
+          return this.filteredBranchList.length;
+        },
+
+        get totalBranchPages() {
+          return Math.ceil(this.totalBranchCount / this.branchPageSize) || 1;
+        },
+
+        get paginatedBranchList() {
+          const start = (this.branchPage - 1) * this.branchPageSize;
+          return this.filteredBranchList.slice(start, start + this.branchPageSize);
+        },
+
+        // 用户访问表格搜索与筛选
+        userSearchQuery: '',
+        userFilterExp: '',
+        userFilterIsp: '',
+        userFilterPop: '',
+
+        // 用户分页状态
+        userPage: 1,
+        userPageSize: 20,
+
+        userList: [
+          { empId: '2024019', name: '张三', dept: '深信服科技 / 研发中心 / DEM产品部', exp: '差', isp: '广东深圳 电信', pop: '香港POP', normalCount: 12, fairCount: 5, poorCount: 15 },
+          { empId: '2024088', name: '李四', dept: '深信服科技 / 销售中心 / 华南大区', exp: '差', isp: '香港 PCCW', pop: '香港POP', normalCount: 10, fairCount: 4, poorCount: 12 },
+          { empId: '2024095', name: '王强', dept: '深信服科技 / 部署中心 / 海外实施部', exp: '差', isp: '菲律宾 PLDT', pop: '香港POP', normalCount: 8, fairCount: 6, poorCount: 10 },
+          { empId: '2024155', name: '赵六', dept: '深信服科技 / 运营中心 / 海外组', exp: '一般', isp: '北京联通', pop: '北京POP', normalCount: 22, fairCount: 8, poorCount: 2 },
+          { empId: '2024162', name: '孙伟', dept: '深信服科技 / 市场部 / 华北大区', exp: '一般', isp: '北京联通', pop: '北京POP', normalCount: 25, fairCount: 7, poorCount: 1 },
+          { empId: '2024178', name: '周杰', dept: '深信服科技 / 技术支持部 / 华东组', exp: '一般', isp: '上海电信', pop: '上海POP', normalCount: 28, fairCount: 6, poorCount: 1 },
+          { empId: '2024102', name: '王五', dept: '深信服科技 / 研发中心 / 架构组', exp: '正常', isp: '上海电信', pop: '上海POP', normalCount: 45, fairCount: 0, poorCount: 0 },
+          { empId: '2024210', name: '钱七', dept: '深信服科技 / 财务部 / 总部财务', exp: '正常', isp: '四川电信', pop: '成都POP', normalCount: 49, fairCount: 1, poorCount: 0 },
+          { empId: '2024225', name: '吴八', dept: '深信服科技 / 人力资源部 / 招聘组', exp: '正常', isp: '上海电信', pop: '上海POP', normalCount: 42, fairCount: 0, poorCount: 0 },
+          { empId: '2024238', name: '郑九', dept: '深信服科技 / 研发中心 / 前端组', exp: '正常', isp: '广东深圳 电信', pop: '深圳POP', normalCount: 52, fairCount: 0, poorCount: 0 },
+          { empId: '2024242', name: '冯十', dept: '深信服科技 / 研发中心 / 测试组', exp: '正常', isp: '广东深圳 电信', pop: '深圳POP', normalCount: 48, fairCount: 0, poorCount: 0 },
+          { empId: '2024256', name: '陈十一', dept: '深信服科技 / 安全团队 / 攻防组', exp: '正常', isp: '北京联通', pop: '北京POP', normalCount: 50, fairCount: 0, poorCount: 0 },
+          { empId: '2024268', name: '褚十二', dept: '深信服科技 / 销售中心 / 华中大区', exp: '正常', isp: '湖北电信', pop: '上海POP', normalCount: 38, fairCount: 0, poorCount: 0 },
+          { empId: '2024275', name: '卫十三', dept: '深信服科技 / 研发中心 / 云计算部', exp: '正常', isp: '四川电信', pop: '成都POP', normalCount: 46, fairCount: 0, poorCount: 0 },
+          { empId: '2024289', name: '蒋十四', dept: '深信服科技 / 体验设计部 / UED组', exp: '正常', isp: '广东深圳 电信', pop: '深圳POP', normalCount: 55, fairCount: 0, poorCount: 0 },
+          { empId: '2024294', name: '沈十五', dept: '深信服科技 / 产品运营 / 数据组', exp: '正常', isp: '上海电信', pop: '上海POP', normalCount: 41, fairCount: 0, poorCount: 0 },
+          { empId: '2024301', name: '韩十六', dept: '深信服科技 / 售后服务部 / 华南组', exp: '正常', isp: '广东深圳 电信', pop: '深圳POP', normalCount: 44, fairCount: 0, poorCount: 0 },
+          { empId: '2024318', name: '杨十七', dept: '深信服科技 / 法务部 / 合规组', exp: '正常', isp: '北京联通', pop: '北京POP', normalCount: 36, fairCount: 0, poorCount: 0 },
+          { empId: '2024322', name: '朱十八', dept: '深信服科技 / 商务部 / 采购组', exp: '正常', isp: '上海电信', pop: '上海POP', normalCount: 40, fairCount: 0, poorCount: 0 },
+          { empId: '2024336', name: '秦十九', dept: '深信服科技 / 行政部 / 物业组', exp: '正常', isp: '广东深圳 电信', pop: '深圳POP', normalCount: 39, fairCount: 0, poorCount: 0 },
+          { empId: '2024345', name: '尤二十', dept: '深信服科技 / 总裁办 / 战略组', exp: '正常', isp: '北京联通', pop: '北京POP', normalCount: 48, fairCount: 0, poorCount: 0 },
+          { empId: '2024358', name: '许二十一', dept: '深信服科技 / 审计部 / 风控组', exp: '正常', isp: '上海电信', pop: '上海POP', normalCount: 43, fairCount: 0, poorCount: 0 },
+          { empId: '2024369', name: '何二十二', dept: '深信服科技 / 研发中心 / 算法组', exp: '正常', isp: '四川电信', pop: '成都POP', normalCount: 51, fairCount: 0, poorCount: 0 },
+          { empId: '2024374', name: '吕二十三', dept: '深信服科技 / 品牌部 / 市场传播', exp: '正常', isp: '广东深圳 电信', pop: '深圳POP', normalCount: 37, fairCount: 0, poorCount: 0 }
+        ],
+
+        get filteredUserList() {
+          const expWeight = { '差': 3, '一般': 2, '正常': 1 };
+          const filtered = this.userList.filter(item => {
+            const matchSearch = !this.userSearchQuery || 
+              item.empId.toLowerCase().includes(this.userSearchQuery.toLowerCase()) ||
+              item.name.toLowerCase().includes(this.userSearchQuery.toLowerCase()) ||
+              item.dept.toLowerCase().includes(this.userSearchQuery.toLowerCase()) ||
+              item.pop.toLowerCase().includes(this.userSearchQuery.toLowerCase());
+            const matchExp = !this.userFilterExp || item.exp === this.userFilterExp;
+            const matchIsp = !this.userFilterIsp || item.isp === this.userFilterIsp;
+            const matchPop = !this.userFilterPop || item.pop === this.userFilterPop;
+            return matchSearch && matchExp && matchIsp && matchPop;
+          });
+
+          return filtered.sort((a, b) => {
+            const wA = expWeight[a.exp] || 0;
+            const wB = expWeight[b.exp] || 0;
+            if (wA !== wB) return wB - wA;
+            return (b.poorCount || 0) - (a.poorCount || 0);
+          });
+        },
+
+        get totalUserCount() {
+          return this.filteredUserList.length;
+        },
+
+        get totalUserPages() {
+          return Math.ceil(this.totalUserCount / this.userPageSize) || 1;
+        },
+
+        get paginatedUserList() {
+          const start = (this.userPage - 1) * this.userPageSize;
+          return this.filteredUserList.slice(start, start + this.userPageSize);
+        },
+
+        // 主动探测 Tab 线路选择
+        activeProbeLineId: 'line_hk',
+        moreSearchQuery: '',
+        moreFilterExp: '',
+
+        // 固定的前3个展示槽位 (默认取排序后的前3条异常/优先线路)
+        pinnedLineIds: ['line_hk', 'line_gz', 'line_bj'],
+
+        probeLines: [
+          {
+            id: 'line_hk',
+            name: '香港POP ── OA系统',
+            pop: '香港POP',
+            exp: '差',
+            count: 1440,
+            availability: '88.4%',
+            httpError: '4.2%',
+            loss: '3.1%',
+            rtt: '120ms',
+            ttfb: '680ms',
+            errorBreakdown: [
+              { code: '429', count: 48, ratio: '78%' },
+              { code: '504', count: 12, ratio: '20%' },
+              { code: '其他', count: 1, ratio: '2%' }
+            ],
+            latestResult: {
+              time: '2026-08-17 14:20:00 (1分钟前)',
+              status: '差',
+              httpCode: 429,
+              httpStatusText: '429 Too Many Requests',
+              ttfb: '850ms',
+              rtt: '145ms',
+              jitter: '58ms',
+              loss: '5.0%',
+              segments: 'DNS 30ms | TCP 110ms | TLS 210ms'
+            }
+          },
+          {
+            id: 'line_gz',
+            name: '广州POP ── OA系统',
+            pop: '广州POP',
+            exp: '差',
+            count: 1440,
+            availability: '89.1%',
+            httpError: '3.8%',
+            loss: '2.8%',
+            rtt: '95ms',
+            ttfb: '590ms',
+            errorBreakdown: [
+              { code: '504', count: 36, ratio: '65%' },
+              { code: '502', count: 15, ratio: '27%' },
+              { code: '其他', count: 4, ratio: '8%' }
+            ],
+            latestResult: {
+              time: '2026-08-17 14:20:00 (1分钟前)',
+              status: '差',
+              httpCode: 504,
+              httpStatusText: '504 Gateway Timeout',
+              ttfb: '780ms',
+              rtt: '115ms',
+              jitter: '42ms',
+              loss: '4.2%',
+              segments: 'DNS 24ms | TCP 95ms | TLS 185ms'
+            }
+          },
+          {
+            id: 'line_bj',
+            name: '北京POP ── OA系统',
+            pop: '北京POP',
+            exp: '一般',
+            count: 1440,
+            availability: '96.2%',
+            httpError: '1.1%',
+            loss: '0.5%',
+            rtt: '45ms',
+            ttfb: '140ms',
+            errorBreakdown: [
+              { code: '502', count: 12, ratio: '75%' },
+              { code: '其他', count: 4, ratio: '25%' }
+            ],
+            latestResult: {
+              time: '2026-08-17 14:20:00 (1分钟前)',
+              status: '一般',
+              httpCode: 200,
+              httpStatusText: '200 OK (轻微抖动)',
+              ttfb: '160ms',
+              rtt: '48ms',
+              jitter: '12ms',
+              loss: '0.8%',
+              segments: 'DNS 14ms | TCP 28ms | TLS 35ms'
+            }
+          },
+          {
+            id: 'line_cd',
+            name: '成都POP ── OA系统',
+            pop: '成都POP',
+            exp: '一般',
+            count: 1440,
+            availability: '95.8%',
+            httpError: '1.5%',
+            loss: '0.8%',
+            rtt: '55ms',
+            ttfb: '155ms',
+            errorBreakdown: [
+              { code: '504', count: 14, ratio: '64%' },
+              { code: '其他', count: 8, ratio: '36%' }
+            ],
+            latestResult: {
+              time: '2026-08-17 14:20:00 (1分钟前)',
+              status: '一般',
+              httpCode: 200,
+              httpStatusText: '200 OK (链路偶发丢包)',
+              ttfb: '175ms',
+              rtt: '58ms',
+              jitter: '15ms',
+              loss: '1.2%',
+              segments: 'DNS 16ms | TCP 32ms | TLS 40ms'
+            }
+          },
+          {
+            id: 'line_sh',
+            name: '上海POP ── OA系统',
+            pop: '上海POP',
+            exp: '正常',
+            count: 1440,
+            availability: '99.5%',
+            httpError: '0.1%',
+            loss: '0.0%',
+            rtt: '25ms',
+            ttfb: '65ms',
+            errorBreakdown: [
+              { code: '404', count: 1, ratio: '100%' }
+            ],
+            latestResult: {
+              time: '2026-08-17 14:20:00 (1分钟前)',
+              status: '正常',
+              httpCode: 200,
+              httpStatusText: '200 OK',
+              ttfb: '45ms',
+              rtt: '22ms',
+              jitter: '2ms',
+              loss: '0.0%',
+              segments: 'DNS 11ms | TCP 18ms | TLS 22ms'
+            }
+          },
+          {
+            id: 'line_sz',
+            name: '深圳POP ── OA系统',
+            pop: '深圳POP',
+            exp: '正常',
+            count: 1440,
+            availability: '98.8%',
+            httpError: '0.2%',
+            loss: '0.1%',
+            rtt: '28ms',
+            ttfb: '75ms',
+            errorBreakdown: [
+              { code: '500', count: 2, ratio: '66%' },
+              { code: '其他', count: 1, ratio: '34%' }
+            ],
+            latestResult: {
+              time: '2026-08-17 14:20:00 (1分钟前)',
+              status: '正常',
+              httpCode: 200,
+              httpStatusText: '200 OK',
+              ttfb: '52ms',
+              rtt: '25ms',
+              jitter: '3ms',
+              loss: '0.0%',
+              segments: 'DNS 12ms | TCP 19ms | TLS 24ms'
+            }
+          },
+          {
+            id: 'line_wh',
+            name: '武汉POP ── OA系统',
+            pop: '武汉POP',
+            exp: '正常',
+            count: 1440,
+            availability: '99.2%',
+            httpError: '0.1%',
+            loss: '0.0%',
+            rtt: '32ms',
+            ttfb: '80ms',
+            errorBreakdown: [{ code: '404', count: 1, ratio: '100%' }],
+            latestResult: {
+              time: '2026-08-17 14:20:00 (1分钟前)',
+              status: '正常',
+              httpCode: 200,
+              httpStatusText: '200 OK',
+              ttfb: '55ms',
+              rtt: '30ms',
+              jitter: '3ms',
+              loss: '0.0%',
+              segments: 'DNS 13ms | TCP 20ms | TLS 25ms'
+            }
+          },
+          {
+            id: 'line_hz',
+            name: '杭州POP ── OA系统',
+            pop: '杭州POP',
+            exp: '正常',
+            count: 1440,
+            availability: '99.6%',
+            httpError: '0.1%',
+            loss: '0.0%',
+            rtt: '26ms',
+            ttfb: '68ms',
+            errorBreakdown: [{ code: '404', count: 1, ratio: '100%' }],
+            latestResult: {
+              time: '2026-08-17 14:20:00 (1分钟前)',
+              status: '正常',
+              httpCode: 200,
+              httpStatusText: '200 OK',
+              ttfb: '48ms',
+              rtt: '24ms',
+              jitter: '2ms',
+              loss: '0.0%',
+              segments: 'DNS 11ms | TCP 19ms | TLS 23ms'
+            }
+          },
+          {
+            id: 'line_xa',
+            name: '西安POP ── OA系统',
+            pop: '西安POP',
+            exp: '正常',
+            count: 1440,
+            availability: '99.0%',
+            httpError: '0.2%',
+            loss: '0.0%',
+            rtt: '42ms',
+            ttfb: '88ms',
+            errorBreakdown: [{ code: '500', count: 1, ratio: '100%' }],
+            latestResult: {
+              time: '2026-08-17 14:20:00 (1分钟前)',
+              status: '正常',
+              httpCode: 200,
+              httpStatusText: '200 OK',
+              ttfb: '60ms',
+              rtt: '38ms',
+              jitter: '4ms',
+              loss: '0.0%',
+              segments: 'DNS 14ms | TCP 22ms | TLS 28ms'
+            }
+          },
+          {
+            id: 'line_sy',
+            name: '沈阳POP ── OA系统',
+            pop: '沈阳POP',
+            exp: '正常',
+            count: 1440,
+            availability: '98.9%',
+            httpError: '0.2%',
+            loss: '0.1%',
+            rtt: '48ms',
+            ttfb: '92ms',
+            errorBreakdown: [{ code: '502', count: 2, ratio: '100%' }],
+            latestResult: {
+              time: '2026-08-17 14:20:00 (1分钟前)',
+              status: '正常',
+              httpCode: 200,
+              httpStatusText: '200 OK',
+              ttfb: '62ms',
+              rtt: '42ms',
+              jitter: '5ms',
+              loss: '0.0%',
+              segments: 'DNS 15ms | TCP 25ms | TLS 30ms'
+            }
+          }
+        ],
+
+        // 排序后的全部线路 (差 > 一般 > 正常)
+        get sortedProbeLines() {
+          const order = { '差': 1, '一般': 2, '正常': 3 };
+          return [...this.probeLines].sort((a, b) => (order[a.exp] || 99) - (order[b.exp] || 99));
+        },
+
+        // 异常/正常 数量统计
+        get probeExpStats() {
+          const poor = this.probeLines.filter(l => l.exp === '差').length;
+          const fair = this.probeLines.filter(l => l.exp === '一般').length;
+          const normal = this.probeLines.filter(l => l.exp === '正常').length;
+          return { total: this.probeLines.length, poor, fair, normal };
+        },
+
+        // 前 3 个展示槽位对应的线路对象
+        get displaySlotLines() {
+          return this.pinnedLineIds.map(id => this.probeLines.find(l => l.id === id) || this.sortedProbeLines[0]);
+        },
+
+        // 剩余可收纳到下拉列表中的线路 (未在 Slot 1, 2, 3 中的线路)
+        get moreProbeLines() {
+          return this.sortedProbeLines.filter(l => {
+            const matchSlot = !this.pinnedLineIds.includes(l.id);
+            const matchSearch = !this.moreSearchQuery || l.name.includes(this.moreSearchQuery) || l.pop.includes(this.moreSearchQuery);
+            const matchExp = !this.moreFilterExp || l.exp === this.moreFilterExp;
+            return matchSlot && matchSearch && matchExp;
+          });
+        },
+
+        get moreLinesTotalCount() {
+          return this.sortedProbeLines.filter(l => !this.pinnedLineIds.includes(l.id)).length;
+        },
+
+        get currentProbeLine() {
+          return this.probeLines.find(l => l.id === this.activeProbeLineId) || this.sortedProbeLines[0];
+        },
+
+        // 选择下拉列表中的某条线路，并与第3个卡片槽位进行替换
+        selectMoreLineAndSwapSlot3(lineId) {
+          this.pinnedLineIds[2] = lineId;
+          this.activeProbeLineId = lineId;
+          this.renderProbeLineCharts();
+        },
+
+        selectProbeLine(lineId) {
+          this.activeProbeLineId = lineId;
+          // 如果点击的线路不在当前前3个槽位里，将其替换到第3个槽位
+          if (!this.pinnedLineIds.includes(lineId)) {
+            this.pinnedLineIds[2] = lineId;
+          }
+          this.renderProbeLineCharts();
+        },
+
+        // 统一渲染与更新 ECharts 图表 (使用 this.$el.querySelector 确保在当前 Workspace 实例内精确查找)
+        charts: {},
+
+        renderCharts() {
+          this.renderAppAvailabilityErrorChart();
+          this.renderAppSegmentedTimeChart();
+          this.renderNetworkRttJitterChart();
+          this.renderNetworkPacketLossChart();
+        },
+
+        // 图表 1.1: 可用性与 HTTP 错误率趋势图
+        renderAppAvailabilityErrorChart() {
+          const container = this.$el.querySelector('#chart-app-availability-error');
+          if (!container) return;
+          if (this.charts.appAvailError) this.charts.appAvailError.dispose();
+
+          const chart = echarts.init(container);
+          this.charts.appAvailError = chart;
+
+          const hours = Array.from({ length: 24 }, (_, i) => `${String(i).padStart(2, '0')}:00`);
+          const availData = [99.8, 99.7, 99.9, 99.8, 99.7, 99.5, 99.2, 98.5, 97.2, 98.0, 98.5, 98.2, 97.5, 95.2, 88.5, 85.2, 92.0, 96.5, 98.2, 99.0, 99.5, 99.6, 99.8, 99.7];
+          const errorData = [0.2, 0.3, 0.1, 0.2, 0.3, 0.5, 0.8, 1.5, 2.8, 2.0, 1.5, 1.8, 2.5, 4.8, 11.5, 14.8, 8.0, 3.5, 1.8, 1.0, 0.5, 0.4, 0.2, 0.3];
+
+          chart.setOption({
+            tooltip: {
+              trigger: 'axis',
+              backgroundColor: 'rgba(255, 255, 255, 0.96)',
+              borderColor: '#E1E5EB',
+              textStyle: { color: '#2F3540', fontSize: 12 },
+              formatter: function(params) {
+                let res = `<div class="font-bold border-b border-gray-100 pb-1 mb-1 text-xs text-[#2F3540]">${params[0].name}</div>`;
+                params.forEach(p => {
+                  res += `<div class="flex items-center justify-between gap-4 text-xs py-0.5">
+                    <span class="inline-flex items-center"><span class="w-2 h-2 rounded-full mr-1.5" style="background:${p.color}"></span>${p.seriesName}</span>
+                    <span class="font-mono font-medium">${p.value} %</span>
+                  </div>`;
+                });
+                return res;
+              }
+            },
+            legend: {
+              data: ['可用性 (%)', 'HTTP 错误率 (%)'],
+              top: 0,
+              right: 5,
+              itemWidth: 6,
+              itemHeight: 6,
+              itemGap: 12,
+              textStyle: { fontSize: 11, color: '#5C6270' },
+              icon: 'circle'
+            },
+            grid: { top: 28, left: 36, right: 36, bottom: 20, containLabel: false },
+            xAxis: {
+              type: 'category',
+              data: hours,
+              boundaryGap: false,
+              axisLine: { lineStyle: { color: '#D3D7DE' } },
+              axisLabel: { color: '#8A92A1', fontSize: 10 }
+            },
+            yAxis: [
+              {
+                type: 'value',
+                name: '可用性 (%)',
+                nameTextStyle: { color: '#8A92A1', fontSize: 10 },
+                min: 80,
+                max: 100,
+                axisLabel: { color: '#8A92A1', fontSize: 10 },
+                splitLine: { lineStyle: { color: '#F0F2F5', type: 'dashed' } }
+              },
+              {
+                type: 'value',
+                name: '错误率 (%)',
+                nameTextStyle: { color: '#8A92A1', fontSize: 10 },
+                min: 0,
+                max: 20,
+                axisLabel: { color: '#8A92A1', fontSize: 10 },
+                splitLine: { show: false }
+              }
+            ],
+            series: [
+              {
+                name: '可用性 (%)',
+                type: 'line',
+                smooth: true,
+                showSymbol: false,
+                symbolSize: 6,
+                itemStyle: { color: '#12A679' },
+                lineStyle: { width: 2 },
+                data: availData
+              },
+              {
+                name: 'HTTP 错误率 (%)',
+                type: 'line',
+                yAxisIndex: 1,
+                smooth: true,
+                showSymbol: false,
+                symbolSize: 6,
+                itemStyle: { color: '#FA721B' },
+                lineStyle: { width: 2 },
+                data: errorData
+              }
+            ]
+          });
+        },
+
+        // 图表 1.2: 分段耗时趋势图
+        renderAppSegmentedTimeChart() {
+          const container = this.$el.querySelector('#chart-app-segmented-time');
+          if (!container) return;
+          if (this.charts.appSegTime) this.charts.appSegTime.dispose();
+
+          const chart = echarts.init(container);
+          this.charts.appSegTime = chart;
+
+          const hours = Array.from({ length: 24 }, (_, i) => `${String(i).padStart(2, '0')}:00`);
+          const ttfbData = [45, 42, 40, 38, 42, 50, 65, 80, 95, 90, 85, 88, 92, 110, 680, 850, 420, 150, 95, 85, 60, 50, 45, 42];
+          const dnsData =  [12, 11, 12, 10, 11, 12, 15, 14, 15, 14, 13, 15, 14, 16, 25, 30, 22, 18, 15, 13, 12, 11, 12, 11];
+          const tcpData =  [18, 17, 18, 16, 17, 19, 22, 25, 24, 23, 22, 24, 25, 30, 85, 110, 65, 35, 24, 22, 20, 19, 18, 17];
+          const tlsData =  [22, 21, 22, 20, 21, 23, 28, 30, 32, 30, 28, 30, 32, 40, 180, 210, 120, 50, 32, 28, 25, 23, 22, 21];
+
+          chart.setOption({
+            tooltip: {
+              trigger: 'axis',
+              backgroundColor: 'rgba(255, 255, 255, 0.96)',
+              borderColor: '#E1E5EB',
+              textStyle: { color: '#2F3540', fontSize: 12 },
+              formatter: function(params) {
+                let res = `<div class="font-bold border-b border-gray-100 pb-1 mb-1 text-xs text-[#2F3540]">${params[0].name}</div>`;
+                params.forEach(p => {
+                  res += `<div class="flex items-center justify-between gap-4 text-xs py-0.5">
+                    <span class="inline-flex items-center"><span class="w-2 h-2 rounded-full mr-1.5" style="background:${p.color}"></span>${p.seriesName}</span>
+                    <span class="font-mono font-medium">${p.value} ms</span>
+                  </div>`;
+                });
+                return res;
+              }
+            },
+            legend: {
+              data: ['TTFB (首字节)', 'DNS 解析', 'TCP 建连', 'TLS 握手'],
+              top: 0,
+              right: 5,
+              itemWidth: 6,
+              itemHeight: 6,
+              itemGap: 10,
+              textStyle: { fontSize: 11, color: '#5C6270' },
+              icon: 'circle'
+            },
+            grid: { top: 28, left: 36, right: 15, bottom: 20, containLabel: false },
+            xAxis: {
+              type: 'category',
+              data: hours,
+              boundaryGap: false,
+              axisLine: { lineStyle: { color: '#D3D7DE' } },
+              axisLabel: { color: '#8A92A1', fontSize: 10 }
+            },
+            yAxis: {
+              type: 'value',
+              name: '耗时 (ms)',
+              nameTextStyle: { color: '#8A92A1', fontSize: 10 },
+              max: 900,
+              axisLabel: { color: '#8A92A1', fontSize: 10 },
+              splitLine: { lineStyle: { color: '#F0F2F5', type: 'dashed' } }
+            },
+            series: [
+              { name: 'TTFB (首字节)', type: 'line', smooth: true, showSymbol: false, symbolSize: 6, itemStyle: { color: '#D9363E' }, lineStyle: { width: 2 }, data: ttfbData },
+              { name: 'DNS 解析', type: 'line', smooth: true, showSymbol: false, symbolSize: 6, itemStyle: { color: '#1C6EFF' }, lineStyle: { width: 1.5 }, data: dnsData },
+              { name: 'TCP 建连', type: 'line', smooth: true, showSymbol: false, symbolSize: 6, itemStyle: { color: '#00A854' }, lineStyle: { width: 1.5 }, data: tcpData },
+              { name: 'TLS 握手', type: 'line', smooth: true, showSymbol: false, symbolSize: 6, itemStyle: { color: '#722ED1' }, lineStyle: { width: 1.5 }, data: tlsData }
+            ]
+          });
+        },
+
+        // 图表 2.1: 网络 RTT 与抖动趋势图
+        renderNetworkRttJitterChart() {
+          const container = this.$el.querySelector('#chart-network-rtt-jitter');
+          if (!container) return;
+          if (this.charts.netRttJitter) this.charts.netRttJitter.dispose();
+
+          const chart = echarts.init(container);
+          this.charts.netRttJitter = chart;
+
+          const hours = Array.from({ length: 24 }, (_, i) => `${String(i).padStart(2, '0')}:00`);
+          const rttData = [18, 19, 18, 17, 18, 20, 24, 28, 30, 29, 28, 32, 35, 45, 120, 145, 95, 42, 30, 25, 22, 20, 19, 18];
+          const jitterData = [2, 3, 2, 1, 2, 4, 5, 8, 10, 7, 6, 9, 12, 18, 45, 58, 32, 14, 8, 5, 4, 3, 2, 2];
+
+          chart.setOption({
+            tooltip: {
+              trigger: 'axis',
+              backgroundColor: 'rgba(255, 255, 255, 0.96)',
+              borderColor: '#E1E5EB',
+              textStyle: { color: '#2F3540', fontSize: 12 },
+              formatter: function(params) {
+                let res = `<div class="font-bold border-b border-gray-100 pb-1 mb-1 text-xs text-[#2F3540]">${params[0].name}</div>`;
+                params.forEach(p => {
+                  res += `<div class="flex items-center justify-between gap-4 text-xs py-0.5">
+                    <span class="inline-flex items-center"><span class="w-2 h-2 rounded-full mr-1.5" style="background:${p.color}"></span>${p.seriesName}</span>
+                    <span class="font-mono font-medium">${p.value} ms</span>
+                  </div>`;
+                });
+                return res;
+              }
+            },
+            legend: {
+              data: ['RTT 往返时延 (ms)', '网络抖动 (ms)'],
+              top: 0,
+              right: 5,
+              itemWidth: 6,
+              itemHeight: 6,
+              itemGap: 12,
+              textStyle: { fontSize: 11, color: '#5C6270' },
+              icon: 'circle'
+            },
+            grid: { top: 28, left: 36, right: 15, bottom: 20, containLabel: false },
+            xAxis: {
+              type: 'category',
+              data: hours,
+              boundaryGap: false,
+              axisLine: { lineStyle: { color: '#D3D7DE' } },
+              axisLabel: { color: '#8A92A1', fontSize: 10 }
+            },
+            yAxis: {
+              type: 'value',
+              name: '时间 (ms)',
+              nameTextStyle: { color: '#8A92A1', fontSize: 10 },
+              max: 180,
+              axisLabel: { color: '#8A92A1', fontSize: 10 },
+              splitLine: { lineStyle: { color: '#F0F2F5', type: 'dashed' } }
+            },
+            series: [
+              {
+                name: 'RTT 往返时延 (ms)',
+                type: 'line',
+                smooth: true,
+                showSymbol: false,
+                symbolSize: 6,
+                itemStyle: { color: '#1C6EFF' },
+                lineStyle: { width: 2 },
+                data: rttData
+              },
+              {
+                name: '网络抖动 (ms)',
+                type: 'line',
+                smooth: true,
+                showSymbol: false,
+                symbolSize: 6,
+                itemStyle: { color: '#722ED1' },
+                lineStyle: { width: 1.8, type: 'dashed' },
+                data: jitterData
+              }
+            ]
+          });
+        },
+
+        // 图表 2.2: 数据包丢包率趋势图
+        renderNetworkPacketLossChart() {
+          const container = this.$el.querySelector('#chart-network-packet-loss');
+          if (!container) return;
+          if (this.charts.netLoss) this.charts.netLoss.dispose();
+
+          const chart = echarts.init(container);
+          this.charts.netLoss = chart;
+
+          const hours = Array.from({ length: 24 }, (_, i) => `${String(i).padStart(2, '0')}:00`);
+          const lossData = [0.0, 0.0, 0.1, 0.0, 0.0, 0.2, 0.4, 0.8, 1.2, 0.9, 0.6, 1.1, 1.5, 3.2, 5.0, 4.8, 2.4, 0.9, 0.4, 0.2, 0.1, 0.0, 0.0, 0.0];
+
+          chart.setOption({
+            tooltip: {
+              trigger: 'axis',
+              backgroundColor: 'rgba(255, 255, 255, 0.96)',
+              borderColor: '#E1E5EB',
+              textStyle: { color: '#2F3540', fontSize: 12 },
+              formatter: '{b} <br/> 数据包丢包率: <b>{c} %</b>'
+            },
+            legend: {
+              data: ['数据包丢包率 (%)'],
+              top: 0,
+              right: 5,
+              itemWidth: 6,
+              itemHeight: 6,
+              textStyle: { fontSize: 11, color: '#5C6270' },
+              icon: 'circle'
+            },
+            grid: { top: 28, left: 36, right: 15, bottom: 20, containLabel: false },
+            xAxis: {
+              type: 'category',
+              data: hours,
+              boundaryGap: false,
+              axisLine: { lineStyle: { color: '#D3D7DE' } },
+              axisLabel: { color: '#8A92A1', fontSize: 10 }
+            },
+            yAxis: {
+              type: 'value',
+              name: '丢包率 (%)',
+              nameTextStyle: { color: '#8A92A1', fontSize: 10 },
+              max: 6,
+              axisLabel: { color: '#8A92A1', fontSize: 10 },
+              splitLine: { lineStyle: { color: '#F0F2F5', type: 'dashed' } }
+            },
+            series: [
+              {
+                name: '数据包丢包率 (%)',
+                type: 'line',
+                smooth: true,
+                showSymbol: false,
+                symbolSize: 6,
+                itemStyle: { color: '#D9363E' },
+                areaStyle: {
+                  color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                    { offset: 0, color: 'rgba(217, 54, 62, 0.25)' },
+                    { offset: 1, color: 'rgba(217, 54, 62, 0.01)' }
+                  ])
+                },
+                lineStyle: { width: 2 },
+                data: lossData
+              }
+            ]
+          });
+        },
+
+        // ==================== 主动探测 4 副趋势图渲染 ====================
+        renderProbeLineCharts() {
+          this.$nextTick(() => {
+            setTimeout(() => {
+              this.renderProbeAvailErrorChart();
+              this.renderProbeSegTimeChart();
+              this.renderProbeRttJitterChart();
+              this.renderProbePacketLossChart();
+            }, 60);
+          });
+        },
+
+        // 探测线路 图表 1.1: 可用性与 HTTP 错误率趋势图
+        renderProbeAvailErrorChart() {
+          const container = this.$el ? this.$el.querySelector('#chart-probe-avail-error') : document.querySelector('#chart-probe-avail-error');
+          if (!container) return;
+          if (container.clientWidth === 0) {
+            setTimeout(() => this.renderProbeAvailErrorChart(), 80);
+            return;
+          }
+          if (this.charts.probeAvailError) this.charts.probeAvailError.dispose();
+
+          const chart = echarts.init(container);
+          this.charts.probeAvailError = chart;
+
+          const hours = Array.from({ length: 24 }, (_, i) => `${String(i).padStart(2, '0')}:00`);
+          const lineExp = this.currentProbeLine ? this.currentProbeLine.exp : '差';
+          const isPoor = lineExp === '差';
+          const isFair = lineExp === '一般';
+          
+          let availData, errorData;
+          if (isPoor) {
+            availData = [99.8, 99.7, 99.9, 99.8, 99.7, 99.5, 99.2, 97.5, 96.2, 97.0, 97.5, 96.2, 94.5, 89.2, 85.0, 86.2, 92.0, 96.5, 98.2, 99.0, 99.5, 99.6, 99.8, 99.7];
+            errorData = [0.2, 0.3, 0.1, 0.2, 0.3, 0.5, 0.8, 2.5, 3.8, 3.0, 2.5, 3.8, 5.5, 10.8, 15.0, 13.8, 8.0, 3.5, 1.8, 1.0, 0.5, 0.4, 0.2, 0.3];
+          } else if (isFair) {
+            availData = [99.5, 99.6, 99.8, 99.5, 99.6, 99.0, 98.2, 96.5, 94.0, 92.5, 93.8, 96.0, 97.5, 98.0, 98.5, 98.2, 98.8, 99.0, 99.2, 99.5, 99.6, 99.5, 99.6, 99.7];
+            errorData = [0.5, 0.4, 0.2, 0.5, 0.4, 1.0, 1.8, 3.5, 6.0, 7.5, 6.2, 4.0, 2.5, 2.0, 1.5, 1.8, 1.2, 1.0, 0.8, 0.5, 0.4, 0.5, 0.4, 0.3];
+          } else {
+            availData = [99.8, 99.9, 99.8, 99.9, 99.8, 99.7, 99.8, 99.9, 99.6, 99.8, 99.7, 99.8, 99.9, 99.7, 99.6, 99.8, 99.9, 99.8, 99.9, 99.8, 99.9, 99.8, 99.9, 99.8];
+            errorData = [0.1, 0.1, 0.2, 0.1, 0.2, 0.3, 0.2, 0.1, 0.4, 0.2, 0.3, 0.2, 0.1, 0.3, 0.4, 0.2, 0.1, 0.2, 0.1, 0.2, 0.1, 0.2, 0.1, 0.2];
+          }
+
+          chart.setOption({
+            tooltip: {
+              trigger: 'axis',
+              backgroundColor: 'rgba(255, 255, 255, 0.96)',
+              borderColor: '#E1E5EB',
+              textStyle: { color: '#2F3540', fontSize: 12 },
+              formatter: function(params) {
+                let res = `<div class="font-bold border-b border-gray-100 pb-1 mb-1 text-xs text-[#2F3540]">${params[0].name}</div>`;
+                params.forEach(p => {
+                  res += `<div class="flex items-center justify-between gap-4 text-xs py-0.5">
+                    <span class="inline-flex items-center"><span class="w-2 h-2 rounded-full mr-1.5" style="background:${p.color}"></span>${p.seriesName}</span>
+                    <span class="font-mono font-medium">${p.value} %</span>
+                  </div>`;
+                });
+                return res;
+              }
+            },
+            legend: {
+              data: ['可用性 (%)', 'HTTP 错误率 (%)'],
+              top: 0,
+              right: 5,
+              itemWidth: 6,
+              itemHeight: 6,
+              itemGap: 12,
+              textStyle: { fontSize: 11, color: '#5C6270' },
+              icon: 'circle'
+            },
+            grid: { top: 28, left: 36, right: 36, bottom: 20, containLabel: false },
+            xAxis: {
+              type: 'category',
+              data: hours,
+              boundaryGap: false,
+              axisLine: { lineStyle: { color: '#D3D7DE' } },
+              axisLabel: { color: '#8A92A1', fontSize: 10 }
+            },
+            yAxis: [
+              {
+                type: 'value',
+                name: '可用性 (%)',
+                nameTextStyle: { color: '#8A92A1', fontSize: 10 },
+                min: 80,
+                max: 100,
+                axisLabel: { color: '#8A92A1', fontSize: 10 },
+                splitLine: { lineStyle: { color: '#F0F2F5', type: 'dashed' } }
+              },
+              {
+                type: 'value',
+                name: '错误率 (%)',
+                nameTextStyle: { color: '#8A92A1', fontSize: 10 },
+                min: 0,
+                max: 20,
+                axisLabel: { color: '#8A92A1', fontSize: 10 },
+                splitLine: { show: false }
+              }
+            ],
+            series: [
+              {
+                name: '可用性 (%)',
+                type: 'line',
+                smooth: true,
+                showSymbol: false,
+                symbolSize: 6,
+                itemStyle: { color: '#12A679' },
+                lineStyle: { width: 2 },
+                data: availData
+              },
+              {
+                name: 'HTTP 错误率 (%)',
+                type: 'line',
+                yAxisIndex: 1,
+                smooth: true,
+                showSymbol: false,
+                symbolSize: 6,
+                itemStyle: { color: '#FA721B' },
+                lineStyle: { width: 2 },
+                data: errorData
+              }
+            ]
+          });
+          chart.resize();
+        },
+
+        // 探测线路 图表 1.2: 分段耗时趋势图
+        renderProbeSegTimeChart() {
+          const container = this.$el ? this.$el.querySelector('#chart-probe-seg-time') : document.querySelector('#chart-probe-seg-time');
+          if (!container) return;
+          if (container.clientWidth === 0) {
+            setTimeout(() => this.renderProbeSegTimeChart(), 80);
+            return;
+          }
+          if (this.charts.probeSegTime) this.charts.probeSegTime.dispose();
+
+          const chart = echarts.init(container);
+          this.charts.probeSegTime = chart;
+
+          const hours = Array.from({ length: 24 }, (_, i) => `${String(i).padStart(2, '0')}:00`);
+          const lineExp = this.currentProbeLine ? this.currentProbeLine.exp : '差';
+          const isPoor = lineExp === '差';
+          const isFair = lineExp === '一般';
+
+          let ttfbData, dnsData, tcpData, tlsData;
+          if (isPoor) {
+            ttfbData = [50, 48, 45, 50, 60, 80, 95, 120, 110, 105, 115, 680, 850, 450, 120, 95, 80, 65, 55, 50, 48, 45, 48, 50];
+            dnsData =  [15, 14, 15, 14, 15, 16, 18, 22, 20, 19, 21, 28, 30, 24, 18, 16, 15, 14, 15, 14, 14, 15, 14, 15];
+            tcpData =  [20, 19, 20, 18, 20, 22, 25, 32, 28, 26, 30, 95, 110, 70, 32, 26, 22, 20, 19, 18, 19, 20, 19, 18];
+            tlsData =  [25, 24, 25, 22, 24, 28, 32, 45, 38, 35, 40, 190, 210, 130, 45, 35, 28, 25, 24, 23, 24, 25, 24, 23];
+          } else if (isFair) {
+            ttfbData = [40, 38, 35, 36, 42, 55, 75, 120, 160, 180, 140, 95, 80, 70, 65, 60, 55, 50, 45, 42, 40, 38, 39, 40];
+            dnsData =  [12, 11, 12, 11, 12, 13, 15, 18, 20, 19, 16, 14, 13, 12, 12, 11, 12, 11, 11, 12, 11, 12, 11, 12];
+            tcpData =  [18, 17, 16, 17, 19, 22, 26, 35, 42, 45, 38, 28, 24, 22, 20, 19, 18, 17, 18, 17, 18, 17, 18, 17];
+            tlsData =  [20, 19, 18, 19, 22, 26, 32, 42, 55, 60, 48, 35, 28, 25, 22, 21, 20, 19, 19, 18, 19, 18, 19, 18];
+          } else {
+            ttfbData = [35, 32, 30, 32, 34, 38, 42, 45, 48, 46, 45, 48, 50, 52, 55, 58, 52, 48, 42, 38, 35, 34, 32, 35];
+            dnsData =  [10, 10, 11, 10, 10, 11, 12, 13, 12, 11, 12, 13, 12, 13, 12, 11, 12, 11, 10, 11, 10, 11, 10, 11];
+            tcpData =  [15, 14, 15, 14, 15, 16, 18, 19, 18, 17, 18, 19, 18, 19, 18, 17, 18, 17, 15, 16, 15, 14, 15, 14];
+            tlsData =  [18, 17, 18, 16, 17, 19, 20, 22, 21, 20, 22, 23, 22, 23, 22, 21, 20, 19, 18, 18, 17, 18, 17, 18];
+          }
+
+          chart.setOption({
+            tooltip: {
+              trigger: 'axis',
+              backgroundColor: 'rgba(255, 255, 255, 0.96)',
+              borderColor: '#E1E5EB',
+              textStyle: { color: '#2F3540', fontSize: 12 },
+              formatter: function(params) {
+                let res = `<div class="font-bold border-b border-gray-100 pb-1 mb-1 text-xs text-[#2F3540]">${params[0].name}</div>`;
+                params.forEach(p => {
+                  res += `<div class="flex items-center justify-between gap-4 text-xs py-0.5">
+                    <span class="inline-flex items-center"><span class="w-2 h-2 rounded-full mr-1.5" style="background:${p.color}"></span>${p.seriesName}</span>
+                    <span class="font-mono font-medium">${p.value} ms</span>
+                  </div>`;
+                });
+                return res;
+              }
+            },
+            legend: {
+              data: ['TTFB (首字节)', 'DNS 解析', 'TCP 建连', 'TLS 握手'],
+              top: 0,
+              right: 5,
+              itemWidth: 6,
+              itemHeight: 6,
+              itemGap: 10,
+              textStyle: { fontSize: 11, color: '#5C6270' },
+              icon: 'circle'
+            },
+            grid: { top: 28, left: 36, right: 15, bottom: 20, containLabel: false },
+            xAxis: {
+              type: 'category',
+              data: hours,
+              boundaryGap: false,
+              axisLine: { lineStyle: { color: '#D3D7DE' } },
+              axisLabel: { color: '#8A92A1', fontSize: 10 }
+            },
+            yAxis: {
+              type: 'value',
+              name: '耗时 (ms)',
+              nameTextStyle: { color: '#8A92A1', fontSize: 10 },
+              max: isPoor ? 900 : (isFair ? 220 : 100),
+              axisLabel: { color: '#8A92A1', fontSize: 10 },
+              splitLine: { lineStyle: { color: '#F0F2F5', type: 'dashed' } }
+            },
+            series: [
+              { name: 'TTFB (首字节)', type: 'line', smooth: true, showSymbol: false, symbolSize: 6, itemStyle: { color: '#D9363E' }, lineStyle: { width: 2 }, data: ttfbData },
+              { name: 'DNS 解析', type: 'line', smooth: true, showSymbol: false, symbolSize: 6, itemStyle: { color: '#1C6EFF' }, lineStyle: { width: 1.5 }, data: dnsData },
+              { name: 'TCP 建连', type: 'line', smooth: true, showSymbol: false, symbolSize: 6, itemStyle: { color: '#00A854' }, lineStyle: { width: 1.5 }, data: tcpData },
+              { name: 'TLS 握手', type: 'line', smooth: true, showSymbol: false, symbolSize: 6, itemStyle: { color: '#722ED1' }, lineStyle: { width: 1.5 }, data: tlsData }
+            ]
+          });
+          chart.resize();
+        },
+
+        // 探测线路 图表 2.1: 网络 RTT 与抖动趋势图
+        renderProbeRttJitterChart() {
+          const container = this.$el ? this.$el.querySelector('#chart-probe-rtt-jitter') : document.querySelector('#chart-probe-rtt-jitter');
+          if (!container) return;
+          if (container.clientWidth === 0) {
+            setTimeout(() => this.renderProbeRttJitterChart(), 80);
+            return;
+          }
+          if (this.charts.probeRttJitter) this.charts.probeRttJitter.dispose();
+
+          const chart = echarts.init(container);
+          this.charts.probeRttJitter = chart;
+
+          const hours = Array.from({ length: 24 }, (_, i) => `${String(i).padStart(2, '0')}:00`);
+          const lineExp = this.currentProbeLine ? this.currentProbeLine.exp : '差';
+          const isPoor = lineExp === '差';
+          const isFair = lineExp === '一般';
+
+          let rttData, jitterData;
+          if (isPoor) {
+            rttData = [20, 22, 21, 20, 24, 30, 35, 42, 40, 38, 45, 120, 145, 95, 42, 35, 30, 26, 24, 22, 20, 21, 22, 20];
+            jitterData = [2, 3, 2, 1, 2, 4, 5, 8, 10, 7, 6, 45, 58, 32, 14, 8, 5, 4, 3, 2, 2, 2, 3, 2];
+          } else if (isFair) {
+            rttData = [25, 24, 25, 26, 28, 32, 38, 55, 65, 68, 58, 45, 38, 34, 32, 30, 28, 26, 25, 24, 25, 26, 25, 24];
+            jitterData = [3, 2, 3, 2, 4, 5, 8, 12, 15, 14, 10, 7, 5, 4, 3, 3, 2, 2, 3, 2, 2, 3, 2, 2];
+          } else {
+            rttData = [15, 14, 15, 14, 15, 16, 18, 20, 22, 21, 20, 22, 23, 24, 25, 26, 24, 22, 20, 18, 16, 15, 15, 14];
+            jitterData = [1, 2, 1, 1, 2, 2, 3, 3, 4, 3, 2, 3, 3, 4, 3, 2, 2, 2, 1, 2, 1, 2, 1, 2];
+          }
+
+          chart.setOption({
+            tooltip: {
+              trigger: 'axis',
+              backgroundColor: 'rgba(255, 255, 255, 0.96)',
+              borderColor: '#E1E5EB',
+              textStyle: { color: '#2F3540', fontSize: 12 },
+              formatter: function(params) {
+                let res = `<div class="font-bold border-b border-gray-100 pb-1 mb-1 text-xs text-[#2F3540]">${params[0].name}</div>`;
+                params.forEach(p => {
+                  res += `<div class="flex items-center justify-between gap-4 text-xs py-0.5">
+                    <span class="inline-flex items-center"><span class="w-2 h-2 rounded-full mr-1.5" style="background:${p.color}"></span>${p.seriesName}</span>
+                    <span class="font-mono font-medium">${p.value} ms</span>
+                  </div>`;
+                });
+                return res;
+              }
+            },
+            legend: {
+              data: ['RTT 往返时延 (ms)', '网络抖动 (ms)'],
+              top: 0,
+              right: 5,
+              itemWidth: 6,
+              itemHeight: 6,
+              itemGap: 12,
+              textStyle: { fontSize: 11, color: '#5C6270' },
+              icon: 'circle'
+            },
+            grid: { top: 28, left: 36, right: 15, bottom: 20, containLabel: false },
+            xAxis: {
+              type: 'category',
+              data: hours,
+              boundaryGap: false,
+              axisLine: { lineStyle: { color: '#D3D7DE' } },
+              axisLabel: { color: '#8A92A1', fontSize: 10 }
+            },
+            yAxis: {
+              type: 'value',
+              name: '时间 (ms)',
+              nameTextStyle: { color: '#8A92A1', fontSize: 10 },
+              max: isPoor ? 180 : (isFair ? 100 : 50),
+              axisLabel: { color: '#8A92A1', fontSize: 10 },
+              splitLine: { lineStyle: { color: '#F0F2F5', type: 'dashed' } }
+            },
+            series: [
+              {
+                name: 'RTT 往返时延 (ms)',
+                type: 'line',
+                smooth: true,
+                showSymbol: false,
+                symbolSize: 6,
+                itemStyle: { color: '#1C6EFF' },
+                lineStyle: { width: 2 },
+                data: rttData
+              },
+              {
+                name: '网络抖动 (ms)',
+                type: 'line',
+                smooth: true,
+                showSymbol: false,
+                symbolSize: 6,
+                itemStyle: { color: '#722ED1' },
+                lineStyle: { width: 1.8, type: 'dashed' },
+                data: jitterData
+              }
+            ]
+          });
+          chart.resize();
+        },
+
+        // 探测线路 图表 2.2: 数据包丢包率趋势图
+        renderProbePacketLossChart() {
+          const container = this.$el ? this.$el.querySelector('#chart-probe-packet-loss') : document.querySelector('#chart-probe-packet-loss');
+          if (!container) return;
+          if (container.clientWidth === 0) {
+            setTimeout(() => this.renderProbePacketLossChart(), 80);
+            return;
+          }
+          if (this.charts.probePacketLoss) this.charts.probePacketLoss.dispose();
+
+          const chart = echarts.init(container);
+          this.charts.probePacketLoss = chart;
+
+          const hours = Array.from({ length: 24 }, (_, i) => `${String(i).padStart(2, '0')}:00`);
+          const lineExp = this.currentProbeLine ? this.currentProbeLine.exp : '差';
+          const isPoor = lineExp === '差';
+          const isFair = lineExp === '一般';
+
+          let lossData;
+          if (isPoor) {
+            lossData = [0.0, 0.0, 0.0, 0.0, 0.0, 0.1, 0.2, 0.5, 0.8, 0.6, 0.9, 4.2, 5.0, 3.5, 1.2, 0.5, 0.2, 0.1, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
+          } else if (isFair) {
+            lossData = [0.0, 0.0, 0.0, 0.0, 0.1, 0.2, 0.4, 0.9, 1.2, 1.1, 0.7, 0.4, 0.2, 0.1, 0.1, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
+          } else {
+            lossData = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.1, 0.0, 0.0, 0.1, 0.0, 0.0, 0.0, 0.1, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
+          }
+
+          chart.setOption({
+            tooltip: {
+              trigger: 'axis',
+              backgroundColor: 'rgba(255, 255, 255, 0.96)',
+              borderColor: '#E1E5EB',
+              textStyle: { color: '#2F3540', fontSize: 12 },
+              formatter: '{b} <br/> 数据包丢包率: <b>{c} %</b>'
+            },
+            legend: {
+              data: ['数据包丢包率 (%)'],
+              top: 0,
+              right: 5,
+              itemWidth: 6,
+              itemHeight: 6,
+              textStyle: { fontSize: 11, color: '#5C6270' },
+              icon: 'circle'
+            },
+            grid: { top: 28, left: 36, right: 15, bottom: 20, containLabel: false },
+            xAxis: {
+              type: 'category',
+              data: hours,
+              boundaryGap: false,
+              axisLine: { lineStyle: { color: '#D3D7DE' } },
+              axisLabel: { color: '#8A92A1', fontSize: 10 }
+            },
+            yAxis: {
+              type: 'value',
+              name: '丢包率 (%)',
+              nameTextStyle: { color: '#8A92A1', fontSize: 10 },
+              min: 0,
+              max: isPoor ? 6 : (isFair ? 3 : 1),
+              axisLabel: { color: '#8A92A1', fontSize: 10 },
+              splitLine: { lineStyle: { color: '#F0F2F5', type: 'dashed' } }
+            },
+            series: [
+              {
+                name: '数据包丢包率 (%)',
+                type: 'line',
+                smooth: true,
+                showSymbol: false,
+                symbolSize: 6,
+                itemStyle: { color: '#D9363E' },
+                areaStyle: {
+                  color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                    { offset: 0, color: 'rgba(217, 54, 62, 0.25)' },
+                    { offset: 1, color: 'rgba(217, 54, 62, 0.01)' }
+                  ])
+                },
+                lineStyle: { width: 2 },
+                data: lossData
+              }
+            ]
+          });
+          chart.resize();
+        },
+
+        init() {
+          const urlParams = new URLSearchParams(window.location.search);
+          const qAppId = urlParams.get('appId');
+          if (qAppId && this.appsData[qAppId]) {
+            this.activeAppId = qAppId;
+          }
+
+          // 监听 Tab 切换，切换到主动探测时自动初始化/刷新探测图表
+          this.$watch('activeTab', (tab) => {
+            if (tab === 'probe') {
+              this.renderProbeLineCharts();
+            }
+          });
+
+          this.$nextTick(() => {
+            this.renderCharts();
+            if (this.activeTab === 'probe') {
+              this.renderProbeLineCharts();
+            }
+            window.addEventListener('resize', () => {
+              Object.values(this.charts).forEach(c => c && c.resize());
+            });
+          });
+        }
+      };
+    }
+  </script>
+</head>
+<body class="bg-[#F5F7FA] font-sans antialiased text-[#2F3540] min-h-screen flex flex-col">
+
+  <!-- 双底座 App Shell 容器 -->
+  <div x-data="window.dualShellAppStore('应用详情')" class="flex flex-col h-screen overflow-hidden">
+
+    <!-- 底座切换浮层（由 shell.js 动态注入） -->
+    <div id="shell-switcher"></div>
+
+    <!-- =====================================================
+         MODE 1: aTrust 线下底座框架 (x-show="shell === 'atrust'")
+         ===================================================== -->
+    <div x-show="shell === 'atrust'" class="flex flex-col w-full h-full">
+      <!-- aTrust Header -->
+      <div id="shell-atrust-header"></div>
+      <div class="flex-1 flex overflow-hidden">
+        <!-- aTrust Sider -->
+        <div id="shell-atrust-sider"></div>
+        <!-- aTrust Workspace -->
+        <div class="flex-1 bg-bg-light flex flex-col overflow-hidden">
+          <div class="flex-1 bg-[#F5F7FA] flex flex-col overflow-hidden" id="atrust-workspace"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- =====================================================
+         MODE 2: SASE 线上云底座框架 (x-show="shell === 'sase'")
+         ===================================================== -->
+    <div x-show="shell === 'sase'" class="flex w-full h-full overflow-hidden">
+      <!-- SASE Sider -->
+      <div id="shell-sase-sider"></div>
+      <!-- SASE Workspace -->
+      <div class="flex-1 bg-bg-light flex flex-col overflow-hidden">
+        <div class="flex-1 bg-[#F5F7FA] flex flex-col overflow-hidden" id="sase-workspace"></div>
+      </div>
+    </div>
+
+    <!-- =====================================================
+         应用详情 Workspace 内容模板
+         ===================================================== -->
+    <template id="page-content-template">
+      <div class="flex flex-col w-full h-full overflow-hidden" x-data="demAppDetailState()" x-init="init()">
+        
+        <!-- 面包屑与顶部操作栏 (吸顶固定) -->
+        <div class="h-[48px] min-h-[48px] bg-white border-b border-[#E1E5EB] px-6 flex items-center justify-between flex-shrink-0 select-none z-20">
+          <div class="flex items-center gap-3">
+            <button @click="navigateTo('应用')" class="text-[#2F3540] hover:text-[#1C6EFF] flex items-center gap-1 text-sm font-bold transition-colors">
+              <svg class="w-4 h-4 text-[#5C6270]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+              </svg>
+              <span>应用详情</span>
+            </button>
+            <span class="text-[#D3D7DE]">|</span>
+            <div class="relative inline-flex items-center">
+              <select class="dem-select font-semibold text-[#2F3540] pr-7" 
+                      x-model="activeAppId" 
+                      @change="selectApp($event.target.value)">
+                <template x-for="(app, id) in appsData" :key="id">
+                  <option :value="id" x-text="app.appName"></option>
+                </template>
+              </select>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <!-- 时间筛选器 -->
+            <div class="inline-flex items-center h-8 bg-white border border-[#D3D7DE] rounded-[2px] hover:border-[#1C6EFF] transition-colors text-xs">
+              <div class="relative bg-[#F7F9FC] h-full px-2 flex items-center justify-between border-r border-[#D3D7DE] min-w-[88px] cursor-pointer group">
+                <select x-model="dateShortcut" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full text-xs">
+                  <option value="今天">今天</option>
+                  <option value="近24小时">近24小时</option>
+                  <option value="近3天">近3天</option>
+                  <option value="近7天">近7天</option>
+                </select>
+                <span class="text-[#2F3540] font-normal text-xs" x-text="dateShortcut"></span>
+                <svg class="w-3.5 h-3.5 text-[#A1A7B3] ml-2 group-hover:text-[#1C6EFF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                </svg>
+              </div>
+              <div class="h-full pl-3 pr-2 flex items-center justify-between cursor-pointer whitespace-nowrap">
+                <span class="font-mono text-xs text-[#2F3540]" x-text="dateRange"></span>
+                <svg class="w-3.5 h-3.5 text-[#A1A7B3] ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                </svg>
+              </div>
+            </div>
+
+            <!-- 收起概览默认按钮 (间距8px) -->
+            <button @click="showAppOverview = !showAppOverview" 
+                    class="h-8 px-2.5 text-xs bg-white border border-[#D3D7DE] rounded-[2px] text-[#2F3540] hover:border-[#1C6EFF] hover:text-[#1C6EFF] inline-flex items-center gap-1.5 transition-colors cursor-pointer select-none">
+              <svg class="w-3.5 h-3.5 transition-transform duration-200" :class="!showAppOverview && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path>
+              </svg>
+              <span x-text="showAppOverview ? '收起概览' : '展开概览'"></span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 页面主主体 独立滚动容器 (防止页头被滚走) -->
+        <div class="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
+
+          <!-- 1. 应用的基本信息（顶部的整体信息卡片 - 支持一键收起/展开） -->
+          <div x-show="showAppOverview" x-collapse class="bg-white border border-[#E1E5EB] rounded-[2px] p-4 shadow-xs">
+            <div class="flex flex-wrap lg:flex-nowrap items-center justify-between gap-4">
+              
+              <!-- 左一: 图标、名称、类型、地址 -->
+              <div class="flex items-center gap-3 shrink-0">
+                <div class="w-10 h-10 rounded-full bg-[#1C6EFF] text-white flex items-center justify-center font-bold text-base shadow-xs shrink-0"
+                     x-text="currentApp.appName.charAt(0)">
+                </div>
+                <div class="space-y-0.5">
+                  <div class="flex items-center gap-2">
+                    <h1 class="text-sm font-bold text-[#2F3540] whitespace-nowrap" x-text="currentApp.appName"></h1>
+                    <span class="px-2 py-0.5 text-[11px] rounded bg-[#E6F4FF] text-[#1C6EFF] font-medium whitespace-nowrap" x-text="currentApp.appType"></span>
+                  </div>
+                  <div class="text-xs text-[#8A92A1] font-mono whitespace-nowrap truncate max-w-[260px]" x-text="currentApp.appAddress"></div>
+                </div>
+              </div>
+
+              <!-- 分隔线 -->
+              <div class="hidden lg:block w-[1px] h-9 bg-[#E1E5EB] shrink-0"></div>
+
+              <!-- 左二: 体验状态 -->
+              <div class="flex flex-col items-center justify-center shrink-0 px-2 min-w-[72px]">
+                <div class="text-xs text-[#8A92A1] mb-1 whitespace-nowrap">体验状态</div>
+                <div>
+                  <span :class="currentApp.overallStatus === '差' ? 'bg-[#FFF1F0] text-[#D9363E] border-[#FFA39E]' : (currentApp.overallStatus === '一般' ? 'bg-[#FFFBE6] text-[#FA8C16] border-[#FFE58F]' : 'bg-[#F6FFED] text-[#52C41A] border-[#B7EB8F]')"
+                        class="px-2.5 py-0.5 text-xs font-semibold rounded-[2px] border inline-block text-center"
+                        x-text="currentApp.overallStatus"></span>
+                </div>
+              </div>
+
+              <!-- 分隔线 -->
+              <div class="hidden lg:block w-[1px] h-9 bg-[#E1E5EB] shrink-0"></div>
+
+              <!-- 左三: 访问对象数 -->
+              <div class="flex flex-col justify-center shrink-0">
+                <div class="text-xs text-[#8A92A1] mb-1 whitespace-nowrap">访问对象数</div>
+                <div class="flex items-center gap-3 text-xs">
+                  <div class="flex items-center gap-1 font-bold text-[#2F3540] whitespace-nowrap">
+                    <svg class="w-3.5 h-3.5 text-[#8A92A1]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                    </svg>
+                    <span x-text="currentApp.usersCount + ' 人'"></span>
+                  </div>
+                  <div class="flex items-center gap-1 font-bold text-[#2F3540] whitespace-nowrap">
+                    <svg class="w-3.5 h-3.5 text-[#8A92A1]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5m0 0h4m-4 0V9a2 2 0 012-2h2a2 2 0 012 2v12"></path>
+                    </svg>
+                    <span x-text="currentApp.branchesCount + ' 个'"></span>
+                  </div>
+                  <span class="text-[#D3D7DE]">|</span>
+                  <div class="flex items-center gap-1.5 whitespace-nowrap">
+                    <span class="px-2 py-0.5 text-[11px] rounded bg-[#E6F8F2] text-[#12A679] font-medium">正常: <span x-text="currentApp.objectExperience.normal"></span></span>
+                    <span class="px-2 py-0.5 text-[11px] rounded bg-[#FFF7E6] text-[#FA721B] font-medium">一般: <span x-text="currentApp.objectExperience.fair"></span></span>
+                    <span class="px-2 py-0.5 text-[11px] rounded bg-[#FFF1F0] text-[#D9363E] font-medium">差: <span x-text="currentApp.objectExperience.poor"></span></span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 分隔线 -->
+              <div class="hidden lg:block w-[1px] h-9 bg-[#E1E5EB] shrink-0"></div>
+
+              <!-- 左四: 主动探测 -->
+              <div class="flex flex-col justify-center shrink-0">
+                <div class="text-xs text-[#8A92A1] mb-1 whitespace-nowrap">主动探测</div>
+                <div class="flex items-center gap-3 text-xs">
+                  <span class="font-bold text-[#2F3540] whitespace-nowrap" x-text="currentApp.probesCount.toLocaleString() + ' 次'"></span>
+                  <span class="text-[#D3D7DE]">|</span>
+                  <div class="flex items-center gap-1.5 whitespace-nowrap">
+                    <span class="px-2 py-0.5 text-[11px] rounded bg-[#E6F8F2] text-[#12A679] font-medium">正常: <span x-text="currentApp.probeExperience.normal"></span></span>
+                    <span class="px-2 py-0.5 text-[11px] rounded bg-[#FFF7E6] text-[#FA721B] font-medium">一般: <span x-text="currentApp.probeExperience.fair"></span></span>
+                    <span class="px-2 py-0.5 text-[11px] rounded bg-[#FFF1F0] text-[#D9363E] font-medium">差: <span x-text="currentApp.probeExperience.poor"></span></span>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+
+          <!-- 2. 应用性能信息模块 -->
+          <div class="bg-white border border-[#E1E5EB] rounded-[2px] p-4 shadow-xs space-y-4">
+            <div class="flex items-center justify-between border-b border-[#F0F2F5] pb-2.5">
+              <h2 class="text-sm font-semibold text-[#2F3540] flex items-center gap-2">
+                <svg class="w-4 h-4 text-[#1C6EFF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                </svg>
+                应用性能信息
+              </h2>
+              <span class="text-xs text-[#8A92A1]">数据源: HTTP/HTTPS 主动探测 & 真实流量采集</span>
+            </div>
+
+            <!-- ① 整体汇总平均性能 KPI 5 宫格 -->
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+              <div class="bg-[#F8FAFC] py-2 px-3 rounded-[2px] border border-[#E1E5EB]/60 flex flex-col justify-between">
+                <div class="text-xs text-[#8A92A1] mb-0.5 whitespace-nowrap">真实访问&探测</div>
+                <div class="text-base lg:text-lg font-bold text-[#2F3540]" x-text="currentApp.metrics.validCount"></div>
+              </div>
+              <div class="bg-[#F8FAFC] py-2 px-3 rounded-[2px] border border-[#E1E5EB]/60 flex flex-col justify-between">
+                <div class="text-xs text-[#8A92A1] mb-0.5 whitespace-nowrap">可用性 (体验正常占比)</div>
+                <div class="text-base lg:text-lg font-bold text-[#12A679]" x-text="currentApp.metrics.availability"></div>
+              </div>
+              <!-- HTTP 错误率卡片: 详情悬浮 Popover Tooltip -->
+              <div class="bg-[#F8FAFC] py-2 px-3 rounded-[2px] border border-[#E1E5EB]/60 flex flex-col justify-between">
+                <div class="text-xs text-[#8A92A1] mb-0.5 whitespace-nowrap">HTTP 错误率 (400-599占比)</div>
+                <div class="flex items-center justify-between">
+                  <span class="text-base lg:text-lg font-bold text-[#FA721B]" x-text="currentApp.metrics.httpErrorRate"></span>
+                  <div class="relative group cursor-pointer" x-data="{ open: false }" @mouseenter="open = true" @mouseleave="open = false">
+                    <span class="text-xs text-[#1C6EFF] hover:underline font-medium inline-flex items-center gap-0.5">
+                      详情
+                      <svg class="w-3 h-3 text-[#1C6EFF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                      </svg>
+                    </span>
+                    <!-- 悬浮弹窗 (Popover Tooltip) -->
+                    <div x-show="open" 
+                         x-transition:enter="transition ease-out duration-150"
+                         x-transition:enter-start="opacity-0 translate-y-1"
+                         x-transition:enter-end="opacity-100 translate-y-0"
+                         class="absolute right-0 bottom-6 z-30 w-64 p-3 bg-[#1E232A] text-white rounded shadow-xl text-xs space-y-2 pointer-events-none">
+                      <div class="font-bold border-b border-gray-700 pb-1 text-[11px] text-gray-300 flex items-center justify-between">
+                        <span>HTTP 错误码分布明细</span>
+                        <span class="font-mono text-amber-400 font-bold" x-text="currentApp.metrics.httpErrorRate"></span>
+                      </div>
+                      <div class="space-y-1 text-[11px] font-mono">
+                        <template x-for="err in currentApp.metrics.errorBreakdown" :key="err.code">
+                          <div class="flex items-center justify-between text-gray-200">
+                            <span><b class="text-amber-300 font-medium" x-text="'【' + err.code + '】'"></b> <span x-text="err.desc"></span></span>
+                            <span class="text-gray-400" x-text="err.count + '次 (' + err.ratio + ')'"></span>
+                          </div>
+                        </template>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="bg-[#F8FAFC] py-2 px-3 rounded-[2px] border border-[#E1E5EB]/60 flex flex-col justify-between">
+                <div class="text-xs text-[#8A92A1] mb-0.5 whitespace-nowrap">平均数据包丢包率</div>
+                <div class="text-base lg:text-lg font-bold text-[#1C6EFF]" x-text="currentApp.metrics.packetLossRate"></div>
+              </div>
+              <div class="bg-[#F8FAFC] py-2 px-3 rounded-[2px] border border-[#E1E5EB]/60 flex flex-col justify-between">
+                <div class="text-xs text-[#8A92A1] mb-0.5 whitespace-nowrap">平均 TTFB</div>
+                <div class="text-base lg:text-lg font-bold text-[#D9363E]" x-text="currentApp.metrics.avgTtfb"></div>
+              </div>
+            </div>
+
+            <!-- ② 趋势图表（4张趋势图，分两行展示：第一行应用层趋势，第二行网络层趋势） -->
+            <div class="space-y-3 pt-1">
+              
+              <!-- 第一行: 应用层性能趋势 -->
+              <div>
+                <div class="text-xs font-semibold text-[#8A92A1] mb-1.5 flex items-center gap-1.5">
+                  <span class="w-1.5 h-1.5 rounded-full bg-[#1C6EFF]"></span>
+                  <span>应用层性能趋势</span>
+                </div>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                  <!-- 图表 1.1: 可用性与 HTTP 错误率趋势图 -->
+                  <div class="border border-[#E1E5EB] rounded-[2px] p-3 bg-white">
+                    <div class="flex items-center justify-between mb-1">
+                      <span class="text-xs font-semibold text-[#454C59]">可用性与 HTTP 错误率趋势图</span>
+                    </div>
+                    <div id="chart-app-availability-error" class="w-full h-[175px]"></div>
+                  </div>
+
+                  <!-- 图表 1.2: 分段耗时趋势图 -->
+                  <div class="border border-[#E1E5EB] rounded-[2px] p-3 bg-white">
+                    <div class="flex items-center justify-between mb-1">
+                      <span class="text-xs font-semibold text-[#454C59]">分段耗时趋势图</span>
+                    </div>
+                    <div id="chart-app-segmented-time" class="w-full h-[175px]"></div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 第二行: 网络层性能趋势 -->
+              <div>
+                <div class="text-xs font-semibold text-[#8A92A1] mb-1.5 flex items-center gap-1.5">
+                  <span class="w-1.5 h-1.5 rounded-full bg-[#722ED1]"></span>
+                  <span>网络层性能趋势</span>
+                </div>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                  <!-- 图表 2.1: 网络 RTT 与抖动趋势图 -->
+                  <div class="border border-[#E1E5EB] rounded-[2px] p-3 bg-white">
+                    <div class="flex items-center justify-between mb-1">
+                      <span class="text-xs font-semibold text-[#454C59]">网络 RTT 与抖动趋势图</span>
+                    </div>
+                    <div id="chart-network-rtt-jitter" class="w-full h-[175px]"></div>
+                  </div>
+
+                  <!-- 图表 2.2: 数据包丢包率趋势图 -->
+                  <div class="border border-[#E1E5EB] rounded-[2px] p-3 bg-white">
+                    <div class="flex items-center justify-between mb-1">
+                      <span class="text-xs font-semibold text-[#454C59]">数据包丢包率趋势图</span>
+                    </div>
+                    <div id="chart-network-packet-loss" class="w-full h-[175px]"></div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+            <!-- ④ 局部总结 (总分结构) -->
+            <div class="p-3 rounded-[2px] border flex items-start gap-3"
+                 :class="currentApp.summary.status === 'healthy' ? 'bg-[#F6FFED] border-[#B7EB8F]' : (currentApp.summary.status === 'error' ? 'bg-[#FFF1F0] border-[#FFA39E]' : 'bg-[#FFFBE6] border-[#FFE58F]')">
+              <svg class="w-4 h-4 flex-shrink-0 mt-0.5" 
+                   :class="currentApp.summary.status === 'healthy' ? 'text-[#52C41A]' : (currentApp.summary.status === 'error' ? 'text-[#F5222D]' : 'text-[#FA8C16]')"
+                   fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+              </svg>
+              <div class="space-y-1 text-xs w-full">
+                <!-- 结论 -->
+                <div class="font-bold text-[#2F3540] flex items-center gap-2">
+                  <span class="px-1.5 py-0.5 text-[10px] rounded bg-white/80 border border-[#D3D7DE] font-semibold text-[#2F3540]">诊断结论</span>
+                  <span x-text="currentApp.summary.title"></span>
+                </div>
+                <!-- 异常点拆解 (分项) -->
+                <div class="space-y-1 text-[#5C6270] pl-0.5">
+                  <template x-for="(point, idx) in currentApp.summary.points" :key="idx">
+                    <div class="flex items-start gap-1 leading-relaxed">
+                      <span class="font-medium text-[#454C59] shrink-0" x-text="`- 异常点 ${idx + 1}：`"></span>
+                      <span x-text="point"></span>
+                    </div>
+                  </template>
+                  <template x-if="currentApp.summary.suggestion">
+                    <div class="flex items-start gap-1 leading-relaxed text-[#1C6EFF] pt-0.5">
+                      <span class="font-semibold shrink-0">- 排查建议：</span>
+                      <span x-text="currentApp.summary.suggestion"></span>
+                    </div>
+                  </template>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+
+          <!-- 3. 访问 & 探测信息模块（3 Tab: 分支访问、用户访问、主动探测） -->
+          <div class="bg-white border border-[#E1E5EB] rounded-[2px] shadow-xs flex flex-col">
+            
+            <!-- Tab 头部栏 (底色改为白色) -->
+            <div class="border-b border-[#E1E5EB] px-4 flex items-center justify-between bg-white">
+              <div class="flex items-center gap-2">
+                <button class="tab-btn" :class="activeTab === 'branch' && 'active'" @click="activeTab = 'branch'">
+                  分支访问明细
+                </button>
+                <button class="tab-btn" :class="activeTab === 'user' && 'active'" @click="activeTab = 'user'">
+                  用户访问明细
+                </button>
+                <button class="tab-btn" :class="activeTab === 'probe' && 'active'" @click="activeTab = 'probe'; renderProbeLineCharts()">
+                  主动探测线路
+                </button>
+              </div>
+            </div>
+
+            <!-- Tab 内容区 -->
+            <div class="p-4">
+              
+              <!-- Tab 1: 分支访问表格 -->
+              <div x-show="activeTab === 'branch'" class="space-y-3">
+                <div class="flex items-center justify-between gap-3">
+                  <!-- 3个等宽 select 筛选项在左侧，带悬停一键快捷清除图标 -->
+                  <div class="flex items-center gap-2">
+                    <!-- 1. 体验状态 -->
+                    <div class="dem-select-wrapper group w-36">
+                      <select class="dem-select w-full" :class="!branchFilterExp ? 'text-[#8A92A1]' : 'text-[#2F3540]'" x-model="branchFilterExp" @change="branchPage = 1">
+                        <option value="" class="text-[#8A92A1]">全部体验状态</option>
+                        <option value="差" class="text-[#2F3540]">差</option>
+                        <option value="一般" class="text-[#2F3540]">一般</option>
+                        <option value="正常" class="text-[#2F3540]">正常</option>
+                      </select>
+                      <button type="button" 
+                              x-show="branchFilterExp" 
+                              @click.stop.prevent="branchFilterExp = ''; branchPage = 1" 
+                              class="dem-clear-btn has-value"
+                              title="清除选择">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                      </button>
+                    </div>
+
+                    <!-- 2. 地理位置 -->
+                    <div class="dem-select-wrapper group w-36">
+                      <select class="dem-select w-full" :class="!branchFilterLoc ? 'text-[#8A92A1]' : 'text-[#2F3540]'" x-model="branchFilterLoc" @change="branchPage = 1">
+                        <option value="" class="text-[#8A92A1]">全部地理位置</option>
+                        <option value="菲律宾 马尼拉" class="text-[#2F3540]">菲律宾 马尼拉</option>
+                        <option value="中国 上海" class="text-[#2F3540]">中国 上海</option>
+                        <option value="中国 北京" class="text-[#2F3540]">中国 北京</option>
+                        <option value="中国 香港" class="text-[#2F3540]">中国 香港</option>
+                        <option value="中国 深圳" class="text-[#2F3540]">中国 深圳</option>
+                        <option value="中国 成都" class="text-[#2F3540]">中国 成都</option>
+                      </select>
+                      <button type="button" 
+                              x-show="branchFilterLoc" 
+                              @click.stop.prevent="branchFilterLoc = ''; branchPage = 1" 
+                              class="dem-clear-btn has-value"
+                              title="清除选择">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                      </button>
+                    </div>
+
+                    <!-- 3. 接入POP -->
+                    <div class="dem-select-wrapper group w-36">
+                      <select class="dem-select w-full" :class="!branchFilterPop ? 'text-[#8A92A1]' : 'text-[#2F3540]'" x-model="branchFilterPop" @change="branchPage = 1">
+                        <option value="" class="text-[#8A92A1]">全部接入POP</option>
+                        <option value="香港POP" class="text-[#2F3540]">香港POP</option>
+                        <option value="上海POP" class="text-[#2F3540]">上海POP</option>
+                        <option value="北京POP" class="text-[#2F3540]">北京POP</option>
+                        <option value="深圳POP" class="text-[#2F3540]">深圳POP</option>
+                        <option value="成都POP" class="text-[#2F3540]">成都POP</option>
+                      </select>
+                      <button type="button" 
+                              x-show="branchFilterPop" 
+                              @click.stop.prevent="branchFilterPop = ''; branchPage = 1" 
+                              class="dem-clear-btn has-value"
+                              title="清除选择">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- 搜索框带快捷清除 -->
+                  <div class="relative inline-flex items-center group w-64">
+                    <input type="text" x-model="branchSearchQuery" @input="branchPage = 1" placeholder="搜索分支 / 地理位置 / POP..." class="h-8 pl-3 pr-7 text-xs border border-[#D3D7DE] rounded-[2px] w-full focus:outline-none focus:border-[#1C6EFF]">
+                    <button type="button" 
+                            x-show="branchSearchQuery" 
+                            @click="branchSearchQuery = ''; branchPage = 1" 
+                            class="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full text-[#8A92A1] hover:text-[#1C6EFF] hover:bg-[#F0F5FF] flex items-center justify-center cursor-pointer"
+                            title="清除搜索">
+                      <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+
+                <div class="dem-table-container overflow-x-auto">
+                  <table class="dem-table w-full">
+                    <thead>
+                      <tr>
+                        <th>分支名称</th>
+                        <th>分支类型</th>
+                        <th>所属分组</th>
+                        <th>地理位置</th>
+                        <th>体验状态</th>
+                        <th>IP 归属地</th>
+                        <th>主要接入 POP</th>
+                        <th class="num-col">受影响用户数</th>
+                        <th>访问情况 <span class="font-normal text-[#8A92A1]">（次数统计）</span></th>
+                        <th class="text-center w-16">操作</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <template x-for="item in paginatedBranchList" :key="item.name">
+                        <tr>
+                          <td>
+                            <span class="font-medium text-[#2F3540] whitespace-nowrap" x-text="item.name"></span>
+                          </td>
+                          <td><span class="px-1.5 py-0.5 text-[11px] bg-gray-100 text-gray-700 rounded-[2px]" x-text="item.type"></span></td>
+                          <td x-text="item.group"></td>
+                          <td x-text="item.location"></td>
+                          <td>
+                            <span :class="item.exp === '差' ? 'bg-[#D9363E]/10 text-[#D9363E]' : (item.exp === '一般' ? 'bg-[#FA721B]/10 text-[#FA721B]' : 'bg-[#12A679]/10 text-[#12A679]')"
+                                  class="px-2 py-0.5 text-[11px] rounded-[2px] font-medium"
+                                  x-text="item.exp"></span>
+                          </td>
+                          <td x-text="item.isp"></td>
+                          <td class="font-medium" x-text="item.pop"></td>
+                          <td class="num-col font-mono" x-text="item.affectedUsers > 0 ? item.affectedUsers + ' 人' : '-'"></td>
+                          <td class="font-mono text-xs whitespace-nowrap">
+                            <span class="text-[#12A679]">正常 <span :class="item.normalCount > 0 ? 'text-[#12A679]' : 'text-[#8A92A1]'" x-text="item.normalCount > 0 ? item.normalCount : '-'"></span></span>
+                            <span class="text-[#D3D7DE] mx-1">|</span>
+                            <span class="text-[#FA721B]">一般 <span :class="item.fairCount > 0 ? 'text-[#FA721B]' : 'text-[#8A92A1]'" x-text="item.fairCount > 0 ? item.fairCount : '-'"></span></span>
+                            <span class="text-[#D3D7DE] mx-1">|</span>
+                            <span class="text-[#D9363E]">差 <span :class="item.poorCount > 0 ? 'text-[#D9363E]' : 'text-[#8A92A1]'" x-text="item.poorCount > 0 ? item.poorCount : '-'"></span></span>
+                          </td>
+                          <td class="text-center">
+                            <a :href="'./DEM-用户详情.html?type=分支&name=' + encodeURIComponent(item.name) + '&location=' + encodeURIComponent(item.location) + '&pop=' + encodeURIComponent(item.pop)" target="_blank" class="text-[#1C6EFF] hover:underline font-medium text-xs cursor-pointer inline-flex items-center justify-center gap-0.5">详情&gt;</a>
+                          </td>
+                        </tr>
+                      </template>
+                    </tbody>
+                  </table>
+                </div>
+
+                <!-- 分支表格分页控件 -->
+                <div class="flex items-center justify-between pt-2 text-xs text-[#5C6270]">
+                  <div>
+                    共 <span class="font-medium text-[#2F3540]" x-text="totalBranchCount"></span> 条记录
+                  </div>
+                  <div class="flex items-center gap-3">
+                    <div class="flex items-center gap-1">
+                      <span>每页</span>
+                      <select class="dem-select h-7 px-1 text-xs" x-model.number="branchPageSize" @change="branchPage = 1">
+                        <option :value="10">10 条</option>
+                        <option :value="20">20 条</option>
+                        <option :value="50">50 条</option>
+                      </select>
+                    </div>
+
+                    <div class="flex items-center gap-1">
+                      <button class="px-2.5 py-1 border border-[#D3D7DE] rounded-[2px] hover:bg-gray-50 disabled:opacity-40 disabled:hover:bg-transparent text-xs"
+                              :disabled="branchPage <= 1"
+                              @click="branchPage--">
+                        上一页
+                      </button>
+                      <span class="px-2 font-mono text-[#2F3540]" x-text="branchPage + ' / ' + totalBranchPages"></span>
+                      <button class="px-2.5 py-1 border border-[#D3D7DE] rounded-[2px] hover:bg-gray-50 disabled:opacity-40 disabled:hover:bg-transparent text-xs"
+                              :disabled="branchPage >= totalBranchPages"
+                              @click="branchPage++">
+                        下一页
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+
+              <!-- Tab 2: 用户访问表格 -->
+              <div x-show="activeTab === 'user'" class="space-y-3">
+                <div class="flex items-center justify-between gap-3">
+                  <!-- 3个等宽 select 筛选项在左侧，带悬停一键快捷清除图标 -->
+                  <div class="flex items-center gap-2">
+                    <!-- 1. 体验状态 -->
+                    <div class="dem-select-wrapper group w-36">
+                      <select class="dem-select w-full" :class="!userFilterExp ? 'text-[#8A92A1]' : 'text-[#2F3540]'" x-model="userFilterExp" @change="userPage = 1">
+                        <option value="" class="text-[#8A92A1]">全部体验状态</option>
+                        <option value="差" class="text-[#2F3540]">差</option>
+                        <option value="一般" class="text-[#2F3540]">一般</option>
+                        <option value="正常" class="text-[#2F3540]">正常</option>
+                      </select>
+                      <button type="button" 
+                              x-show="userFilterExp" 
+                              @click.stop.prevent="userFilterExp = ''; userPage = 1" 
+                              class="dem-clear-btn has-value"
+                              title="清除选择">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                      </button>
+                    </div>
+
+                    <!-- 2. IP归属地 -->
+                    <div class="dem-select-wrapper group w-36">
+                      <select class="dem-select w-full" :class="!userFilterIsp ? 'text-[#8A92A1]' : 'text-[#2F3540]'" x-model="userFilterIsp" @change="userPage = 1">
+                        <option value="" class="text-[#8A92A1]">全部IP归属地</option>
+                        <option value="广东深圳 电信" class="text-[#2F3540]">广东深圳 电信</option>
+                        <option value="香港 PCCW" class="text-[#2F3540]">香港 PCCW</option>
+                        <option value="上海电信" class="text-[#2F3540]">上海电信</option>
+                        <option value="北京联通" class="text-[#2F3540]">北京联通</option>
+                        <option value="四川电信" class="text-[#2F3540]">四川电信</option>
+                      </select>
+                      <button type="button" 
+                              x-show="userFilterIsp" 
+                              @click.stop.prevent="userFilterIsp = ''; userPage = 1" 
+                              class="dem-clear-btn has-value"
+                              title="清除选择">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                      </button>
+                    </div>
+
+                    <!-- 3. 接入POP -->
+                    <div class="dem-select-wrapper group w-36">
+                      <select class="dem-select w-full" :class="!userFilterPop ? 'text-[#8A92A1]' : 'text-[#2F3540]'" x-model="userFilterPop" @change="userPage = 1">
+                        <option value="" class="text-[#8A92A1]">全部接入POP</option>
+                        <option value="香港POP" class="text-[#2F3540]">香港POP</option>
+                        <option value="上海POP" class="text-[#2F3540]">上海POP</option>
+                        <option value="北京POP" class="text-[#2F3540]">北京POP</option>
+                        <option value="成都POP" class="text-[#2F3540]">成都POP</option>
+                      </select>
+                      <button type="button" 
+                              x-show="userFilterPop" 
+                              @click.stop.prevent="userFilterPop = ''; userPage = 1" 
+                              class="dem-clear-btn has-value"
+                              title="清除选择">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- 搜索框带快捷清除 -->
+                  <div class="relative inline-flex items-center group w-64">
+                    <input type="text" x-model="userSearchQuery" @input="userPage = 1" placeholder="搜索工号、姓名、部门、POP..." class="h-8 pl-3 pr-7 text-xs border border-[#D3D7DE] rounded-[2px] w-full focus:outline-none focus:border-[#1C6EFF]">
+                    <button type="button" 
+                            x-show="userSearchQuery" 
+                            @click="userSearchQuery = ''; userPage = 1" 
+                            class="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full text-[#8A92A1] hover:text-[#1C6EFF] hover:bg-[#F0F5FF] flex items-center justify-center cursor-pointer"
+                            title="清除搜索">
+                      <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+
+                <div class="dem-table-container overflow-x-auto">
+                  <table class="dem-table w-full">
+                    <thead>
+                      <tr>
+                        <th>用户</th>
+                        <th>所属组织架构</th>
+                        <th>体验状态</th>
+                        <th>IP 归属地</th>
+                        <th>接入 POP</th>
+                        <th>访问情况 <span class="font-normal text-[#8A92A1]">（次数统计）</span></th>
+                        <th class="text-center w-16">操作</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <template x-for="item in paginatedUserList" :key="item.empId">
+                        <tr>
+                          <td>
+                            <span class="font-medium text-[#2F3540] whitespace-nowrap" x-text="item.empId + '(' + item.name + ')'"></span>
+                          </td>
+                          <td class="max-w-[220px] truncate" :title="item.dept" x-text="item.dept"></td>
+                          <td>
+                            <span :class="item.exp === '差' ? 'bg-[#D9363E]/10 text-[#D9363E]' : (item.exp === '一般' ? 'bg-[#FA721B]/10 text-[#FA721B]' : 'bg-[#12A679]/10 text-[#12A679]')"
+                                  class="px-2 py-0.5 text-[11px] rounded-[2px] font-medium"
+                                  x-text="item.exp"></span>
+                          </td>
+                          <td x-text="item.isp"></td>
+                          <td class="font-medium" x-text="item.pop"></td>
+                          <td class="font-mono text-xs whitespace-nowrap">
+                            <span class="text-[#12A679]">正常 <span :class="item.normalCount > 0 ? 'text-[#12A679]' : 'text-[#8A92A1]'" x-text="item.normalCount > 0 ? item.normalCount : '-'"></span></span>
+                            <span class="text-[#D3D7DE] mx-1">|</span>
+                            <span class="text-[#FA721B]">一般 <span :class="item.fairCount > 0 ? 'text-[#FA721B]' : 'text-[#8A92A1]'" x-text="item.fairCount > 0 ? item.fairCount : '-'"></span></span>
+                            <span class="text-[#D3D7DE] mx-1">|</span>
+                            <span class="text-[#D9363E]">差 <span :class="item.poorCount > 0 ? 'text-[#D9363E]' : 'text-[#8A92A1]'" x-text="item.poorCount > 0 ? item.poorCount : '-'"></span></span>
+                          </td>
+                          <td class="text-center">
+                            <a :href="'./DEM-用户详情.html?type=用户&empId=' + encodeURIComponent(item.empId) + '&name=' + encodeURIComponent(item.name) + '&dept=' + encodeURIComponent(item.dept)" target="_blank" class="text-[#1C6EFF] hover:underline font-medium text-xs cursor-pointer inline-flex items-center justify-center gap-0.5">详情&gt;</a>
+                          </td>
+                        </tr>
+                      </template>
+                    </tbody>
+                  </table>
+                </div>
+
+                <!-- 用户表格分页控件 -->
+                <div class="flex items-center justify-between pt-2 text-xs text-[#5C6270]">
+                  <div>
+                    共 <span class="font-medium text-[#2F3540]" x-text="totalUserCount"></span> 条记录
+                  </div>
+                  <div class="flex items-center gap-3">
+                    <div class="flex items-center gap-1">
+                      <span>每页</span>
+                      <select class="dem-select h-7 px-1 text-xs" x-model.number="userPageSize" @change="userPage = 1">
+                        <option :value="10">10 条</option>
+                        <option :value="20">20 条</option>
+                        <option :value="50">50 条</option>
+                      </select>
+                    </div>
+
+                    <div class="flex items-center gap-1">
+                      <button class="px-2.5 py-1 border border-[#D3D7DE] rounded-[2px] hover:bg-gray-50 disabled:opacity-40 disabled:hover:bg-transparent text-xs"
+                              :disabled="userPage <= 1"
+                              @click="userPage--">
+                        上一页
+                      </button>
+                      <span class="px-2 font-mono text-[#2F3540]" x-text="userPage + ' / ' + totalUserPages"></span>
+                      <button class="px-2.5 py-1 border border-[#D3D7DE] rounded-[2px] hover:bg-gray-50 disabled:opacity-40 disabled:hover:bg-transparent text-xs"
+                              :disabled="userPage >= totalUserPages"
+                              @click="userPage++">
+                        下一页
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+
+              <!-- Tab 3: 主动探测视图 (顶部横向线路选择器独立面板 + 全宽详情看板，强化层级与区分度) -->
+              <div x-show="activeTab === 'probe'" class="space-y-4">
+                
+                <!-- ① 顶部探测线路选择控制面板 (浅灰独立底色无描边容器，强化与下方详情看板的区分度) -->
+                <div class="bg-[#F7F9FC] rounded-[4px] p-3.5 space-y-3">
+                  <div class="flex items-center justify-between">
+                    <div class="text-xs font-bold text-[#2F3540] flex items-center gap-2">
+                      <span class="w-1 h-3.5 bg-[#1C6EFF] rounded-full"></span>
+                      <span>主动探测线路选择</span>
+                      <span class="px-2 py-0.5 rounded-[2px] bg-white border border-[#D3D7DE] text-[#5C6270] text-[11px] font-normal" x-text="'共 ' + probeExpStats.total + ' 条线路'"></span>
+                    </div>
+                    <div class="text-xs text-[#8A92A1] hidden sm:flex items-center gap-1">
+                      <svg class="w-3.5 h-3.5 text-[#1C6EFF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                      </svg>
+                      <span>已置顶异常线路，点击卡片快速切换下方看板；第 4 个卡片支持展开替换槽位</span>
+                    </div>
+                  </div>
+
+                  <!-- 4 个横向卡片网格 (3 个置顶/聚焦卡片 + 1 个下拉收纳替换卡片) -->
+                  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    
+                    <!-- 卡片 1 ~ 3: 前 3 个焦点槽位 -->
+                    <template x-for="(line, idx) in displaySlotLines" :key="line.id">
+                      <div class="p-3 rounded-[2px] border cursor-pointer select-none transition-all duration-150 relative flex flex-col justify-between"
+                           :class="activeProbeLineId === line.id 
+                             ? 'bg-white border-[#1C6EFF] shadow-xs ring-2 ring-[#1C6EFF]/20' 
+                             : 'bg-white border-[#D8DDE6] hover:border-[#1C6EFF] hover:shadow-2xs'"
+                           @click="selectProbeLine(line.id)">
+                        <!-- 槽位 3 特殊标记说明（如果是从更多列表中选出的替换线路） -->
+                        <div x-show="idx === 2 && !['line_hk', 'line_gz', 'line_bj'].includes(line.id)" 
+                             class="absolute -top-2 left-2 px-1.5 py-0.2 bg-[#1C6EFF] text-white text-[9px] rounded font-medium shadow-xs">
+                          已替换至槽位3
+                        </div>
+
+                        <!-- 选中角标指示 -->
+                        <div x-show="activeProbeLineId === line.id" class="absolute top-0 right-0 w-3.5 h-3.5 bg-[#1C6EFF] rounded-bl flex items-center justify-center">
+                          <svg class="w-2 h-2 text-white" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                          </svg>
+                        </div>
+
+                        <div>
+                          <div class="flex items-center justify-between mb-1.5 pr-2">
+                            <span class="font-bold text-xs truncate" :class="activeProbeLineId === line.id ? 'text-[#1C6EFF]' : 'text-[#2F3540]'" x-text="line.name"></span>
+                            <span :class="line.exp === '差' ? 'bg-[#D9363E]/10 text-[#D9363E]' : (line.exp === '一般' ? 'bg-[#FA721B]/10 text-[#FA721B]' : 'bg-[#12A679]/10 text-[#12A679]')"
+                                  class="px-1.5 py-0.5 text-[10px] rounded-[2px] font-medium shrink-0" x-text="line.exp"></span>
+                          </div>
+                          <div class="flex items-center justify-between text-[11px] text-[#8A92A1]">
+                            <span x-text="'接入 POP: ' + line.pop"></span>
+                            <span class="font-mono text-[10px]" :class="line.exp === '差' ? 'text-[#D9363E] font-medium' : 'text-[#8A92A1]'" x-text="line.exp === '差' ? '异常频发' : (line.exp === '一般' ? '轻微抖动' : '运行良好')"></span>
+                          </div>
+                        </div>
+                      </div>
+                    </template>
+
+                    <!-- 卡片 4: 更多线路下拉收纳卡片 (带搜索、状态过滤与槽位替换) -->
+                    <div class="relative" x-data="{ open: false }" @click.outside="open = false">
+                      <div class="h-full min-h-[66px] p-3 rounded-[2px] border border-dashed cursor-pointer select-none transition-all duration-150 flex flex-col justify-between"
+                           :class="open ? 'bg-white border-[#1C6EFF] shadow-xs ring-2 ring-[#1C6EFF]/20' : 'bg-white border-[#B8C2CC] hover:border-[#1C6EFF] hover:shadow-2xs'"
+                           @click="open = !open">
+                        <div class="flex items-center justify-between">
+                          <div class="flex items-center gap-1.5 font-bold text-xs" :class="open ? 'text-[#1C6EFF]' : 'text-[#2F3540]'">
+                            <svg class="w-3.5 h-3.5 text-[#1C6EFF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+                            </svg>
+                            <span>更多探测线路</span>
+                            <span class="text-[#8A92A1] font-normal" x-text="'(+' + moreLinesTotalCount + ')'"></span>
+                          </div>
+                          <svg class="w-3.5 h-3.5 text-[#8A92A1] transition-transform duration-200" :class="open ? 'rotate-180 text-[#1C6EFF]' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                          </svg>
+                        </div>
+                        <div class="flex items-center justify-between text-[11px] text-[#8A92A1] mt-1.5">
+                          <span>点击展开收纳列表</span>
+                        </div>
+                      </div>
+
+                      <!-- 悬浮下拉菜单 (带搜索与列表) -->
+                      <div x-show="open" 
+                           x-transition:enter="transition ease-out duration-150"
+                           x-transition:enter-start="opacity-0 translate-y-1 scale-98"
+                           x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+                           class="absolute right-0 top-full mt-1.5 z-40 w-80 bg-white rounded-[2px] shadow-xl border border-[#D3D7DE] p-3 space-y-2.5">
+                        
+                        <div class="flex items-center justify-between border-b border-[#F0F2F5] pb-2">
+                          <span class="font-bold text-xs text-[#2F3540]">选择线路 (与第 3 个卡片替换)</span>
+                          <span class="text-[11px] text-[#8A92A1]" x-text="'收纳池共 ' + moreLinesTotalCount + ' 条'"></span>
+                        </div>
+
+                        <!-- 搜索与状态筛选 -->
+                        <div class="space-y-1.5">
+                          <input type="text" 
+                                 x-model="moreSearchQuery" 
+                                 placeholder="快速搜索线路名称、POP节点..." 
+                                 class="w-full h-7 px-2 text-xs border border-[#D3D7DE] rounded-[2px] focus:outline-none focus:border-[#1C6EFF]">
+                          <div class="flex items-center gap-1 text-[11px]">
+                            <button class="px-2 py-0.5 rounded-[2px]" :class="!moreFilterExp ? 'bg-[#1C6EFF] text-white font-medium' : 'bg-gray-100 text-[#5C6270] hover:bg-gray-200'" @click="moreFilterExp = ''">全部</button>
+                            <button class="px-2 py-0.5 rounded-[2px]" :class="moreFilterExp === '差' ? 'bg-[#D9363E] text-white font-medium' : 'bg-[#FFF1F0] text-[#D9363E] hover:bg-[#FFE8E6]'" @click="moreFilterExp = '差'">差</button>
+                            <button class="px-2 py-0.5 rounded-[2px]" :class="moreFilterExp === '一般' ? 'bg-[#FA721B] text-white font-medium' : 'bg-[#FFF7E6] text-[#FA721B] hover:bg-[#FFEED4]'" @click="moreFilterExp = '一般'">一般</button>
+                            <button class="px-2 py-0.5 rounded-[2px]" :class="moreFilterExp === '正常' ? 'bg-[#12A679] text-white font-medium' : 'bg-[#E6F8F2] text-[#12A679] hover:bg-[#D1F2E7]'" @click="moreFilterExp = '正常'">正常</button>
+                          </div>
+                        </div>
+
+                        <!-- 线路列表 (滚动容器) -->
+                        <div class="max-h-56 overflow-y-auto divide-y divide-[#F5F7FA] custom-scrollbar pr-0.5">
+                          <template x-for="line in moreProbeLines" :key="line.id">
+                            <div class="p-2 hover:bg-[#F0F5FF] rounded cursor-pointer transition-colors flex items-center justify-between group"
+                                 @click="selectMoreLineAndSwapSlot3(line.id); open = false">
+                              <div class="min-w-0 pr-2">
+                                <div class="font-medium text-xs text-[#2F3540] truncate group-hover:text-[#1C6EFF]" x-text="line.name"></div>
+                                <div class="text-[11px] text-[#8A92A1]" x-text="'接入 POP: ' + line.pop + ' | TTFB: ' + line.ttfb"></div>
+                              </div>
+                              <span :class="line.exp === '差' ? 'bg-[#D9363E]/10 text-[#D9363E]' : (line.exp === '一般' ? 'bg-[#FA721B]/10 text-[#FA721B]' : 'bg-[#12A679]/10 text-[#12A679]')"
+                                    class="px-1.5 py-0.5 text-[10px] rounded-[2px] font-medium shrink-0" x-text="line.exp"></span>
+                            </div>
+                          </template>
+                          <div x-show="moreProbeLines.length === 0" class="py-6 text-center text-xs text-[#8A92A1]">
+                            未找到匹配的收纳线路
+                          </div>
+                        </div>
+
+                      </div>
+
+                    </div>
+
+                  </div>
+                </div>
+
+                <!-- ② 下方全宽探测线路详情看板 (满宽布局，图表展开更充裕) -->
+                <div class="border border-[#E1E5EB] rounded-[2px] bg-white p-4 space-y-4 shadow-xs">
+                  
+                  <!-- 看板头部 -->
+                  <div class="flex items-center justify-between border-b border-[#F0F2F5] pb-3">
+                    <div>
+                      <h3 class="text-sm font-semibold text-[#2F3540] flex items-center gap-2">
+                        <span x-text="currentProbeLine.name + ' 探测详情看板'"></span>
+                      </h3>
+                      <div class="text-xs text-[#8A92A1] mt-0.5" x-text="'探测节点: ' + currentProbeLine.pop + ' ── 目标业务: ' + currentApp.appName"></div>
+                    </div>
+                    <span class="px-2.5 py-0.5 text-xs font-semibold rounded-[2px] border"
+                          :class="currentProbeLine.exp === '差' ? 'bg-[#FFF1F0] text-[#D9363E] border-[#FFA39E]' : (currentProbeLine.exp === '一般' ? 'bg-[#FFFBE6] text-[#FA8C16] border-[#FFE58F]' : 'bg-[#F6FFED] text-[#52C41A] border-[#B7EB8F]')"
+                          x-text="'线路体验: ' + currentProbeLine.exp"></span>
+                  </div>
+
+                  <!-- 最近一次探测结果 (置顶展示) -->
+                  <div class="bg-[#F8FAFC] border border-[#E1E5EB] rounded-[2px] p-3 space-y-2.5">
+                    <div class="flex items-center justify-between">
+                      <div class="flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full" :class="currentProbeLine.latestResult.status === '差' ? 'bg-[#D9363E] animate-pulse' : (currentProbeLine.latestResult.status === '一般' ? 'bg-[#FA8C16]' : 'bg-[#12A679]')"></span>
+                        <span class="text-xs font-bold text-[#2F3540]">最近一次探测结果</span>
+                        <span class="text-[11px] text-[#8A92A1]" x-text="'(探测时间: ' + currentProbeLine.latestResult.time + ')'"></span>
+                      </div>
+                      <div class="flex items-center gap-2 text-xs">
+                        <span class="text-[#8A92A1]">响应状态:</span>
+                        <span class="font-mono font-bold"
+                              :class="currentProbeLine.latestResult.httpCode >= 400 ? 'text-[#D9363E]' : 'text-[#12A679]'"
+                              x-text="currentProbeLine.latestResult.httpStatusText"></span>
+                      </div>
+                    </div>
+                    <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-2.5">
+                      <div class="bg-white p-2.5 rounded-[2px] border border-[#E1E5EB]/80">
+                        <div class="text-[11px] text-[#8A92A1] mb-0.5 whitespace-nowrap">TTFB (首字节耗时)</div>
+                        <div class="text-base font-bold font-mono" :class="currentProbeLine.latestResult.status === '差' ? 'text-[#D9363E]' : 'text-[#2F3540]'" x-text="currentProbeLine.latestResult.ttfb"></div>
+                      </div>
+                      <div class="bg-white p-2.5 rounded-[2px] border border-[#E1E5EB]/80">
+                        <div class="text-[11px] text-[#8A92A1] mb-0.5 whitespace-nowrap">网络时延 (RTT)</div>
+                        <div class="text-base font-bold font-mono" :class="currentProbeLine.latestResult.status === '差' ? 'text-[#D9363E]' : 'text-[#2F3540]'" x-text="currentProbeLine.latestResult.rtt"></div>
+                      </div>
+                      <div class="bg-white p-2.5 rounded-[2px] border border-[#E1E5EB]/80">
+                        <div class="text-[11px] text-[#8A92A1] mb-0.5 whitespace-nowrap">网络抖动</div>
+                        <div class="text-base font-bold font-mono text-[#722ED1]" x-text="currentProbeLine.latestResult.jitter"></div>
+                      </div>
+                      <div class="bg-white p-2.5 rounded-[2px] border border-[#E1E5EB]/80">
+                        <div class="text-[11px] text-[#8A92A1] mb-0.5 whitespace-nowrap">数据包丢包率</div>
+                        <div class="text-base font-bold font-mono" :class="currentProbeLine.latestResult.loss !== '0.0%' ? 'text-[#D9363E]' : 'text-[#12A679]'" x-text="currentProbeLine.latestResult.loss"></div>
+                      </div>
+                      <div class="bg-white p-2.5 rounded-[2px] border border-[#E1E5EB]/80 col-span-2 sm:col-span-4 lg:col-span-1">
+                        <div class="text-[11px] text-[#8A92A1] mb-0.5 whitespace-nowrap">分段耗时</div>
+                        <div class="text-xs font-mono text-[#5C6270] truncate pt-0.5" x-text="currentProbeLine.latestResult.segments"></div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- 这一时段整体信息 (5个指标) -->
+                  <div class="space-y-3 pt-1">
+                    <div>
+                      <div class="text-xs font-semibold text-[#8A92A1] mb-2 flex items-center gap-1.5">
+                        <span>时段整体指标统计</span>
+                      </div>
+                      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
+                        <div class="bg-[#F8FAFC] py-2 px-3 rounded-[2px] border border-[#E1E5EB]/60 flex flex-col justify-between">
+                          <div class="text-xs text-[#8A92A1] mb-0.5 whitespace-nowrap">探测次数</div>
+                          <div class="text-base lg:text-lg font-bold text-[#2F3540]" x-text="currentProbeLine.count + ' 次'"></div>
+                        </div>
+                        <div class="bg-[#F8FAFC] py-2 px-3 rounded-[2px] border border-[#E1E5EB]/60 flex flex-col justify-between">
+                          <div class="text-xs text-[#8A92A1] mb-0.5 whitespace-nowrap">可用性 (体验正常占比)</div>
+                          <div class="text-base lg:text-lg font-bold text-[#12A679]" x-text="currentProbeLine.availability"></div>
+                        </div>
+                        <!-- HTTP 错误率卡片: 悬浮详情 -->
+                        <div class="bg-[#F8FAFC] py-2 px-3 rounded-[2px] border border-[#E1E5EB]/60 flex flex-col justify-between">
+                          <div class="text-xs text-[#8A92A1] mb-0.5 whitespace-nowrap">HTTP 错误率 (400-599占比)</div>
+                          <div class="flex items-center justify-between">
+                            <span class="text-base lg:text-lg font-bold text-[#FA721B]" x-text="currentProbeLine.httpError"></span>
+                            <div class="relative group cursor-pointer" x-data="{ open: false }" @mouseenter="open = true" @mouseleave="open = false">
+                              <span class="text-xs text-[#1C6EFF] hover:underline font-medium inline-flex items-center gap-0.5">
+                                详情
+                                <svg class="w-3 h-3 text-[#1C6EFF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                              </span>
+                              <div x-show="open" 
+                                   x-transition:enter="transition ease-out duration-150"
+                                   x-transition:enter-start="opacity-0 translate-y-1"
+                                   x-transition:enter-end="opacity-100 translate-y-0"
+                                   class="absolute right-0 bottom-6 z-30 w-56 p-2.5 bg-[#1E232A] text-white rounded shadow-xl text-xs space-y-1.5 pointer-events-none">
+                                <div class="font-bold border-b border-gray-700 pb-1 text-[11px] text-gray-300 flex items-center justify-between">
+                                  <span>HTTP 错误码分布</span>
+                                  <span class="font-mono text-amber-400 font-bold" x-text="currentProbeLine.httpError"></span>
+                                </div>
+                                <div class="space-y-1 text-[11px] font-mono">
+                                  <template x-for="err in currentProbeLine.errorBreakdown" :key="err.code">
+                                    <div class="flex items-center justify-between text-gray-200">
+                                      <span><b class="text-amber-300 font-medium" x-text="'【' + err.code + '】'"></b></span>
+                                      <span class="text-gray-400" x-text="err.count + '次 (' + err.ratio + ')'"></span>
+                                    </div>
+                                  </template>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        <div class="bg-[#F8FAFC] py-2 px-3 rounded-[2px] border border-[#E1E5EB]/60 flex flex-col justify-between">
+                          <div class="text-xs text-[#8A92A1] mb-0.5 whitespace-nowrap">平均数据包丢包率</div>
+                          <div class="text-base lg:text-lg font-bold text-[#1C6EFF]" x-text="currentProbeLine.loss"></div>
+                        </div>
+                        <div class="bg-[#F8FAFC] py-2 px-3 rounded-[2px] border border-[#E1E5EB]/60 flex flex-col justify-between">
+                          <div class="text-xs text-[#8A92A1] mb-0.5 whitespace-nowrap">平均 TTFB</div>
+                          <div class="text-base lg:text-lg font-bold text-[#D9363E]" x-text="currentProbeLine.ttfb"></div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- 4张趋势图: 分两行展示（第一行应用层性能趋势，第二行网络层性能趋势） -->
+                    <div class="space-y-3 pt-2">
+                      
+                      <!-- 第一行: 应用层性能趋势 -->
+                      <div>
+                        <div class="text-xs font-semibold text-[#8A92A1] mb-1.5 flex items-center gap-1.5">
+                          <span class="w-1.5 h-1.5 rounded-full bg-[#1C6EFF]"></span>
+                          <span>应用层性能趋势</span>
+                        </div>
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                          <!-- 图表 1.1: 可用性与 HTTP 错误率趋势图 -->
+                          <div class="border border-[#E1E5EB] rounded-[2px] p-3 bg-white">
+                            <div class="flex items-center justify-between mb-1">
+                              <span class="text-xs font-semibold text-[#454C59]">可用性与 HTTP 错误率趋势图</span>
+                            </div>
+                            <div id="chart-probe-avail-error" class="w-full h-[175px]"></div>
+                          </div>
+
+                          <!-- 图表 1.2: 分段耗时趋势图 -->
+                          <div class="border border-[#E1E5EB] rounded-[2px] p-3 bg-white">
+                            <div class="flex items-center justify-between mb-1">
+                              <span class="text-xs font-semibold text-[#454C59]">分段耗时趋势图</span>
+                            </div>
+                            <div id="chart-probe-seg-time" class="w-full h-[175px]"></div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- 第二行: 网络层性能趋势 -->
+                      <div>
+                        <div class="text-xs font-semibold text-[#8A92A1] mb-1.5 flex items-center gap-1.5">
+                          <span class="w-1.5 h-1.5 rounded-full bg-[#722ED1]"></span>
+                          <span>网络层性能趋势</span>
+                        </div>
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                          <!-- 图表 2.1: 网络 RTT 与抖动趋势图 -->
+                          <div class="border border-[#E1E5EB] rounded-[2px] p-3 bg-white">
+                            <div class="flex items-center justify-between mb-1">
+                              <span class="text-xs font-semibold text-[#454C59]">网络 RTT 与抖动趋势图</span>
+                            </div>
+                            <div id="chart-probe-rtt-jitter" class="w-full h-[175px]"></div>
+                          </div>
+
+                          <!-- 图表 2.2: 数据包丢包率趋势图 -->
+                          <div class="border border-[#E1E5EB] rounded-[2px] p-3 bg-white">
+                            <div class="flex items-center justify-between mb-1">
+                              <span class="text-xs font-semibold text-[#454C59]">数据包丢包率趋势图</span>
+                            </div>
+                            <div id="chart-probe-packet-loss" class="w-full h-[175px]"></div>
+                          </div>
+                        </div>
+                      </div>
+
+                    </div>
+
+                  </div>
+
+                </div>
+              </div>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+    </template>
+
+  </div>
+
+  <!-- 自动填充模板内容脚本 (匹配方案四双底座统一规范) -->
+  <script>
+    (function injectAppDetailTemplate() {
+      const tpl = document.getElementById('page-content-template');
+      if (!tpl) return;
+      ['atrust-workspace', 'sase-workspace'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+          el.innerHTML = '';
+          el.appendChild(tpl.content.cloneNode(true));
+        }
+      });
+    })();
+  </script>
+
+</body>
+</html>
