@@ -170,7 +170,7 @@
         getItemStatus(item) {
           if (!item) return '正常';
           if (item.id === 'node_app' || item.id === 'node_final_app') {
-            return this.isApplicationAbnormal(item) ? '异常' : '正常';
+            return this.isApplicationAbnormal ? (this.isApplicationAbnormal(item) ? '服务不可达' : '服务可达') : '服务可达';
           }
           return (item.status === '异常' || item.status === '差') ? '异常' : (item.status === '一般' ? '一般' : '正常');
         },
@@ -179,16 +179,16 @@
         getItemInferenceText(item) {
           if (!item) return '';
           const status = this.getItemStatus(item);
-          const isAbnormal = status === '异常';
+          const isAbnormal = status === '异常' || status === '服务不可达';
 
           // 1. 终端节点
           if (item.id === 'node_terminal') {
-            const wifiAbn = this.isWifiAbnormal(item);
+            const wifiAbn = this.isWifiAbnormal ? this.isWifiAbnormal(item) : false;
+            if (wifiAbn || this.userName?.includes('何总')) {
+              return '终端硬件负载正常 (CPU 22.5%)，但处于 Wi-Fi 极弱信号盲区 (-82 dBm)，空口同频竞争导致 38.0% 高重传与协商速率骤降。';
+            }
             if (isAbnormal) {
               return '客户端 CPU 利用率持续处于高位(>90%)，导致端侧处理排队延迟。';
-            }
-            if (wifiAbn) {
-              return '端侧硬件资源充裕，但 Wi-Fi 信号衰减明显，存在高帧重传。';
             }
             return '核心指标均正常，未发现明显异常';
           }
@@ -233,109 +233,15 @@
             return '核心指标均正常，未发现明显异常';
           }
 
-          // 7. 应用节点
+          // 7. 应用节点 (简要说明，不要太长)
           if (item.id === 'node_app' || item.id === 'node_final_app') {
-            return this.getApplicationInferenceText(item);
-          }
-
-          if (item.summary && !item.summary.includes('正常') && !item.summary.includes('指标正常')) {
-            return item.summary;
-          }
-
-          return isAbnormal ? '该环节检测到指标超出健康基线，存在劣变风险。' : '核心指标均正常，未发现明显异常';
-        },
-
-        // 获取点/段定性 HTML (状态以 Tag 形式呈现，符合 comp-tag.md 浅色标签规范)
-        getQualitativeHtml(item) {
-          if (!item) return '';
-          const isAbnormal = item.status === '异常' || item.status === '差';
-          const isWarning = item.status === '一般';
-          const name = this.formatItemName(item.name || '');
-
-          const isSegment = item.itemType === 'segment' || item.id?.startsWith('seg_');
-          const typePrefix = isSegment ? '链路段' : '节点状态';
-
-          let statusTag = '';
-          if (isAbnormal) {
-            statusTag = `<span class="inline-flex items-center px-2 py-0.5 rounded-[2px] text-xs font-normal bg-[#CF171D]/10 text-[#CF171D] mx-1.5 align-middle shrink-0 whitespace-nowrap">${typePrefix}：${item.status || '异常'}</span>`;
-          } else if (isWarning) {
-            statusTag = `<span class="inline-flex items-center px-2 py-0.5 rounded-[2px] text-xs font-normal bg-[#FA721B]/10 text-[#FA721B] mx-1.5 align-middle shrink-0 whitespace-nowrap">${typePrefix}：一般</span>`;
-          } else {
-            statusTag = `<span class="inline-flex items-center px-2 py-0.5 rounded-[2px] text-xs font-normal bg-[#12A679]/10 text-[#12A679] mx-1.5 align-middle shrink-0 whitespace-nowrap">${typePrefix}：正常</span>`;
-          }
-
-          // 优先采用数据对象内自定义的 summary
-          if (item.summary) {
-            const isNode = item.id?.startsWith('node_');
-            const label = isNode ? `节点（${name}）` : `链路段（${name}）`;
-            return `<span class="font-medium text-[#2F3540]">${label}</span>${statusTag}${item.summary}`;
-          }
-
-          // 1. 终端节点
-          if (item.id === 'node_terminal') {
-            const termName = this.currentSlice?.topology?.client?.name || item.clientName || name || 'MacBook Pro';
-            const wifiAbn = this.isWifiAbnormal(item);
             if (isAbnormal) {
-              return `<span class="font-medium text-[#2F3540]">终端（${termName}）</span>${statusTag}客户端 CPU 利用率持续处于高位(>90%)，导致端侧处理排队延迟。`;
+              return '目标应用服务响应异常，HTTP 状态码异常或探针超时。';
             }
-            if (wifiAbn) {
-              return `<span class="font-medium text-[#2F3540]">终端（${termName}）</span>${statusTag}端侧硬件资源充裕，但 Wi-Fi 信号衰减明显，存在高帧重传。`;
-            }
-            return `<span class="font-medium text-[#2F3540]">终端（${termName}）</span>${statusTag}核心指标均正常，未发现明显异常`;
+            return '当前时刻单次访问与全网多点探测正常响应，对外服务能力可达。';
           }
 
-          // 2. 终端-POP段
-          if (item.id === 'seg_client_pop') {
-            if (isAbnormal) {
-              return `<span class="font-medium text-[#2F3540]">链路段（终端 ➔ POP）</span>${statusTag}终端到本地出口网关首跳即劣变，导致物理直连与加密隧道均发生时延上升与丢包。`;
-            }
-            return `<span class="font-medium text-[#2F3540]">链路段（终端 ➔ POP）</span>${statusTag}核心指标均正常，未发现明显异常`;
-          }
-
-          // 3. POP节点
-          if (item.id === 'node_pop') {
-            const popName = this.currentSlice?.topology?.pop?.name || item.popName || name || '北京POP';
-            if (isAbnormal) {
-              return `<span class="font-medium text-[#2F3540]">POP节点（${popName}）</span>${statusTag}POP节点处理时延上升，丢包率升至2.1%，抖动明显。`;
-            }
-            return `<span class="font-medium text-[#2F3540]">POP节点（${popName}）</span>${statusTag}核心指标均正常，未发现明显异常`;
-          }
-
-          // 4. POP-连接器段
-          if (item.id === 'seg_pop_gw') {
-            if (isAbnormal) {
-              return `<span class="font-medium text-[#2F3540]">链路段（POP ➔ 连接器）</span>${statusTag}POP到连接器骨干专线发生拥塞与丢包，RTT时延升至120ms。`;
-            }
-            return `<span class="font-medium text-[#2F3540]">链路段（POP ➔ 连接器）</span>${statusTag}核心指标均正常，未发现明显异常`;
-          }
-
-          // 5. 连接器节点
-          if (item.id === 'node_connector') {
-            const gwName = this.currentSlice?.topology?.gw?.name || item.connectorName || name || 'GW连接器';
-            if (isAbnormal) {
-              return `<span class="font-medium text-[#2F3540]">连接器（${gwName}）</span>${statusTag}连接器CPU负荷超限，转发时延异常升高。`;
-            }
-            return `<span class="font-medium text-[#2F3540]">连接器（${gwName}）</span>${statusTag}核心指标均正常，未发现明显异常`;
-          }
-
-          // 6. 连接器-应用段
-          if (item.id === 'seg_gw_app' || item.id === 'seg_af_oa') {
-            if (isAbnormal) {
-              return `<span class="font-medium text-[#2F3540]">链路段（连接器 ➔ 应用）</span>${statusTag}连接器至内网服务器链路发生丢包重传，连接延迟上升。`;
-            }
-            return `<span class="font-medium text-[#2F3540]">链路段（连接器 ➔ 应用）</span>${statusTag}核心指标均正常，未发现明显异常`;
-          }
-
-          // 7. 应用节点
-          if (item.id === 'node_app' || item.id === 'node_final_app') {
-            const appName = item.id === 'node_final_app' ? (this.currentSlice?.topology?.finalApp?.name || '总部OA') : (this.currentApp?.name || item.appName || name || 'OA系统');
-            if (isAbnormal) {
-              return `<span class="font-medium text-[#2F3540]">应用（${appName}）</span>${statusTag}同时刻全网多分支访问体验普遍受损，错误率上升，推断为应用服务异常或过载。`;
-            }
-            return `<span class="font-medium text-[#2F3540]">应用（${appName}）</span>${statusTag}核心指标均正常，未发现明显异常`;
-          }
-
-          return `<span class="font-medium text-[#2F3540]">链路段/节点</span>${statusTag}核心指标均正常，未发现明显异常`;
+          return '核心指标均正常，未发现明显异常';
         },
 
         // 获取点/段第一句定性文字 (纯文本备用)
@@ -420,12 +326,12 @@
         getTerminalWifiRssi(item) {
           if (item?.wifi?.rssi) return item.wifi.rssi;
           const isAbnormal = this.isWifiAbnormal(item);
-          return isAbnormal ? '-78 dBm' : '-52 dBm';
+          return isAbnormal ? '-82 dBm' : '-52 dBm';
         },
         getTerminalWifiRetrans(item) {
           if (item?.wifi?.retrans) return item.wifi.retrans;
           const isAbnormal = this.isWifiAbnormal(item);
-          return isAbnormal ? '31.0%' : '2.1%';
+          return isAbnormal ? '38.0%' : '2.1%';
         },
         isWifiAbnormal(item) {
           if (item?.wifi?.status === '异常') return true;
@@ -438,17 +344,47 @@
           return false;
         },
 
-        // POP-连接器段逐跳诊断数据
+        // POP-连接器段逐跳诊断数据 (标准真实ASN与地理位置展示)
         getPopConnectorHopTraces(item) {
           if (item?.hopTraces && item.hopTraces.length > 0) return item.hopTraces;
           const isAbn = item?.status === '异常' || item?.status === '差';
           return [
-            { hop: 1, ip: '10.255.0.1', asn: 'POP 内网出口', loc: '北京', rtt: '2ms', diffRtt: '-', loss: '0.0%', diffLoss: '-', jitter: '1ms', diffJitter: '-', status: '正常' },
-            { hop: 2, ip: '219.141.136.12', asn: '中国电信骨干网', loc: '北京', rtt: '8ms', diffRtt: '+6ms', loss: '0.0%', diffLoss: '+0.0%', jitter: '1ms', diffJitter: '+0ms', status: '正常' },
-            { hop: 3, ip: '202.97.65.18', asn: '电信 163 骨干', loc: '上海', rtt: '22ms', diffRtt: '+14ms', loss: '0.0%', diffLoss: '+0.0%', jitter: '2ms', diffJitter: '+1ms', status: '正常' },
-            { hop: 4, ip: '202.97.80.201', asn: '跨域专线互联对等点', loc: '深圳', rtt: isAbn ? '118ms' : '28ms', diffRtt: isAbn ? '+96ms' : '+6ms', loss: isAbn ? '4.8%' : '0.0%', diffLoss: isAbn ? '+4.8%' : '+0.0%', jitter: isAbn ? '18ms' : '2ms', diffJitter: isAbn ? '+16ms' : '+0ms', status: isAbn ? '异常' : '正常' },
-            { hop: 5, ip: '10.100.0.1', asn: '连接器接入点 (GW)', loc: '总部机房', rtt: isAbn ? '120ms' : '30ms', diffRtt: '+2ms', loss: isAbn ? '5.0%' : '0.0%', diffLoss: isAbn ? '+0.2%' : '+0.0%', jitter: isAbn ? '18ms' : '2ms', diffJitter: '+0ms', status: isAbn ? '异常' : '正常' }
+            { hop: 1, ip: '10.255.0.1', tag: 'POP网关', tagType: 'default', asn: '深信服 SASE 骨干网 (POP内网出口)', loc: '中国·北京', rtt: '2ms', diffRtt: '-', loss: '0.0%', diffLoss: '-', jitter: '1ms', diffJitter: '-', status: '正常' },
+            { hop: 2, ip: '219.141.136.12', tag: '运营商汇聚', tagType: 'default', asn: 'AS23724 中国电信北京节点', loc: '中国·北京', rtt: '8ms', diffRtt: '+6ms', loss: '0.0%', diffLoss: '+0.0%', jitter: '1ms', diffJitter: '+0ms', status: '正常' },
+            { hop: 3, ip: '202.97.65.18', tag: '骨干传输', tagType: 'default', asn: 'AS4134 中国电信骨干网', loc: '中国·上海', rtt: '22ms', diffRtt: '+14ms', loss: '0.0%', diffLoss: '+0.0%', jitter: '2ms', diffJitter: '+1ms', status: '正常' },
+            { hop: 4, ip: '10.100.0.1', tag: '连接器', tagType: 'default', asn: '企业内网 (连接器接入点)', loc: '中国·深圳 (总部机房)', rtt: isAbn ? '120ms' : '28ms', diffRtt: isAbn ? '+98ms' : '+6ms', loss: isAbn ? '5.0%' : '0.0%', diffLoss: isAbn ? '+5.0%' : '+0.0%', jitter: isAbn ? '18ms' : '2ms', diffJitter: isAbn ? '+16ms' : '+0ms', status: isAbn ? '异常' : '正常' }
           ];
+        },
+
+        // POP 节点：本次处理状态 (POP 处理本次请求流量的数据，吞吐无基线值)
+        getPopMomentMetrics(item) {
+          const abnormal = item?.status === '异常' || item?.status === '差';
+          const items = [
+            { label: '转发时延', value: abnormal ? '32ms' : '6ms', num: abnormal ? 32 : 6, base: 15, isPositive: false, note: abnormal ? '处理排队升高 (基线 < 15ms)' : '基线 < 15ms' },
+            { label: '丢包率', value: abnormal ? '2.1%' : '0.02%', num: abnormal ? 2.1 : 0.02, base: 0.1, isPositive: false, note: abnormal ? '处理丢弃上升 (基线 < 0.1%)' : '基线 < 0.1%' },
+            { label: '抖动', value: abnormal ? '11ms' : '2ms', num: abnormal ? 11 : 2, base: 5, isPositive: false, note: abnormal ? '处理波动明显 (基线 < 5ms)' : '基线 < 5ms' },
+            { label: '吞吐', value: abnormal ? '20 Mbps' : '480 Mbps', num: abnormal ? 20 : 480, base: null, isPositive: true, note: '单连接承载吞吐' }
+          ];
+          return items.map(m => ({ ...m, color: m.base ? this.getMetricColor(m.num, m.base, m.isPositive) : 'text-[#2F3540]' }));
+        },
+
+        // POP 节点：POP健康状态 (多线路聚合，整体吞吐有基线值)
+        getPopSelfStatus(item) {
+          const abnormal = item?.status === '异常' || item?.status === '差';
+          const popName = this.currentSlice?.topology?.pop?.name || item?.name || '北京POP';
+          const lines = [
+            { name: `${popName} 线路-01`, carrier: '电信专线', status: abnormal ? '异常' : '正常' },
+            { name: `${popName} 线路-02`, carrier: '联通专线', status: '正常' },
+            { name: `${popName} 线路-03`, carrier: '移动专线', status: '正常' }
+          ];
+          return {
+            popName,
+            overallThroughput: abnormal ? '10.4 Gbps' : '2.4 Gbps',
+            overallStatus: abnormal ? '异常' : '正常',
+            lines,
+            total: lines.length,
+            abnormalCount: lines.filter(l => l.status === '异常').length
+          };
         },
 
         /**
@@ -490,56 +426,102 @@
           return '正常';
         },
 
-        // 应用节点健康与推断依据辅助方法
+        // 应用节点健康与推断依据辅助方法 (以人的视角/专家视角动态推断)
         isApplicationHealthy(item) {
           const rootCause = this.currentSlice?.analysis?.rootCause || '';
           if (rootCause.includes('Wi-Fi') || rootCause.includes('无线') || rootCause.includes('网关')) {
             return true;
           }
-          return item.status !== '异常';
+          return item?.status !== '异常' && item?.status !== '差';
         },
         isApplicationAbnormal(item) {
           return !this.isApplicationHealthy(item);
         },
         getApplicationInferenceText(item) {
           const isAppHealthy = this.isApplicationHealthy(item);
+          const appName = this.currentApp?.name || item?.name || 'OA系统';
           if (isAppHealthy) {
-            return '核心指标均正常，未发现明显异常';
+            return `近10分钟全网有 320 人并发访问【${appName}】，受损用户仅 2 人 (占比 0.6%)，平均可用性高达 99.8%，表明应用可达且服务能力充裕，大概率应用自身不存在故障，本次访问慢系由前端无线接入链路拖慢所致。`;
           }
-          return '同时刻全网多分支访问体验普遍受损，错误率上升，推断为应用服务异常或过载。';
+          return `近10分钟全网并发访问出现多例响应超时或 HTTP 5xx 错误，可用性降至 45%，推断为应用服务器自身过载或服务异常。`;
+        },
+        getApplicationTimeRange(item) {
+          const time = this.currentSlice?.time || this.currentPoint?.time || '16:00';
+          if (time === '16:00') return '15:55~16:05';
+          if (time === '16:05') return '16:00~16:10';
+          if (time === '16:15') return '16:10~16:20';
+          if (time === '16:20') return '16:15~16:25';
+          if (time === '16:30') return '16:25~16:35';
+          try {
+            const parts = time.split(':');
+            if (parts.length === 2) {
+              let h = parseInt(parts[0], 10);
+              let m = parseInt(parts[1], 10);
+              let startM = m - 5;
+              let startH = h;
+              if (startM < 0) { startM += 60; startH -= 1; }
+              let endM = m + 5;
+              let endH = h;
+              if (endM >= 60) { endM -= 60; endH += 1; }
+              const pad = n => String(n).padStart(2, '0');
+              return `${pad(startH)}:${pad(startM)}~${pad(endH)}:${pad(endM)}`;
+            }
+          } catch (e) {}
+          return '15:55~16:05';
         },
         getApplicationAudienceCount(item) {
-          return 42;
+          const isHeZong = this.userName?.includes('何总') || this.userId === 'usr_hezong';
+          if (isHeZong) return '320';
+          const isAppHealthy = this.isApplicationHealthy(item);
+          return isAppHealthy ? '320' : 42;
         },
         getApplicationBranchCount(item) {
-          return 3;
+          const isHeZong = this.userName?.includes('何总') || this.userId === 'usr_hezong';
+          if (isHeZong) return 12;
+          const isAppHealthy = this.isApplicationHealthy(item);
+          return isAppHealthy ? 12 : 3;
         },
         getApplicationDamagedCount(item) {
+          const isHeZong = this.userName?.includes('何总') || this.userId === 'usr_hezong';
+          if (isHeZong) return 2; // 仅 2 人受损
           const isAppHealthy = this.isApplicationHealthy(item);
-          return isAppHealthy ? 13 : 36;
+          return isAppHealthy ? 2 : 28;
         },
         getApplicationAudiencePercent(item) {
+          const isHeZong = this.userName?.includes('何总') || this.userId === 'usr_hezong';
+          if (isHeZong) return '0.6%';
           const isAppHealthy = this.isApplicationHealthy(item);
-          return isAppHealthy ? '30%' : '85%';
+          return isAppHealthy ? '0.6%' : '66.7%';
         },
         getApplicationTotalRequests(item) {
-          return '15,820';
+          const isHeZong = this.userName?.includes('何总') || this.userId === 'usr_hezong';
+          if (isHeZong) return '2,860';
+          const isAppHealthy = this.isApplicationHealthy(item);
+          return isAppHealthy ? '2,860' : '820';
         },
         getApplicationAvailability(item) {
+          const isHeZong = this.userName?.includes('何总') || this.userId === 'usr_hezong';
+          if (isHeZong) return '99.8%';
           const isAppHealthy = this.isApplicationHealthy(item);
-          return isAppHealthy ? '96.2%' : '62.5%';
+          return isAppHealthy ? '99.8%' : '62.5%';
         },
         getApplicationHttpErrorRate(item) {
+          const isHeZong = this.userName?.includes('何总') || this.userId === 'usr_hezong';
+          if (isHeZong) return '0.12%';
           const isAppHealthy = this.isApplicationHealthy(item);
-          return isAppHealthy ? '1.25%' : '8.40%';
+          return isAppHealthy ? '0.12%' : '8.40%';
         },
         getApplicationPacketLoss(item) {
+          const isHeZong = this.userName?.includes('何总') || this.userId === 'usr_hezong';
+          if (isHeZong) return '0.0%';
           const isAppHealthy = this.isApplicationHealthy(item);
-          return isAppHealthy ? '0.8%' : '4.6%';
+          return isAppHealthy ? '0.0%' : '4.6%';
         },
         getApplicationAvgTtfb(item) {
+          const isHeZong = this.userName?.includes('何总') || this.userId === 'usr_hezong';
+          if (isHeZong) return '48 ms';
           const isAppHealthy = this.isApplicationHealthy(item);
-          return isAppHealthy ? '185 ms' : '1,280 ms';
+          return isAppHealthy ? '48 ms' : '1,280 ms';
         },
 
         // 应用列表原始数据
@@ -1041,7 +1023,7 @@
                 const fullUserName = paramEmpId ? `${paramEmpId}（${nameOnly}）` : nameOnly;
                 const deptText = paramDept || '深信服科技 / 研发中心 / DEM产品部';
 
-                if (paramName?.includes('何总') || paramEmpId === '4343' || paramEmpId === '45343' || nameOnly?.includes('何总')) {
+                if (paramName?.includes('何总') || paramEmpId === '45232' || paramEmpId === '4343' || paramEmpId === '45343' || nameOnly?.includes('何总')) {
                   this.loadHeZongScriptData(fullUserName, deptText);
                 } else {
                   this.loadDigiPlusMariaScriptData();
@@ -1102,11 +1084,11 @@
                   applyHeaderStats(selectedItem);
                   this.replaceUserMockData(branchName);
                   loadedCustom = true;
-                } else if (valLower.includes('何总') || nameLower.includes('何总') || valLower.includes('4343') || nameLower.includes('4343') || valLower.includes('45343') || nameLower.includes('45343')) {
+                } else if (valLower.includes('何总') || nameLower.includes('何总') || valLower.includes('45232') || nameLower.includes('45232') || valLower.includes('4343') || nameLower.includes('4343') || valLower.includes('45343') || nameLower.includes('45343')) {
                   // 特殊处理：何总对应办公室 Wi-Fi 导致访问卡慢排障完整剧本
                   this.queryType = '用户';
                   const name = selectedItem?.label || `${queryValue}`;
-                  const dept = selectedItem?.sub || selectedItem?.dept || '/深信服/总经办';
+                  const dept = selectedItem?.sub || selectedItem?.dept || '深信服科技 / 总裁办 / 总经办';
                   this.loadHeZongScriptData(name, dept);
                   applyHeaderStats(selectedItem);
                   loadedCustom = true;
@@ -1180,25 +1162,22 @@
           let activeSlotConfigs = [];
 
           if (isHeZong) {
-            // 何总专属排障剧本：上午与下午前期访问正常，异常点集中在 16:00 - 18:00 (含多个异常点)
+            // 何总专属排障剧本：08:30~15:45 在工位访问全部正常；16:00~16:30 进入 16 楼 VIP 接待室弱信号盲区 (全部异常)
             activeSlotConfigs = [
               { slot: 1, minute: 30, exp: '正常', score: 95, ttfb: 68, loss: '0.0%', sr: '100%' },   // 08:30
               { slot: 3, minute: 75, exp: '正常', score: 92, ttfb: 72, loss: '0.0%', sr: '100%' },   // 09:15
               { slot: 5, minute: 120, exp: '正常', score: 96, ttfb: 64, loss: '0.0%', sr: '100%' },  // 10:00
               { slot: 8, minute: 190, exp: '正常', score: 90, ttfb: 74, loss: '0.0%', sr: '100%' },  // 11:10
-              { slot: 12, minute: 280, exp: '正常', score: 94, ttfb: 66, loss: '0.0%', sr: '100%' }, // 12:40
               { slot: 15, minute: 340, exp: '正常', score: 91, ttfb: 71, loss: '0.0%', sr: '100%' }, // 13:40
               { slot: 18, minute: 390, exp: '正常', score: 93, ttfb: 67, loss: '0.0%', sr: '100%' }, // 14:30
               { slot: 21, minute: 435, exp: '正常', score: 89, ttfb: 78, loss: '0.1%', sr: '99.8%' },// 15:15
               { slot: 23, minute: 465, exp: '正常', score: 92, ttfb: 70, loss: '0.0%', sr: '100%' }, // 15:45
-              // === 16:00 - 18:00 异常集中区 (多个异常点) ===
-              { slot: 24, minute: 480, exp: isPoorApp ? '差' : '正常', score: isPoorApp ? 32 : 95, ttfb: isPoorApp ? 1260 : 65, loss: isPoorApp ? '4.2%' : '0.0%', sr: isPoorApp ? '99.8%' : '100%' }, // 16:00 (典型故障主点)
-              { slot: 26, minute: 500, exp: isPoorApp ? '差' : '正常', score: isPoorApp ? 36 : 92, ttfb: isPoorApp ? 1180 : 70, loss: isPoorApp ? '3.9%' : '0.0%', sr: isPoorApp ? '99.8%' : '100%' }, // 16:20
-              { slot: 28, minute: 520, exp: isPoorApp ? '差' : '正常', score: isPoorApp ? 28 : 94, ttfb: isPoorApp ? 1320 : 64, loss: isPoorApp ? '4.5%' : '0.0%', sr: isPoorApp ? '99.7%' : '100%' }, // 16:40
-              { slot: 30, minute: 545, exp: isPoorApp ? '差' : '正常', score: isPoorApp ? 34 : 91, ttfb: isPoorApp ? 1240 : 72, loss: isPoorApp ? '4.1%' : '0.0%', sr: isPoorApp ? '99.8%' : '100%' }, // 17:05
-              { slot: 32, minute: 570, exp: (isPoorApp || isFairApp) ? '一般' : '正常', score: (isPoorApp || isFairApp) ? 68 : 93, ttfb: (isPoorApp || isFairApp) ? 480 : 68, loss: (isPoorApp || isFairApp) ? '1.8%' : '0.0%', sr: (isPoorApp || isFairApp) ? '99.9%' : '100%' }, // 17:30
-              { slot: 34, minute: 585, exp: isPoorApp ? '差' : '正常', score: isPoorApp ? 38 : 95, ttfb: isPoorApp ? 1150 : 66, loss: isPoorApp ? '3.8%' : '0.0%', sr: isPoorApp ? '99.8%' : '100%' }, // 17:45
-              { slot: 35, minute: 598, exp: (isPoorApp || isFairApp) ? '一般' : '正常', score: (isPoorApp || isFairApp) ? 72 : 90, ttfb: (isPoorApp || isFairApp) ? 380 : 75, loss: (isPoorApp || isFairApp) ? '1.2%' : '0.0%', sr: '100%' }  // 17:58
+              // === 16:00 - 16:30 VIP接待室 Wi-Fi 弱信号与同频干扰故障期 (全部异常) ===
+              { slot: 24, minute: 480, exp: isPoorApp ? '差' : '正常', score: isPoorApp ? 28 : 95, ttfb: isPoorApp ? 1420 : 65, loss: isPoorApp ? '5.2%' : '0.0%', sr: isPoorApp ? '99.7%' : '100%' }, // 16:00 (典型故障主点)
+              { slot: 25, minute: 488, exp: isPoorApp ? '差' : '正常', score: isPoorApp ? 32 : 92, ttfb: isPoorApp ? 1360 : 70, loss: isPoorApp ? '4.9%' : '0.0%', sr: isPoorApp ? '99.8%' : '100%' }, // 16:08
+              { slot: 26, minute: 495, exp: isPoorApp ? '差' : '正常', score: isPoorApp ? 25 : 94, ttfb: isPoorApp ? 1450 : 64, loss: isPoorApp ? '5.5%' : '0.0%', sr: isPoorApp ? '99.6%' : '100%' }, // 16:15
+              { slot: 27, minute: 502, exp: isPoorApp ? '差' : '正常', score: isPoorApp ? 36 : 91, ttfb: isPoorApp ? 1320 : 72, loss: isPoorApp ? '4.6%' : '0.0%', sr: isPoorApp ? '99.8%' : '100%' }, // 16:22
+              { slot: 28, minute: 510, exp: isPoorApp ? '差' : '正常', score: isPoorApp ? 30 : 93, ttfb: isPoorApp ? 1390 : 68, loss: isPoorApp ? '5.0%' : '0.0%', sr: isPoorApp ? '99.7%' : '100%' }  // 16:30
             ];
           } else {
             activeSlotConfigs = [
@@ -1798,18 +1777,18 @@
           this.initPinnedApps();
         },
 
-        // 加载完整的【何总办公室 Wi-Fi / 本地网关导致访问卡慢】排障剧本 Mock 数据
+        // 加载完整的【何总16楼VIP接待室 Wi-Fi 弱信号与同频干扰导致访问卡慢】排障剧本 Mock 数据
         loadHeZongScriptData(userDisplayName, userDept) {
           this.queryType = '用户';
-          this.userName = userDisplayName || '4343（何总）';
-          this.userDept = userDept || '/深信服/总经办 (接入北京POP)';
+          this.userName = userDisplayName || '45232（何总）';
+          this.userDept = userDept || '深信服科技 / 总裁办 / 总经办 (接入北京POP)';
           this.userId = 'usr_hezong';
           this.userTerminal = 'MacBook Pro (何总专用)';
           this.userPop = '北京POP';
           this.overallExperience = '差';
           this.totalApps = 16;
-          this.poorApps = 2;
-          this.fairApps = 2;
+          this.poorApps = 3;
+          this.fairApps = 1;
           this.normalApps = 12;
 
           this.rawAppList = [
@@ -1819,23 +1798,23 @@
               domain: 'https://oa.sangfor.corp',
               experience: '差',
               tag: '内网办公',
-              summary: '用户通过 ZTNA 访问 OA系统 响应变慢（TTFB 1,260ms）。排查确认办公室 Wi-Fi 信号衰减严重 (-78 dBm) 且重传率高达 31%，本地 LAN 网关丢包 3.8%，导致客户端至北京 POP 接入段质量受损。后续 ZTNA 连接器与后端 OA 应用本身性能均健康。',
-              abnormalExplain: '客户端到 POP 接入段时延 188ms、丢包 4.2%；办公室 Wi-Fi 信号强度 -78 dBm、重传率 31%、本地网关丢包 3.8%。',
+              summary: '何总在 16 楼 VIP 接待室通过 ZTNA 访问 OA系统 响应极慢（真实访问 TTFB 1,420ms）。排查确认接待室处于走廊 Wi-Fi 边缘盲区，信号强度衰减至 -82 dBm，空口同频竞争导致 38% 高重传，第一跳本地局域网网关丢包 4.8%。后续北京 POP 接入点、专线连接器与 OA 后端服务器本身性能探针均健康（HTTP 200，内部处理耗时 48ms）。',
+              abnormalExplain: '终端 Wi-Fi 处于弱信号盲区 (-82 dBm)、空口重传率 38.0%、本地局域网网关丢包 4.8%、终端到 POP 时延 198ms / 丢包 5.2%。',
               aiSummary: {
-                summaryHtml: '访问 <span class="font-bold text-[#2F3540]">OA系统</span> 体验差（真实访问 TTFB 1,260ms / 动态基线 300ms），排查确认异常收敛于<span class="text-[#F52727] font-bold">“办公室无线接入（Wi-Fi）及终端到本地 LAN 网关接入段”</span>（Wi-Fi 信号强度 -78 dBm、重传率 31%、局域网网关丢包 3.8%、客户端到 POP 时延 188ms / 丢包 4.2% / 抖动 32ms）。后续 POP 接入点、ZTNA 连接器与 OA 应用服务器均健康（HTTP 200，可用性 99.8%，错误率 0.2%）。同期访问的 <span class="font-bold text-[#2F3540]">ERP系统</span> 亦呈相同卡慢现象，印证为本地无线接入环境质量导致多应用普遍卡慢，排除单应用服务端故障。建议优化无线 AP 信道或切换至有线网络办公。',
+                summaryHtml: '访问 <span class="font-bold text-[#2F3540]">OA系统</span> 体验差（真实访问 TTFB 1,420ms / 动态基线 300ms），排查确认异常收敛于<span class="text-[#F52727] font-bold">“终端无线接入（Wi-Fi）及终端到本地 LAN 网关接入段”</span>（Wi-Fi 信号强度 -82 dBm、空口重传率 38%、局域网网关丢包 4.8%、客户端到 POP 时延 198ms / 丢包 5.2% / 抖动 45ms）。后续北京 POP 接入点、SASE 骨干专线、总部连接器与 OA 应用服务器均健康（探针 TTFB 48ms，HTTP 200，错误率 0%）。同期访问的 <span class="font-bold text-[#2F3540]">ERP系统</span>、<span class="font-bold text-[#2F3540]">企业邮箱</span> 亦呈相同卡慢，印证为终端本地无线弱信号盲区导致普遍卡慢，排除了单应用服务端故障。建议切换至有线网络或调优接待室无线 AP。',
                 problemLocation: {
                   tag: '终端无线 Wi-Fi / 本地 LAN 网关接入异常',
-                  abnormalPoint: '办公室 Wi-Fi 信号弱 (-78 dBm) & 接入网关丢包 3.8%',
-                  abnormalFeature: '客户端->POP RTT 188ms / 丢包 4.2% / 抖动 32ms；Wi-Fi 重传 31%；后续 ZTNA 分段与 OA 应用正常'
+                  abnormalPoint: '16楼VIP接待室 Wi-Fi 信号弱 (-82 dBm) & 本地网关丢包 4.8%',
+                  abnormalFeature: 'MacBook Pro 空口重传 38%；客户端->POP RTT 198ms / 丢包 5.2% / 抖动 45ms；后续 SASE 分段与 OA 后端应用正常'
                 },
                 impactScope: {
-                  users: '何总 (总经办)',
-                  branches: '北京办公室 (接入北京POP)',
-                  apps: 'OA系统、ERP系统 (所有经此 Wi-Fi 接入的内网应用均卡慢)'
+                  users: '何总 (工号 45232，总经办)',
+                  branches: '北京办公室 16 楼 VIP 接待室 (接入北京POP)',
+                  apps: 'OA系统、ERP系统、企业邮箱 (经此弱信号 Wi-Fi 接入的所有应用均卡慢)'
                 },
                 advice: {
-                  stakeholders: '终端用户 & 办公网络管理员',
-                  actions: '1. 建议终端用户连接邻近 5GHz 强信号 AP 或插有线网线；2. 建议网络管理员检查办公室 AP 覆盖与信道干扰，进行 AP 调优。'
+                  stakeholders: '何总 (终端用户) & IT 办公网络管理员',
+                  actions: '1. 建议终端用户连接会议桌有线网线或就近 5GHz 强信号 Wi-Fi；2. 建议网络管理员对 16 楼 VIP 接待室进行无线 AP 射频功率调优或加装补盲 AP。'
                 }
               },
               slices: [
@@ -1845,169 +1824,271 @@
                   time: '16:00',
                   minute: 480,
                   range: '15:55~16:00',
-                  successRate: '99.8%',
+                  successRate: '99.7%',
                   status: '异常',
-                  sampleIdx: 9,
+                  sampleIdx: 8,
                   analysis: {
-                    rootCause: '异常收敛于<span class="text-[#F52727] font-medium">【办公室无线接入 (Wi-Fi) 及终端到本地 LAN 网关接入段】</span>。办公室 Wi-Fi 信号衰减严重 (-78 dBm) 且信道竞争引发高重传，导致网关及接入段时延高、丢包，从而导致整体访问体验差。',
-                    feature: 'Wi-Fi 信号强度 -78 dBm、重传率 31%，本地局域网网关时延 86ms / 丢包 3.8%，终端至 POP 接入段时延 188ms / 丢包 4.2% / 抖动 32ms。',
-                    advice: '责任归属【本地无线接入/局域网】。建议终端用户连接 5GHz Wi-Fi 或插网线，网管优化 AP 信道与功率。'
+                    rootCause: '异常收敛于<span class="text-[#F52727] font-medium">【办公室无线接入 (Wi-Fi) 及终端到本地 LAN 网关接入段】</span>。16 楼 VIP 接待室处于 Wi-Fi 弱信号盲区 (-82 dBm) 且空口同频竞争引发 38% 高重传，导致第一跳本地网关及接入段高时延、高丢包，导致整体访问体验差。',
+                    feature: 'Wi-Fi 信号强度 -82 dBm、重传率 38%，本地局域网网关时延 95ms / 丢包 4.8%，终端至 POP 接入段时延 198ms / 丢包 5.2% / 抖动 45ms。',
+                    advice: '责任归属【本地无线接入/局域网】。建议终端用户插会议室网线或连接 5GHz Wi-Fi，网管优化接待室 AP 信道与发射功率。'
                   },
                   topology: {
-                    client: { name: '何总 MacBook Pro', sub: '终端 (正常)', status: '正常' },
-                    segment1: { name: 'WiFi', delay: '188ms', loss: '4.2%', jitter: '32ms', status: '异常', targetId: 'seg_client_pop' },
+                    client: { name: '何总 MacBook Pro', sub: '终端 (无线异常)', status: '异常', targetId: 'node_terminal' },
+                    segment1: { name: 'WiFi', delay: '198ms', loss: '5.2%', jitter: '45ms', status: '异常', targetId: 'seg_client_pop' },
                     pop: { name: '北京POP', sub: 'POP节点 (正常)', status: '正常', targetId: 'node_pop' },
-                    segment2: { name: '连接器', delay: '28ms', loss: '0.1%', jitter: '2ms', status: '正常', targetId: 'seg_pop_gw' },
+                    segment2: { name: '连接器', delay: '24ms', loss: '0.0%', jitter: '1ms', status: '正常', targetId: 'seg_pop_gw' },
                     gw: { name: 'GW连接器', sub: '连接器 (正常)', status: '正常', targetId: 'node_connector' },
-                    segment3: { name: '应用', delay: '31ms', loss: '0.2%', jitter: '3ms', status: '正常', targetId: 'seg_gw_app' },
-                    app: { name: 'OA系统', sub: '应用 (TTFB变慢)', status: '异常', targetId: 'node_app' }
+                    segment3: { name: '应用', delay: '2ms', loss: '0.0%', jitter: '0ms', status: '正常', targetId: 'seg_gw_app' },
+                    app: { name: 'OA系统', sub: '应用 (正常)', status: '正常', targetId: 'node_app' }
                   },
                   segmentDetails: [
                     {
                       id: 'seg_client_pop',
                       name: '终端-pop段',
                       status: '异常',
-                      summary: '终端-出口网关时延 86ms/丢包 3.8%，物理直连时延 142ms/丢包 4.0%，隧道访问时延 188ms/丢包 4.2%/抖动 32ms。',
-                      cause: '办公室无线 AP 信号衰减严重 (-78 dBm)，信道同频竞争引发 31% 高重传；本地第一跳网关即出现 86ms 时延与 3.8% 丢包。',
+                      summary: '终端-出口网关时延 95ms/丢包 4.8%，物理直连时延 152ms/丢包 5.0%，隧道访问时延 198ms/丢包 5.2%/抖动 45ms，Overlay 有效吞吐降至 6.2Mbps。',
+                      cause: '16 楼 VIP 接待室处于走廊 AP 覆盖盲区 (-82 dBm)，空口同频竞争引发 38% 高重传；本地第一跳网关即出现 95ms 时延与 4.8% 丢包。',
                       hopTraces: [
-                        { hop: 1, ip: '192.168.1.1', asn: '局域网网关', loc: '本地局域网 / 办公室', rtt: '86ms', diffRtt: '+80ms', loss: '3.8%', diffLoss: '+3.8%', jitter: '27ms', diffJitter: '+25ms', status: '异常' },
-                        { hop: 2, ip: '114.242.25.1', asn: '北京电信出口', loc: '北京·朝阳区', rtt: '142ms', diffRtt: '+56ms', loss: '4.0%', diffLoss: '+0.2%', jitter: '30ms', diffJitter: '+3ms', status: '正常' },
-                        { hop: 3, ip: '10.240.0.1', asn: '北京POP', loc: '北京·SASE节点', rtt: '188ms', diffRtt: '+46ms', loss: '4.2%', diffLoss: '+0.2%', jitter: '32ms', diffJitter: '+2ms', status: '正常' }
+                        { hop: 1, ip: '192.168.1.1', tag: 'WiFi网关', tagType: 'default', asn: '私网地址 (Private Network)', loc: '局域网', rtt: '95ms', diffRtt: '-', loss: '4.8%', diffLoss: '-', jitter: '38ms', diffJitter: '-', status: '异常' },
+                        { hop: 2, ip: '114.242.25.1', tag: '地区出口网关', tagType: 'default', asn: 'AS23724 中国电信北京节点', loc: '中国·北京', rtt: '152ms', diffRtt: '+57ms', loss: '5.0%', diffLoss: '+0.2%', jitter: '42ms', diffJitter: '+4ms', status: '正常' },
+                        { hop: 3, ip: '202.97.45.18', tag: '运营商骨干', tagType: 'default', asn: 'AS4134 中国电信骨干网', loc: '中国·北京', rtt: '168ms', diffRtt: '+16ms', loss: '5.1%', diffLoss: '+0.1%', jitter: '43ms', diffJitter: '+1ms', status: '正常' },
+                        { hop: 4, ip: '10.240.0.1', tag: 'POP接入点', tagType: 'default', asn: '深信服 SASE 骨干网', loc: '中国·北京 (北京POP)', rtt: '198ms', diffRtt: '+30ms', loss: '5.2%', diffLoss: '+0.1%', jitter: '45ms', diffJitter: '+2ms', status: '正常' }
                       ],
-                      hopConclusion: '从第 1 个 Hop（本地局域网网关 192.168.1.1）开始即出现 86ms 高时延与 3.8% 丢包，后续进入电信公网与北京 POP 未产生新增异常增量，责任明确收敛于办公室无线接入与本地局域网。'
+                      hopConclusion: '从第 1 个 Hop（本地局域网网关 192.168.1.1）开始即出现 95ms 高时延与 4.8% 丢包，后续进入电信公网与北京 POP 未产生新增异常增量，责任明确收敛于终端无线接入与本地局域网。'
                     },
                     {
                       id: 'seg_pop_gw',
                       name: 'pop-连接器段',
                       status: '正常',
-                      summary: 'POP 到连接器专线段质量良好，RTT 28ms，丢包率 0.1%，抖动 2ms。'
+                      summary: 'POP 到连接器专线段质量良好，RTT 24ms，丢包率 0.0%，抖动 1ms。'
                     },
                     {
                       id: 'seg_gw_app',
                       name: '连接器-应用段',
                       status: '正常',
-                      summary: '连接器至 OA 系统服务器内网千兆互联，RTT 31ms，丢包率 0.2%，抖动 3ms。'
+                      summary: '连接器至 OA 系统服务器内网千兆直连，RTT 2ms，丢包率 0.0%，抖动 0ms。'
                     }
                   ],
                   nodeDetails: [
                     {
                       id: 'node_terminal',
                       name: '终端',
-                      status: '正常',
-                      summary: 'MacBook Pro 客户端运行正常，CPU 30.0%、内存 45.0%，Wi-Fi 处于弱信号区 (-78 dBm)，重传率 31.0%。'
+                      status: '异常',
+                      cpu: 22.5,
+                      mem: 41.0,
+                      summary: 'MacBook Pro 系统负载低 (CPU 22.5%、内存 41.0%)，但处于 Wi-Fi 极弱信号盲区 (-82 dBm)，空口重传率 38.0%，协商速率骤降至 13Mbps。',
+                      wifi: { ssid: 'Sangfor-Office-VIP', band: '2.4GHz 信道 6', rssi: '-82 dBm', retrans: '38.0%', status: '异常' }
                     },
                     {
                       id: 'node_pop',
                       name: 'pop',
                       status: '正常',
-                      summary: '北京 POP 节点运行健康，RTT 28ms，丢包 0.1%，抖动 2ms，吞吐 620 Mbps。'
+                      summary: '北京 POP 节点运行平稳，处理时延 3ms，丢包 0.0%，抖动 1ms，吞吐 1.8 Gbps (未命中 10Gbps 限流阈值)。'
                     },
                     {
                       id: 'node_connector',
                       name: '连接器',
                       status: '正常',
-                      summary: '总部连接器集群运行稳定，RTT 24ms，丢包 0.1%，CPU 42%、内存 51%，抖动 2ms，吞吐 480 Mbps。'
+                      summary: '总部连接器集群运行稳定，RTT 24ms，丢包 0.0%，CPU 35%、内存 48%，活跃会话 3,200。'
                     },
                     {
                       id: 'node_app',
                       name: '应用',
-                      status: '异常',
-                      summary: 'OA系统真实访问 TTFB 1,260ms (动态基线 300ms)，HTTP 响应时间 1,310ms (相差 50ms)；HTTP 状态码 200，错误率 0.2%，可用性 99.8%；DNS 18ms，TCP 42ms，TLS 76ms。'
+                      status: '正常',
+                      summary: '同时刻全网 1,520 人正在并发访问 OA系统，全网受损用户仅 3 人 (占比 0.2%)，整体可用性达 99.8%，服务端探针 TTFB 仅 48ms (HTTP 200，错误率 0%)。表明应用后端健康可达，本次卡慢系由前端无线接入链路拖慢所致。'
                     }
                   ]
                 },
                 {
                   id: 'slice_2',
-                  name: '切片2 (16:20)',
-                  time: '16:20',
-                  minute: 500,
-                  range: '16:15~16:20',
+                  name: '切片2 (16:08)',
+                  time: '16:08',
+                  minute: 488,
+                  range: '16:03~16:08',
                   successRate: '99.8%',
                   status: '异常',
-                  sampleIdx: 10,
+                  sampleIdx: 9,
                   analysis: {
-                    rootCause: '异常收敛于<span class="text-[#F52727] font-medium">【办公室无线接入 (Wi-Fi)】</span>。办公室无线 AP 处于弱信号覆盖区 (-77 dBm)，Wi-Fi 重传率高且网关持续丢包 3.5%，导致整体访问体验差。',
-                    feature: 'Wi-Fi 信号强度 -77 dBm、重传率 29%，本地局域网网关丢包 3.5%，终端至 POP 接入段时延 175ms / 丢包 3.9% / 抖动 30ms。',
-                    advice: '责任归属【本地无线接入】。建议终端用户靠近 AP 接入或插网线，运维排查该区域 AP 负载与信道。'
+                    rootCause: '异常收敛于<span class="text-[#F52727] font-medium">【办公室无线接入 (Wi-Fi)】</span>。16 楼 VIP 接待室持续处于弱信号覆盖区 (-81 dBm)，空口重传率 35% 且本地网关持续丢包 4.5%。',
+                    feature: 'Wi-Fi 信号强度 -81 dBm、重传率 35%，本地局域网网关丢包 4.5%，终端至 POP 接入段时延 185ms / 丢包 4.9% / 抖动 38ms。',
+                    advice: '责任归属【本地无线接入】。建议终端用户切换有线网络，运维排查接待室 AP 射频功率。'
                   },
                   topology: {
-                    client: { name: '何总 MacBook Pro', sub: '终端 (正常)', status: '正常' },
-                    segment1: { name: 'WiFi', delay: '175ms', loss: '3.9%', jitter: '30ms', status: '异常', targetId: 'seg_client_pop' },
+                    client: { name: '何总 MacBook Pro', sub: '终端 (无线异常)', status: '异常', targetId: 'node_terminal' },
+                    segment1: { name: 'WiFi', delay: '185ms', loss: '4.9%', jitter: '38ms', status: '异常', targetId: 'seg_client_pop' },
                     pop: { name: '北京POP', sub: 'POP节点 (正常)', status: '正常', targetId: 'node_pop' },
-                    segment2: { name: '连接器', delay: '28ms', loss: '0.1%', jitter: '2ms', status: '正常', targetId: 'seg_pop_gw' },
+                    segment2: { name: '连接器', delay: '24ms', loss: '0.0%', jitter: '1ms', status: '正常', targetId: 'seg_pop_gw' },
                     gw: { name: 'GW连接器', sub: '连接器 (正常)', status: '正常', targetId: 'node_connector' },
-                    segment3: { name: '应用', delay: '30ms', loss: '0.1%', jitter: '2ms', status: '正常', targetId: 'seg_gw_app' },
-                    app: { name: 'OA系统', sub: '应用 (TTFB变慢)', status: '异常', targetId: 'node_app' }
+                    segment3: { name: '应用', delay: '2ms', loss: '0.0%', jitter: '0ms', status: '正常', targetId: 'seg_gw_app' },
+                    app: { name: 'OA系统', sub: '应用 (正常)', status: '正常', targetId: 'node_app' }
                   },
                   segmentDetails: [
                     {
                       id: 'seg_client_pop',
                       name: '终端-pop段',
                       status: '异常',
-                      summary: '终端-出口网关时延 82ms/丢包 3.5%，物理直连时延 138ms/丢包 3.8%，隧道访问时延 175ms/丢包 3.9%/抖动 30ms。',
-                      cause: '办公室无线 AP 持续处于弱信号区 (-77 dBm)，网关丢包 3.5%。',
+                      summary: '终端-出口网关时延 91ms/丢包 4.5%，物理直连时延 148ms/丢包 4.7%，隧道访问时延 185ms/丢包 4.9%/抖动 38ms。',
+                      cause: 'VIP 接待室持续处于弱信号区 (-81 dBm)，网关丢包 4.5%。',
                       hopTraces: [
-                        { hop: 1, ip: '192.168.1.1', asn: '局域网网关', loc: '本地局域网 / 办公室', rtt: '82ms', diffRtt: '+76ms', loss: '3.5%', diffLoss: '+3.5%', jitter: '25ms', diffJitter: '+23ms', status: '异常' },
-                        { hop: 2, ip: '114.242.25.1', asn: '北京电信出口', loc: '北京·朝阳区', rtt: '138ms', diffRtt: '+56ms', loss: '3.8%', diffLoss: '+0.3%', jitter: '28ms', diffJitter: '+3ms', status: '正常' },
-                        { hop: 3, ip: '10.240.0.1', asn: '北京POP', loc: '北京·SASE节点', rtt: '175ms', diffRtt: '+37ms', loss: '3.9%', diffLoss: '+0.1%', jitter: '30ms', diffJitter: '+2ms', status: '正常' }
+                        { hop: 1, ip: '192.168.1.1', tag: 'WiFi网关', tagType: 'default', asn: '私网地址 (Private Network)', loc: '局域网', rtt: '91ms', diffRtt: '-', loss: '4.5%', diffLoss: '-', jitter: '32ms', diffJitter: '-', status: '异常' },
+                        { hop: 2, ip: '114.242.25.1', tag: '地区出口网关', tagType: 'default', asn: 'AS23724 中国电信北京节点', loc: '中国·北京', rtt: '148ms', diffRtt: '+57ms', loss: '4.7%', diffLoss: '+0.2%', jitter: '36ms', diffJitter: '+4ms', status: '正常' },
+                        { hop: 3, ip: '202.97.45.18', tag: '运营商骨干', tagType: 'default', asn: 'AS4134 中国电信骨干网', loc: '中国·北京', rtt: '162ms', diffRtt: '+14ms', loss: '4.8%', diffLoss: '+0.1%', jitter: '37ms', diffJitter: '+1ms', status: '正常' },
+                        { hop: 4, ip: '10.240.0.1', tag: 'POP接入点', tagType: 'default', asn: '深信服 SASE 骨干网', loc: '中国·北京 (北京POP)', rtt: '185ms', diffRtt: '+23ms', loss: '4.9%', diffLoss: '+0.1%', jitter: '38ms', diffJitter: '+1ms', status: '正常' }
                       ],
-                      hopConclusion: '本地局域网网关时延 82ms、丢包 3.5%，证实 Wi-Fi 信号劣化持续存在。'
+                      hopConclusion: '本地局域网网关时延 91ms、丢包 4.5%，证实 Wi-Fi 信号劣化持续存在。'
                     },
-                    { id: 'seg_pop_gw', name: 'pop-连接器段', status: '正常', summary: '专线段传输通畅，RTT 28ms，丢包 0.1%。' },
-                    { id: 'seg_gw_app', name: '连接器-应用段', status: '正常', summary: '内网连接通畅，RTT 30ms，丢包 0.1%。' }
+                    { id: 'seg_pop_gw', name: 'pop-连接器段', status: '正常', summary: '专线段传输通畅，RTT 24ms，丢包 0.0%。' },
+                    { id: 'seg_gw_app', name: '连接器-应用段', status: '正常', summary: '内网连接通畅，RTT 2ms，丢包 0.0%。' }
                   ],
                   nodeDetails: [
-                    { id: 'node_terminal', name: '终端', status: '正常', summary: '客户端 MacBook Pro 运行正常，CPU 28%、内存 44%，Wi-Fi 信号强度 -77 dBm，重传率 29.0%。' },
-                    { id: 'node_pop', name: 'pop', status: '正常', summary: '北京 POP 节点正常，RTT 28ms，丢包 0.1%。' },
-                    { id: 'node_connector', name: '连接器', status: '正常', summary: '连接器负载正常，CPU 40%、内存 50%。' },
-                    { id: 'node_app', name: '应用', status: '异常', summary: 'OA系统真实访问 TTFB 1,180ms，HTTP 响应 1,230ms，状态码 200 OK。' }
+                    { id: 'node_terminal', name: '终端', status: '异常', cpu: 23.0, mem: 41.5, summary: '客户端 MacBook Pro 运行正常，CPU 23%、内存 41.5%，Wi-Fi 处于弱信号区 (-81 dBm)，重传率 35.0%，协商速率 13 Mbps。', wifi: { ssid: 'Sangfor-Office-VIP', band: '2.4GHz 信道 6', rssi: '-81 dBm', retrans: '35.0%', status: '异常' } },
+                    { id: 'node_pop', name: 'pop', status: '正常', summary: '北京 POP 节点正常，RTT 24ms，丢包 0.0%。' },
+                    { id: 'node_connector', name: '连接器', status: '正常', summary: '连接器负载正常，CPU 36%、内存 48%。' },
+                    { id: 'node_app', name: '应用', status: '正常', summary: '同时刻全网 1,520 人正在并发访问 OA系统，全网受损用户仅 3 人 (占比 0.2%)，整体可用性达 99.8%，服务端探针 TTFB 仅 48ms (HTTP 200，错误率 0%)。表明应用后端健康可达，本次卡慢系由前端无线接入链路拖慢所致。' }
                   ]
                 },
                 {
                   id: 'slice_3',
-                  name: '切片3 (16:40)',
-                  time: '16:40',
-                  minute: 520,
-                  range: '16:35~16:40',
-                  successRate: '99.7%',
+                  name: '切片3 (16:15)',
+                  time: '16:15',
+                  minute: 495,
+                  range: '16:10~16:15',
+                  successRate: '99.6%',
                   status: '异常',
-                  sampleIdx: 11,
+                  sampleIdx: 10,
                   analysis: {
-                    rootCause: '异常收敛于<span class="text-[#F52727] font-medium">【办公室无线接入 (Wi-Fi)】</span>。办公室无线信号深度衰减至 -80 dBm 且同频竞争加剧，导致终端到 POP 接入段丢包与抖动达峰值，整体访问体验差。',
-                    feature: 'Wi-Fi 信号强度 -80 dBm、重传率 34%，本地第一跳网关时延 89ms / 丢包 4.1%，终端至 POP 接入段时延 192ms / 丢包 4.5% / 抖动 35ms。',
-                    advice: '责任归属【本地无线环境】。建议终端用户优先切换有线网络，网管调优 AP 射频功率以排除同频干扰。'
+                    rootCause: '异常收敛于<span class="text-[#F52727] font-medium">【办公室无线接入 (Wi-Fi)】</span>。接待室内多终端同频竞争加剧，无线信号深度衰减至 -84 dBm，空口重传率达 41%，导致终端到 POP 接入段丢包与抖动达峰值。',
+                    feature: 'Wi-Fi 信号强度 -84 dBm、重传率 41%，本地第一跳网关时延 105ms / 丢包 5.2%，终端至 POP 接入段时延 210ms / 丢包 5.5% / 抖动 48ms。',
+                    advice: '责任归属【本地无线环境】。建议终端用户插有线网线，网管现场调优接待室 AP 射频功率。'
                   },
                   topology: {
-                    client: { name: '何总 MacBook Pro', sub: '终端 (正常)', status: '正常' },
-                    segment1: { name: 'WiFi', delay: '192ms', loss: '4.5%', jitter: '35ms', status: '异常', targetId: 'seg_client_pop' },
+                    client: { name: '何总 MacBook Pro', sub: '终端 (无线异常)', status: '异常', targetId: 'node_terminal' },
+                    segment1: { name: 'WiFi', delay: '210ms', loss: '5.5%', jitter: '48ms', status: '异常', targetId: 'seg_client_pop' },
                     pop: { name: '北京POP', sub: 'POP节点 (正常)', status: '正常', targetId: 'node_pop' },
-                    segment2: { name: '连接器', delay: '28ms', loss: '0.1%', jitter: '2ms', status: '正常', targetId: 'seg_pop_gw' },
+                    segment2: { name: '连接器', delay: '24ms', loss: '0.0%', jitter: '1ms', status: '正常', targetId: 'seg_pop_gw' },
                     gw: { name: 'GW连接器', sub: '连接器 (正常)', status: '正常', targetId: 'node_connector' },
-                    segment3: { name: '应用', delay: '31ms', loss: '0.2%', jitter: '3ms', status: '正常', targetId: 'seg_gw_app' },
-                    app: { name: 'OA系统', sub: '应用 (TTFB变慢)', status: '异常', targetId: 'node_app' }
+                    segment3: { name: '应用', delay: '2ms', loss: '0.0%', jitter: '0ms', status: '正常', targetId: 'seg_gw_app' },
+                    app: { name: 'OA系统', sub: '应用 (正常)', status: '正常', targetId: 'node_app' }
                   },
                   segmentDetails: [
                     {
                       id: 'seg_client_pop',
                       name: '终端-pop段',
                       status: '异常',
-                      summary: '终端-出口网关时延 89ms/丢包 4.1%，物理直连时延 145ms/丢包 4.3%，隧道访问时延 192ms/丢包 4.5%/抖动 35ms。',
-                      cause: '办公室无线信号衰减至 -80 dBm，同频竞争达到峰值，重传率升至 34%。',
+                      summary: '终端-出口网关时延 105ms/丢包 5.2%，物理直连时延 162ms/丢包 5.3%，隧道访问时延 210ms/丢包 5.5%/抖动 48ms。',
+                      cause: '接待室无线信号衰减至 -84 dBm，同频竞争达到峰值，重传率升至 41%。',
                       hopTraces: [
-                        { hop: 1, ip: '192.168.1.1', asn: '局域网网关', loc: '本地局域网 / 办公室', rtt: '89ms', diffRtt: '+83ms', loss: '4.1%', diffLoss: '+4.1%', jitter: '29ms', diffJitter: '+27ms', status: '异常' },
-                        { hop: 2, ip: '114.242.25.1', asn: '北京电信出口', loc: '北京·朝阳区', rtt: '145ms', diffRtt: '+56ms', loss: '4.3%', diffLoss: '+0.2%', jitter: '32ms', diffJitter: '+3ms', status: '正常' },
-                        { hop: 3, ip: '10.240.0.1', asn: '北京POP', loc: '北京·SASE节点', rtt: '192ms', diffRtt: '+47ms', loss: '4.5%', diffLoss: '+0.2%', jitter: '35ms', diffJitter: '+3ms', status: '正常' }
+                        { hop: 1, ip: '192.168.1.1', tag: 'WiFi网关', tagType: 'default', asn: '私网地址 (Private Network)', loc: '局域网', rtt: '105ms', diffRtt: '-', loss: '5.2%', diffLoss: '-', jitter: '40ms', diffJitter: '-', status: '异常' },
+                        { hop: 2, ip: '114.242.25.1', tag: '地区出口网关', tagType: 'default', asn: 'AS23724 中国电信北京节点', loc: '中国·北京', rtt: '165ms', diffRtt: '+60ms', loss: '5.3%', diffLoss: '+0.1%', jitter: '44ms', diffJitter: '+4ms', status: '正常' },
+                        { hop: 3, ip: '202.97.45.18', tag: '运营商骨干', tagType: 'default', asn: 'AS4134 中国电信骨干网', loc: '中国·北京', rtt: '180ms', diffRtt: '+15ms', loss: '5.4%', diffLoss: '+0.1%', jitter: '46ms', diffJitter: '+2ms', status: '正常' },
+                        { hop: 4, ip: '10.240.0.1', tag: 'POP接入点', tagType: 'default', asn: '深信服 SASE 骨干网', loc: '中国·北京 (北京POP)', rtt: '210ms', diffRtt: '+30ms', loss: '5.5%', diffLoss: '+0.1%', jitter: '48ms', diffJitter: '+2ms', status: '正常' }
                       ],
-                      hopConclusion: 'Hop 1 局域网网关出现 89ms 时延与 4.1% 丢包，无线信号深度衰减。'
+                      hopConclusion: 'Hop 1 局域网网关出现 105ms 时延与 5.2% 丢包，无线信号深度衰减。'
                     },
-                    { id: 'seg_pop_gw', name: 'pop-连接器段', status: '正常', summary: '专线段传输通畅，RTT 28ms，丢包 0.1%。' },
-                    { id: 'seg_gw_app', name: '连接器-应用段', status: '正常', summary: '内网连接通畅，RTT 31ms，丢包 0.2%。' }
+                    { id: 'seg_pop_gw', name: 'pop-连接器段', status: '正常', summary: '专线段传输通畅，RTT 24ms，丢包 0.0%。' },
+                    { id: 'seg_gw_app', name: '连接器-应用段', status: '正常', summary: '内网连接通畅，RTT 2ms，丢包 0.0%。' }
                   ],
                   nodeDetails: [
-                    { id: 'node_terminal', name: '终端', status: '正常', summary: '客户端 MacBook Pro 运行正常，CPU 31%、内存 46%，Wi-Fi 信号强度 -80 dBm，重传率 34.0%。' },
-                    { id: 'node_pop', name: 'pop', status: '正常', summary: '北京 POP 节点正常，RTT 28ms，丢包 0.1%。' },
-                    { id: 'node_connector', name: '连接器', status: '正常', summary: '连接器负载平稳，CPU 43%、内存 52%。' },
-                    { id: 'node_app', name: '应用', status: '异常', summary: 'OA系统真实访问 TTFB 1,320ms，HTTP 响应 1,370ms，状态码 200 OK。' }
+                    { id: 'node_terminal', name: '终端', status: '异常', cpu: 24.0, mem: 42.0, summary: '客户端 MacBook Pro 运行正常，CPU 24%、内存 42%，Wi-Fi 信号强度 -84 dBm，重传率 41.0%，协商速率 13 Mbps。', wifi: { ssid: 'Sangfor-Office-VIP', band: '2.4GHz 信道 6', rssi: '-84 dBm', retrans: '41.0%', status: '异常' } },
+                    { id: 'node_pop', name: 'pop', status: '正常', summary: '北京 POP 节点正常，RTT 24ms，丢包 0.0%。' },
+                    { id: 'node_connector', name: '连接器', status: '正常', summary: '连接器负载平稳，CPU 35%、内存 48%。' },
+                    { id: 'node_app', name: '应用', status: '正常', summary: '同时刻全网 1,520 人正在并发访问 OA系统，全网受损用户仅 3 人 (占比 0.2%)，整体可用性达 99.8%，服务端探针 TTFB 仅 48ms (HTTP 200，错误率 0%)。表明应用后端健康可达，本次卡慢系由前端无线接入链路拖慢所致。' }
+                  ]
+                },
+                {
+                  id: 'slice_4',
+                  name: '切片4 (16:22)',
+                  time: '16:22',
+                  minute: 502,
+                  range: '16:17~16:22',
+                  successRate: '99.8%',
+                  status: '异常',
+                  sampleIdx: 11,
+                  analysis: {
+                    rootCause: '异常收敛于<span class="text-[#F52727] font-medium">【办公室无线接入 (Wi-Fi)】</span>。何总在飞书联系 IT 主管报障期间，接待室 Wi-Fi 仍处于弱信号区 (-80 dBm)，重传率 33%，网关丢包 4.2%。',
+                    feature: 'Wi-Fi 信号强度 -80 dBm、重传率 33%，本地局域网网关丢包 4.2%，终端至 POP 接入段时延 178ms / 丢包 4.6% / 抖动 35ms。',
+                    advice: 'IT 主管通过 DEM 秒级定位后，建议何总插会议室有线网线应急恢复。'
+                  },
+                  topology: {
+                    client: { name: '何总 MacBook Pro', sub: '终端 (无线异常)', status: '异常', targetId: 'node_terminal' },
+                    segment1: { name: 'WiFi', delay: '178ms', loss: '4.6%', jitter: '35ms', status: '异常', targetId: 'seg_client_pop' },
+                    pop: { name: '北京POP', sub: 'POP节点 (正常)', status: '正常', targetId: 'node_pop' },
+                    segment2: { name: '连接器', delay: '24ms', loss: '0.0%', jitter: '1ms', status: '正常', targetId: 'seg_pop_gw' },
+                    gw: { name: 'GW连接器', sub: '连接器 (正常)', status: '正常', targetId: 'node_connector' },
+                    segment3: { name: '应用', delay: '2ms', loss: '0.0%', jitter: '0ms', status: '正常', targetId: 'seg_gw_app' },
+                    app: { name: 'OA系统', sub: '应用 (正常)', status: '正常', targetId: 'node_app' }
+                  },
+                  segmentDetails: [
+                    {
+                      id: 'seg_client_pop',
+                      name: '终端-pop段',
+                      status: '异常',
+                      summary: '终端-出口网关时延 88ms/丢包 4.2%，物理直连时延 144ms/丢包 4.4%，隧道访问时延 178ms/丢包 4.6%/抖动 35ms。',
+                      cause: 'VIP 接待室持续处于弱信号区 (-80 dBm)，网关丢包 4.2%。',
+                      hopTraces: [
+                        { hop: 1, ip: '192.168.1.1', tag: 'WiFi网关', tagType: 'default', asn: '私网地址 (Private Network)', loc: '局域网', rtt: '88ms', diffRtt: '-', loss: '4.2%', diffLoss: '-', jitter: '30ms', diffJitter: '-', status: '异常' },
+                        { hop: 2, ip: '114.242.25.1', tag: '地区出口网关', tagType: 'default', asn: 'AS23724 中国电信北京节点', loc: '中国·北京', rtt: '142ms', diffRtt: '+54ms', loss: '4.4%', diffLoss: '+0.2%', jitter: '34ms', diffJitter: '+4ms', status: '正常' },
+                        { hop: 3, ip: '202.97.45.18', tag: '运营商骨干', tagType: 'default', asn: 'AS4134 中国电信骨干网', loc: '中国·北京', rtt: '158ms', diffRtt: '+16ms', loss: '4.5%', diffLoss: '+0.1%', jitter: '35ms', diffJitter: '+1ms', status: '正常' },
+                        { hop: 4, ip: '10.240.0.1', tag: 'POP接入点', tagType: 'default', asn: '深信服 SASE 骨干网', loc: '中国·北京 (北京POP)', rtt: '178ms', diffRtt: '+20ms', loss: '4.6%', diffLoss: '+0.1%', jitter: '36ms', diffJitter: '+1ms', status: '正常' }
+                      ],
+                      hopConclusion: 'Hop 1 局域网网关丢包 4.2%，证实 Wi-Fi 信号劣化。'
+                    },
+                    { id: 'seg_pop_gw', name: 'pop-连接器段', status: '正常', summary: '专线段传输通畅，RTT 24ms，丢包 0.0%。' },
+                    { id: 'seg_gw_app', name: '连接器-应用段', status: '正常', summary: '内网连接通畅，RTT 2ms，丢包 0.0%。' }
+                  ],
+                  nodeDetails: [
+                    { id: 'node_terminal', name: '终端', status: '异常', cpu: 22.5, mem: 41.0, summary: '客户端 MacBook Pro 运行正常，CPU 22.5%、内存 41%，Wi-Fi 信号强度 -80 dBm，重传率 33.0%，协商速率 13 Mbps。', wifi: { ssid: 'Sangfor-Office-VIP', band: '2.4GHz 信道 6', rssi: '-80 dBm', retrans: '33.0%', status: '异常' } },
+                    { id: 'node_pop', name: 'pop', status: '正常', summary: '北京 POP 节点正常，RTT 24ms，丢包 0.0%。' },
+                    { id: 'node_connector', name: '连接器', status: '正常', summary: '连接器负载正常，CPU 35%、内存 48%。' },
+                    { id: 'node_app', name: '应用', status: '正常', summary: '同时刻全网 1,520 人正在并发访问 OA系统，全网受损用户仅 3 人 (占比 0.2%)，整体可用性达 99.8%，服务端探针 TTFB 仅 48ms (HTTP 200，错误率 0%)。表明应用后端健康可达，本次卡慢系由前端无线接入链路拖慢所致。' }
+                  ]
+                },
+                {
+                  id: 'slice_5',
+                  name: '切片5 (16:30)',
+                  time: '16:30',
+                  minute: 510,
+                  range: '16:25~16:30',
+                  successRate: '99.7%',
+                  status: '异常',
+                  sampleIdx: 12,
+                  analysis: {
+                    rootCause: '异常收敛于<span class="text-[#F52727] font-medium">【办公室无线接入 (Wi-Fi)】</span>。接待室 Wi-Fi 信号衰减持续，空口重传 36%，网关丢包 4.6%。',
+                    feature: 'Wi-Fi 信号强度 -82 dBm、重传率 36%，本地局域网网关丢包 4.6%，终端至 POP 接入段时延 192ms / 丢包 5.0% / 抖动 42ms。',
+                    advice: '建议 IT 运维团队安排网络工程师对 16 楼接待室进行现场 AP 射频功率调优与补盲。'
+                  },
+                  topology: {
+                    client: { name: '何总 MacBook Pro', sub: '终端 (无线异常)', status: '异常', targetId: 'node_terminal' },
+                    segment1: { name: 'WiFi', delay: '192ms', loss: '5.0%', jitter: '42ms', status: '异常', targetId: 'seg_client_pop' },
+                    pop: { name: '北京POP', sub: 'POP节点 (正常)', status: '正常', targetId: 'node_pop' },
+                    segment2: { name: '连接器', delay: '24ms', loss: '0.0%', jitter: '1ms', status: '正常', targetId: 'seg_pop_gw' },
+                    gw: { name: 'GW连接器', sub: '连接器 (正常)', status: '正常', targetId: 'node_connector' },
+                    segment3: { name: '应用', delay: '2ms', loss: '0.0%', jitter: '0ms', status: '正常', targetId: 'seg_gw_app' },
+                    app: { name: 'OA系统', sub: '应用 (正常)', status: '正常', targetId: 'node_app' }
+                  },
+                  segmentDetails: [
+                    {
+                      id: 'seg_client_pop',
+                      name: '终端-pop段',
+                      status: '异常',
+                      summary: '终端-出口网关时延 93ms/丢包 4.6%，物理直连时延 150ms/丢包 4.8%，隧道访问时延 192ms/丢包 5.0%/抖动 42ms。',
+                      cause: 'VIP 接待室持续处于弱信号区 (-82 dBm)，网关丢包 4.6%。',
+                      hopTraces: [
+                        { hop: 1, ip: '192.168.1.1', tag: 'WiFi网关', tagType: 'default', asn: '私网地址 (Private Network)', loc: '局域网', rtt: '92ms', diffRtt: '-', loss: '4.6%', diffLoss: '-', jitter: '35ms', diffJitter: '-', status: '异常' },
+                        { hop: 2, ip: '114.242.25.1', tag: '地区出口网关', tagType: 'default', asn: 'AS23724 中国电信北京节点', loc: '中国·北京', rtt: '149ms', diffRtt: '+57ms', loss: '4.8%', diffLoss: '+0.2%', jitter: '38ms', diffJitter: '+3ms', status: '正常' },
+                        { hop: 3, ip: '202.97.45.18', tag: '运营商骨干', tagType: 'default', asn: 'AS4134 中国电信骨干网', loc: '中国·北京', rtt: '165ms', diffRtt: '+16ms', loss: '4.9%', diffLoss: '+0.1%', jitter: '40ms', diffJitter: '+2ms', status: '正常' },
+                        { hop: 4, ip: '10.240.0.1', tag: 'POP接入点', tagType: 'default', asn: '深信服 SASE 骨干网', loc: '中国·北京 (北京POP)', rtt: '190ms', diffRtt: '+25ms', loss: '5.0%', diffLoss: '+0.1%', jitter: '42ms', diffJitter: '+2ms', status: '正常' }
+                      ],
+                      hopConclusion: 'Hop 1 局域网网关丢包 4.6%，无线信号持续衰减。'
+                    },
+                    { id: 'seg_pop_gw', name: 'pop-连接器段', status: '正常', summary: '专线段传输通畅，RTT 24ms，丢包 0.0%。' },
+                    { id: 'seg_gw_app', name: '连接器-应用段', status: '正常', summary: '内网连接通畅，RTT 2ms，丢包 0.0%。' }
+                  ],
+                  nodeDetails: [
+                    { id: 'node_terminal', name: '终端', status: '异常', cpu: 23.0, mem: 41.5, summary: '客户端 MacBook Pro 运行正常，CPU 23%、内存 41.5%，Wi-Fi 信号强度 -82 dBm，重传率 36.0%，协商速率 13 Mbps。', wifi: { ssid: 'Sangfor-Office-VIP', band: '2.4GHz 信道 6', rssi: '-82 dBm', retrans: '36.0%', status: '异常' } },
+                    { id: 'node_pop', name: 'pop', status: '正常', summary: '北京 POP 节点正常，RTT 24ms，丢包 0.0%。' },
+                    { id: 'node_connector', name: '连接器', status: '正常', summary: '连接器负载正常，CPU 35%、内存 48%。' },
+                    { id: 'node_app', name: '应用', status: '正常', summary: '同时刻全网 1,520 人正在并发访问 OA系统，全网受损用户仅 3 人 (占比 0.2%)，整体可用性达 99.8%，服务端探针 TTFB 仅 48ms (HTTP 200，错误率 0%)。表明应用后端健康可达，本次卡慢系由前端无线接入链路拖慢所致。' }
                   ]
                 }
               ]
@@ -2018,8 +2099,18 @@
               domain: 'https://erp.sangfor.corp',
               experience: '差',
               tag: '核心业务',
-              summary: '同期访问 ERP系统 同样缓慢，TTFB 达 1,180ms，丢包 3.8%。同样由于办公室 Wi-Fi 信号弱及网关丢包，验证为整体网络接入环境问题而非单个应用异常。',
-              abnormalExplain: '办公室 Wi-Fi 信号弱引发多应用普遍慢，ERP系统 TTFB 升至 1,180ms，丢包 3.8%。',
+              summary: '何总在 16 楼 VIP 接待室访问 ERP系统 同样卡慢，TTFB 达 1,380ms，丢包 5.0%。系同一接待室 Wi-Fi 弱信号盲区 (-82 dBm) 及本地网关丢包所致，验证为全局无线接入环境问题而非单应用异常。',
+              abnormalExplain: '接待室 Wi-Fi 信号极弱导致多业务普遍慢，ERP系统 TTFB 达 1,380ms，丢包 5.0%。',
+              slices: []
+            },
+            {
+              id: 'app_mail',
+              name: '企业邮箱',
+              domain: 'https://mail.sangfor.com',
+              experience: '差',
+              tag: 'SaaS 办公',
+              summary: '邮件列表加载缓慢，附件下载频发 TCP 重传与降速，受弱信号 Wi-Fi (重传率 38%) 影响。',
+              abnormalExplain: 'Wi-Fi 丢包引起邮件附件传输重试降速',
               slices: []
             },
             {
@@ -2028,8 +2119,8 @@
               domain: 'https://feishu.cn',
               experience: '一般',
               tag: 'SaaS 协同',
-              summary: '飞书消息收发基本可用，但文件传输偶发重试。',
-              abnormalExplain: '轻微时延波动',
+              summary: '飞书文字消息收发基本可用，但音视频通话偶发卡顿，提示“网络不稳定”，空口丢包 5.2%。',
+              abnormalExplain: 'Wi-Fi 空口丢包引起音视频通话偶发卡顿',
               slices: []
             },
             {
@@ -2042,7 +2133,6 @@
               abnormalExplain: 'Wi-Fi 丢包引起小幅音视频抖动',
               slices: []
             },
-            { id: 'app_mail', name: '企业邮箱', domain: 'https://mail.sangfor.com', experience: '正常', tag: 'SaaS 办公', summary: '邮件收发正常。', abnormalExplain: '无异常', slices: [] },
             { id: 'app_gitlab', name: 'GitLab', domain: 'https://git.sangfor.corp', experience: '正常', tag: '研发平台', summary: '代码仓库访问正常。', abnormalExplain: '无异常', slices: [] },
             { id: 'app_sap', name: 'SAP 核心系统', domain: 'https://sap.sangfor.corp', experience: '正常', tag: '核心系统', summary: 'SAP 核心查询正常。', abnormalExplain: '无异常', slices: [] },
             { id: 'app_jira', name: 'Jira 任务管理', domain: 'https://jira.sangfor.corp', experience: '正常', tag: '研发协同', summary: '工单流转正常。', abnormalExplain: '无异常', slices: [] },
@@ -2309,94 +2399,6 @@
         // 当前选中的采样点快捷获取
         get currentPoint() {
           return this.selectedPoint || { time: '16:00', experience: '差', ttfb: 1260, loss: '4.2%', score: 32 };
-        },
-
-        // 当前选中采样点的【访问体验分析】结构化话术
-        get currentAnalysis() {
-          const pt = this.currentPoint;
-          if (!pt) {
-            return {
-              rootCause: '暂无分析数据',
-              feature: '暂无异常特征',
-              advice: '暂无建议举措'
-            };
-          }
-
-          // 若采样点已有自定义分析配置（如特定切片数据）则直接使用
-          if (pt.analysis && pt.analysis.rootCause) {
-            return pt.analysis;
-          }
-
-          const isHeZong = this.userName?.includes('何总') || this.userId === 'usr_hezong';
-          const isBranch = this.queryType === '分支';
-          const appName = this.currentApp?.name || 'OA系统';
-
-          // 1. 体验为“差”的分析话术 (结构化 3 大要点)
-          if (pt.experience === '差') {
-            if (isHeZong) {
-              if (pt.time === '16:00') {
-                return {
-                  rootCause: `异常收敛于<span class="text-[#F52727] font-medium">【办公室无线接入 (Wi-Fi) 及终端到本地 LAN 网关接入段】</span>。办公室 Wi-Fi 信号衰减严重 (-78 dBm) 且信道竞争引发高重传，导致网关及接入段时延高、丢包，从而导致整体访问体验差。`,
-                  feature: `Wi-Fi 信号强度 -78 dBm、重传率 31%，本地局域网网关时延 86ms / 丢包 3.8%，终端至 POP 接入段时延 188ms / 丢包 4.2% / 抖动 32ms。`,
-                  advice: `责任归属【本地无线接入/局域网】。建议终端用户连接 5GHz Wi-Fi 或插网线，网管优化 AP 信道与功率。`
-                };
-              } else if (pt.time === '16:20') {
-                return {
-                  rootCause: `异常收敛于<span class="text-[#F52727] font-medium">【办公室无线接入 (Wi-Fi)】</span>。办公室无线 AP 处于弱信号覆盖区 (-77 dBm)，Wi-Fi 重传率高且网关持续丢包 3.5%，导致整体访问体验差。`,
-                  feature: `Wi-Fi 信号强度 -77 dBm、重传率 29%，本地局域网网关丢包 3.5%，终端至 POP 接入段时延 175ms / 丢包 3.9% / 抖动 30ms。`,
-                  advice: `责任归属【本地无线接入】。建议终端用户靠近 AP 接入或插网线，运维排查该区域 AP 负载与信道。`
-                };
-              } else if (pt.time === '16:40') {
-                return {
-                  rootCause: `异常收敛于<span class="text-[#F52727] font-medium">【办公室无线接入 (Wi-Fi)】</span>。办公室无线信号深度衰减至 -80 dBm 且同频竞争加剧，导致终端到 POP 接入段丢包与抖动达峰值，整体访问体验差。`,
-                  feature: `Wi-Fi 信号强度 -80 dBm、重传率 34%，本地第一跳网关时延 89ms / 丢包 4.1%，终端至 POP 接入段时延 192ms / 丢包 4.5% / 抖动 35ms。`,
-                  advice: `责任归属【本地无线环境】。建议终端用户优先切换有线网络，网管调优 AP 射频功率以排除同频干扰。`
-                };
-              } else {
-                return {
-                  rootCause: `异常收敛于<span class="text-[#F52727] font-medium">【本地无线接入网络】</span>。办公室无线环境存在突发同频竞争与信号衰减，导致接入段时延高、丢包，整体访问体验差。`,
-                  feature: `Wi-Fi 信号弱，重传率超 30%，终端到 POP 段丢包率 ${pt.loss}、时延明显上升。`,
-                  advice: `责任归属【本地无线网络】。建议终端用户尝试切换有线网络，网管调优办公室 AP 信道。`
-                };
-              }
-            } else if (isBranch) {
-              return {
-                rootCause: `异常收敛于<span class="text-[#F52727] font-medium">【成都AF到GA上车POP段（中国电信出口跳点）】</span>。分支出口链路进入中国电信网络后发生严重丢包与抖动，导致整体访问体验差。`,
-                feature: `中国电信 Hop 2 (100.64.12.1) 丢包增量达 +4.7%，Underlay 丢包 5.0% / 抖动 28ms，分支直探 TTFB 达 880ms。`,
-                advice: `责任归属【电信运营商】。建议分支网管将举证数据提交电信排查，或临时切换备用线路。`
-              };
-            } else {
-              return {
-                rootCause: `异常收敛于<span class="text-[#F52727] font-medium">【客户办公室私网 Hop2 丢包与抖动】</span>及<span class="text-[#F52727] font-medium">【马尼拉 POP 节点租户限流】</span>，导致整体访问体验差。`,
-                feature: `私网 Hop2 丢包 3.1% / 抖动 40ms，Overlay 有效吞吐降至 20Mbps；马尼拉 POP 流量 10.4Gbps 触发 10Gbps 限流上限。`,
-                advice: `责任归属【客户局域网/平台运营】。建议网管排查私网路由器，平台调大该租户 POP 限流上限。`
-              };
-            }
-          }
-
-          // 2. 体验为“一般”的分析话术
-          if (pt.experience === '一般') {
-            if (isHeZong) {
-              return {
-                rootCause: `异常收敛于<span class="text-[#FA721B] font-medium">【本地无线接入网络】</span>。办公室 Wi-Fi 信号处于弱边缘区 (-72 dBm) 伴随轻微同频竞争，导致整体访问体验一般。`,
-                feature: `终端到 POP 接入段时延波动至 98ms，Wi-Fi 重传率 16%，丢包率 ${pt.loss}。`,
-                advice: `责任归属【本地无线网络】。建议终端用户靠近 AP 接入，如持续波动可切换有线网络。`
-              };
-            } else {
-              return {
-                rootCause: `异常收敛于<span class="text-[#FA721B] font-medium">【本地网络接入】</span>。传输链路存在轻度时延波动与偶发丢包，导致整体访问体验一般。`,
-                feature: `访问时延出现偶发抖动，丢包率在 ${pt.loss} 左右浮动。`,
-                advice: `责任归属【本地网络接入】。建议终端用户关注网络连接质量，如持续波动可尝试重连 Wi-Fi 或切换有线网络。`
-              };
-            }
-          }
-
-          // 3. 体验为“正常”的健康状态话术
-          return {
-            rootCause: `全链路运行正常，终端接入、SASE 传输网段及后端应用服务指标均处于健康基线范围内。`,
-            feature: `丢包率 ${pt.loss}，时延稳定在低位区间，Wi-Fi 信号强劲，HTTP 状态码 200 OK。`,
-            advice: `全链路通信与应用服务运行正常，无异常责任方，无需干预维护。`
-          };
         },
 
         // 统一计算属性：提供当前选中时刻的拓扑与指标数据（无缝兼容拓扑模块与详情渲染）
@@ -2815,8 +2817,8 @@
             </div>
           </div>
 
-          <!-- 4.3 下方全宽应用排障与下钻看板 (满宽展示时间线趋势图、选中时刻体验分析、多段拓扑与指标明细) -->
-          <!-- 模块: 访问体验时间线 + 访问体验分析 + 访问链路统一容器 -->
+          <!-- 4.3 下方全宽应用排障与下钻看板 (满宽展示时间线趋势图、多段拓扑与指标明细) -->
+          <!-- 模块: 访问体验时间线 + 访问链路统一容器 -->
           <div class="bg-white border border-[#E1E5EB] p-4 rounded-none shadow-xs flex-shrink-0 flex flex-col space-y-4">
             
             <!-- 上半部: 访问体验时间线 (散点折线趋势图) -->
@@ -2954,46 +2956,6 @@
                   </div>
                 </div>
 
-                <!-- 中部: 当前时刻访问体验分析 (联动选中采样点) -->
-                <div class="bg-[#F8FAFC] border border-[#EAEEF4] p-3.5 rounded-[2px] flex flex-col gap-2.5 transition-all">
-                  
-                  <!-- 分析 Header: 图标、标题、联动时刻 -->
-                  <div class="flex items-center justify-between pb-2 border-b border-[#EAEEF4]">
-                    <div class="flex items-center gap-2">
-                      <!-- 图标 Badge: 蓝底白字 -->
-                      <span class="inline-flex items-center justify-center w-5 h-5 rounded-[3px] bg-[#1C6EFF] text-white shadow-xs">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 01-2-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                        </svg>
-                      </span>
-                      <span class="text-xs font-bold text-[#1F2937] tracking-tight">访问体验分析</span>
-                      <span class="text-[11px] text-[#6F7785] font-normal" x-text="'（' + currentApp.name + ' · 联动时刻 ' + (currentPoint?.time || '16:00') + '）'"></span>
-                    </div>
-                  </div>
-
-                  <!-- 话术 3 大板块结构化展示 (左侧统一 84px 对齐、两端对齐、无序号、无加粗、黑色标题、灰色辅助文案) -->
-                  <div class="flex flex-col space-y-2 text-xs leading-relaxed text-[#5C6270]">
-                    <!-- 异常初步定位 / 运行初步定位 -->
-                    <div class="flex items-start">
-                      <span class="w-[84px] text-[#1F2937] font-normal shrink-0" x-text="currentPoint?.experience === '正常' ? '运行初步定位：' : '异常初步定位：'"></span>
-                      <div class="flex-1 text-[#5C6270] text-justify" x-html="currentAnalysis.rootCause"></div>
-                    </div>
-
-                    <!-- 异常特征 / 运行特征 -->
-                    <div class="flex items-start">
-                      <span class="w-[84px] text-[#1F2937] font-normal shrink-0" x-text="currentPoint?.experience === '正常' ? '运行特征：' : '异常特征：'"></span>
-                      <div class="flex-1 text-[#5C6270] text-justify" x-html="currentAnalysis.feature"></div>
-                    </div>
-
-                    <!-- 建议举措 (精简一行展示) -->
-                    <div class="flex items-start">
-                      <span class="w-[84px] text-[#1F2937] font-normal shrink-0">建议举措：</span>
-                      <div class="flex-1 text-[#5C6270] text-justify" x-html="currentAnalysis.advice"></div>
-                    </div>
-                  </div>
-
-                </div>
-
                 <!-- 上下虚线分割线 -->
                 <div class="border-t border-dashed border-[#D3D7DE] my-1"></div>
 
@@ -3015,6 +2977,8 @@
                       <span>TCP连接：<span class="font-medium font-outfit" :class="getMetricColor(currentPoint?.experience === '差' ? 186 : 18, 50)" x-text="currentPoint?.experience === '差' ? '186ms' : '18ms'"></span></span>
                       <span class="text-[#D3D7DE]">|</span>
                       <span>TLS：<span class="font-medium font-outfit" :class="getMetricColor(currentPoint?.experience === '差' ? 210 : 38, 80)" x-text="currentPoint?.experience === '差' ? '210ms' : '38ms'"></span></span>
+                      <span class="text-[#D3D7DE]">|</span>
+                      <span>HTTP响应：<span class="font-medium font-outfit" :class="getMetricColor(currentPoint?.experience === '差' ? 1403 : 28, 300)" x-text="currentPoint?.experience === '差' ? '1,403ms' : '28ms'"></span></span>
                     </div>
                   </div>
 
@@ -3168,9 +3132,9 @@
                     <div class="flex flex-col items-center text-center topo-clickable z-10 group"
                          @click="clickTopologyItem('node', 'node_app')">
                       <div class="w-11 h-11 rounded-full bg-white flex items-center justify-center shadow-xs group-hover:border-[#1C6EFF] border-2 transition-colors"
-                           :class="currentSlice.topology?.app?.status === '异常' ? 'border-[#F52727]' : 'border-[#12A679]'">
+                           :class="(currentSlice.topology?.app?.status === '异常' || currentSlice.topology?.app?.status === '差') ? 'border-[#F52727]' : 'border-[#CBD5E1]'">
                         <span class="text-xs font-bold font-outfit"
-                              :class="currentSlice.topology?.app?.status === '异常' ? 'text-[#F52727]' : 'text-[#12A679]'"
+                              :class="(currentSlice.topology?.app?.status === '异常' || currentSlice.topology?.app?.status === '差') ? 'text-[#F52727]' : 'text-[#64748B]'"
                               x-text="currentSlice.topology?.finalApp ? 'AF' : 'APP'"></span>
                       </div>
                       <span class="text-xs font-medium text-[#2F3540] mt-1.5" x-text="currentSlice.topology?.app?.name || '飞书'"></span>
@@ -3232,8 +3196,14 @@
                              :class="isItemOpen(item.id) ? 'bg-[#F8FAFC] border-b border-[#E1E5EB]' : ''">
 
                           <div class="flex items-center gap-2">
-                            <span class="w-2 h-2 rounded-full flex-shrink-0"
-                                  :class="(item.status === '异常' || item.status === '差') ? 'bg-[#CF171D]' : 'bg-[#12A679]'"></span>
+                            <template x-if="item.id === 'node_app' || item.id === 'node_final_app'">
+                              <span class="w-2 h-2 rounded-full flex-shrink-0"
+                                    :class="(item.status === '异常' || item.status === '差') ? 'bg-[#CF171D]' : 'bg-[#64748B]'"></span>
+                            </template>
+                            <template x-if="item.id !== 'node_app' && item.id !== 'node_final_app'">
+                              <span class="w-2 h-2 rounded-full flex-shrink-0"
+                                    :class="(item.status === '异常' || item.status === '差') ? 'bg-[#CF171D]' : 'bg-[#12A679]'"></span>
+                            </template>
                             <span class="text-xs font-medium text-[#2F3540]" x-text="formatItemName(item.name)"></span>
                             <span class="text-xs text-[#6F7785] px-2 py-0.5 bg-[#6F7785]/10 rounded-[2px] font-normal shrink-0 whitespace-nowrap" x-text="item.itemType === 'segment' ? '链路段' : '节点'"></span>
                           </div>
@@ -3261,13 +3231,22 @@
 
                             <!-- ① 40px 高度的状态总结信息区域：上下间距 8px，展示状态 tag (无需名称)，右侧展示推断依据 (灰色字体) -->
                             <div class="h-10 px-3 rounded-[2px] flex items-center gap-2.5 transition-colors"
-                                 :class="getItemStatus(item) === '异常' ? 'bg-[#FFF7F5]' : 'bg-[#F5FFFA]'">
-                              <!-- 状态 Tag (正常为绿色，异常为红色，无需名称) -->
-                              <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-[2px] text-xs font-normal shrink-0 whitespace-nowrap"
-                                    :class="getItemStatus(item) === '异常' ? 'bg-[#CF171D]/10 text-[#CF171D]' : 'bg-[#12A679]/10 text-[#12A679]'">
-                                <span class="w-1.5 h-1.5 rounded-full" :class="getItemStatus(item) === '异常' ? 'bg-[#CF171D]' : 'bg-[#12A679]'"></span>
-                                <span x-text="getItemStatus(item)"></span>
-                              </span>
+                                 :class="(item.id === 'node_app' || item.id === 'node_final_app') ? (getItemStatus(item) === '服务不可达' ? 'bg-[#FFF7F5]' : 'bg-[#F8FAFC]') : (getItemStatus(item) === '异常' ? 'bg-[#FFF7F5]' : 'bg-[#F5FFFA]')">
+                              <!-- 状态 Tag (应用节点为中性灰“服务可达”，异常为红色，其它正常为绿色) -->
+                              <template x-if="item.id === 'node_app' || item.id === 'node_final_app'">
+                                <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-[2px] text-xs font-normal shrink-0 whitespace-nowrap"
+                                      :class="getItemStatus(item) === '服务不可达' ? 'bg-[#CF171D]/10 text-[#CF171D]' : 'bg-[#F1F5F9] text-[#475569] border border-[#E2E8F0]'">
+                                  <span class="w-1.5 h-1.5 rounded-full" :class="getItemStatus(item) === '服务不可达' ? 'bg-[#CF171D]' : 'bg-[#64748B]'"></span>
+                                  <span x-text="getItemStatus(item)"></span>
+                                </span>
+                              </template>
+                              <template x-if="item.id !== 'node_app' && item.id !== 'node_final_app'">
+                                <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-[2px] text-xs font-normal shrink-0 whitespace-nowrap"
+                                      :class="getItemStatus(item) === '异常' ? 'bg-[#CF171D]/10 text-[#CF171D]' : 'bg-[#12A679]/10 text-[#12A679]'">
+                                  <span class="w-1.5 h-1.5 rounded-full" :class="getItemStatus(item) === '异常' ? 'bg-[#CF171D]' : 'bg-[#12A679]'"></span>
+                                  <span x-text="getItemStatus(item)"></span>
+                                </span>
+                              </template>
 
                               <!-- 推断依据：xxxx (状态分析理由说明，辅助灰色字体) -->
                               <div class="text-xs flex items-center gap-1 min-w-0 overflow-hidden text-[#6F7785]">
@@ -3278,22 +3257,14 @@
 
                             <!-- ② 内容展示区，根据各节点链路信息个性展示 -->
 
+                            
                             <!-- ==========================================
                                  1. 终端节点 (node_terminal)
                                  ========================================== -->
                             <template x-if="item.id === 'node_terminal'">
                               <div class="space-y-3">
-                                <!-- 就近探测结果、客户端状态、CPU、内存 (加细灰描边) -->
+                                <!-- 客户端状态、CPU、内存、Wi-Fi信号 (4卡片单行展示) -->
                                 <div class="grid grid-cols-2 md:grid-cols-4 gap-2.5">
-                                  <!-- 就近探测结果 -->
-                                  <div class="bg-white p-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
-                                    <span class="text-[11px] text-[#6F7785]">就近探测结果</span>
-                                    <div class="mt-1">
-                                      <span class="text-xs font-mono font-medium text-[#2F3540]" x-text="currentSlice.time ? (currentSlice.time + ' (耗时 12ms)') : '10:00 (耗时 12ms)'"></span>
-                                    </div>
-                                    <span class="text-[10px] text-[#94A3B8]">近端自动探测</span>
-                                  </div>
-
                                   <!-- 客户端状态 -->
                                   <div class="bg-white p-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
                                     <span class="text-[11px] text-[#6F7785]">客户端状态</span>
@@ -3309,84 +3280,31 @@
                                   <div class="bg-white p-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
                                     <span class="text-[11px] text-[#6F7785]">CPU利用率</span>
                                     <div class="mt-1 flex items-baseline gap-1">
-                                      <span class="text-base font-bold font-outfit" :class="getMetricColor(item.status === '异常' ? 92.4 : 24.5, 70)" x-text="item.status === '异常' ? '92.4%' : '24.5%'"></span>
+                                      <span class="text-base font-bold font-outfit" :class="getMetricColor(isWifiAbnormal(item) ? 22.5 : (item.status === '异常' ? 92.4 : 24.5), 70)" x-text="isWifiAbnormal(item) ? '22.5%' : (item.status === '异常' ? '92.4%' : '24.5%')"></span>
                                     </div>
-                                    <span class="text-[10px]" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#64748B]'" x-text="item.status === '异常' ? '高负荷排队 (基线 < 70%)' : '正常 (< 70%)'"></span>
+                                    <span class="text-[10px]" :class="(isWifiAbnormal(item) || item.status !== '异常') ? 'text-[#64748B]' : 'text-[#F52727]'" x-text="(isWifiAbnormal(item) || item.status !== '异常') ? '正常 (< 70%)' : '高负荷排队 (基线 < 70%)'"></span>
                                   </div>
 
                                   <!-- 内存利用率 -->
                                   <div class="bg-white p-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
                                     <span class="text-[11px] text-[#6F7785]">内存利用率</span>
                                     <div class="mt-1 flex items-baseline gap-1">
-                                      <span class="text-base font-bold font-outfit" :class="getMetricColor(item.status === '异常' ? 88.6 : 68.2, 60)" x-text="item.status === '异常' ? '88.6%' : '68.2%'"></span>
+                                      <span class="text-base font-bold font-outfit" :class="getMetricColor(isWifiAbnormal(item) ? 41.0 : (item.status === '异常' ? 88.6 : 68.2), 60)" x-text="isWifiAbnormal(item) ? '41.0%' : (item.status === '异常' ? '88.6%' : '68.2%')"></span>
                                     </div>
-                                    <span class="text-[10px]" :class="item.status === '异常' ? 'text-[#FA721B]' : 'text-[#64748B]'" x-text="item.status === '异常' ? '内存偏高 (基线 < 60%)' : '基线标准 < 60%'"></span>
+                                    <span class="text-[10px]" :class="(isWifiAbnormal(item) || item.status !== '异常') ? 'text-[#64748B]' : 'text-[#FA721B]'" x-text="(isWifiAbnormal(item) || item.status !== '异常') ? '基线标准 < 60%' : '内存偏高 (基线 < 60%)'"></span>
                                   </div>
-                                </div>
 
-                                <!-- WiFi 接入信息 (归入终端自身节点) -->
-                                <div class="bg-white p-3 rounded-[2px] border border-[#EAEEF4] shadow-xs">
-                                  <div class="flex items-center justify-between pb-2 mb-2.5 border-b border-[#F0F2F5]">
-                                    <div class="flex items-center gap-2">
-                                      <svg class="w-4 h-4 text-[#1C6EFF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.14 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0"></path>
-                                      </svg>
-                                      <span class="text-xs font-medium text-[#2F3540]">终端无线接入信息 (Wi-Fi)</span>
-                                      <span class="text-[11px] text-[#8A92A1] font-mono" x-text="getTerminalWifiSsid(item)"></span>
+                                  <!-- Wi-Fi 信号 (RSSI) -->
+                                  <div class="bg-white p-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
+                                    <div class="flex items-center justify-between text-[11px]">
+                                      <span class="text-[#6F7785]">Wi-Fi 信号 (RSSI)</span>
+                                      <span class="text-[10px] text-[#94A3B8]">基线 &gt; -65 dBm</span>
                                     </div>
-                                    <span class="text-[11px] text-[#8A92A1]">终端网卡 / 无线射频环境 (Air Interface)</span>
-                                  </div>
-                                  <div class="grid grid-cols-2 md:grid-cols-4 gap-2.5">
-                                    <!-- 信号强度 (RSSI) -->
-                                    <div class="bg-[#FAFBFD] p-2.5 rounded-[2px] border border-[#EAEEF4] flex flex-col justify-between">
-                                      <div class="flex items-center justify-between text-[11px]">
-                                        <span class="text-[#6F7785]">信号强度 (RSSI)</span>
-                                        <span class="text-[10px] text-[#94A3B8]">基线 &gt; -65 dBm</span>
-                                      </div>
-                                      <div class="mt-1 flex items-baseline gap-1.5">
-                                        <span class="text-base font-bold font-outfit" :class="isWifiAbnormal(item) ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="getTerminalWifiRssi(item)"></span>
-                                        <span class="text-[10px] font-normal" :class="isWifiAbnormal(item) ? 'text-[#F52727]' : 'text-[#12A679]'" x-text="isWifiAbnormal(item) ? '(信号衰减严重)' : '(优)'"></span>
-                                      </div>
-                                      <span class="text-[10px] mt-1" :class="isWifiAbnormal(item) ? 'text-[#F52727]' : 'text-[#64748B]'" x-text="isWifiAbnormal(item) ? '弱信号覆盖区' : '信号覆盖极佳'"></span>
+                                    <div class="mt-1 flex items-baseline gap-1.5">
+                                      <span class="text-base font-bold font-outfit" :class="isWifiAbnormal(item) ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="getTerminalWifiRssi(item)"></span>
+                                      <span class="text-[10px] font-normal" :class="isWifiAbnormal(item) ? 'text-[#F52727]' : 'text-[#12A679]'" x-text="isWifiAbnormal(item) ? '(弱信号盲区)' : '(优)'"></span>
                                     </div>
-
-                                    <!-- 帧重传率 -->
-                                    <div class="bg-[#FAFBFD] p-2.5 rounded-[2px] border border-[#EAEEF4] flex flex-col justify-between">
-                                      <div class="flex items-center justify-between text-[11px]">
-                                        <span class="text-[#6F7785]">帧重传率 (Retransmission)</span>
-                                        <span class="text-[10px] text-[#94A3B8]">基线 &lt; 10.0%</span>
-                                      </div>
-                                      <div class="mt-1 flex items-baseline gap-1.5">
-                                        <span class="text-base font-bold font-outfit" :class="isWifiAbnormal(item) ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="getTerminalWifiRetrans(item)"></span>
-                                        <span class="text-[10px] font-normal" :class="isWifiAbnormal(item) ? 'text-[#F52727]' : 'text-[#12A679]'" x-text="isWifiAbnormal(item) ? '(高重传冲突)' : '(正常)'"></span>
-                                      </div>
-                                      <span class="text-[10px] mt-1" :class="isWifiAbnormal(item) ? 'text-[#F52727]' : 'text-[#64748B]'" x-text="isWifiAbnormal(item) ? '信道竞争同频干扰' : '空口竞争度低'"></span>
-                                    </div>
-
-                                    <!-- 协议与频段 -->
-                                    <div class="bg-[#FAFBFD] p-2.5 rounded-[2px] border border-[#EAEEF4] flex flex-col justify-between">
-                                      <div class="flex items-center justify-between text-[11px]">
-                                        <span class="text-[#6F7785]">无线协议 / 频段</span>
-                                        <span class="text-[10px] text-[#94A3B8]">协议标准</span>
-                                      </div>
-                                      <div class="mt-1">
-                                        <span class="text-xs font-medium text-[#2F3540]" x-text="isWifiAbnormal(item) ? 'Wi-Fi 4 (802.11n) · 2.4G' : 'Wi-Fi 6 (802.11ax) · 5G'"></span>
-                                      </div>
-                                      <span class="text-[10px] text-[#64748B] mt-1" x-text="isWifiAbnormal(item) ? '2.4GHz 拥挤频段' : '5GHz 纯净高速频段'"></span>
-                                    </div>
-
-                                    <!-- 协商速率与信道利用率 -->
-                                    <div class="bg-[#FAFBFD] p-2.5 rounded-[2px] border border-[#EAEEF4] flex flex-col justify-between">
-                                      <div class="flex items-center justify-between text-[11px]">
-                                        <span class="text-[#6F7785]">协商速率 / 信道负载</span>
-                                        <span class="text-[10px] text-[#94A3B8]">接口状态</span>
-                                      </div>
-                                      <div class="mt-1 flex items-baseline gap-1">
-                                        <span class="text-xs font-mono font-medium" :class="isWifiAbnormal(item) ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="isWifiAbnormal(item) ? '144 Mbps' : '866 Mbps'"></span>
-                                        <span class="text-[10px] text-[#8A92A1]" x-text="isWifiAbnormal(item) ? '(负载 82%)' : '(负载 28%)'"></span>
-                                      </div>
-                                      <span class="text-[10px] mt-1" :class="isWifiAbnormal(item) ? 'text-[#F52727]' : 'text-[#12A679]'" x-text="isWifiAbnormal(item) ? '无线信道拥塞' : '信道资源充裕'"></span>
-                                    </div>
+                                    <span class="text-[10px]" :class="isWifiAbnormal(item) ? 'text-[#F52727]' : 'text-[#64748B]'" x-text="isWifiAbnormal(item) ? '信号严重衰减' : '覆盖极佳'"></span>
                                   </div>
                                 </div>
 
@@ -3397,7 +3315,7 @@
                                     <div class="flex items-center justify-between text-xs mb-2">
                                       <div class="flex items-center gap-2">
                                         <span class="font-medium text-[#2F3540]">CPU利用率趋势</span>
-                                        <span class="text-[10px] text-[#1C6EFF] font-mono font-medium" x-text="item.status === '异常' ? '实时 92.4%' : '实时 24.5%'"></span>
+                                        <span class="text-[10px] text-[#1C6EFF] font-mono font-medium" x-text="isWifiAbnormal(item) ? '实时 22.5%' : (item.status === '异常' ? '实时 92.4%' : '实时 24.5%')"></span>
                                       </div>
                                       <!-- 评估标准 Tooltip -->
                                       <div class="relative group cursor-pointer flex items-center gap-1 text-[10px] text-[#64748B] hover:text-[#1C6EFF] transition-colors">
@@ -3418,31 +3336,17 @@
                                             <stop offset="100%" stop-color="#1C6EFF" stop-opacity="0.0"/>
                                           </linearGradient>
                                         </defs>
-                                        <!-- Y 轴刻度与横向辅助线 -->
                                         <text x="2" y="10" fill="#94A3B8" font-size="8" font-family="sans-serif">100%</text>
                                         <line x1="26" y1="8" x2="496" y2="8" stroke="#F1F5F9" stroke-width="1"/>
-
                                         <text x="6" y="29" fill="#94A3B8" font-size="8" font-family="sans-serif">50%</text>
                                         <line x1="26" y1="28" x2="496" y2="28" stroke="#F1F5F9" stroke-width="1"/>
-
                                         <text x="11" y="49" fill="#94A3B8" font-size="8" font-family="sans-serif">0%</text>
                                         <line x1="26" y1="48" x2="496" y2="48" stroke="#E2E8F0" stroke-width="1"/>
-
-                                        <!-- 70% 警戒基线 -->
                                         <line x1="26" y1="20" x2="496" y2="20" stroke="#FA721B" stroke-width="1" stroke-dasharray="4 2"/>
                                         <text x="440" y="17" fill="#FA721B" font-size="7.5" font-family="sans-serif">70% 警戒线</text>
-
-                                        <!-- 渐变面积与趋势折线 -->
-                                        <polygon fill="url(#termCpuGrad)" points="28,48 28,38 86,36 144,32 202,30 260,24 318,16 376,20 434,28 494,34 494,48"/>
-                                        <polyline fill="none" stroke="#1C6EFF" stroke-width="1.8" points="28,38 86,36 144,32 202,30 260,24 318,16 376,20 434,28 494,34"/>
-                                        <circle cx="28" cy="38" r="2" fill="#1C6EFF"/><circle cx="144" cy="32" r="2" fill="#1C6EFF"/><circle cx="260" cy="24" r="2" fill="#1C6EFF"/><circle cx="318" cy="16" r="2.5" fill="#1C6EFF"/><circle cx="376" cy="20" r="2" fill="#1C6EFF"/><circle cx="494" cy="34" r="2" fill="#1C6EFF"/>
-
-                                        <!-- X 轴时间刻度 -->
-                                        <text x="28" y="58" fill="#94A3B8" font-size="8" font-family="sans-serif">15:40</text>
-                                        <text x="135" y="58" fill="#94A3B8" font-size="8" font-family="sans-serif">16:00</text>
-                                        <text x="251" y="58" fill="#94A3B8" font-size="8" font-family="sans-serif">16:20</text>
-                                        <text x="367" y="58" fill="#94A3B8" font-size="8" font-family="sans-serif">16:40</text>
-                                        <text x="472" y="58" fill="#94A3B8" font-size="8" font-family="sans-serif">17:00</text>
+                                        <path d="M 26 52 Q 120 50, 240 51 T 400 48 T 496 50 L 496 54 L 26 54 Z" fill="url(#termCpuGrad)"/>
+                                        <path d="M 26 52 Q 120 50, 240 51 T 400 48 T 496 50" fill="none" stroke="#1C6EFF" stroke-width="1.8"/>
+                                        <circle cx="496" cy="50" r="3" fill="#1C6EFF" stroke="#FFFFFF" stroke-width="1"/>
                                       </svg>
                                     </div>
                                   </div>
@@ -3452,12 +3356,12 @@
                                     <div class="flex items-center justify-between text-xs mb-2">
                                       <div class="flex items-center gap-2">
                                         <span class="font-medium text-[#2F3540]">内存利用率趋势</span>
-                                        <span class="text-[10px] text-[#8B5CF6] font-mono font-medium" x-text="item.status === '异常' ? '实时 88.6%' : '实时 68.2%'"></span>
+                                        <span class="text-[10px] text-[#8B5CF6] font-mono font-medium" x-text="isWifiAbnormal(item) ? '实时 41.0%' : (item.status === '异常' ? '实时 88.6%' : '实时 68.2%')"></span>
                                       </div>
                                       <!-- 评估标准 Tooltip -->
-                                      <div class="relative group cursor-pointer flex items-center gap-1 text-[10px] text-[#64748B] hover:text-[#1C6EFF] transition-colors">
+                                      <div class="relative group cursor-pointer flex items-center gap-1 text-[10px] text-[#64748B] hover:text-[#8B5CF6] transition-colors">
                                         <span>评估标准</span>
-                                        <svg class="w-3 h-3 text-[#94A3B8] group-hover:text-[#1C6EFF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <svg class="w-3 h-3 text-[#94A3B8] group-hover:text-[#8B5CF6]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                                         </svg>
                                         <div class="absolute right-0 top-full mt-1 hidden group-hover:block z-30 bg-[#1F2429] text-white text-[10px] px-2.5 py-1.5 rounded shadow-lg whitespace-nowrap pointer-events-none">
@@ -3473,37 +3377,24 @@
                                             <stop offset="100%" stop-color="#8B5CF6" stop-opacity="0.0"/>
                                           </linearGradient>
                                         </defs>
-                                        <!-- Y 轴刻度与横向辅助线 -->
                                         <text x="2" y="10" fill="#94A3B8" font-size="8" font-family="sans-serif">100%</text>
                                         <line x1="26" y1="8" x2="496" y2="8" stroke="#F1F5F9" stroke-width="1"/>
-
                                         <text x="6" y="29" fill="#94A3B8" font-size="8" font-family="sans-serif">50%</text>
                                         <line x1="26" y1="28" x2="496" y2="28" stroke="#F1F5F9" stroke-width="1"/>
-
                                         <text x="11" y="49" fill="#94A3B8" font-size="8" font-family="sans-serif">0%</text>
                                         <line x1="26" y1="48" x2="496" y2="48" stroke="#E2E8F0" stroke-width="1"/>
-
-                                        <!-- 60% 警戒基线 -->
                                         <line x1="26" y1="24" x2="496" y2="24" stroke="#FA721B" stroke-width="1" stroke-dasharray="4 2"/>
                                         <text x="440" y="21" fill="#FA721B" font-size="7.5" font-family="sans-serif">60% 警戒线</text>
-
-                                        <!-- 渐变面积与趋势折线 -->
-                                        <polygon fill="url(#termMemGrad)" points="28,48 28,32 94,30 160,26 226,18 292,15 358,22 424,25 494,27 494,48"/>
-                                        <polyline fill="none" stroke="#8B5CF6" stroke-width="1.8" points="28,32 94,30 160,26 226,18 292,15 358,22 424,25 494,27"/>
-                                        <circle cx="28" cy="32" r="2" fill="#8B5CF6"/><circle cx="160" cy="26" r="2" fill="#8B5CF6"/><circle cx="292" cy="15" r="2.5" fill="#8B5CF6"/><circle cx="424" cy="25" r="2" fill="#8B5CF6"/><circle cx="494" cy="27" r="2" fill="#8B5CF6"/>
-
-                                        <!-- X 轴时间刻度 -->
-                                        <text x="28" y="58" fill="#94A3B8" font-size="8" font-family="sans-serif">15:40</text>
-                                        <text x="135" y="58" fill="#94A3B8" font-size="8" font-family="sans-serif">16:00</text>
-                                        <text x="251" y="58" fill="#94A3B8" font-size="8" font-family="sans-serif">16:20</text>
-                                        <text x="367" y="58" fill="#94A3B8" font-size="8" font-family="sans-serif">16:40</text>
-                                        <text x="472" y="58" fill="#94A3B8" font-size="8" font-family="sans-serif">17:00</text>
+                                        <path d="M 26 42 Q 120 40, 240 39 T 400 38 T 496 39 L 496 54 L 26 54 Z" fill="url(#termMemGrad)"/>
+                                        <path d="M 26 42 Q 120 40, 240 39 T 400 38 T 496 39" fill="none" stroke="#8B5CF6" stroke-width="1.8"/>
+                                        <circle cx="496" cy="39" r="3" fill="#8B5CF6" stroke="#FFFFFF" stroke-width="1"/>
                                       </svg>
                                     </div>
                                   </div>
                                 </div>
                               </div>
                             </template>
+
                             <!-- ==========================================
                                  2. 终端-POP段 (seg_client_pop)
                                  ========================================== -->
@@ -3511,186 +3402,32 @@
                               <div class="space-y-3">
                                 <!-- 终端-POP段 多段性能度量可视化表格 -->
                                 <div class="bg-white rounded-[2px] border border-[#EAEEF4] shadow-xs overflow-hidden">
-                                  <!-- 表格 Header 标题栏 (去图标) -->
+                                  <!-- 表格 Header 标题栏 -->
                                   <div class="p-3 bg-[#FAFBFD] border-b border-[#EAEEF4] flex items-center justify-between">
                                     <div class="flex items-center gap-2">
+                                      <span class="w-1 h-3.5 bg-[#1C6EFF] rounded-full"></span>
                                       <span class="text-xs font-medium text-[#2F3540]">终端 ➔ POP 多维质量对比</span>
                                     </div>
                                   </div>
 
-                                  <!-- 可视化表格 Body (去序号圆圈，状态Tag采用comp-tag.md规范) -->
+                                  <!-- 可视化表格 Body (无状态/定责列，VPN隧道置于物理链路之上) -->
                                   <div class="overflow-x-auto">
                                     <table class="w-full text-left text-xs border-collapse">
                                       <thead>
                                         <tr class="bg-[#F8FAFC] border-b border-[#EAEEF4] text-[#5C6270] font-normal text-[11px]">
-                                          <th class="py-2.5 px-3 font-medium w-[26%]">链路测量段 / 路径示意</th>
-                                          <th class="py-2.5 px-3 font-medium w-[18%]">时延 (RTT)</th>
-                                          <th class="py-2.5 px-3 font-medium w-[15%]">丢包率 (Loss)</th>
-                                          <th class="py-2.5 px-3 font-medium w-[15%]">抖动 (Jitter)</th>
-                                          <th class="py-2.5 px-3 font-medium w-[14%]">吞吐 (Throughput)</th>
-                                          <th class="py-2.5 px-3 font-medium w-[12%] text-center">状态 / 定责评估</th>
+                                          <th class="py-2.5 px-3 font-medium w-[32%]">探测线路 / 路径示意</th>
+                                          <th class="py-2.5 px-3 font-medium w-[20%]">时延 (RTT)</th>
+                                          <th class="py-2.5 px-3 font-medium w-[18%]">丢包率 (Loss)</th>
+                                          <th class="py-2.5 px-3 font-medium w-[18%]">抖动 (Jitter)</th>
+                                          <th class="py-2.5 px-3 font-medium w-[12%]">吞吐 (Throughput)</th>
                                         </tr>
                                       </thead>
                                       <tbody class="divide-y divide-[#F0F2F5] text-xs">
-                                        <!-- ① 终端 - 出口网关 (本地 LAN 第一跳，去序号数字) -->
+                                        <!-- ① 终端 - POP 走隧道访问 (Overlay，置于首行) -->
                                         <tr class="hover:bg-[#FAFBFD] transition-colors">
                                           <td class="py-2.5 px-3">
                                             <div class="flex items-center gap-2.5">
                                               <div class="space-y-1">
-                                                <!-- 图标-图标示意图 -->
-                                                <div class="inline-flex items-center gap-1.5 px-2 py-0.8 bg-[#F1F5F9] rounded-[3px] border border-[#E2E8F0]">
-                                                  <!-- 终端图标 -->
-                                                  <div class="flex items-center gap-1 text-[#2F3540] font-medium text-[11px]">
-                                                    <svg class="w-3.5 h-3.5 text-[#1C6EFF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2-2v10a2 2 0 002 2z"></path>
-                                                    </svg>
-                                                    <span>终端</span>
-                                                  </div>
-                                                  <!-- 连线与箭头 -->
-                                                  <div class="flex items-center px-1">
-                                                    <div class="w-3.5 h-[1.5px] bg-[#94A3B8]"></div>
-                                                    <svg class="w-2 h-2 text-[#94A3B8] -ml-0.5" fill="currentColor" viewBox="0 0 6 8"><polygon points="0,0 6,4 0,8"/></svg>
-                                                  </div>
-                                                  <!-- 出口网关图标 -->
-                                                  <div class="flex items-center gap-1 text-[#2F3540] font-medium text-[11px]">
-                                                    <svg class="w-3.5 h-3.5 text-[#6366F1]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"></path>
-                                                    </svg>
-                                                    <span>出口网关</span>
-                                                  </div>
-                                                </div>
-                                                <div class="text-[10px] text-[#8A92A1] flex items-center gap-1.5">
-                                                  <span>本地局域网第一跳</span>
-                                                  <span class="font-mono text-[#64748B]">(192.168.1.1)</span>
-                                                </div>
-                                              </div>
-                                            </div>
-                                          </td>
-                                          <!-- 时延 -->
-                                          <td class="py-2.5 px-3">
-                                            <div class="flex items-baseline gap-1">
-                                              <span class="font-medium font-outfit text-xs" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="item.status === '异常' ? '86ms' : '2ms'"></span>
-                                            </div>
-                                            <div class="text-[10px] text-[#94A3B8] font-mono mt-0.5" x-text="item.status === '异常' ? '基线 < 10ms (超出+76ms)' : '基线 < 10ms'"></div>
-                                          </td>
-                                          <!-- 丢包率 -->
-                                          <td class="py-2.5 px-3">
-                                            <div class="flex items-baseline gap-1">
-                                              <span class="font-medium font-outfit text-xs" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="item.status === '异常' ? '3.8%' : '0.0%'"></span>
-                                            </div>
-                                            <div class="text-[10px] text-[#94A3B8] font-mono mt-0.5" x-text="item.status === '异常' ? '基线 0.0% (丢包偏高)' : '基线 0.0% (零丢包)'"></div>
-                                          </td>
-                                          <!-- 抖动 -->
-                                          <td class="py-2.5 px-3">
-                                            <div class="flex items-baseline gap-1">
-                                              <span class="font-medium font-outfit text-xs" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="item.status === '异常' ? '27ms' : '1ms'"></span>
-                                            </div>
-                                            <div class="text-[10px] text-[#94A3B8] font-mono mt-0.5" x-text="item.status === '异常' ? '基线 < 5ms (波动+22ms)' : '基线 < 5ms (平稳)'"></div>
-                                          </td>
-                                          <!-- 吞吐 -->
-                                          <td class="py-2.5 px-3">
-                                            <span class="text-xs text-[#94A3B8] font-mono">—</span>
-                                            <div class="text-[10px] text-[#CBD5E1]">非隧道层</div>
-                                          </td>
-                                          <!-- 状态 -->
-                                          <td class="py-2.5 px-3 text-center">
-                                            <template x-if="item.status === '异常'">
-                                              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-[2px] text-xs font-normal bg-[#CF171D]/10 text-[#CF171D] shrink-0 whitespace-nowrap">
-                                                <span class="w-1.5 h-1.5 rounded-full bg-[#CF171D]"></span>异常劣变
-                                              </span>
-                                            </template>
-                                            <template x-if="item.status !== '异常'">
-                                              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-[2px] text-xs font-normal bg-[#12A679]/10 text-[#12A679] shrink-0 whitespace-nowrap">
-                                                <span class="w-1.5 h-1.5 rounded-full bg-[#12A679]"></span>正常健康
-                                              </span>
-                                            </template>
-                                          </td>
-                                        </tr>
-
-                                        <!-- ② 终端 - POP 物理链路直连 (Underlay，去序号数字) -->
-                                        <tr class="hover:bg-[#FAFBFD] transition-colors">
-                                          <td class="py-2.5 px-3">
-                                            <div class="flex items-center gap-2.5">
-                                              <div class="space-y-1">
-                                                <!-- 图标-图标示意图 -->
-                                                <div class="inline-flex items-center gap-1.5 px-2 py-0.8 bg-[#F1F5F9] rounded-[3px] border border-[#E2E8F0]">
-                                                  <!-- 终端图标 -->
-                                                  <div class="flex items-center gap-1 text-[#2F3540] font-medium text-[11px]">
-                                                    <svg class="w-3.5 h-3.5 text-[#1C6EFF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2-2v10a2 2 0 002 2z"></path>
-                                                    </svg>
-                                                    <span>终端</span>
-                                                  </div>
-                                                  <!-- 公网直连线与云图标 -->
-                                                  <div class="flex items-center px-1">
-                                                    <div class="w-2.5 h-[1.5px] bg-[#94A3B8]"></div>
-                                                    <svg class="w-3 h-3 text-[#64748B] mx-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 00-9.78 2.096A4.001 4.001 0 003 15z"></path>
-                                                    </svg>
-                                                    <div class="w-2.5 h-[1.5px] bg-[#94A3B8]"></div>
-                                                    <svg class="w-2 h-2 text-[#94A3B8] -ml-0.5" fill="currentColor" viewBox="0 0 6 8"><polygon points="0,0 6,4 0,8"/></svg>
-                                                  </div>
-                                                  <!-- POP 图标 -->
-                                                  <div class="flex items-center gap-1 text-[#2F3540] font-medium text-[11px]">
-                                                    <svg class="w-3.5 h-3.5 text-[#0EA5E9]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
-                                                    </svg>
-                                                    <span>POP节点</span>
-                                                  </div>
-                                                </div>
-                                                <div class="text-[10px] text-[#8A92A1] flex items-center gap-1.5">
-                                                  <span>公网 Underlay 物理承载直连</span>
-                                                </div>
-                                              </div>
-                                            </div>
-                                          </td>
-                                          <!-- 时延 -->
-                                          <td class="py-2.5 px-3">
-                                            <div class="flex items-baseline gap-1">
-                                              <span class="font-medium font-outfit text-xs" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="item.status === '异常' ? '142ms' : '16ms'"></span>
-                                            </div>
-                                            <div class="text-[10px] text-[#94A3B8] font-mono mt-0.5" x-text="item.status === '异常' ? '基线 < 50ms (超出+92ms)' : '基线 < 50ms'"></div>
-                                          </td>
-                                          <!-- 丢包率 -->
-                                          <td class="py-2.5 px-3">
-                                            <div class="flex items-baseline gap-1">
-                                              <span class="font-medium font-outfit text-xs" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="item.status === '异常' ? '4.0%' : '0.0%'"></span>
-                                            </div>
-                                            <div class="text-[10px] text-[#94A3B8] font-mono mt-0.5" x-text="item.status === '异常' ? '基线 < 0.5% (轻微丢包)' : '基线 < 0.5% (通畅)'"></div>
-                                          </td>
-                                          <!-- 抖动 -->
-                                          <td class="py-2.5 px-3">
-                                            <div class="flex items-baseline gap-1">
-                                              <span class="font-medium font-outfit text-xs" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="item.status === '异常' ? '30ms' : '2ms'"></span>
-                                            </div>
-                                            <div class="text-[10px] text-[#94A3B8] font-mono mt-0.5" x-text="item.status === '异常' ? '基线 < 15ms (波动+15ms)' : '基线 < 15ms (平稳)'"></div>
-                                          </td>
-                                          <!-- 吞吐 -->
-                                          <td class="py-2.5 px-3">
-                                            <span class="text-xs text-[#94A3B8] font-mono">—</span>
-                                            <div class="text-[10px] text-[#CBD5E1]">Underlay承载</div>
-                                          </td>
-                                          <!-- 状态 -->
-                                          <td class="py-2.5 px-3 text-center">
-                                            <template x-if="item.status === '异常'">
-                                              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-[2px] text-xs font-normal bg-[#CF171D]/10 text-[#CF171D] shrink-0 whitespace-nowrap">
-                                                <span class="w-1.5 h-1.5 rounded-full bg-[#CF171D]"></span>承载受损
-                                              </span>
-                                            </template>
-                                            <template x-if="item.status !== '异常'">
-                                              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-[2px] text-xs font-normal bg-[#12A679]/10 text-[#12A679] shrink-0 whitespace-nowrap">
-                                                <span class="w-1.5 h-1.5 rounded-full bg-[#12A679]"></span>正常通畅
-                                              </span>
-                                            </template>
-                                          </td>
-                                        </tr>
-
-                                        <!-- ③ 终端 - POP 走隧道访问 (Overlay，去序号数字) -->
-                                        <tr class="hover:bg-[#FAFBFD] transition-colors">
-                                          <td class="py-2.5 px-3">
-                                            <div class="flex items-center gap-2.5">
-                                              <div class="space-y-1">
-                                                <!-- 图标-图标示意图 -->
                                                 <div class="inline-flex items-center gap-1.5 px-2 py-0.8 bg-[#F1F5F9] rounded-[3px] border border-[#E2E8F0]">
                                                   <!-- 终端图标 -->
                                                   <div class="flex items-center gap-1 text-[#2F3540] font-medium text-[11px]">
@@ -3728,43 +3465,92 @@
                                           <!-- 时延 -->
                                           <td class="py-2.5 px-3">
                                             <div class="flex items-baseline gap-1">
-                                              <span class="font-medium font-outfit text-xs" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="item.status === '异常' ? (currentSlice.topology?.segment1?.delay || '188ms') : '18ms'"></span>
+                                              <span class="font-medium font-outfit text-xs" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="item.status === '异常' ? (currentSlice.topology?.segment1?.delay || '198ms') : '18ms'"></span>
                                             </div>
-                                            <div class="text-[10px] text-[#94A3B8] font-mono mt-0.5" x-text="item.status === '异常' ? '基线 < 50ms (超出+138ms)' : '基线 < 50ms'"></div>
+                                            <div class="text-[10px] text-[#94A3B8] font-mono mt-0.5" x-text="item.status === '异常' ? '基线 < 50ms (超出+148ms)' : '基线 < 50ms'"></div>
                                           </td>
                                           <!-- 丢包率 -->
                                           <td class="py-2.5 px-3">
                                             <div class="flex items-baseline gap-1">
-                                              <span class="font-medium font-outfit text-xs" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="item.status === '异常' ? (currentSlice.topology?.segment1?.loss || '4.2%') : '0.0%'"></span>
+                                              <span class="font-medium font-outfit text-xs" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="item.status === '异常' ? (currentSlice.topology?.segment1?.loss || '5.2%') : '0.0%'"></span>
                                             </div>
                                             <div class="text-[10px] text-[#94A3B8] font-mono mt-0.5" x-text="item.status === '异常' ? '基线 < 0.5% (隧道丢包)' : '基线 < 0.5% (极佳)'"></div>
                                           </td>
                                           <!-- 抖动 -->
                                           <td class="py-2.5 px-3">
                                             <div class="flex items-baseline gap-1">
-                                              <span class="font-medium font-outfit text-xs" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="item.status === '异常' ? (currentSlice.topology?.segment1?.jitter || '32ms') : '2ms'"></span>
+                                              <span class="font-medium font-outfit text-xs" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="item.status === '异常' ? (currentSlice.topology?.segment1?.jitter || '45ms') : '2ms'"></span>
                                             </div>
-                                            <div class="text-[10px] text-[#94A3B8] font-mono mt-0.5" x-text="item.status === '异常' ? '基线 < 15ms (波动+17ms)' : '基线 < 15ms (平稳)'"></div>
+                                            <div class="text-[10px] text-[#94A3B8] font-mono mt-0.5" x-text="item.status === '异常' ? '基线 < 15ms (波动+30ms)' : '基线 < 15ms (平稳)'"></div>
                                           </td>
-                                          <!-- 吞吐 -->
+                                          <!-- 吞吐 (无基线) -->
                                           <td class="py-2.5 px-3">
                                             <div class="flex items-baseline gap-1">
-                                              <span class="font-medium font-outfit text-xs" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="item.status === '异常' ? '20 Mbps' : '85 Mbps'"></span>
+                                              <span class="font-medium font-outfit text-xs" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="item.status === '异常' ? '6.2 Mbps' : '85 Mbps'"></span>
                                             </div>
-                                            <div class="text-[10px] text-[#94A3B8] font-mono mt-0.5">基线 50 Mbps</div>
                                           </td>
-                                          <!-- 状态 -->
-                                          <td class="py-2.5 px-3 text-center">
-                                            <template x-if="item.status === '异常'">
-                                              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-[2px] text-xs font-normal bg-[#CF171D]/10 text-[#CF171D] shrink-0 whitespace-nowrap">
-                                                <span class="w-1.5 h-1.5 rounded-full bg-[#CF171D]"></span>隧道劣化
-                                              </span>
-                                            </template>
-                                            <template x-if="item.status !== '异常'">
-                                              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-[2px] text-xs font-normal bg-[#12A679]/10 text-[#12A679] shrink-0 whitespace-nowrap">
-                                                <span class="w-1.5 h-1.5 rounded-full bg-[#12A679]"></span>优质隧道
-                                              </span>
-                                            </template>
+                                        </tr>
+
+                                        <!-- ② 终端 - POP 物理链路直连 (Underlay) -->
+                                        <tr class="hover:bg-[#FAFBFD] transition-colors">
+                                          <td class="py-2.5 px-3">
+                                            <div class="flex items-center gap-2.5">
+                                              <div class="space-y-1">
+                                                <div class="inline-flex items-center gap-1.5 px-2 py-0.8 bg-[#F1F5F9] rounded-[3px] border border-[#E2E8F0]">
+                                                  <!-- 终端图标 -->
+                                                  <div class="flex items-center gap-1 text-[#2F3540] font-medium text-[11px]">
+                                                    <svg class="w-3.5 h-3.5 text-[#1C6EFF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2-2v10a2 2 0 002 2z"></path>
+                                                    </svg>
+                                                    <span>终端</span>
+                                                  </div>
+                                                  <!-- 公网直连线与云图标 -->
+                                                  <div class="flex items-center px-1">
+                                                    <div class="w-2.5 h-[1.5px] bg-[#94A3B8]"></div>
+                                                    <svg class="w-3 h-3 text-[#64748B] mx-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 00-9.78 2.096A4.001 4.001 0 003 15z"></path>
+                                                    </svg>
+                                                    <div class="w-2.5 h-[1.5px] bg-[#94A3B8]"></div>
+                                                    <svg class="w-2 h-2 text-[#94A3B8] -ml-0.5" fill="currentColor" viewBox="0 0 6 8"><polygon points="0,0 6,4 0,8"/></svg>
+                                                  </div>
+                                                  <!-- POP 图标 -->
+                                                  <div class="flex items-center gap-1 text-[#2F3540] font-medium text-[11px]">
+                                                    <svg class="w-3.5 h-3.5 text-[#0EA5E9]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                                                    </svg>
+                                                    <span>POP节点</span>
+                                                  </div>
+                                                </div>
+                                                <div class="text-[10px] text-[#8A92A1] flex items-center gap-1.5">
+                                                  <span>公网 Underlay 物理承载直连</span>
+                                                </div>
+                                              </div>
+                                            </div>
+                                          </td>
+                                          <!-- 时延 -->
+                                          <td class="py-2.5 px-3">
+                                            <div class="flex items-baseline gap-1">
+                                              <span class="font-medium font-outfit text-xs" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="item.status === '异常' ? '152ms' : '16ms'"></span>
+                                            </div>
+                                            <div class="text-[10px] text-[#94A3B8] font-mono mt-0.5" x-text="item.status === '异常' ? '基线 < 50ms (超出+102ms)' : '基线 < 50ms'"></div>
+                                          </td>
+                                          <!-- 丢包率 -->
+                                          <td class="py-2.5 px-3">
+                                            <div class="flex items-baseline gap-1">
+                                              <span class="font-medium font-outfit text-xs" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="item.status === '异常' ? '5.0%' : '0.0%'"></span>
+                                            </div>
+                                            <div class="text-[10px] text-[#94A3B8] font-mono mt-0.5" x-text="item.status === '异常' ? '基线 < 0.5% (丢包偏高)' : '基线 < 0.5% (通畅)'"></div>
+                                          </td>
+                                          <!-- 抖动 -->
+                                          <td class="py-2.5 px-3">
+                                            <div class="flex items-baseline gap-1">
+                                              <span class="font-medium font-outfit text-xs" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="item.status === '异常' ? '42ms' : '2ms'"></span>
+                                            </div>
+                                            <div class="text-[10px] text-[#94A3B8] font-mono mt-0.5" x-text="item.status === '异常' ? '基线 < 15ms (波动+27ms)' : '基线 < 15ms (平稳)'"></div>
+                                          </td>
+                                          <!-- 吞吐 (无基线) -->
+                                          <td class="py-2.5 px-3">
+                                            <span class="text-xs text-[#94A3B8] font-mono">—</span>
                                           </td>
                                         </tr>
                                       </tbody>
@@ -3775,18 +3561,19 @@
                                 <!-- 客户端到 POP 逐跳链路诊断信息 (Hop-by-Hop Trace) -->
                                 <template x-if="item.hopTraces">
                                   <div class="mt-3 bg-white p-3 rounded-[2px] border border-[#EAEEF4] shadow-xs">
-                                    <!-- Header (去图标) -->
+                                    <!-- Header -->
                                     <div class="flex items-center justify-between pb-2 border-b border-[#F0F2F5]">
                                       <div class="flex items-center gap-2">
+                                        <span class="w-1 h-3.5 bg-[#1C6EFF] rounded-full"></span>
                                         <span class="text-xs font-medium text-[#2F3540]">终端 ➔ POP的逐跳链路诊断</span>
                                       </div>
                                     </div>
 
-                                    <!-- 逐跳证据表格 -->
-                                    <div class="mt-2 overflow-x-auto">
+                                    <!-- 逐跳证据表格 (默认展示4跳，局部滚动，灰色tag，首跳无上一跳增量) -->
+                                    <div class="mt-2 overflow-x-auto max-h-[220px] overflow-y-auto">
                                       <table class="w-full text-left text-xs border-collapse">
-                                        <thead>
-                                          <tr class="bg-[#FAFBFD] border-b border-[#E1E5EB] text-[#5C6270] font-normal text-[11px]">
+                                        <thead class="sticky top-0 bg-[#FAFBFD] z-10">
+                                          <tr class="border-b border-[#E1E5EB] text-[#5C6270] font-normal text-[11px]">
                                             <th class="py-1.5 px-2.5 w-10 text-center font-normal">Hop</th>
                                             <th class="py-1.5 px-2.5 font-normal">节点 IP</th>
                                             <th class="py-1.5 px-2.5 font-normal">ISP / ASN 属性</th>
@@ -3801,16 +3588,19 @@
                                             <tr :class="hop.status === '异常' ? 'bg-[#FFF1F2]/40 text-[#CF171D]' : 'hover:bg-[#FAFBFD] text-[#334155]'">
                                               <td class="py-1.5 px-2.5 text-center font-normal" x-text="hop.hop"></td>
                                               <td class="py-1.5 px-2.5 font-normal">
-                                                <span x-text="hop.ip"></span>
-                                                <template x-if="hop.status === '异常'">
-                                                  <span class="ml-1.5 px-2 py-0.5 text-xs bg-[#CF171D]/10 text-[#CF171D] rounded-[2px] font-normal shrink-0 whitespace-nowrap">异常定责点</span>
-                                                </template>
+                                                <div class="flex items-center gap-1.5 flex-wrap">
+                                                  <span class="font-mono" x-text="hop.ip"></span>
+                                                  <!-- 关键IP角色标签全部为标准中性灰色Tag -->
+                                                  <template x-if="hop.tag">
+                                                    <span class="px-1.5 py-0.5 text-[10px] rounded-[2px] font-sans font-medium whitespace-nowrap bg-[#F1F5F9] text-[#64748B] border border-[#E2E8F0]" x-text="hop.tag"></span>
+                                                  </template>
+                                                </div>
                                               </td>
                                               <td class="py-1.5 px-2.5 font-sans font-normal" x-text="hop.asn"></td>
                                               <td class="py-1.5 px-2.5 font-sans text-[#64748B] font-normal" x-text="hop.loc"></td>
-                                              <td class="py-1.5 px-2.5 font-normal" x-text="hop.rtt + (hop.diffRtt && hop.diffRtt !== '-' ? ' (' + hop.diffRtt + ')' : '')"></td>
-                                              <td class="py-1.5 px-2.5 font-normal" :class="hop.status === '异常' ? 'text-[#CF171D]' : ''" x-text="hop.loss + (hop.diffLoss && hop.diffLoss !== '-' ? ' (' + hop.diffLoss + ')' : '')"></td>
-                                              <td class="py-1.5 px-2.5 font-normal" :class="hop.status === '异常' ? 'text-[#CF171D]' : ''" x-text="hop.jitter + (hop.diffJitter && hop.diffJitter !== '-' ? ' (' + hop.diffJitter + ')' : '')"></td>
+                                              <td class="py-1.5 px-2.5 font-normal" x-text="hop.hop === 1 ? hop.rtt : (hop.rtt + (hop.diffRtt && hop.diffRtt !== '-' ? ' (' + hop.diffRtt + ')' : ''))"></td>
+                                              <td class="py-1.5 px-2.5 font-normal" :class="hop.status === '异常' ? 'text-[#CF171D]' : ''" x-text="hop.hop === 1 ? hop.loss : (hop.loss + (hop.diffLoss && hop.diffLoss !== '-' ? ' (' + hop.diffLoss + ')' : ''))"></td>
+                                              <td class="py-1.5 px-2.5 font-normal" :class="hop.status === '异常' ? 'text-[#CF171D]' : ''" x-text="hop.hop === 1 ? hop.jitter : (hop.jitter + (hop.diffJitter && hop.diffJitter !== '-' ? ' (' + hop.diffJitter + ')' : ''))"></td>
                                             </tr>
                                           </template>
                                         </tbody>
@@ -3820,47 +3610,84 @@
                                 </template>
                               </div>
                             </template>
+
                             <!-- ==========================================
-                                 3. POP 节点 (node_pop) - 仅展示 RTT、丢包率、时延、抖动
+                                 3. POP 节点 (node_pop) - POP健康状态 + 本次处理状态
                                  ========================================== -->
                             <template x-if="item.id === 'node_pop'">
                               <div class="space-y-3">
-                                <!-- 只有 4 个核心指标卡片 (加细灰描边) -->
-                                <div class="grid grid-cols-2 md:grid-cols-4 gap-2.5">
-                                  <!-- RTT -->
-                                  <div class="bg-white p-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
-                                    <span class="text-[11px] text-[#6F7785]">RTT</span>
-                                    <div class="mt-1">
-                                      <span class="text-base font-bold font-outfit" :class="getMetricColor(item.status === '异常' ? 48 : 28, 40)" x-text="item.status === '异常' ? '48ms' : '28ms'"></span>
+                                <!-- ① POP 健康状态 (多线路聚合，线路状态与整体吞吐) -->
+                                <div class="bg-white p-3 rounded-[2px] border border-[#EAEEF4] shadow-xs">
+                                  <div class="flex items-center justify-between pb-2 mb-2.5 border-b border-[#F0F2F5] flex-wrap gap-2">
+                                    <div class="flex items-center gap-2">
+                                      <svg class="w-4 h-4 text-[#1C6EFF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                                      </svg>
+                                      <span class="text-xs font-medium text-[#2F3540]">POP健康状态</span>
+                                      <span class="text-[11px] text-[#8A92A1] font-mono" x-text="getPopSelfStatus(item).popName"></span>
                                     </div>
-                                    <span class="text-[10px] text-[#94A3B8]">基线 &lt; 40ms</span>
                                   </div>
-
-                                  <!-- 丢包率 -->
-                                  <div class="bg-white p-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
-                                    <span class="text-[11px] text-[#6F7785]">丢包率</span>
-                                    <div class="mt-1">
-                                      <span class="text-base font-bold font-outfit" :class="getMetricColor(item.status === '异常' ? 2.1 : 0.02, 0.1)" x-text="item.status === '异常' ? '2.1%' : '0.02%'"></span>
+                                  <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                                    <!-- 卡片 1: 线路健康性 -->
+                                    <div class="bg-[#FAFBFD] p-3 rounded-[2px] border border-[#EAEEF4] flex flex-col justify-between">
+                                      <div class="flex items-center justify-between">
+                                        <span class="text-[11px] text-[#6F7785]">线路健康性</span>
+                                        <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[2px] text-[10px] font-medium"
+                                              :class="getPopSelfStatus(item).abnormalCount > 0 ? 'bg-[#CF171D]/10 text-[#CF171D]' : 'bg-[#12A679]/10 text-[#12A679]'">
+                                          <span class="w-1.5 h-1.5 rounded-full" :class="getPopSelfStatus(item).abnormalCount > 0 ? 'bg-[#CF171D]' : 'bg-[#12A679]'"></span>
+                                          <span x-text="getPopSelfStatus(item).abnormalCount > 0 ? (getPopSelfStatus(item).abnormalCount + ' 条异常') : '全部健康'"></span>
+                                        </span>
+                                      </div>
+                                      <div class="mt-1.5 flex items-baseline gap-2">
+                                        <span class="text-base font-bold font-outfit text-[#2F3540]" x-text="getPopSelfStatus(item).total + ' 条线路'"></span>
+                                        <span class="text-[11px] text-[#8A92A1] font-normal">多线 BGP 接入</span>
+                                      </div>
+                                      <div class="mt-2 flex items-center gap-1.5 flex-wrap">
+                                        <template x-for="line in getPopSelfStatus(item).lines" :key="line.name">
+                                          <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[2px] text-[10px] border"
+                                                :class="line.status === '异常' ? 'bg-[#FFF1F0] text-[#CF171D] border-[#FFA39E]' : 'bg-white text-[#334155] border-[#E2E8F0]'">
+                                            <span class="w-1 h-1 rounded-full" :class="line.status === '异常' ? 'bg-[#CF171D]' : 'bg-[#12A679]'"></span>
+                                            <span x-text="line.carrier"></span>
+                                          </span>
+                                        </template>
+                                      </div>
                                     </div>
-                                    <span class="text-[10px] text-[#94A3B8]">基线 &lt; 0.1%</span>
+
+                                    <!-- 卡片 2: 整体吞吐 -->
+                                    <div class="bg-[#FAFBFD] p-3 rounded-[2px] border border-[#EAEEF4] flex flex-col justify-between">
+                                      <div class="flex items-center justify-between">
+                                        <span class="text-[11px] text-[#6F7785]">整体吞吐</span>
+                                        <span class="text-[10px] text-[#94A3B8]">基线 &lt; 10 Gbps</span>
+                                      </div>
+                                      <div class="mt-1.5 flex items-baseline gap-2">
+                                        <span class="text-base font-bold font-outfit" :class="getPopSelfStatus(item).overallStatus === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="getPopSelfStatus(item).overallThroughput"></span>
+                                        <span class="text-[11px] text-[#12A679] font-normal" x-text="getPopSelfStatus(item).overallStatus === '异常' ? '(流量激增)' : '(利用率 24%)'"></span>
+                                      </div>
+                                      <span class="text-[10px] text-[#64748B] mt-2" x-text="getPopSelfStatus(item).overallStatus === '异常' ? '超限流基线 10 Gbps' : '未触达 10Gbps 限流阈值，带宽充裕'"></span>
+                                    </div>
                                   </div>
+                                </div>
 
-                                  <!-- 时延 -->
-                                  <div class="bg-white p-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
-                                    <span class="text-[11px] text-[#6F7785]">时延</span>
-                                    <div class="mt-1">
-                                      <span class="text-base font-bold font-outfit" :class="getMetricColor(item.status === '异常' ? 32 : 6, 15)" x-text="item.status === '异常' ? '32ms' : '6ms'"></span>
+                                <!-- ② 本次处理状态 (POP 处理本次请求流量的数据) -->
+                                <div class="bg-white p-3 rounded-[2px] border border-[#EAEEF4] shadow-xs">
+                                  <div class="flex items-center justify-between pb-2 mb-2.5 border-b border-[#F0F2F5] flex-wrap gap-2">
+                                    <div class="flex items-center gap-2">
+                                      <span class="w-1 h-3.5 bg-[#1C6EFF] rounded-full"></span>
+                                      <span class="text-xs font-medium text-[#2F3540]">本次处理状态</span>
+                                      <span class="text-[11px] text-[#8A92A1]">POP 处理本次请求流量的数据</span>
+                                      <span class="text-[11px] text-[#8A92A1] font-mono" x-text="'联动时刻 ' + (currentSlice.time || '')"></span>
                                     </div>
-                                    <span class="text-[10px] text-[#94A3B8]">基线 &lt; 15ms</span>
                                   </div>
-
-                                  <!-- 抖动 -->
-                                  <div class="bg-white p-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
-                                    <span class="text-[11px] text-[#6F7785]">抖动</span>
-                                    <div class="mt-1">
-                                      <span class="text-base font-bold font-outfit" :class="getMetricColor(item.status === '异常' ? 11 : 2, 5)" x-text="item.status === '异常' ? '11ms' : '2ms'"></span>
-                                    </div>
-                                    <span class="text-[10px] text-[#94A3B8]">基线 &lt; 5ms</span>
+                                  <div class="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+                                    <template x-for="m in getPopMomentMetrics(item)" :key="m.label">
+                                      <div class="bg-white p-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
+                                        <span class="text-[11px] text-[#6F7785]" x-text="m.label"></span>
+                                        <div class="mt-1">
+                                          <span class="text-base font-bold font-outfit" :class="m.color" x-text="m.value"></span>
+                                        </div>
+                                        <span class="text-[10px] text-[#94A3B8]" x-text="m.note"></span>
+                                      </div>
+                                    </template>
                                   </div>
                                 </div>
                               </div>
@@ -3876,108 +3703,29 @@
                                   <!-- 表格 Header 标题栏 -->
                                   <div class="p-3 bg-[#FAFBFD] border-b border-[#EAEEF4] flex items-center justify-between">
                                     <div class="flex items-center gap-2">
+                                      <span class="w-1 h-3.5 bg-[#1C6EFF] rounded-full"></span>
                                       <span class="text-xs font-medium text-[#2F3540]">POP ➔ 连接器 多维质量对比</span>
                                     </div>
                                   </div>
 
-                                  <!-- 可视化表格 Body -->
+                                  <!-- 可视化表格 Body (专线隧道置于首行，去除定责列) -->
                                   <div class="overflow-x-auto">
                                     <table class="w-full text-left text-xs border-collapse">
                                       <thead>
                                         <tr class="bg-[#F8FAFC] border-b border-[#EAEEF4] text-[#5C6270] font-normal text-[11px]">
-                                          <th class="py-2.5 px-3 font-medium w-[26%]">链路测量段 / 路径示意</th>
-                                          <th class="py-2.5 px-3 font-medium w-[18%]">时延 (RTT)</th>
-                                          <th class="py-2.5 px-3 font-medium w-[15%]">丢包率 (Loss)</th>
-                                          <th class="py-2.5 px-3 font-medium w-[15%]">抖动 (Jitter)</th>
-                                          <th class="py-2.5 px-3 font-medium w-[14%]">吞吐 (Throughput)</th>
-                                          <th class="py-2.5 px-3 font-medium w-[12%] text-center">状态 / 定责评估</th>
+                                          <th class="py-2.5 px-3 font-medium w-[32%]">链路测量段 / 路径示意</th>
+                                          <th class="py-2.5 px-3 font-medium w-[20%]">时延 (RTT)</th>
+                                          <th class="py-2.5 px-3 font-medium w-[18%]">丢包率 (Loss)</th>
+                                          <th class="py-2.5 px-3 font-medium w-[18%]">抖动 (Jitter)</th>
+                                          <th class="py-2.5 px-3 font-medium w-[12%]">吞吐 (Throughput)</th>
                                         </tr>
                                       </thead>
                                       <tbody class="divide-y divide-[#F0F2F5] text-xs">
-                                        <!-- ① POP - 连接器 公网物理链路 (Underlay) -->
+                                        <!-- ① POP - 连接器 专线隧道链路 (Overlay，置于首行) -->
                                         <tr class="hover:bg-[#FAFBFD] transition-colors">
                                           <td class="py-2.5 px-3">
                                             <div class="flex items-center gap-2.5">
                                               <div class="space-y-1">
-                                                <!-- 图标-图标示意图 -->
-                                                <div class="inline-flex items-center gap-1.5 px-2 py-0.8 bg-[#F1F5F9] rounded-[3px] border border-[#E2E8F0]">
-                                                  <!-- POP 图标 -->
-                                                  <div class="flex items-center gap-1 text-[#2F3540] font-medium text-[11px]">
-                                                    <svg class="w-3.5 h-3.5 text-[#0EA5E9]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
-                                                    </svg>
-                                                    <span>POP节点</span>
-                                                  </div>
-                                                  <!-- 公网直连线与云图标 -->
-                                                  <div class="flex items-center px-1">
-                                                    <div class="w-2.5 h-[1.5px] bg-[#94A3B8]"></div>
-                                                    <svg class="w-3 h-3 text-[#64748B] mx-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 00-9.78 2.096A4.001 4.001 0 003 15z"></path>
-                                                    </svg>
-                                                    <div class="w-2.5 h-[1.5px] bg-[#94A3B8]"></div>
-                                                    <svg class="w-2 h-2 text-[#94A3B8] -ml-0.5" fill="currentColor" viewBox="0 0 6 8"><polygon points="0,0 6,4 0,8"/></svg>
-                                                  </div>
-                                                  <!-- 连接器图标 -->
-                                                  <div class="flex items-center gap-1 text-[#2F3540] font-medium text-[11px]">
-                                                    <svg class="w-3.5 h-3.5 text-[#10B981]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                                                    </svg>
-                                                    <span>连接器</span>
-                                                  </div>
-                                                </div>
-                                                <div class="text-[10px] text-[#8A92A1] flex items-center gap-1.5">
-                                                  <span>跨域公网 Underlay 物理承载</span>
-                                                </div>
-                                              </div>
-                                            </div>
-                                          </td>
-                                          <!-- 时延 -->
-                                          <td class="py-2.5 px-3">
-                                            <div class="flex items-baseline gap-1">
-                                              <span class="font-medium font-outfit text-xs" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="item.status === '异常' ? '110ms' : '26ms'"></span>
-                                            </div>
-                                            <div class="text-[10px] text-[#94A3B8] font-mono mt-0.5" x-text="item.status === '异常' ? '基线 < 40ms (超出+70ms)' : '基线 < 40ms'"></div>
-                                          </td>
-                                          <!-- 丢包率 -->
-                                          <td class="py-2.5 px-3">
-                                            <div class="flex items-baseline gap-1">
-                                              <span class="font-medium font-outfit text-xs" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="item.status === '异常' ? '3.5%' : '0.0%'"></span>
-                                            </div>
-                                            <div class="text-[10px] text-[#94A3B8] font-mono mt-0.5" x-text="item.status === '异常' ? '基线 < 0.5% (轻微丢包)' : '基线 < 0.5% (通畅)'"></div>
-                                          </td>
-                                          <!-- 抖动 -->
-                                          <td class="py-2.5 px-3">
-                                            <div class="flex items-baseline gap-1">
-                                              <span class="font-medium font-outfit text-xs" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="item.status === '异常' ? '15ms' : '2ms'"></span>
-                                            </div>
-                                            <div class="text-[10px] text-[#94A3B8] font-mono mt-0.5" x-text="item.status === '异常' ? '基线 < 5ms (波动+10ms)' : '基线 < 5ms (平稳)'"></div>
-                                          </td>
-                                          <!-- 吞吐 -->
-                                          <td class="py-2.5 px-3">
-                                            <span class="text-xs text-[#94A3B8] font-mono">—</span>
-                                            <div class="text-[10px] text-[#CBD5E1]">Underlay承载</div>
-                                          </td>
-                                          <!-- 状态 -->
-                                          <td class="py-2.5 px-3 text-center">
-                                            <template x-if="item.status === '异常'">
-                                              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-[2px] text-xs font-normal bg-[#CF171D]/10 text-[#CF171D] shrink-0 whitespace-nowrap">
-                                                <span class="w-1.5 h-1.5 rounded-full bg-[#CF171D]"></span>承载受损
-                                              </span>
-                                            </template>
-                                            <template x-if="item.status !== '异常'">
-                                              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-[2px] text-xs font-normal bg-[#12A679]/10 text-[#12A679] shrink-0 whitespace-nowrap">
-                                                <span class="w-1.5 h-1.5 rounded-full bg-[#12A679]"></span>正常通畅
-                                              </span>
-                                            </template>
-                                          </td>
-                                        </tr>
-
-                                        <!-- ② POP - 连接器 专线隧道链路 (Overlay) -->
-                                        <tr class="hover:bg-[#FAFBFD] transition-colors">
-                                          <td class="py-2.5 px-3">
-                                            <div class="flex items-center gap-2.5">
-                                              <div class="space-y-1">
-                                                <!-- 图标-图标示意图 -->
                                                 <div class="inline-flex items-center gap-1.5 px-2 py-0.8 bg-[#F1F5F9] rounded-[3px] border border-[#E2E8F0]">
                                                   <!-- POP 图标 -->
                                                   <div class="flex items-center gap-1 text-[#2F3540] font-medium text-[11px]">
@@ -4033,25 +3781,74 @@
                                             </div>
                                             <div class="text-[10px] text-[#94A3B8] font-mono mt-0.5" x-text="item.status === '异常' ? '基线 < 5ms (波动+13ms)' : '基线 < 5ms (平稳)'"></div>
                                           </td>
-                                          <!-- 吞吐 -->
+                                          <!-- 吞吐 (无基线) -->
                                           <td class="py-2.5 px-3">
                                             <div class="flex items-baseline gap-1">
                                               <span class="font-medium font-outfit text-xs" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="item.status === '异常' ? '20 Mbps' : '480 Mbps'"></span>
                                             </div>
-                                            <div class="text-[10px] text-[#94A3B8] font-mono mt-0.5">专线带宽 1 Gbps</div>
                                           </td>
-                                          <!-- 状态 -->
-                                          <td class="py-2.5 px-3 text-center">
-                                            <template x-if="item.status === '异常'">
-                                              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-[2px] text-xs font-normal bg-[#CF171D]/10 text-[#CF171D] shrink-0 whitespace-nowrap">
-                                                <span class="w-1.5 h-1.5 rounded-full bg-[#CF171D]"></span>专线拥塞
-                                              </span>
-                                            </template>
-                                            <template x-if="item.status !== '异常'">
-                                              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-[2px] text-xs font-normal bg-[#12A679]/10 text-[#12A679] shrink-0 whitespace-nowrap">
-                                                <span class="w-1.5 h-1.5 rounded-full bg-[#12A679]"></span>优质专线
-                                              </span>
-                                            </template>
+                                        </tr>
+
+                                        <!-- ② POP - 连接器 公网物理链路 (Underlay) -->
+                                        <tr class="hover:bg-[#FAFBFD] transition-colors">
+                                          <td class="py-2.5 px-3">
+                                            <div class="flex items-center gap-2.5">
+                                              <div class="space-y-1">
+                                                <div class="inline-flex items-center gap-1.5 px-2 py-0.8 bg-[#F1F5F9] rounded-[3px] border border-[#E2E8F0]">
+                                                  <!-- POP 图标 -->
+                                                  <div class="flex items-center gap-1 text-[#2F3540] font-medium text-[11px]">
+                                                    <svg class="w-3.5 h-3.5 text-[#0EA5E9]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                                                    </svg>
+                                                    <span>POP节点</span>
+                                                  </div>
+                                                  <!-- 公网直连线与云图标 -->
+                                                  <div class="flex items-center px-1">
+                                                    <div class="w-2.5 h-[1.5px] bg-[#94A3B8]"></div>
+                                                    <svg class="w-3 h-3 text-[#64748B] mx-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 00-9.78 2.096A4.001 4.001 0 003 15z"></path>
+                                                    </svg>
+                                                    <div class="w-2.5 h-[1.5px] bg-[#94A3B8]"></div>
+                                                    <svg class="w-2 h-2 text-[#94A3B8] -ml-0.5" fill="currentColor" viewBox="0 0 6 8"><polygon points="0,0 6,4 0,8"/></svg>
+                                                  </div>
+                                                  <!-- 连接器图标 -->
+                                                  <div class="flex items-center gap-1 text-[#2F3540] font-medium text-[11px]">
+                                                    <svg class="w-3.5 h-3.5 text-[#10B981]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                                                    </svg>
+                                                    <span>连接器</span>
+                                                  </div>
+                                                </div>
+                                                <div class="text-[10px] text-[#8A92A1] flex items-center gap-1.5">
+                                                  <span>跨域公网 Underlay 物理承载</span>
+                                                </div>
+                                              </div>
+                                            </div>
+                                          </td>
+                                          <!-- 时延 -->
+                                          <td class="py-2.5 px-3">
+                                            <div class="flex items-baseline gap-1">
+                                              <span class="font-medium font-outfit text-xs" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="item.status === '异常' ? '110ms' : '26ms'"></span>
+                                            </div>
+                                            <div class="text-[10px] text-[#94A3B8] font-mono mt-0.5" x-text="item.status === '异常' ? '基线 < 40ms (超出+70ms)' : '基线 < 40ms'"></div>
+                                          </td>
+                                          <!-- 丢包率 -->
+                                          <td class="py-2.5 px-3">
+                                            <div class="flex items-baseline gap-1">
+                                              <span class="font-medium font-outfit text-xs" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="item.status === '异常' ? '3.5%' : '0.0%'"></span>
+                                            </div>
+                                            <div class="text-[10px] text-[#94A3B8] font-mono mt-0.5" x-text="item.status === '异常' ? '基线 < 0.5% (轻微丢包)' : '基线 < 0.5% (通畅)'"></div>
+                                          </td>
+                                          <!-- 抖动 -->
+                                          <td class="py-2.5 px-3">
+                                            <div class="flex items-baseline gap-1">
+                                              <span class="font-medium font-outfit text-xs" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="item.status === '异常' ? '15ms' : '2ms'"></span>
+                                            </div>
+                                            <div class="text-[10px] text-[#94A3B8] font-mono mt-0.5" x-text="item.status === '异常' ? '基线 < 5ms (波动+10ms)' : '基线 < 5ms (平稳)'"></div>
+                                          </td>
+                                          <!-- 吞吐 (无基线) -->
+                                          <td class="py-2.5 px-3">
+                                            <span class="text-xs text-[#94A3B8] font-mono">—</span>
                                           </td>
                                         </tr>
                                       </tbody>
@@ -4064,15 +3861,16 @@
                                   <!-- Header -->
                                   <div class="flex items-center justify-between pb-2 border-b border-[#F0F2F5]">
                                     <div class="flex items-center gap-2">
+                                      <span class="w-1 h-3.5 bg-[#1C6EFF] rounded-full"></span>
                                       <span class="text-xs font-medium text-[#2F3540]">POP ➔ 连接器的逐跳链路诊断</span>
                                     </div>
                                   </div>
 
-                                  <!-- 逐跳证据表格 -->
-                                  <div class="mt-2 overflow-x-auto">
+                                  <!-- 逐跳证据表格 (默认展示4跳，局部滚动，灰色tag，首跳无较上一跳增量) -->
+                                  <div class="mt-2 overflow-x-auto max-h-[220px] overflow-y-auto">
                                     <table class="w-full text-left text-xs border-collapse">
-                                      <thead>
-                                        <tr class="bg-[#FAFBFD] border-b border-[#E1E5EB] text-[#5C6270] font-normal text-[11px]">
+                                      <thead class="sticky top-0 bg-[#FAFBFD] z-10">
+                                        <tr class="border-b border-[#E1E5EB] text-[#5C6270] font-normal text-[11px]">
                                           <th class="py-1.5 px-2.5 w-10 text-center font-normal">Hop</th>
                                           <th class="py-1.5 px-2.5 font-normal">节点 IP</th>
                                           <th class="py-1.5 px-2.5 font-normal">ISP / ASN 属性</th>
@@ -4087,16 +3885,19 @@
                                           <tr :class="hop.status === '异常' ? 'bg-[#FFF1F2]/40 text-[#CF171D]' : 'hover:bg-[#FAFBFD] text-[#334155]'">
                                             <td class="py-1.5 px-2.5 text-center font-normal" x-text="hop.hop"></td>
                                             <td class="py-1.5 px-2.5 font-normal">
-                                              <span x-text="hop.ip"></span>
-                                              <template x-if="hop.status === '异常'">
-                                                <span class="ml-1.5 px-2 py-0.5 text-xs bg-[#CF171D]/10 text-[#CF171D] rounded-[2px] font-normal shrink-0 whitespace-nowrap">异常定责点</span>
-                                              </template>
+                                              <div class="flex items-center gap-1.5 flex-wrap">
+                                                <span class="font-mono" x-text="hop.ip"></span>
+                                                <!-- 关键IP角色标签全部为标准中性灰色Tag -->
+                                                <template x-if="hop.tag">
+                                                  <span class="px-1.5 py-0.5 text-[10px] rounded-[2px] font-sans font-medium whitespace-nowrap bg-[#F1F5F9] text-[#64748B] border border-[#E2E8F0]" x-text="hop.tag"></span>
+                                                </template>
+                                              </div>
                                             </td>
                                             <td class="py-1.5 px-2.5 font-sans font-normal" x-text="hop.asn"></td>
                                             <td class="py-1.5 px-2.5 font-sans text-[#64748B] font-normal" x-text="hop.loc"></td>
-                                            <td class="py-1.5 px-2.5 font-normal" x-text="hop.rtt + (hop.diffRtt && hop.diffRtt !== '-' ? ' (' + hop.diffRtt + ')' : '')"></td>
-                                            <td class="py-1.5 px-2.5 font-normal" :class="hop.status === '异常' ? 'text-[#CF171D]' : ''" x-text="hop.loss + (hop.diffLoss && hop.diffLoss !== '-' ? ' (' + hop.diffLoss + ')' : '')"></td>
-                                            <td class="py-1.5 px-2.5 font-normal" :class="hop.status === '异常' ? 'text-[#CF171D]' : ''" x-text="hop.jitter + (hop.diffJitter && hop.diffJitter !== '-' ? ' (' + hop.diffJitter + ')' : '')"></td>
+                                            <td class="py-1.5 px-2.5 font-normal" x-text="hop.hop === 1 ? hop.rtt : (hop.rtt + (hop.diffRtt && hop.diffRtt !== '-' ? ' (' + hop.diffRtt + ')' : ''))"></td>
+                                            <td class="py-1.5 px-2.5 font-normal" :class="hop.status === '异常' ? 'text-[#CF171D]' : ''" x-text="hop.hop === 1 ? hop.loss : (hop.loss + (hop.diffLoss && hop.diffLoss !== '-' ? ' (' + hop.diffLoss + ')' : ''))"></td>
+                                            <td class="py-1.5 px-2.5 font-normal" :class="hop.status === '异常' ? 'text-[#CF171D]' : ''" x-text="hop.hop === 1 ? hop.jitter : (hop.jitter + (hop.diffJitter && hop.diffJitter !== '-' ? ' (' + hop.diffJitter + ')' : ''))"></td>
                                           </tr>
                                         </template>
                                       </tbody>
@@ -4107,7 +3908,7 @@
                             </template>
 
                             <!-- ==========================================
-                                 5. 连接器 (node_connector) - 仅展示 CPU、内存及趋势图
+                                 5. 连接器 (node_connector) (node_connector) - 仅展示 CPU、内存及趋势图
                                  ========================================== -->
                             <template x-if="item.id === 'node_connector'">
                               <div class="space-y-3">
@@ -4284,124 +4085,110 @@
                               </div>
                             </template>
 
-                            <!-- ==========================================
+                                                                                                                <!-- ==========================================
                                  7. 应用 (node_app / node_final_app)
                                  ========================================== -->
                             <template x-if="item.id === 'node_app' || item.id === 'node_final_app'">
-                              <div class="space-y-2.5">
-                                <!-- 标题：不要左侧图标，不要底部边框和底色，不要下方分割线 -->
-                                <div class="flex items-center justify-between">
-                                  <span class="text-xs font-medium text-[#2F3540]" x-text="'同时刻（联动时间 ' + (currentPoint?.time || currentSlice.time || '16:00') + '）应用访问情况'"></span>
-                                </div>
-
-                                <!-- 6 宫格 KPI 卡片：卡片颜色改为白色 (bg-white border border-[#EAEEF4] shadow-xs) -->
-                                <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
-                                  <!-- 卡片 1: 访问对象情况 -->
-                                  <div class="bg-white p-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
-                                    <span class="text-xs text-[#8A92A1] mb-1 whitespace-nowrap">访问对象情况</span>
-                                    <div class="space-y-1 mt-0.5">
-                                      <div class="flex items-baseline gap-1">
-                                        <span class="text-base lg:text-lg font-bold font-outfit text-[#2F3540]" x-text="getApplicationAudienceCount(item)">42</span>
-                                        <span class="text-xs text-[#2F3540]">人</span>
-                                        <span class="text-xs text-[#CBD5E1] mx-1">|</span>
-                                        <span class="text-base lg:text-lg font-bold font-outfit text-[#2F3540]" x-text="getApplicationBranchCount(item)">3</span>
-                                        <span class="text-xs text-[#2F3540]">个分支</span>
-                                      </div>
+                              <div class="space-y-3">
+                                <!-- ① 此时刻单次访问数据 (可用性 100%、HTTP 状态与错误率 0.0%) -->
+                                <div class="bg-white p-3 rounded-[2px] border border-[#EAEEF4] shadow-xs">
+                                  <div class="flex items-center justify-between pb-2 mb-2.5 border-b border-[#F0F2F5] flex-wrap gap-2">
+                                    <div class="flex items-center gap-2">
+                                      <span class="w-1 h-3.5 bg-[#1C6EFF] rounded-full"></span>
+                                      <span class="text-xs font-medium text-[#2F3540]">此时刻单次访问数据</span>
+                                      <span class="text-[11px] text-[#8A92A1] font-mono" x-text="'联动时刻 ' + (currentPoint?.time || currentSlice.time || '16:00')"></span>
                                     </div>
-                                    <div class="text-[11px] text-[#5C6270] pt-1.5 border-t border-[#EAEEF4]/70 mt-1">
-                                      受损对象<span class="font-outfit font-medium text-[#2F3540]" x-text="getApplicationDamagedCount(item)">13</span>个，占比<span class="font-outfit font-bold text-[#F52727]" x-text="getApplicationAudiencePercent(item)">30%</span>
-                                    </div>
+                                    <span class="text-[11px] text-[#8A92A1]">单次请求网络探测</span>
                                   </div>
-
-                                  <!-- 卡片 2: 真实访问&探测 -->
-                                  <div class="bg-white p-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
-                                    <span class="text-xs text-[#8A92A1] mb-1 whitespace-nowrap">真实访问&amp;探测</span>
-                                    <div class="flex items-baseline gap-1 mt-0.5">
-                                      <span class="text-base lg:text-lg font-bold font-outfit text-[#2F3540]" x-text="getApplicationTotalRequests(item)">15,820</span>
-                                      <span class="text-[10px] text-[#6F7785]">次</span>
-                                    </div>
-                                    <div class="text-[10px] mt-1 text-[#8A92A1]">近 5 分钟采样</div>
-                                  </div>
-
-                                  <!-- 卡片 3: 可用性 (体验正常占比) -->
-                                  <div class="bg-white p-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
-                                    <span class="text-xs text-[#8A92A1] mb-1 whitespace-nowrap">可用性 (体验正常占比)</span>
-                                    <div class="flex items-baseline gap-1 mt-0.5">
-                                      <span class="text-base lg:text-lg font-bold font-outfit"
-                                            :class="getMetricColor(getApplicationAvailability(item), 99.0, true)"
-                                            x-text="getApplicationAvailability(item)"></span>
-                                    </div>
-                                    <div class="text-[10px] mt-1"
-                                         :class="getMetricColor(getApplicationAvailability(item), 99.0, true) === 'text-[#F52727]' ? 'text-[#F52727]' : (getMetricColor(getApplicationAvailability(item), 99.0, true) === 'text-[#FA721B]' ? 'text-[#FA721B]' : 'text-[#64748B]')"
-                                         x-text="isApplicationAbnormal(item) ? '可用性受损偏低' : '整体可达通畅'"></div>
-                                  </div>
-
-                                  <!-- 卡片 4: HTTP 错误率 (400-599占比) -->
-                                  <div class="bg-white p-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
-                                    <span class="text-xs text-[#8A92A1] mb-1 whitespace-nowrap">HTTP 错误率 (400-599占比)</span>
-                                    <div class="flex items-center justify-between mt-0.5">
-                                      <span class="text-base lg:text-lg font-bold font-outfit"
-                                            :class="getMetricColor(getApplicationHttpErrorRate(item), 2.0)"
-                                            x-text="getApplicationHttpErrorRate(item)"></span>
-                                      <div class="relative group cursor-pointer" x-data="{ open: false }" @mouseenter="open = true" @mouseleave="open = false">
-                                        <span class="text-xs text-[#1C6EFF] hover:underline font-medium inline-flex items-center gap-0.5">
-                                          详情
-                                          <svg class="w-3 h-3 text-[#1C6EFF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                          </svg>
-                                        </span>
-                                        <!-- 悬浮弹窗 (Popover Tooltip) -->
-                                        <div x-show="open" 
-                                             x-transition:enter="transition ease-out duration-150"
-                                             x-transition:enter-start="opacity-0 translate-y-1"
-                                             x-transition:enter-end="opacity-100 translate-y-0"
-                                             class="absolute right-0 bottom-6 z-30 w-60 p-2.5 bg-[#1E232A] text-white rounded shadow-xl text-xs space-y-1.5 pointer-events-none">
-                                          <div class="font-bold border-b border-gray-700 pb-1 text-[11px] text-gray-300 flex items-center justify-between">
-                                            <span>HTTP 错误码分布</span>
-                                            <span class="font-mono text-amber-400 font-bold" x-text="getApplicationHttpErrorRate(item)"></span>
-                                          </div>
-                                          <div class="space-y-1 text-[11px] font-mono">
-                                            <div class="flex items-center justify-between text-gray-200">
-                                              <span><b class="text-amber-300 font-medium">【404】</b> Not Found</span>
-                                              <span class="text-gray-400">120次 (0.76%)</span>
-                                            </div>
-                                            <div class="flex items-center justify-between text-gray-200">
-                                              <span><b class="text-rose-400 font-medium">【502】</b> Bad Gateway</span>
-                                              <span class="text-gray-400">78次 (0.49%)</span>
-                                            </div>
-                                          </div>
+                                  <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                                    <!-- 此时刻可用性 -->
+                                    <div class="bg-[#FAFBFD] p-2.5 rounded-[2px] border border-[#EAEEF4] flex items-center justify-between">
+                                      <div class="space-y-1">
+                                        <span class="text-[11px] text-[#6F7785]">单次访问可用性</span>
+                                        <div class="flex items-baseline gap-1.5">
+                                          <span class="text-base font-bold font-outfit text-[#2F3540]" x-text="isApplicationHealthy(item) ? '100%' : '0%'">100%</span>
+                                          <span class="text-[10px] text-[#12A679]" x-text="isApplicationHealthy(item) ? '(请求成功响应)' : '(请求失败)'"></span>
                                         </div>
                                       </div>
+                                      <span class="px-2 py-0.5 text-[10px] bg-[#E6F8F2] text-[#12A679] rounded font-medium">正常</span>
                                     </div>
-                                    <div class="text-[10px] mt-1 text-[#64748B]">基线 &lt; 2.0%</div>
-                                  </div>
 
-                                  <!-- 卡片 5: 平均数据包丢包率 -->
-                                  <div class="bg-white p-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
-                                    <span class="text-xs text-[#8A92A1] mb-1 whitespace-nowrap">平均数据包丢包率</span>
-                                    <div class="flex items-baseline gap-1 mt-0.5">
-                                      <span class="text-base lg:text-lg font-bold font-outfit"
-                                            :class="getMetricColor(getApplicationPacketLoss(item), 1.0)"
-                                            x-text="getApplicationPacketLoss(item)"></span>
+                                    <!-- 此时刻 HTTP 错误率 -->
+                                    <div class="bg-[#FAFBFD] p-2.5 rounded-[2px] border border-[#EAEEF4] flex items-center justify-between">
+                                      <div class="space-y-1">
+                                        <span class="text-[11px] text-[#6F7785]">单次 HTTP 状态 / 错误率</span>
+                                        <div class="flex items-baseline gap-1.5">
+                                          <span class="text-base font-bold font-outfit text-[#2F3540]" x-text="isApplicationHealthy(item) ? '0.0%' : '100%'">0.0%</span>
+                                          <span class="text-[10px] text-[#64748B]" x-text="isApplicationHealthy(item) ? '(HTTP 200 OK)' : '(HTTP 502 / 超时)'"></span>
+                                        </div>
+                                      </div>
+                                      <span class="px-2 py-0.5 text-[10px] bg-[#E6F8F2] text-[#12A679] rounded font-medium">HTTP 200</span>
                                     </div>
-                                    <div class="text-[10px] mt-1 text-[#64748B]">基线 &lt; 1.0%</div>
                                   </div>
+                                </div>
 
-                                  <!-- 卡片 6: 平均 TTFB -->
-                                  <div class="bg-white p-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
-                                    <span class="text-xs text-[#8A92A1] mb-1 whitespace-nowrap">平均 TTFB</span>
-                                    <div class="flex items-baseline gap-1 mt-0.5">
-                                      <span class="text-base lg:text-lg font-bold font-outfit"
-                                            :class="getMetricColor(getApplicationAvgTtfb(item), 300)"
-                                            x-text="getApplicationAvgTtfb(item)"></span>
+                                <!-- ② 近10分钟全网访问情况 (4 卡片，去除“群体并发交叉推断依据”副标题，时间展示15:55~16:05) -->
+                                <div class="bg-white p-3 rounded-[2px] border border-[#EAEEF4] shadow-xs">
+                                  <div class="flex items-center justify-between pb-2 mb-2.5 border-b border-[#F0F2F5] flex-wrap gap-2">
+                                    <div class="flex items-center gap-2">
+                                      <span class="w-1 h-3.5 bg-[#1C6EFF] rounded-full"></span>
+                                      <span class="text-xs font-medium text-[#2F3540]">近10分钟全网访问情况</span>
                                     </div>
-                                    <div class="text-[10px] mt-1 text-[#64748B]">全网基线 &lt; 300ms</div>
+                                    <span class="text-[11px] text-[#8A92A1] font-mono" x-text="getApplicationTimeRange(item)">15:55~16:05</span>
+                                  </div>
+                                  <div class="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+                                    <!-- 卡片 1: 访问对象情况 (320人 | 12分支，受损2人 0.6%) -->
+                                    <div class="bg-[#FAFBFD] p-2.5 rounded-[2px] border border-[#EAEEF4] flex flex-col justify-between">
+                                      <span class="text-[11px] text-[#6F7785]">访问对象情况</span>
+                                      <div class="mt-1 flex items-baseline gap-1">
+                                        <span class="text-base font-bold font-outfit text-[#2F3540]" x-text="getApplicationAudienceCount(item)">320</span>
+                                        <span class="text-xs text-[#2F3540]">人</span>
+                                        <span class="text-xs text-[#CBD5E1] mx-0.5">|</span>
+                                        <span class="text-base font-bold font-outfit text-[#2F3540]" x-text="getApplicationBranchCount(item)">12</span>
+                                        <span class="text-xs text-[#2F3540]">分支</span>
+                                      </div>
+                                      <div class="text-[10px] text-[#5C6270] mt-1.5 pt-1 border-t border-[#EAEEF4]">
+                                        受损 <span class="font-outfit font-medium text-[#2F3540]" x-text="getApplicationDamagedCount(item)">2</span> 人 (<span class="font-outfit text-[#12A679]" x-text="getApplicationAudiencePercent(item)">0.6%</span>)
+                                      </div>
+                                    </div>
+
+                                    <!-- 卡片 2: 真实访问 & 次数 (2,860次，近10分钟全网采样) -->
+                                    <div class="bg-[#FAFBFD] p-2.5 rounded-[2px] border border-[#EAEEF4] flex flex-col justify-between">
+                                      <span class="text-[11px] text-[#6F7785]">真实访问 &amp; 次数</span>
+                                      <div class="mt-1 flex items-baseline gap-1">
+                                        <span class="text-base font-bold font-outfit text-[#2F3540]" x-text="getApplicationTotalRequests(item)">2,860</span>
+                                        <span class="text-[10px] text-[#6F7785]">次</span>
+                                      </div>
+                                      <span class="text-[10px] text-[#94A3B8] mt-1.5">近 10 分钟全网采样</span>
+                                    </div>
+
+                                    <!-- 卡片 3: 平均可用性 -->
+                                    <div class="bg-[#FAFBFD] p-2.5 rounded-[2px] border border-[#EAEEF4] flex flex-col justify-between">
+                                      <div class="flex items-center justify-between text-[11px]">
+                                        <span class="text-[#6F7785]">平均可用性</span>
+                                        <span class="text-[10px] text-[#94A3B8]">基线 &gt; 99%</span>
+                                      </div>
+                                      <div class="mt-1 flex items-baseline gap-1">
+                                        <span class="text-base font-bold font-outfit" :class="getMetricColor(getApplicationAvailability(item), 99.0, true)" x-text="getApplicationAvailability(item)">99.8%</span>
+                                      </div>
+                                      <span class="text-[10px] text-[#12A679] mt-1.5" x-text="isApplicationAbnormal(item) ? '可用性受损' : '全网通畅良好'"></span>
+                                    </div>
+
+                                    <!-- 卡片 4: 平均 HTTP 错误率 -->
+                                    <div class="bg-[#FAFBFD] p-2.5 rounded-[2px] border border-[#EAEEF4] flex flex-col justify-between">
+                                      <div class="flex items-center justify-between text-[11px]">
+                                        <span class="text-[#6F7785]">平均 HTTP 错误率</span>
+                                        <span class="text-[10px] text-[#94A3B8]">基线 &lt; 2.0%</span>
+                                      </div>
+                                      <div class="mt-1 flex items-baseline gap-1">
+                                        <span class="text-base font-bold font-outfit" :class="getMetricColor(getApplicationHttpErrorRate(item), 2.0)" x-text="getApplicationHttpErrorRate(item)">0.12%</span>
+                                      </div>
+                                      <span class="text-[10px] text-[#64748B] mt-1.5" x-text="isApplicationAbnormal(item) ? '5xx错误偏高' : '服务正常响应'"></span>
+                                    </div>
                                   </div>
                                 </div>
                               </div>
-                            </template>
-
-                          </div>
+                            </template></div>
                         </div>
                       </div>
                     </template>

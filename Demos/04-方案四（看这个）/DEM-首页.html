@@ -241,7 +241,7 @@
 
         init() {
           const designUsers = [
-            { id: "usr_hezong", userName: "4343（何总）", isVip: true, department: "/深信服/总经办", ipLocation: "114.242.25.18 (办公室Wi-Fi)", experience: "差", terminals: ["MacBook Pro (何总专用)"], pop: "POP (北京)", appCount: 16, degradedApps: ["OA系统", "ERP系统"] },
+            { id: "usr_hezong", userName: "45232（何总）", isVip: true, department: "深信服科技 / 总裁办 / 总经办", ipLocation: "114.242.25.18 (办公室Wi-Fi)", experience: "差", terminals: ["MacBook Pro (何总专用)"], pop: "POP (北京)", appCount: 16, degradedApps: ["OA系统", "ERP系统", "企业邮箱"] },
             { id: "usr_d1", userName: "14810（郝星伍）", isVip: false, department: "/本地用户/安全BG/零信任", ipLocation: "202.108.22.5 (电信-长沙)", experience: "差", terminals: ["WIN-DESK-88--WIN-YZ"], pop: "POP (香港)", appCount: 9, degradedApps: ["Salesforce"] },
             { id: "usr_d2", userName: "63728（王浩）", isVip: false, department: "/本地用户/安全BG/零信任", ipLocation: "183.14.5.12 (移动-深圳)", experience: "差", terminals: ["WIN-DESK-62--OKP"], pop: "POP (新加坡)", appCount: 15, degradedApps: ["Salesforce", "Teams", "Yahoo"] },
             { id: "usr_d3", userName: "84261（柯特）", isVip: false, department: "/国内市场体系/华东区", ipLocation: "119.12.8.20 (联通-深圳)", experience: "差", terminals: ["WIN-DESK-97JUA-OKP"], pop: "POP (新加坡)", appCount: 11, degradedApps: ["Yahoo", "内部 CRM 系统", "OA审批平台"] },
@@ -1037,13 +1037,13 @@
                 <!-- VIP 用户明细列表 (每行 32px，底色 F7F9FC，间距 4px) -->
                 <div class="flex flex-col gap-[4px] text-[12px]" x-show="vipTab === 'user'">
                   <!-- VIP 1 (何总 - 剧本主角) -->
-                  <div @click="goToVipDetail({ userName: '4343（何总）', nameOnly: '何总', department: '/深信服/总经办', experience: '差', appCount: 16, poorApps: 2, fairApps: 2, normalApps: 12, ipLocation: '114.242.25.18 (办公室Wi-Fi)', pop: 'POP (北京)' }, 'user')" class="h-[32px] px-2.5 bg-[#F7F9FC] rounded-[4px] flex items-center justify-between cursor-pointer hover:bg-white hover:border-[#1890FF]/40 border border-transparent transition-all group">
+                  <div @click="goToVipDetail({ userName: '45232（何总）', nameOnly: '何总', department: '深信服科技 / 总裁办 / 总经办', experience: '差', appCount: 16, poorApps: 3, fairApps: 1, normalApps: 12, ipLocation: '114.242.25.18 (办公室Wi-Fi)', pop: 'POP (北京)' }, 'user')" class="h-[32px] px-2.5 bg-[#F7F9FC] rounded-[4px] flex items-center justify-between cursor-pointer hover:bg-white hover:border-[#1890FF]/40 border border-transparent transition-all group">
                     <div class="flex items-center gap-2 min-w-0 flex-1">
                       <span class="w-1.5 h-1.5 rounded-full bg-[#FF5752] flex-shrink-0"></span>
-                      <span class="text-[12px] text-[#262626] font-normal group-hover:text-[#1890FF] truncate">4343（何总）</span>
-                      <span class="text-[12px] text-[#8C8C8C] font-normal truncate">/深信服/总经办</span>
+                      <span class="text-[12px] text-[#262626] font-normal group-hover:text-[#1890FF] truncate">45232（何总）</span>
+                      <span class="text-[12px] text-[#8C8C8C] font-normal truncate">深信服科技 / 总裁办 / 总经办</span>
                     </div>
-                    <span class="text-[12px] text-right font-normal text-[#FF5752] flex-shrink-0 ml-2">2<span class="text-[#8C8C8C] font-normal">/16</span></span>
+                    <span class="text-[12px] text-right font-normal text-[#FF5752] flex-shrink-0 ml-2">3<span class="text-[#8C8C8C] font-normal">/16</span></span>
                   </div>
 
                   <!-- VIP 2 -->
