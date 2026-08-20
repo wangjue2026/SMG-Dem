@@ -17,7 +17,7 @@
   window.DEM_ROUTES_V2 = {
     '访问体验监测': './DEM-首页.html',
     '体验监控':   './DEM-首页.html',
-    '体验预警':   './DEM-首页.html',
+    '体验预警':   './DEM-体验预警.html',
     '告警排障':   './DEM-首页.html',
     '首页':       './DEM-首页.html',
     '概览':       './DEM-首页.html',
@@ -199,6 +199,7 @@
       </div>
       <div x-show="atrustExpandedL2 === 'dem'" x-collapse x-cloak>
         <div class="at-menu-l3" :class="activePage === '体验监控' || activePage === '首页' ? 'active' : ''" @click="navigateTo('体验监控')">体验监控</div>
+        <div class="at-menu-l3" :class="activePage === '体验预警' ? 'active' : ''" @click="navigateTo('体验预警')">体验预警</div>
         <div class="at-menu-l3" :class="activePage === '监控配置' ? 'active' : ''" @click="navigateTo('监控配置')">监控配置</div>
       </div>
     </div>
@@ -319,6 +320,9 @@
       <div x-show="isSaseExpanded('dem-monitoring')" x-collapse x-cloak class="sase-submenu-container">
         <div class="sase-menu-l2" :class="activePage === '体验监控' || activePage === '首页' ? 'selected' : ''" @click="navigateTo('体验监控')">
           <div class="sase-dot"></div><span>体验监控</span>
+        </div>
+        <div class="sase-menu-l2" :class="activePage === '体验预警' ? 'selected' : ''" @click="navigateTo('体验预警')">
+          <div class="sase-dot"></div><span>体验预警</span>
         </div>
         <div class="sase-menu-l2" :class="activePage === '监控配置' ? 'selected' : ''" @click="navigateTo('监控配置')">
           <div class="sase-dot"></div><span>监控配置</span>

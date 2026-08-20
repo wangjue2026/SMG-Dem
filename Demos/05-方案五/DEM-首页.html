@@ -780,7 +780,7 @@
           <div class="bg-white border border-[#E2E8F0] rounded-[4px] px-5 py-2.5 flex items-center justify-between flex-shrink-0 select-none shadow-2xs">
             <!-- 左侧：租户整体体验定性 -->
             <div class="flex items-center gap-2 text-xs">
-              <span class="text-[#262626] font-medium">整体访问体验状态：</span>
+              <span class="text-[#262626] font-medium">整体访问体验：</span>
               <span class="bg-[#FFF1F0] border border-[#FFA39E] text-[#CF1322] rounded-[2px] font-normal px-2 h-5 inline-flex items-center justify-center text-xs select-none">差</span>
               <span class="text-[#8C8C8C] ml-2">
                 本期共访问2372次，访问体验差次数（238次）占比超过5%
@@ -1114,13 +1114,13 @@
               <div class="p-3 flex items-center justify-between gap-3 flex-wrap flex-shrink-0 bg-white">
                 <!-- 3个等宽多选筛选项在左侧 -->
                 <div class="flex items-center gap-2">
-                  <!-- 1. 体验状态多选 -->
+                  <!-- 1. 访问体验多选 -->
                   <div class="relative inline-flex items-center group w-[188px]" x-data="{ open: false }" @click.outside="open = false">
                     <div @click="open = !open" 
                          class="h-8 w-full px-2 bg-white border border-[#D3D7DE] rounded-[2px] hover:border-[#1C6EFF] transition-colors flex items-center justify-between cursor-pointer select-none text-xs">
                       <!-- 未选状态 -->
                       <template x-if="branchSelectedExp.length === 0">
-                        <span class="text-[#A1A7B3] font-normal truncate">全部体验状态</span>
+                        <span class="text-[#A1A7B3] font-normal truncate">全部访问体验</span>
                       </template>
                       <!-- 单选状态：展示单个 Tag -->
                       <template x-if="branchSelectedExp.length === 1">
@@ -1366,7 +1366,7 @@
                       <th class="w-36">地理位置</th>
                       <th class="w-28 cursor-pointer select-none hover:text-[#1C6EFF] transition-colors" @click="toggleBranchExpSort()">
                         <div class="inline-flex items-center gap-1.5">
-                          <span>体验状态</span>
+                          <span>访问体验</span>
                           <div class="inline-flex flex-col gap-[2px] flex-shrink-0">
                             <svg class="w-2 h-1.5 transition-colors" :class="branchExpSortDir === 'asc' ? 'text-[#1C6EFF]' : 'text-[#A1A7B3]'" viewBox="0 0 8 6" fill="currentColor"><path d="M4 0L8 6H0L4 0Z"/></svg>
                             <svg class="w-2 h-1.5 transition-colors" :class="branchExpSortDir === 'desc' ? 'text-[#1C6EFF]' : 'text-[#A1A7B3]'" viewBox="0 0 8 6" fill="currentColor"><path d="M4 6L0 0H8L4 6Z"/></svg>
@@ -1391,7 +1391,7 @@
                         <td><span class="text-xs text-[#2F3540]" x-text="branch.group || branch.region || '华东大区'"></span></td>
                         <!-- 4. 地理位置 -->
                         <td><span class="text-xs text-[#2F3540]" x-text="branch.location || branch.city"></span></td>
-                        <!-- 5. 体验状态 -->
+                        <!-- 5. 访问体验 -->
                         <td><span :class="getExpBadgeClass(branch.experience)"><span x-text="branch.experience"></span></span></td>
                         <!-- 6. 主要接入POP -->
                         <td><span class="text-[#2F3540] font-normal text-xs" x-text="branch.pop || formatCityName(branch.pop)"></span></td>
@@ -1453,13 +1453,13 @@
               <div class="p-3 flex items-center justify-between gap-3 flex-wrap flex-shrink-0 bg-white">
                 <!-- 3个等宽多选筛选项在左侧 -->
                 <div class="flex items-center gap-2">
-                  <!-- 1. 体验状态多选 -->
+                  <!-- 1. 访问体验多选 -->
                   <div class="relative inline-flex items-center group w-[188px]" x-data="{ open: false }" @click.outside="open = false">
                     <div @click="open = !open" 
                          class="h-8 w-full px-2 bg-white border border-[#D3D7DE] rounded-[2px] hover:border-[#1C6EFF] transition-colors flex items-center justify-between cursor-pointer select-none text-xs">
                       <!-- 未选状态 -->
                       <template x-if="userSelectedExp.length === 0">
-                        <span class="text-[#A1A7B3] font-normal truncate">全部体验状态</span>
+                        <span class="text-[#A1A7B3] font-normal truncate">全部访问体验</span>
                       </template>
                       <!-- 单选状态 -->
                       <template x-if="userSelectedExp.length === 1">
@@ -1706,7 +1706,7 @@
                       <th class="w-24">最近接入 POP</th>
                       <th class="w-20 cursor-pointer select-none hover:text-[#1C6EFF] transition-colors" @click="toggleUserExpSort()">
                         <div class="inline-flex items-center gap-1.5">
-                          <span>体验状态</span>
+                          <span>访问体验</span>
                           <div class="inline-flex flex-col gap-[2px] flex-shrink-0">
                             <svg class="w-2 h-1.5 transition-colors" :class="userExpSortDir === 'asc' ? 'text-[#1C6EFF]' : 'text-[#A1A7B3]'" viewBox="0 0 8 6" fill="currentColor"><path d="M4 0L8 6H0L4 0Z"/></svg>
                             <svg class="w-2 h-1.5 transition-colors" :class="userExpSortDir === 'desc' ? 'text-[#1C6EFF]' : 'text-[#A1A7B3]'" viewBox="0 0 8 6" fill="currentColor"><path d="M4 6L0 0H8L4 6Z"/></svg>
@@ -1741,7 +1741,7 @@
                         <td><span class="font-mono text-xs text-[#3D3D3D]" x-text="formatIpLocation(user.ipLocation)"></span></td>
                         <!-- 5. 最近接入 POP -->
                         <td><span class="text-[#3D3D3D] font-normal text-xs" x-text="formatCityName(user.pop)"></span></td>
-                        <!-- 6. 体验状态 -->
+                        <!-- 6. 访问体验 -->
                         <td><span :class="getExpBadgeClass(user.experience)"><span x-text="user.experience"></span></span></td>
                         <!-- 7. 访问应用数 -->
                         <td class="num-col font-outfit font-normal text-[#2F3540]" x-text="user.appCount || (user.degradedApps ? user.degradedApps.length + 5 : 8)"></td>
@@ -1799,13 +1799,13 @@
               <div class="p-3 flex items-center justify-between gap-3 flex-wrap flex-shrink-0 bg-white">
                 <!-- 3个等宽多选筛选项在左侧 -->
                 <div class="flex items-center gap-2">
-                  <!-- 1. 体验状态多选 -->
+                  <!-- 1. 访问体验多选 -->
                   <div class="relative inline-flex items-center group w-[188px]" x-data="{ open: false }" @click.outside="open = false">
                     <div @click="open = !open" 
                          class="h-8 w-full px-2 bg-white border border-[#D3D7DE] rounded-[2px] hover:border-[#1C6EFF] transition-colors flex items-center justify-between cursor-pointer select-none text-xs">
                       <!-- 未选状态 -->
                       <template x-if="appSelectedExp.length === 0">
-                        <span class="text-[#A1A7B3] font-normal truncate">全部体验状态</span>
+                        <span class="text-[#A1A7B3] font-normal truncate">全部访问体验</span>
                       </template>
                       <!-- 单选状态 -->
                       <template x-if="appSelectedExp.length === 1">
@@ -2051,7 +2051,7 @@
                       <th class="w-36">所属区域</th>
                       <th class="w-28 cursor-pointer select-none hover:text-[#1C6EFF] transition-colors" @click="toggleAppExpSort()">
                         <div class="inline-flex items-center gap-1.5">
-                          <span>体验状态</span>
+                          <span>访问体验</span>
                           <div class="inline-flex flex-col gap-[2px] flex-shrink-0">
                             <svg class="w-2 h-1.5 transition-colors" :class="appExpSortDir === 'asc' ? 'text-[#1C6EFF]' : 'text-[#A1A7B3]'" viewBox="0 0 8 6" fill="currentColor"><path d="M4 0L8 6H0L4 0Z"/></svg>
                             <svg class="w-2 h-1.5 transition-colors" :class="appExpSortDir === 'desc' ? 'text-[#1C6EFF]' : 'text-[#A1A7B3]'" viewBox="0 0 8 6" fill="currentColor"><path d="M4 6L0 0H8L4 6Z"/></svg>
@@ -2076,7 +2076,7 @@
                         <td><span class="text-xs text-[#2F3540]" x-text="app.appType"></span></td>
                         <!-- 4. 所属区域 -->
                         <td><span class="text-xs text-[#2F3540]" x-text="app.region || '-'"></span></td>
-                        <!-- 5. 体验状态 -->
+                        <!-- 5. 访问体验 -->
                         <td><span :class="getExpBadgeClass(app.experience)"><span x-text="app.experience"></span></span></td>
                         <!-- 6. 受损/活跃用户 -->
                         <td>

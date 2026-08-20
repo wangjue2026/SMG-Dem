@@ -1850,9 +1850,9 @@
                       cause: '16 楼 VIP 接待室处于走廊 AP 覆盖盲区 (-82 dBm)，空口同频竞争引发 38% 高重传；本地第一跳网关即出现 95ms 时延与 4.8% 丢包。',
                       hopTraces: [
                         { hop: 1, ip: '192.168.1.1', tag: 'WiFi网关', tagType: 'default', asn: '私网地址 (Private Network)', loc: '局域网', rtt: '95ms', diffRtt: '-', loss: '4.8%', diffLoss: '-', jitter: '38ms', diffJitter: '-', status: '异常' },
-                        { hop: 2, ip: '114.242.25.1', tag: '地区出口网关', tagType: 'default', asn: 'AS23724 中国电信北京节点', loc: '中国·北京', rtt: '152ms', diffRtt: '+57ms', loss: '5.0%', diffLoss: '+0.2%', jitter: '42ms', diffJitter: '+4ms', status: '正常' },
-                        { hop: 3, ip: '202.97.45.18', tag: '运营商骨干', tagType: 'default', asn: 'AS4134 中国电信骨干网', loc: '中国·北京', rtt: '168ms', diffRtt: '+16ms', loss: '5.1%', diffLoss: '+0.1%', jitter: '43ms', diffJitter: '+1ms', status: '正常' },
-                        { hop: 4, ip: '10.240.0.1', tag: 'POP接入点', tagType: 'default', asn: '深信服 SASE 骨干网', loc: '中国·北京 (北京POP)', rtt: '198ms', diffRtt: '+30ms', loss: '5.2%', diffLoss: '+0.1%', jitter: '45ms', diffJitter: '+2ms', status: '正常' }
+                        { hop: 2, ip: '114.242.25.1', tag: '出口网关', tagType: 'default', asn: 'AS23724 中国电信', loc: '中国·北京', rtt: '152ms', diffRtt: '+57ms', loss: '5.0%', diffLoss: '+0.2%', jitter: '42ms', diffJitter: '+4ms', status: '正常' },
+                        { hop: 3, ip: '202.97.45.18', tag: '运营商节点', tagType: 'default', asn: 'AS4134 中国电信', loc: '中国·北京', rtt: '168ms', diffRtt: '+16ms', loss: '5.1%', diffLoss: '+0.1%', jitter: '43ms', diffJitter: '+1ms', status: '正常' },
+                        { hop: 4, ip: '10.240.0.1', tag: 'POP接入点', tagType: 'default', asn: 'AS4134 中国电信', loc: '中国·北京', rtt: '198ms', diffRtt: '+30ms', loss: '5.2%', diffLoss: '+0.1%', jitter: '45ms', diffJitter: '+2ms', status: '正常' }
                       ],
                       hopConclusion: '从第 1 个 Hop（本地局域网网关 192.168.1.1）开始即出现 95ms 高时延与 4.8% 丢包，后续进入电信公网与北京 POP 未产生新增异常增量，责任明确收敛于终端无线接入与本地局域网。'
                     },
@@ -1931,9 +1931,9 @@
                       cause: 'VIP 接待室持续处于弱信号区 (-81 dBm)，网关丢包 4.5%。',
                       hopTraces: [
                         { hop: 1, ip: '192.168.1.1', tag: 'WiFi网关', tagType: 'default', asn: '私网地址 (Private Network)', loc: '局域网', rtt: '91ms', diffRtt: '-', loss: '4.5%', diffLoss: '-', jitter: '32ms', diffJitter: '-', status: '异常' },
-                        { hop: 2, ip: '114.242.25.1', tag: '地区出口网关', tagType: 'default', asn: 'AS23724 中国电信北京节点', loc: '中国·北京', rtt: '148ms', diffRtt: '+57ms', loss: '4.7%', diffLoss: '+0.2%', jitter: '36ms', diffJitter: '+4ms', status: '正常' },
-                        { hop: 3, ip: '202.97.45.18', tag: '运营商骨干', tagType: 'default', asn: 'AS4134 中国电信骨干网', loc: '中国·北京', rtt: '162ms', diffRtt: '+14ms', loss: '4.8%', diffLoss: '+0.1%', jitter: '37ms', diffJitter: '+1ms', status: '正常' },
-                        { hop: 4, ip: '10.240.0.1', tag: 'POP接入点', tagType: 'default', asn: '深信服 SASE 骨干网', loc: '中国·北京 (北京POP)', rtt: '185ms', diffRtt: '+23ms', loss: '4.9%', diffLoss: '+0.1%', jitter: '38ms', diffJitter: '+1ms', status: '正常' }
+                        { hop: 2, ip: '114.242.25.1', tag: '出口网关', tagType: 'default', asn: 'AS23724 中国电信', loc: '中国·北京', rtt: '148ms', diffRtt: '+57ms', loss: '4.7%', diffLoss: '+0.2%', jitter: '36ms', diffJitter: '+4ms', status: '正常' },
+                        { hop: 3, ip: '202.97.45.18', tag: '运营商节点', tagType: 'default', asn: 'AS4134 中国电信', loc: '中国·北京', rtt: '162ms', diffRtt: '+14ms', loss: '4.8%', diffLoss: '+0.1%', jitter: '37ms', diffJitter: '+1ms', status: '正常' },
+                        { hop: 4, ip: '10.240.0.1', tag: 'POP接入点', tagType: 'default', asn: 'AS4134 中国电信', loc: '中国·北京', rtt: '185ms', diffRtt: '+23ms', loss: '4.9%', diffLoss: '+0.1%', jitter: '38ms', diffJitter: '+1ms', status: '正常' }
                       ],
                       hopConclusion: '本地局域网网关时延 91ms、丢包 4.5%，证实 Wi-Fi 信号劣化持续存在。'
                     },
@@ -1979,9 +1979,9 @@
                       cause: '接待室无线信号衰减至 -84 dBm，同频竞争达到峰值，重传率升至 41%。',
                       hopTraces: [
                         { hop: 1, ip: '192.168.1.1', tag: 'WiFi网关', tagType: 'default', asn: '私网地址 (Private Network)', loc: '局域网', rtt: '105ms', diffRtt: '-', loss: '5.2%', diffLoss: '-', jitter: '40ms', diffJitter: '-', status: '异常' },
-                        { hop: 2, ip: '114.242.25.1', tag: '地区出口网关', tagType: 'default', asn: 'AS23724 中国电信北京节点', loc: '中国·北京', rtt: '165ms', diffRtt: '+60ms', loss: '5.3%', diffLoss: '+0.1%', jitter: '44ms', diffJitter: '+4ms', status: '正常' },
-                        { hop: 3, ip: '202.97.45.18', tag: '运营商骨干', tagType: 'default', asn: 'AS4134 中国电信骨干网', loc: '中国·北京', rtt: '180ms', diffRtt: '+15ms', loss: '5.4%', diffLoss: '+0.1%', jitter: '46ms', diffJitter: '+2ms', status: '正常' },
-                        { hop: 4, ip: '10.240.0.1', tag: 'POP接入点', tagType: 'default', asn: '深信服 SASE 骨干网', loc: '中国·北京 (北京POP)', rtt: '210ms', diffRtt: '+30ms', loss: '5.5%', diffLoss: '+0.1%', jitter: '48ms', diffJitter: '+2ms', status: '正常' }
+                        { hop: 2, ip: '114.242.25.1', tag: '出口网关', tagType: 'default', asn: 'AS23724 中国电信', loc: '中国·北京', rtt: '165ms', diffRtt: '+60ms', loss: '5.3%', diffLoss: '+0.1%', jitter: '44ms', diffJitter: '+4ms', status: '正常' },
+                        { hop: 3, ip: '202.97.45.18', tag: '运营商节点', tagType: 'default', asn: 'AS4134 中国电信', loc: '中国·北京', rtt: '180ms', diffRtt: '+15ms', loss: '5.4%', diffLoss: '+0.1%', jitter: '46ms', diffJitter: '+2ms', status: '正常' },
+                        { hop: 4, ip: '10.240.0.1', tag: 'POP接入点', tagType: 'default', asn: 'AS4134 中国电信', loc: '中国·北京', rtt: '210ms', diffRtt: '+30ms', loss: '5.5%', diffLoss: '+0.1%', jitter: '48ms', diffJitter: '+2ms', status: '正常' }
                       ],
                       hopConclusion: 'Hop 1 局域网网关出现 105ms 时延与 5.2% 丢包，无线信号深度衰减。'
                     },
@@ -2027,9 +2027,9 @@
                       cause: 'VIP 接待室持续处于弱信号区 (-80 dBm)，网关丢包 4.2%。',
                       hopTraces: [
                         { hop: 1, ip: '192.168.1.1', tag: 'WiFi网关', tagType: 'default', asn: '私网地址 (Private Network)', loc: '局域网', rtt: '88ms', diffRtt: '-', loss: '4.2%', diffLoss: '-', jitter: '30ms', diffJitter: '-', status: '异常' },
-                        { hop: 2, ip: '114.242.25.1', tag: '地区出口网关', tagType: 'default', asn: 'AS23724 中国电信北京节点', loc: '中国·北京', rtt: '142ms', diffRtt: '+54ms', loss: '4.4%', diffLoss: '+0.2%', jitter: '34ms', diffJitter: '+4ms', status: '正常' },
-                        { hop: 3, ip: '202.97.45.18', tag: '运营商骨干', tagType: 'default', asn: 'AS4134 中国电信骨干网', loc: '中国·北京', rtt: '158ms', diffRtt: '+16ms', loss: '4.5%', diffLoss: '+0.1%', jitter: '35ms', diffJitter: '+1ms', status: '正常' },
-                        { hop: 4, ip: '10.240.0.1', tag: 'POP接入点', tagType: 'default', asn: '深信服 SASE 骨干网', loc: '中国·北京 (北京POP)', rtt: '178ms', diffRtt: '+20ms', loss: '4.6%', diffLoss: '+0.1%', jitter: '36ms', diffJitter: '+1ms', status: '正常' }
+                        { hop: 2, ip: '114.242.25.1', tag: '出口网关', tagType: 'default', asn: 'AS23724 中国电信', loc: '中国·北京', rtt: '142ms', diffRtt: '+54ms', loss: '4.4%', diffLoss: '+0.2%', jitter: '34ms', diffJitter: '+4ms', status: '正常' },
+                        { hop: 3, ip: '202.97.45.18', tag: '运营商节点', tagType: 'default', asn: 'AS4134 中国电信', loc: '中国·北京', rtt: '158ms', diffRtt: '+16ms', loss: '4.5%', diffLoss: '+0.1%', jitter: '35ms', diffJitter: '+1ms', status: '正常' },
+                        { hop: 4, ip: '10.240.0.1', tag: 'POP接入点', tagType: 'default', asn: 'AS4134 中国电信', loc: '中国·北京', rtt: '178ms', diffRtt: '+20ms', loss: '4.6%', diffLoss: '+0.1%', jitter: '36ms', diffJitter: '+1ms', status: '正常' }
                       ],
                       hopConclusion: 'Hop 1 局域网网关丢包 4.2%，证实 Wi-Fi 信号劣化。'
                     },
@@ -2075,9 +2075,9 @@
                       cause: 'VIP 接待室持续处于弱信号区 (-82 dBm)，网关丢包 4.6%。',
                       hopTraces: [
                         { hop: 1, ip: '192.168.1.1', tag: 'WiFi网关', tagType: 'default', asn: '私网地址 (Private Network)', loc: '局域网', rtt: '92ms', diffRtt: '-', loss: '4.6%', diffLoss: '-', jitter: '35ms', diffJitter: '-', status: '异常' },
-                        { hop: 2, ip: '114.242.25.1', tag: '地区出口网关', tagType: 'default', asn: 'AS23724 中国电信北京节点', loc: '中国·北京', rtt: '149ms', diffRtt: '+57ms', loss: '4.8%', diffLoss: '+0.2%', jitter: '38ms', diffJitter: '+3ms', status: '正常' },
-                        { hop: 3, ip: '202.97.45.18', tag: '运营商骨干', tagType: 'default', asn: 'AS4134 中国电信骨干网', loc: '中国·北京', rtt: '165ms', diffRtt: '+16ms', loss: '4.9%', diffLoss: '+0.1%', jitter: '40ms', diffJitter: '+2ms', status: '正常' },
-                        { hop: 4, ip: '10.240.0.1', tag: 'POP接入点', tagType: 'default', asn: '深信服 SASE 骨干网', loc: '中国·北京 (北京POP)', rtt: '190ms', diffRtt: '+25ms', loss: '5.0%', diffLoss: '+0.1%', jitter: '42ms', diffJitter: '+2ms', status: '正常' }
+                        { hop: 2, ip: '114.242.25.1', tag: '出口网关', tagType: 'default', asn: 'AS23724 中国电信', loc: '中国·北京', rtt: '149ms', diffRtt: '+57ms', loss: '4.8%', diffLoss: '+0.2%', jitter: '38ms', diffJitter: '+3ms', status: '正常' },
+                        { hop: 3, ip: '202.97.45.18', tag: '运营商节点', tagType: 'default', asn: 'AS4134 中国电信', loc: '中国·北京', rtt: '165ms', diffRtt: '+16ms', loss: '4.9%', diffLoss: '+0.1%', jitter: '40ms', diffJitter: '+2ms', status: '正常' },
+                        { hop: 4, ip: '10.240.0.1', tag: 'POP接入点', tagType: 'default', asn: 'AS4134 中国电信', loc: '中国·北京', rtt: '190ms', diffRtt: '+25ms', loss: '5.0%', diffLoss: '+0.1%', jitter: '42ms', diffJitter: '+2ms', status: '正常' }
                       ],
                       hopConclusion: 'Hop 1 局域网网关丢包 4.6%，无线信号持续衰减。'
                     },
@@ -2628,9 +2628,9 @@
               <!-- 分隔线 -->
               <div class="hidden lg:block w-[1px] h-9 bg-[#E1E5EB] shrink-0"></div>
 
-              <!-- 左二: 体验状态 -->
+              <!-- 左二: 访问体验 -->
               <div class="flex flex-col items-center justify-center shrink-0 px-2 min-w-[72px]">
-                <div class="text-xs text-[#8A92A1] mb-1 whitespace-nowrap">体验状态</div>
+                <div class="text-xs text-[#8A92A1] mb-1 whitespace-nowrap">访问体验</div>
                 <div>
                   <span :class="overallExperience === '差' ? 'bg-[#FFF1F0] text-[#F52727] border-[#FFA39E]' : (overallExperience === '一般' ? 'bg-[#FFFBE6] text-[#FA8C16] border-[#FFE58F]' : 'bg-[#F6FFED] text-[#52C41A] border-[#B7EB8F]')"
                         class="px-2.5 py-0.5 text-xs font-semibold rounded-[2px] border inline-block text-center"
@@ -2829,7 +2829,7 @@
                   <span class="text-xs font-semibold text-[#2F3540]">访问体验时间线</span>
                   <span class="text-[11px] text-[#6F7785]">（点击图中采样点可联动查看对应时刻的访问链路与拓扑）</span>
                 </div>
-                    <!-- 体验状态图例 (5px圆点) -->
+                    <!-- 访问体验图例 (5px圆点) -->
                     <div class="flex items-center gap-4 text-[11px] text-[#5C6270]">
                       <span class="flex items-center gap-1.5">
                         <span class="w-[5px] h-[5px] rounded-full bg-[#12A679]"></span>
@@ -3265,15 +3265,15 @@
                               <div class="space-y-3">
                                 <!-- 客户端状态、CPU、内存、Wi-Fi信号 (4卡片单行展示) -->
                                 <div class="grid grid-cols-2 md:grid-cols-4 gap-2.5">
-                                  <!-- 客户端状态 -->
+                                  <!-- 客户端健康状态 -->
                                   <div class="bg-white p-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
-                                    <span class="text-[11px] text-[#6F7785]">客户端状态</span>
+                                    <span class="text-[11px] text-[#6F7785]">客户端健康状态</span>
                                     <div class="mt-1">
                                       <span class="inline-flex items-center gap-1.5 text-xs font-medium text-[#12A679]">
-                                        <span class="w-2 h-2 rounded-full bg-[#12A679]"></span> 在线 (Agent UP)
+                                        <span class="w-2 h-2 rounded-full bg-[#12A679]"></span> 正常
                                       </span>
                                     </div>
-                                    <span class="text-[10px] text-[#94A3B8]">探针心跳正常</span>
+                                    <span class="text-[10px] text-[#94A3B8]">组件状态正常</span>
                                   </div>
 
                                   <!-- CPU利用率 -->
