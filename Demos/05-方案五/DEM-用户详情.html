@@ -130,7 +130,12 @@
           return '用户详情';
         },
 
-        // 横向应用选择器槽位与收纳状态
+        // 左侧应用筛选模式与搜索 (支持收起/展开、状态筛选、模糊搜索)
+        isLeftPanelCollapsed: false,
+        appSearchQuery: '',
+        appFilterExp: '', // '' (全部应用) | '差' | '一般' | '正常'
+
+        // 兼容旧字段
         pinnedAppIds: [],
         moreSearchQuery: '',
         moreFilterExp: '',
@@ -2306,6 +2311,23 @@
           return [...this.rawAppList].sort((a, b) => (expOrder[a.experience] || 99) - (expOrder[b.experience] || 99));
         },
 
+        // 左侧应用列表（根据状态下拉与搜索框实时过滤）
+        get filteredApps() {
+          let list = this.sortedAppList;
+          if (this.appFilterExp) {
+            list = list.filter(a => a.experience === this.appFilterExp);
+          }
+          if (this.appSearchQuery && this.appSearchQuery.trim()) {
+            const q = this.appSearchQuery.trim().toLowerCase();
+            list = list.filter(a => 
+              (a.name && a.name.toLowerCase().includes(q)) ||
+              (a.domain && a.domain.toLowerCase().includes(q)) ||
+              (a.tag && a.tag.toLowerCase().includes(q))
+            );
+          }
+          return list;
+        },
+
         // 统计体验数量 (差 / 一般 / 正常)
         get appExpStats() {
           const poor = this.rawAppList.filter(a => a.experience === '差').length;
@@ -2430,17 +2452,10 @@
         selectApp(app) {
           if (!app) return;
           this.activeAppId = app.id;
-          const displayedIds = this.displaySlotApps.map(a => a.id);
-          if (!displayedIds.includes(app.id)) {
-            if (this.pinnedAppIds.length >= 7) {
-              this.pinnedAppIds[6] = app.id;
-            } else {
-              this.pinnedAppIds.push(app.id);
-            }
-          }
           this.generateSamplePoints();
           this.autoExpandAbnormalItems();
         },
+
 
         // 从更多收纳下拉中选择应用，并替换至第 7 槽位
         selectMoreAppAndSwap(appId) {
@@ -2604,8 +2619,8 @@
           </div>
         </div>
 
-        <!-- 主内容区域 (统一单层滚动容器：除页头外，所有内容随滚动条整体平滑滚动) -->
-        <main id="detail-scroll-panel" x-ref="detailScrollPanel" class="flex-1 bg-[#F5F7FA] p-4 space-y-3 overflow-y-auto custom-scrollbar relative min-h-0">
+        <!-- 主内容区域 (主视口容器，顶部概览可折叠，主体分为左侧 240px 应用列表与右侧独立滚动排障看板) -->
+        <main class="flex-1 bg-[#F5F7FA] p-4 flex flex-col space-y-3 overflow-hidden relative min-h-0">
 
           <!-- 4.1 顶部用户/分支基本信息卡片 (完全对齐应用详情卡片规范与视觉 - 支持一键收起/展开) -->
           <div x-show="showUserOverview" x-collapse class="bg-white border border-[#E1E5EB] rounded-[2px] p-4 shadow-xs flex-shrink-0">
@@ -2653,9 +2668,9 @@
                   </div>
                   <span class="text-[#D3D7DE]">|</span>
                   <div class="flex items-center gap-1.5 whitespace-nowrap">
-                    <span class="px-2 py-0.5 text-[11px] rounded bg-[#E6F8F2] text-[#12A679] font-medium">正常: <span x-text="normalApps"></span></span>
-                    <span class="px-2 py-0.5 text-[11px] rounded bg-[#FFF7E6] text-[#FA721B] font-medium">一般: <span x-text="fairApps"></span></span>
-                    <span class="px-2 py-0.5 text-[11px] rounded bg-[#FFF1F0] text-[#F52727] font-medium">差: <span x-text="poorApps"></span></span>
+                    <span class="px-2 py-0.5 text-[11px] rounded bg-[#F1F5F9] text-[#475569] font-medium">正常: <span x-text="normalApps"></span></span>
+                    <span class="px-2 py-0.5 text-[11px] rounded bg-[#F1F5F9] text-[#475569] font-medium">一般: <span x-text="fairApps"></span></span>
+                    <span class="px-2 py-0.5 text-[11px] rounded bg-[#F1F5F9] text-[#475569] font-medium">差: <span x-text="poorApps"></span></span>
                   </div>
                 </div>
               </div>
@@ -2681,141 +2696,105 @@
             </div>
           </div>
 
-          <!-- 4.2 横向访问应用选择控制面板 (置于顶部基本信息下方，默认2行展示异常/焦点应用，正常应用收纳进更多下拉卡片) -->
-          <div class="bg-white border border-[#E1E5EB] rounded-[2px] p-3 space-y-2.5 shadow-xs select-none">
-            <!-- 标题栏与统计提示 -->
-            <div class="flex items-center justify-between">
-              <div class="text-xs font-bold text-[#2F3540] flex items-center gap-2">
-                <span class="w-1 h-3.5 bg-[#1C6EFF] rounded-full"></span>
-                <span x-text="queryType === '分支' ? '分支访问应用列表' : '用户访问应用列表'"></span>
-                <span class="px-2 py-0.5 rounded-[2px] bg-white border border-[#D3D7DE] text-[#5C6270] text-[11px] font-normal"
-                      x-text="'共 ' + rawAppList.length + ' 个应用'"></span>
-              </div>
-              <div class="text-[12px] text-[#8A92A1] hidden sm:block">
-                <span>默认优先展示体验受损应用，全部应用访问详情可在更多应用中查看</span>
-              </div>
+          <!-- 4.2 左右两栏布局核心容器 -->
+          <div class="flex-1 flex gap-3 min-h-0 overflow-hidden relative">
+
+            <!-- 左侧收起状态下的固定占位小竖条 -->
+            <div x-show="isLeftPanelCollapsed" 
+                 x-cloak
+                 class="w-8 min-w-[32px] bg-white border border-[#E1E5EB] rounded-[2px] flex flex-col items-center py-2 flex-shrink-0 shadow-xs select-none transition-all duration-300">
+              <button @click="isLeftPanelCollapsed = false"
+                      title="展开应用列表"
+                      class="w-6 h-7 rounded flex items-center justify-center text-[#5C6270] hover:text-[#1C6EFF] hover:bg-[#F0F6FF] transition-colors cursor-pointer">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"></path>
+                </svg>
+              </button>
             </div>
 
-            <!-- 2行横向卡片网格 (4列 x 2行 = 7个应用槽位 + 1个“更多应用”收纳卡片，每个卡片高度不超过64px) -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+            <!-- 左侧: 240px 访问应用列表 (支持筛选、搜索、轻量圆点标记) -->
+            <div x-show="!isLeftPanelCollapsed"
+                 class="w-[240px] min-w-[240px] bg-white border border-[#E1E5EB] rounded-[2px] flex flex-col flex-shrink-0 overflow-hidden transition-all duration-300 shadow-xs select-none">
               
-              <!-- 卡片 1 ~ 7: 优先展示槽位 (高度严格控制在 58px <= 64px) -->
-              <template x-for="(app, idx) in displaySlotApps" :key="app.id">
-                <div class="h-[58px] p-2 rounded-[2px] border cursor-pointer select-none transition-all duration-150 relative flex flex-col justify-between group"
-                     :class="activeAppId === app.id 
-                       ? 'bg-white border-[#1C6EFF] shadow-xs ring-2 ring-[#1C6EFF]/20' 
-                       : 'bg-white border-[#D8DDE6] hover:border-[#1C6EFF] hover:shadow-2xs'"
-                     @click="selectApp(app)">
-                  
-                  <!-- 替换调取角标指示 (如果是从更多列表中调取到槽位的应用) -->
-                  <div x-show="idx === (displaySlotApps.length - 1) && !defaultPinnedAppIds.includes(app.id)" 
-                       class="absolute -top-2 left-2 px-1.5 py-0.2 bg-[#1C6EFF] text-white text-[9px] rounded font-medium shadow-xs">
-                    已调取
+              <!-- 表头与筛选下拉框 + 向左收起图标按钮 -->
+              <div class="p-2.5 border-b border-[#E1E5EB] flex flex-col gap-2 bg-[#F8FAFC]">
+                <div class="flex items-center justify-between gap-1">
+                  <!-- 左侧: 标题与状态筛选下拉框 (间距 8px) -->
+                  <div class="flex items-center gap-2 min-w-0">
+                    <div class="flex items-center gap-1.5 shrink-0">
+                      <span class="w-1 h-3.5 bg-[#1C6EFF] rounded-full"></span>
+                      <span class="text-xs font-semibold text-[#2F3540] whitespace-nowrap">应用访问列表</span>
+                    </div>
+                    
+                    <!-- 状态筛选下拉框 (全部应用 / 体验差 / 体验一般 / 体验正常) -->
+                    <select x-model="appFilterExp" class="h-6 px-1.5 text-[11px] text-[#2F3540] bg-white border border-[#D3D7DE] rounded-[2px] focus:border-[#1C6EFF] focus:outline-none cursor-pointer shrink-0">
+                      <option value="">全部应用</option>
+                      <option value="差">体验差</option>
+                      <option value="一般">体验一般</option>
+                      <option value="正常">体验正常</option>
+                    </select>
                   </div>
 
-                  <!-- 选中右上角角标指示 -->
-                  <div x-show="activeAppId === app.id" class="absolute top-0 right-0 w-3 h-3 bg-[#1C6EFF] rounded-bl flex items-center justify-center">
-                    <svg class="w-2 h-2 text-white" fill="currentColor" viewBox="0 0 20 20">
-                      <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                  <!-- 右侧: 收起按钮 (双向折叠收起图标 <<) -->
+                  <button @click="isLeftPanelCollapsed = true"
+                          title="向左收起应用列表"
+                          class="w-5 h-5 rounded flex items-center justify-center text-[#5C6270] hover:text-[#1C6EFF] hover:bg-[#EFF6FF] transition-colors cursor-pointer shrink-0">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7"></path>
                     </svg>
-                  </div>
-
-                  <!-- 第一行: 应用名称 (不加粗) -->
-                  <div class="flex items-center pr-2 overflow-hidden">
-                    <span class="text-xs truncate font-normal" :class="activeAppId === app.id ? 'text-[#1C6EFF]' : 'text-[#2F3540]'" x-text="app.name"></span>
-                  </div>
-
-                  <!-- 第二行: 地址 (左) + 状态 Tag (右下角) -->
-                  <div class="flex items-center justify-between text-[11px]">
-                    <span class="font-mono text-[10px] text-[#8A92A1] truncate max-w-[170px]" :title="app.domain" x-text="app.domain || 'https://corp.internal'"></span>
-                    <span :class="app.experience === '差' ? 'bg-[#F52727]/10 text-[#F52727]' : (app.experience === '一般' ? 'bg-[#FA721B]/10 text-[#FA721B]' : 'bg-[#12A679]/10 text-[#12A679]')"
-                          class="px-1.5 py-0.2 text-[10px] rounded-[2px] font-normal shrink-0 flex items-center gap-1">
-                      <span class="w-1.5 h-1.5 rounded-full" :class="app.experience === '差' ? 'bg-[#F52727]' : (app.experience === '一般' ? 'bg-[#FA721B]' : 'bg-[#12A679]')"></span>
-                      <span x-text="app.experience"></span>
-                    </span>
-                  </div>
+                  </button>
                 </div>
-              </template>
 
-              <!-- 卡片 8: 更多应用下拉收纳卡片 (带搜索、状态过滤与快速调取槽位，支持鼠标悬浮展开，高度 58px <= 64px) -->
-              <div class="relative" 
-                   x-data="{ open: false, timer: null }" 
-                   @mouseenter="clearTimeout(timer); open = true" 
-                   @mouseleave="timer = setTimeout(() => open = false, 200)"
-                   @click.outside="open = false" 
-                   x-show="moreAppsTotalCount > 0">
-                <div class="h-[58px] p-2 rounded-[2px] border border-dashed cursor-pointer select-none transition-all duration-150 flex flex-col justify-between"
-                     :class="open ? 'bg-white border-[#1C6EFF] shadow-xs ring-2 ring-[#1C6EFF]/20' : 'bg-white border-[#B8C2CC] hover:border-[#1C6EFF] hover:shadow-2xs'"
-                     @click="open = !open">
-                  <div class="flex items-center justify-between">
-                    <div class="flex items-center gap-1.5 text-xs font-normal" :class="open ? 'text-[#1C6EFF]' : 'text-[#2F3540]'">
-                      <svg class="w-3.5 h-3.5 text-[#1C6EFF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
-                      </svg>
-                      <span>更多应用</span>
-                      <span class="text-[#8A92A1] font-normal" x-text="'(+' + moreAppsTotalCount + ')'"></span>
+                <!-- 搜索框 (搜索名称/地址) -->
+                <div class="relative flex items-center">
+                  <input type="text" 
+                         x-model="appSearchQuery" 
+                         placeholder="搜索名称/地址" 
+                         class="w-full h-7 pl-2.5 pr-7 text-xs bg-white border border-[#D3D7DE] rounded-[2px] focus:outline-none focus:border-[#1C6EFF] text-[#2F3540] placeholder-[#A1A7B3] transition-colors" />
+                  <svg class="w-3.5 h-3.5 text-[#A1A7B3] absolute right-2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                  </svg>
+                </div>
+              </div>
+
+              <!-- 应用列表 (轻量圆点呈现) -->
+              <div class="flex-1 overflow-y-auto custom-scrollbar divide-y divide-[#F0F2F5]">
+                <template x-for="app in filteredApps" :key="app.id">
+                  <div class="p-2.5 cursor-pointer transition-colors select-none"
+                       :class="activeAppId === app.id ? 'bg-[#F0F7FF] border-l-2 border-[#1C6EFF]' : 'hover:bg-[#F8FAFC] border-l-2 border-transparent'"
+                       @click="selectApp(app)">
+                    
+                    <!-- 第一行: 名称前面的状态点 + 应用名称 -->
+                    <div class="flex items-center gap-1.5 overflow-hidden">
+                      <span class="w-[5px] h-[5px] rounded-full shrink-0"
+                            :class="app.experience === '差' ? 'bg-[#F52727]' : (app.experience === '一般' ? 'bg-[#FA721B]' : 'bg-[#12A679]')"></span>
+                      <span class="text-xs font-medium truncate"
+                            :class="activeAppId === app.id ? 'text-[#1C6EFF]' : 'text-[#2F3540]'"
+                            x-text="app.name"></span>
                     </div>
-                    <svg class="w-3.5 h-3.5 text-[#8A92A1] transition-transform duration-200" :class="open ? 'rotate-180 text-[#1C6EFF]' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+
+                    <!-- 第二行: IP / 域名地址 -->
+                    <div class="mt-1 pl-3.5 text-[11px] text-[#8A92A1] font-mono truncate"
+                         :title="app.domain || ''"
+                         x-text="app.domain ? app.domain.replace(/^https?:\/\//, '') : ''"></div>
+                  </div>
+                </template>
+
+                <!-- 搜索无结果 -->
+                <template x-if="filteredApps.length === 0">
+                  <div class="py-8 text-center text-xs text-[#8A92A1] flex flex-col items-center justify-center space-y-1">
+                    <svg class="w-6 h-6 text-[#D3D7DE]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                     </svg>
+                    <span>未匹配到应用</span>
                   </div>
-                  <div class="text-[11px] text-[#8A92A1]">
-                    <span>悬浮查看更多 <span x-text="moreAppsTotalCount"></span> 个应用</span>
-                  </div>
-                </div>
-
-                <!-- 悬浮下拉菜单 (带搜索与列表) -->
-                <div x-show="open" 
-                     x-transition:enter="transition ease-out duration-150"
-                     x-transition:enter-start="opacity-0 translate-y-1 scale-98"
-                     x-transition:enter-end="opacity-100 translate-y-0 scale-100"
-                     class="absolute right-0 top-full mt-1.5 z-50 w-84 bg-white rounded-[2px] shadow-xl border border-[#D3D7DE] p-3 space-y-2.5">
-                  
-                  <div class="flex items-center justify-between border-b border-[#F0F2F5] pb-2">
-                    <span class="font-bold text-xs text-[#2F3540]">选择应用 (调取至展示槽位并查看)</span>
-                    <span class="text-[11px] text-[#8A92A1]" x-text="'收纳池共 ' + moreAppsTotalCount + ' 个'"></span>
-                  </div>
-
-                  <!-- 搜索与状态筛选 -->
-                  <div class="space-y-1.5">
-                    <input type="text" 
-                           x-model="moreSearchQuery" 
-                           placeholder="快速搜索应用名称、域名、类型..." 
-                           class="w-full h-7 px-2 text-xs border border-[#D3D7DE] rounded-[2px] focus:outline-none focus:border-[#1C6EFF]">
-                    <div class="flex items-center gap-1 text-[11px]">
-                      <button class="px-2 py-0.5 rounded-[2px]" :class="!moreFilterExp ? 'bg-[#1C6EFF] text-white font-medium' : 'bg-gray-100 text-[#5C6270] hover:bg-gray-200'" @click="moreFilterExp = ''">全部</button>
-                      <button class="px-2 py-0.5 rounded-[2px]" :class="moreFilterExp === '差' ? 'bg-[#F52727] text-white font-medium' : 'bg-[#FFF1F0] text-[#F52727] hover:bg-[#FFE8E6]'" @click="moreFilterExp = '差'">差</button>
-                      <button class="px-2 py-0.5 rounded-[2px]" :class="moreFilterExp === '一般' ? 'bg-[#FA721B] text-white font-medium' : 'bg-[#FFF7E6] text-[#FA721B] hover:bg-[#FFEED4]'" @click="moreFilterExp = '一般'">一般</button>
-                      <button class="px-2 py-0.5 rounded-[2px]" :class="moreFilterExp === '正常' ? 'bg-[#12A679] text-white font-medium' : 'bg-[#E6F8F2] text-[#12A679] hover:bg-[#D1F2E7]'" @click="moreFilterExp = '正常'">正常</button>
-                    </div>
-                  </div>
-
-                  <!-- 应用列表 (滚动容器) -->
-                  <div class="max-h-60 overflow-y-auto divide-y divide-[#F5F7FA] custom-scrollbar pr-0.5">
-                    <template x-for="app in moreAppsList" :key="app.id">
-                      <div class="p-2 hover:bg-[#F0F5FF] rounded cursor-pointer transition-colors flex items-center justify-between group"
-                           @click="selectMoreAppAndSwap(app.id); open = false">
-                        <div class="min-w-0 pr-2">
-                          <div class="text-xs text-[#2F3540] truncate font-normal group-hover:text-[#1C6EFF]">
-                            <span x-text="app.name"></span>
-                          </div>
-                          <div class="text-[11px] text-[#8A92A1] truncate font-mono mt-0.5" x-text="app.domain || ''"></div>
-                        </div>
-                        <span :class="app.experience === '差' ? 'bg-[#F52727]/10 text-[#F52727]' : (app.experience === '一般' ? 'bg-[#FA721B]/10 text-[#FA721B]' : 'bg-[#12A679]/10 text-[#12A679]')"
-                              class="px-1.5 py-0.5 text-[10px] rounded-[2px] font-normal shrink-0" x-text="app.experience"></span>
-                      </div>
-                    </template>
-                    <div x-show="moreAppsList.length === 0" class="py-6 text-center text-xs text-[#8A92A1]">
-                      未找到匹配的收纳应用
-                    </div>
-                  </div>
-
-                </div>
-
+                </template>
               </div>
 
             </div>
-          </div>
+
+            <!-- 右侧: 选中应用排障下钻看板 (纵向滚动容器) -->
+            <div id="detail-scroll-panel" x-ref="detailScrollPanel" class="flex-1 min-w-0 flex flex-col space-y-3 overflow-y-auto custom-scrollbar">
 
           <!-- 4.3 下方全宽应用排障与下钻看板 (满宽展示时间线趋势图、多段拓扑与指标明细) -->
           <!-- 模块: 访问体验时间线 + 访问链路统一容器 -->
@@ -3211,11 +3190,11 @@
 
                           <div class="flex items-center gap-2">
                             <template x-if="item.id === 'node_app' || item.id === 'node_final_app'">
-                              <span class="w-2 h-2 rounded-full flex-shrink-0"
+                              <span class="w-[5px] h-[5px] rounded-full flex-shrink-0"
                                     :class="(item.status === '异常' || item.status === '差') ? 'bg-[#CF171D]' : 'bg-[#64748B]'"></span>
                             </template>
                             <template x-if="item.id !== 'node_app' && item.id !== 'node_final_app'">
-                              <span class="w-2 h-2 rounded-full flex-shrink-0"
+                              <span class="w-[5px] h-[5px] rounded-full flex-shrink-0"
                                     :class="(item.status === '异常' || item.status === '差') ? 'bg-[#CF171D]' : 'bg-[#12A679]'"></span>
                             </template>
                             <span class="text-xs font-medium text-[#2F3540]" x-text="formatItemName(item.name)"></span>
@@ -3929,6 +3908,12 @@
                 </div>
 
               </div>
+
+            </div>
+            <!-- /#detail-scroll-panel -->
+
+          </div>
+          <!-- /4.2 左右两栏布局核心容器 -->
 
         </main>
 
