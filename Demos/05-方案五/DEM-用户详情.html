@@ -3273,23 +3273,11 @@
 
                             
                             <!-- ==========================================
-                                 1. 终端节点 (node_terminal)
+                                 1. 终端节点 (node_terminal) - 精简展示 CPU、内存、Wi-Fi信号 (3卡片)
                                  ========================================== -->
                             <template x-if="item.id === 'node_terminal'">
                               <div class="space-y-3">
-                                <!-- 客户端状态、CPU、内存、Wi-Fi信号 (4卡片单行展示) -->
-                                <div class="grid grid-cols-2 md:grid-cols-4 gap-2.5">
-                                  <!-- 客户端健康状态 -->
-                                  <div class="bg-white p-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
-                                    <span class="text-[11px] text-[#6F7785]">客户端健康状态</span>
-                                    <div class="mt-1">
-                                      <span class="inline-flex items-center gap-1.5 text-xs font-medium text-[#12A679]">
-                                        <span class="w-2 h-2 rounded-full bg-[#12A679]"></span> 正常
-                                      </span>
-                                    </div>
-                                    <span class="text-[10px] text-[#94A3B8]">组件状态正常</span>
-                                  </div>
-
+                                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                                   <!-- CPU利用率 -->
                                   <div class="bg-white p-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
                                     <span class="text-[11px] text-[#6F7785]">CPU利用率</span>
@@ -3321,91 +3309,6 @@
                                     <span class="text-[10px]" :class="isWifiAbnormal(item) ? 'text-[#F52727]' : 'text-[#64748B]'" x-text="isWifiAbnormal(item) ? '信号严重衰减' : '覆盖极佳'"></span>
                                   </div>
                                 </div>
-
-                                <!-- 2 副趋势图 (CPU利用率趋势图 & 内存利用率趋势图 - 加细灰描边) -->
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
-                                  <!-- CPU利用率趋势图 -->
-                                  <div class="bg-white p-3 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
-                                    <div class="flex items-center justify-between text-xs mb-2">
-                                      <div class="flex items-center gap-2">
-                                        <span class="font-medium text-[#2F3540]">CPU利用率趋势</span>
-                                        <span class="text-[10px] text-[#1C6EFF] font-mono font-medium" x-text="isWifiAbnormal(item) ? '实时 22.5%' : (item.status === '异常' ? '实时 92.4%' : '实时 24.5%')"></span>
-                                      </div>
-                                      <!-- 评估标准 Tooltip -->
-                                      <div class="relative group cursor-pointer flex items-center gap-1 text-[10px] text-[#64748B] hover:text-[#1C6EFF] transition-colors">
-                                        <span>评估标准</span>
-                                        <svg class="w-3 h-3 text-[#94A3B8] group-hover:text-[#1C6EFF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                        </svg>
-                                        <div class="absolute right-0 top-full mt-1 hidden group-hover:block z-30 bg-[#1F2429] text-white text-[10px] px-2.5 py-1.5 rounded shadow-lg whitespace-nowrap pointer-events-none">
-                                          正常 &lt;70% ｜ 一般 ≥70%且&lt;90% ｜ 差 ≥90%
-                                        </div>
-                                      </div>
-                                    </div>
-                                    <div class="h-20 w-full bg-white rounded p-1.5 border border-[#EAEEF4]">
-                                      <svg viewBox="0 0 500 64" preserveAspectRatio="none" class="w-full h-full overflow-visible">
-                                        <defs>
-                                          <linearGradient id="termCpuGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                                            <stop offset="0%" stop-color="#1C6EFF" stop-opacity="0.25"/>
-                                            <stop offset="100%" stop-color="#1C6EFF" stop-opacity="0.0"/>
-                                          </linearGradient>
-                                        </defs>
-                                        <text x="2" y="10" fill="#94A3B8" font-size="8" font-family="sans-serif">100%</text>
-                                        <line x1="26" y1="8" x2="496" y2="8" stroke="#F1F5F9" stroke-width="1"/>
-                                        <text x="6" y="29" fill="#94A3B8" font-size="8" font-family="sans-serif">50%</text>
-                                        <line x1="26" y1="28" x2="496" y2="28" stroke="#F1F5F9" stroke-width="1"/>
-                                        <text x="11" y="49" fill="#94A3B8" font-size="8" font-family="sans-serif">0%</text>
-                                        <line x1="26" y1="48" x2="496" y2="48" stroke="#E2E8F0" stroke-width="1"/>
-                                        <line x1="26" y1="20" x2="496" y2="20" stroke="#FA721B" stroke-width="1" stroke-dasharray="4 2"/>
-                                        <text x="440" y="17" fill="#FA721B" font-size="7.5" font-family="sans-serif">70% 警戒线</text>
-                                        <path d="M 26 52 Q 120 50, 240 51 T 400 48 T 496 50 L 496 54 L 26 54 Z" fill="url(#termCpuGrad)"/>
-                                        <path d="M 26 52 Q 120 50, 240 51 T 400 48 T 496 50" fill="none" stroke="#1C6EFF" stroke-width="1.8"/>
-                                        <circle cx="496" cy="50" r="3" fill="#1C6EFF" stroke="#FFFFFF" stroke-width="1"/>
-                                      </svg>
-                                    </div>
-                                  </div>
-
-                                  <!-- 内存利用率趋势图 -->
-                                  <div class="bg-white p-3 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
-                                    <div class="flex items-center justify-between text-xs mb-2">
-                                      <div class="flex items-center gap-2">
-                                        <span class="font-medium text-[#2F3540]">内存利用率趋势</span>
-                                        <span class="text-[10px] text-[#8B5CF6] font-mono font-medium" x-text="isWifiAbnormal(item) ? '实时 41.0%' : (item.status === '异常' ? '实时 88.6%' : '实时 68.2%')"></span>
-                                      </div>
-                                      <!-- 评估标准 Tooltip -->
-                                      <div class="relative group cursor-pointer flex items-center gap-1 text-[10px] text-[#64748B] hover:text-[#8B5CF6] transition-colors">
-                                        <span>评估标准</span>
-                                        <svg class="w-3 h-3 text-[#94A3B8] group-hover:text-[#8B5CF6]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                        </svg>
-                                        <div class="absolute right-0 top-full mt-1 hidden group-hover:block z-30 bg-[#1F2429] text-white text-[10px] px-2.5 py-1.5 rounded shadow-lg whitespace-nowrap pointer-events-none">
-                                          正常 &lt;60% ｜ 一般 ≥60%且&lt;80% ｜ 差 ≥80%
-                                        </div>
-                                      </div>
-                                    </div>
-                                    <div class="h-20 w-full bg-white rounded p-1.5 border border-[#EAEEF4]">
-                                      <svg viewBox="0 0 500 64" preserveAspectRatio="none" class="w-full h-full overflow-visible">
-                                        <defs>
-                                          <linearGradient id="termMemGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                                            <stop offset="0%" stop-color="#8B5CF6" stop-opacity="0.25"/>
-                                            <stop offset="100%" stop-color="#8B5CF6" stop-opacity="0.0"/>
-                                          </linearGradient>
-                                        </defs>
-                                        <text x="2" y="10" fill="#94A3B8" font-size="8" font-family="sans-serif">100%</text>
-                                        <line x1="26" y1="8" x2="496" y2="8" stroke="#F1F5F9" stroke-width="1"/>
-                                        <text x="6" y="29" fill="#94A3B8" font-size="8" font-family="sans-serif">50%</text>
-                                        <line x1="26" y1="28" x2="496" y2="28" stroke="#F1F5F9" stroke-width="1"/>
-                                        <text x="11" y="49" fill="#94A3B8" font-size="8" font-family="sans-serif">0%</text>
-                                        <line x1="26" y1="48" x2="496" y2="48" stroke="#E2E8F0" stroke-width="1"/>
-                                        <line x1="26" y1="24" x2="496" y2="24" stroke="#FA721B" stroke-width="1" stroke-dasharray="4 2"/>
-                                        <text x="440" y="21" fill="#FA721B" font-size="7.5" font-family="sans-serif">60% 警戒线</text>
-                                        <path d="M 26 42 Q 120 40, 240 39 T 400 38 T 496 39 L 496 54 L 26 54 Z" fill="url(#termMemGrad)"/>
-                                        <path d="M 26 42 Q 120 40, 240 39 T 400 38 T 496 39" fill="none" stroke="#8B5CF6" stroke-width="1.8"/>
-                                        <circle cx="496" cy="39" r="3" fill="#8B5CF6" stroke="#FFFFFF" stroke-width="1"/>
-                                      </svg>
-                                    </div>
-                                  </div>
-                                </div>
                               </div>
                             </template>
 
@@ -3414,177 +3317,450 @@
                                  ========================================== -->
                             <template x-if="item.id === 'seg_client_pop'">
                               <div class="space-y-3">
-                                <!-- 终端-POP段 多段性能度量可视化表格 -->
-                                <div class="bg-white rounded-[2px] border border-[#EAEEF4] shadow-xs overflow-hidden">
-                                  <!-- 表格 Header 标题栏 -->
-                                  <div class="p-3 bg-[#FAFBFD] border-b border-[#EAEEF4] flex items-center justify-between">
-                                    <div class="flex items-center gap-2">
-                                      <span class="w-1 h-3.5 bg-[#1C6EFF] rounded-full"></span>
-                                      <span class="text-xs font-medium text-[#2F3540]">终端 ➔ POP 多维质量对比</span>
-                                    </div>
+                                <!-- ① 终端-POP段 多段性能度量可视化表格 (小标题外置) -->
+                                <div class="space-y-1.5">
+                                  <div class="flex items-center gap-2">
+                                    <span class="w-1 h-3.5 bg-[#1C6EFF] rounded-full"></span>
+                                    <span class="text-xs font-medium text-[#2F3540]">终端-POP段物理链路与隧道链路质量对比</span>
                                   </div>
 
                                   <!-- 可视化表格 Body (无状态/定责列，VPN隧道置于物理链路之上) -->
-                                  <div class="overflow-x-auto">
-                                    <table class="w-full text-left text-xs border-collapse">
-                                      <thead>
-                                        <tr class="bg-[#F8FAFC] border-b border-[#EAEEF4] text-[#5C6270] font-normal text-[11px]">
-                                          <th class="py-2.5 px-3 font-medium w-[32%]">探测线路 / 路径示意</th>
-                                          <th class="py-2.5 px-3 font-medium w-[20%]">时延 (RTT)</th>
-                                          <th class="py-2.5 px-3 font-medium w-[18%]">丢包率 (Loss)</th>
-                                          <th class="py-2.5 px-3 font-medium w-[18%]">抖动 (Jitter)</th>
-                                          <th class="py-2.5 px-3 font-medium w-[12%]">吞吐 (Throughput)</th>
-                                        </tr>
-                                      </thead>
-                                      <tbody class="divide-y divide-[#F0F2F5] text-xs">
-                                        <!-- ① 终端 - POP 走隧道访问 (Overlay，置于首行) -->
-                                        <tr class="hover:bg-[#FAFBFD] transition-colors">
-                                          <td class="py-2.5 px-3">
-                                            <div class="flex items-center gap-2.5">
-                                              <div class="space-y-1">
-                                                <div class="inline-flex items-center gap-1.5 px-2 py-0.8 bg-[#F1F5F9] rounded-[3px] border border-[#E2E8F0]">
-                                                  <!-- 终端图标 -->
-                                                  <div class="flex items-center gap-1 text-[#2F3540] font-medium text-[11px]">
-                                                    <svg class="w-3.5 h-3.5 text-[#1C6EFF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2-2v10a2 2 0 002 2z"></path>
-                                                    </svg>
-                                                    <span>终端</span>
-                                                  </div>
-                                                  <!-- 加密隧道标识 -->
-                                                  <div class="flex items-center px-1">
-                                                    <div class="w-2 h-[1.5px] bg-[#1C6EFF]"></div>
-                                                    <div class="flex items-center gap-0.5 px-1 py-0.2 bg-[#1C6EFF]/10 text-[#1C6EFF] rounded text-[9px] font-mono font-medium">
-                                                      <svg class="w-2.5 h-2.5 text-[#1C6EFF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                                  <div class="bg-white rounded-[2px] border border-[#EAEEF4] shadow-xs overflow-hidden">
+                                    <div class="overflow-x-auto">
+                                      <table class="w-full text-left text-xs border-collapse">
+                                        <thead>
+                                          <tr class="bg-[#F8FAFC] border-b border-[#EAEEF4] text-[#5C6270] font-normal text-[11px]">
+                                            <th class="py-2.5 px-3 font-medium w-[32%]">路径示意</th>
+                                            <th class="py-2.5 px-3 font-medium w-[20%]">时延</th>
+                                            <th class="py-2.5 px-3 font-medium w-[18%]">丢包率</th>
+                                            <th class="py-2.5 px-3 font-medium w-[18%]">抖动</th>
+                                            <th class="py-2.5 px-3 font-medium w-[12%]">吞吐</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody class="divide-y divide-[#F0F2F5] text-xs">
+                                          <!-- ① 终端 - POP 走隧道访问 (Overlay，置于首行) -->
+                                          <tr class="hover:bg-[#FAFBFD] transition-colors">
+                                            <td class="py-2.5 px-3">
+                                              <div class="flex items-center gap-2.5">
+                                                <div class="space-y-1">
+                                                  <div class="inline-flex items-center gap-1.5 px-2 py-0.8 bg-[#F1F5F9] rounded-[3px] border border-[#E2E8F0]">
+                                                    <!-- 终端图标 -->
+                                                    <div class="flex items-center gap-1 text-[#2F3540] font-medium text-[11px]">
+                                                      <svg class="w-3.5 h-3.5 text-[#1C6EFF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2-2v10a2 2 0 002 2z"></path>
                                                       </svg>
-                                                      <span>VPN隧道</span>
+                                                      <span>终端</span>
                                                     </div>
-                                                    <div class="w-2 h-[1.5px] bg-[#1C6EFF]"></div>
-                                                    <svg class="w-2 h-2 text-[#1C6EFF] -ml-0.5" fill="currentColor" viewBox="0 0 6 8"><polygon points="0,0 6,4 0,8"/></svg>
+                                                    <!-- 加密隧道标识 -->
+                                                    <div class="flex items-center px-1">
+                                                      <div class="w-2 h-[1.5px] bg-[#1C6EFF]"></div>
+                                                      <div class="flex items-center gap-0.5 px-1 py-0.2 bg-[#1C6EFF]/10 text-[#1C6EFF] rounded text-[9px] font-mono font-medium">
+                                                        <svg class="w-2.5 h-2.5 text-[#1C6EFF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                                                        </svg>
+                                                        <span>VPN隧道</span>
+                                                      </div>
+                                                      <div class="w-2 h-[1.5px] bg-[#1C6EFF]"></div>
+                                                      <svg class="w-2 h-2 text-[#1C6EFF] -ml-0.5" fill="currentColor" viewBox="0 0 6 8"><polygon points="0,0 6,4 0,8"/></svg>
+                                                    </div>
+                                                    <!-- POP 图标 -->
+                                                    <div class="flex items-center gap-1 text-[#2F3540] font-medium text-[11px]">
+                                                      <svg class="w-3.5 h-3.5 text-[#0EA5E9]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                                                      </svg>
+                                                      <span>POP节点</span>
+                                                    </div>
                                                   </div>
-                                                  <!-- POP 图标 -->
-                                                  <div class="flex items-center gap-1 text-[#2F3540] font-medium text-[11px]">
-                                                    <svg class="w-3.5 h-3.5 text-[#0EA5E9]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
-                                                    </svg>
-                                                    <span>POP节点</span>
+                                                  <div class="text-[10px] text-[#8A92A1] flex items-center gap-1.5">
+                                                    <span>SASE / ZTNA 加密隧道 Overlay</span>
                                                   </div>
-                                                </div>
-                                                <div class="text-[10px] text-[#8A92A1] flex items-center gap-1.5">
-                                                  <span>SASE / ZTNA 加密隧道 Overlay</span>
                                                 </div>
                                               </div>
-                                            </div>
-                                          </td>
-                                          <!-- 时延 -->
-                                          <td class="py-2.5 px-3">
-                                            <div class="flex items-baseline gap-1">
-                                              <span class="font-medium font-outfit text-xs" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="item.status === '异常' ? (currentSlice.topology?.segment1?.delay || '198ms') : '18ms'"></span>
-                                            </div>
-                                            <div class="text-[10px] text-[#94A3B8] font-mono mt-0.5" x-text="item.status === '异常' ? '基线 < 50ms (超出+148ms)' : '基线 < 50ms'"></div>
-                                          </td>
-                                          <!-- 丢包率 -->
-                                          <td class="py-2.5 px-3">
-                                            <div class="flex items-baseline gap-1">
-                                              <span class="font-medium font-outfit text-xs" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="item.status === '异常' ? (currentSlice.topology?.segment1?.loss || '5.2%') : '0.0%'"></span>
-                                            </div>
-                                            <div class="text-[10px] text-[#94A3B8] font-mono mt-0.5" x-text="item.status === '异常' ? '基线 < 0.5% (隧道丢包)' : '基线 < 0.5% (极佳)'"></div>
-                                          </td>
-                                          <!-- 抖动 -->
-                                          <td class="py-2.5 px-3">
-                                            <div class="flex items-baseline gap-1">
-                                              <span class="font-medium font-outfit text-xs" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="item.status === '异常' ? (currentSlice.topology?.segment1?.jitter || '45ms') : '2ms'"></span>
-                                            </div>
-                                            <div class="text-[10px] text-[#94A3B8] font-mono mt-0.5" x-text="item.status === '异常' ? '基线 < 15ms (波动+30ms)' : '基线 < 15ms (平稳)'"></div>
-                                          </td>
-                                          <!-- 吞吐 (无基线) -->
-                                          <td class="py-2.5 px-3">
-                                            <div class="flex items-baseline gap-1">
-                                              <span class="font-medium font-outfit text-xs" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="item.status === '异常' ? '6.2 Mbps' : '85 Mbps'"></span>
-                                            </div>
-                                          </td>
-                                        </tr>
+                                            </td>
+                                            <!-- 时延 -->
+                                            <td class="py-2.5 px-3">
+                                              <div class="flex items-baseline gap-1">
+                                                <span class="font-medium font-outfit text-xs" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="item.status === '异常' ? (currentSlice.topology?.segment1?.delay || '198ms') : '18ms'"></span>
+                                              </div>
+                                              <div class="text-[10px] text-[#94A3B8] font-mono mt-0.5">基线 &lt; 50ms</div>
+                                            </td>
+                                            <!-- 丢包率 -->
+                                            <td class="py-2.5 px-3">
+                                              <div class="flex items-baseline gap-1">
+                                                <span class="font-medium font-outfit text-xs" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="item.status === '异常' ? (currentSlice.topology?.segment1?.loss || '5.2%') : '0.0%'"></span>
+                                              </div>
+                                              <div class="text-[10px] text-[#94A3B8] font-mono mt-0.5">基线 &lt; 0.5%</div>
+                                            </td>
+                                            <!-- 抖动 -->
+                                            <td class="py-2.5 px-3">
+                                              <div class="flex items-baseline gap-1">
+                                                <span class="font-medium font-outfit text-xs" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="item.status === '异常' ? (currentSlice.topology?.segment1?.jitter || '45ms') : '2ms'"></span>
+                                              </div>
+                                              <div class="text-[10px] text-[#94A3B8] font-mono mt-0.5">基线 &lt; 15ms</div>
+                                            </td>
+                                            <!-- 吞吐 (无基线) -->
+                                            <td class="py-2.5 px-3">
+                                              <div class="flex items-baseline gap-1">
+                                                <span class="font-medium font-outfit text-xs" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="item.status === '异常' ? '6.2 Mbps' : '85 Mbps'"></span>
+                                              </div>
+                                            </td>
+                                          </tr>
 
-                                        <!-- ② 终端 - POP 物理链路直连 (Underlay) -->
-                                        <tr class="hover:bg-[#FAFBFD] transition-colors">
-                                          <td class="py-2.5 px-3">
-                                            <div class="flex items-center gap-2.5">
-                                              <div class="space-y-1">
-                                                <div class="inline-flex items-center gap-1.5 px-2 py-0.8 bg-[#F1F5F9] rounded-[3px] border border-[#E2E8F0]">
-                                                  <!-- 终端图标 -->
-                                                  <div class="flex items-center gap-1 text-[#2F3540] font-medium text-[11px]">
-                                                    <svg class="w-3.5 h-3.5 text-[#1C6EFF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2-2v10a2 2 0 002 2z"></path>
-                                                    </svg>
-                                                    <span>终端</span>
+                                          <!-- ② 终端 - POP 物理链路直连 (Underlay) -->
+                                          <tr class="hover:bg-[#FAFBFD] transition-colors">
+                                            <td class="py-2.5 px-3">
+                                              <div class="flex items-center gap-2.5">
+                                                <div class="space-y-1">
+                                                  <div class="inline-flex items-center gap-1.5 px-2 py-0.8 bg-[#F1F5F9] rounded-[3px] border border-[#E2E8F0]">
+                                                    <!-- 终端图标 -->
+                                                    <div class="flex items-center gap-1 text-[#2F3540] font-medium text-[11px]">
+                                                      <svg class="w-3.5 h-3.5 text-[#1C6EFF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2-2v10a2 2 0 002 2z"></path>
+                                                      </svg>
+                                                      <span>终端</span>
+                                                    </div>
+                                                    <!-- 公网直连线与云图标 -->
+                                                    <div class="flex items-center px-1">
+                                                      <div class="w-2.5 h-[1.5px] bg-[#94A3B8]"></div>
+                                                      <svg class="w-3 h-3 text-[#64748B] mx-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 00-9.78 2.096A4.001 4.001 0 003 15z"></path>
+                                                      </svg>
+                                                      <div class="w-2.5 h-[1.5px] bg-[#94A3B8]"></div>
+                                                      <svg class="w-2 h-2 text-[#94A3B8] -ml-0.5" fill="currentColor" viewBox="0 0 6 8"><polygon points="0,0 6,4 0,8"/></svg>
+                                                    </div>
+                                                    <!-- POP 图标 -->
+                                                    <div class="flex items-center gap-1 text-[#2F3540] font-medium text-[11px]">
+                                                      <svg class="w-3.5 h-3.5 text-[#0EA5E9]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                                                      </svg>
+                                                      <span>POP节点</span>
+                                                    </div>
                                                   </div>
-                                                  <!-- 公网直连线与云图标 -->
-                                                  <div class="flex items-center px-1">
-                                                    <div class="w-2.5 h-[1.5px] bg-[#94A3B8]"></div>
-                                                    <svg class="w-3 h-3 text-[#64748B] mx-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 00-9.78 2.096A4.001 4.001 0 003 15z"></path>
-                                                    </svg>
-                                                    <div class="w-2.5 h-[1.5px] bg-[#94A3B8]"></div>
-                                                    <svg class="w-2 h-2 text-[#94A3B8] -ml-0.5" fill="currentColor" viewBox="0 0 6 8"><polygon points="0,0 6,4 0,8"/></svg>
+                                                  <div class="text-[10px] text-[#8A92A1] flex items-center gap-1.5">
+                                                    <span>公网 Underlay 物理承载直连</span>
                                                   </div>
-                                                  <!-- POP 图标 -->
-                                                  <div class="flex items-center gap-1 text-[#2F3540] font-medium text-[11px]">
-                                                    <svg class="w-3.5 h-3.5 text-[#0EA5E9]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
-                                                    </svg>
-                                                    <span>POP节点</span>
-                                                  </div>
-                                                </div>
-                                                <div class="text-[10px] text-[#8A92A1] flex items-center gap-1.5">
-                                                  <span>公网 Underlay 物理承载直连</span>
                                                 </div>
                                               </div>
-                                            </div>
-                                          </td>
-                                          <!-- 时延 -->
-                                          <td class="py-2.5 px-3">
-                                            <div class="flex items-baseline gap-1">
-                                              <span class="font-medium font-outfit text-xs" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="item.status === '异常' ? '152ms' : '16ms'"></span>
-                                            </div>
-                                            <div class="text-[10px] text-[#94A3B8] font-mono mt-0.5" x-text="item.status === '异常' ? '基线 < 50ms (超出+102ms)' : '基线 < 50ms'"></div>
-                                          </td>
-                                          <!-- 丢包率 -->
-                                          <td class="py-2.5 px-3">
-                                            <div class="flex items-baseline gap-1">
-                                              <span class="font-medium font-outfit text-xs" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="item.status === '异常' ? '5.0%' : '0.0%'"></span>
-                                            </div>
-                                            <div class="text-[10px] text-[#94A3B8] font-mono mt-0.5" x-text="item.status === '异常' ? '基线 < 0.5% (丢包偏高)' : '基线 < 0.5% (通畅)'"></div>
-                                          </td>
-                                          <!-- 抖动 -->
-                                          <td class="py-2.5 px-3">
-                                            <div class="flex items-baseline gap-1">
-                                              <span class="font-medium font-outfit text-xs" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="item.status === '异常' ? '42ms' : '2ms'"></span>
-                                            </div>
-                                            <div class="text-[10px] text-[#94A3B8] font-mono mt-0.5" x-text="item.status === '异常' ? '基线 < 15ms (波动+27ms)' : '基线 < 15ms (平稳)'"></div>
-                                          </td>
-                                          <!-- 吞吐 (无基线) -->
-                                          <td class="py-2.5 px-3">
-                                            <span class="text-xs text-[#94A3B8] font-mono">—</span>
-                                          </td>
-                                        </tr>
-                                      </tbody>
-                                    </table>
+                                            </td>
+                                            <!-- 时延 -->
+                                            <td class="py-2.5 px-3">
+                                              <div class="flex items-baseline gap-1">
+                                                <span class="font-medium font-outfit text-xs" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="item.status === '异常' ? '152ms' : '16ms'"></span>
+                                              </div>
+                                              <div class="text-[10px] text-[#94A3B8] font-mono mt-0.5">基线 &lt; 50ms</div>
+                                            </td>
+                                            <!-- 丢包率 -->
+                                            <td class="py-2.5 px-3">
+                                              <div class="flex items-baseline gap-1">
+                                                <span class="font-medium font-outfit text-xs" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="item.status === '异常' ? '5.0%' : '0.0%'"></span>
+                                              </div>
+                                              <div class="text-[10px] text-[#94A3B8] font-mono mt-0.5">基线 &lt; 0.5%</div>
+                                            </td>
+                                            <!-- 抖动 -->
+                                            <td class="py-2.5 px-3">
+                                              <div class="flex items-baseline gap-1">
+                                                <span class="font-medium font-outfit text-xs" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="item.status === '异常' ? '42ms' : '2ms'"></span>
+                                              </div>
+                                              <div class="text-[10px] text-[#94A3B8] font-mono mt-0.5">基线 &lt; 15ms</div>
+                                            </td>
+                                            <!-- 吞吐 (无基线) -->
+                                            <td class="py-2.5 px-3">
+                                              <span class="text-xs text-[#94A3B8] font-mono">—</span>
+                                            </td>
+                                          </tr>
+                                        </tbody>
+                                      </table>
+                                    </div>
                                   </div>
                                 </div>
 
-                                <!-- 客户端到 POP 逐跳链路诊断信息 (Hop-by-Hop Trace) -->
+                                <!-- ② 客户端到 POP 逐跳链路诊断信息 (Hop-by-Hop Trace，小标题外置) -->
                                 <template x-if="item.hopTraces">
-                                  <div class="mt-3 bg-white p-3 rounded-[2px] border border-[#EAEEF4] shadow-xs">
-                                    <!-- Header -->
-                                    <div class="flex items-center justify-between pb-2 border-b border-[#F0F2F5]">
-                                      <div class="flex items-center gap-2">
-                                        <span class="w-1 h-3.5 bg-[#1C6EFF] rounded-full"></span>
-                                        <span class="text-xs font-medium text-[#2F3540]">终端 ➔ POP的逐跳链路诊断</span>
-                                      </div>
+                                  <div class="space-y-1.5">
+                                    <!-- Header 外置 -->
+                                    <div class="flex items-center gap-2">
+                                      <span class="w-1 h-3.5 bg-[#1C6EFF] rounded-full"></span>
+                                      <span class="text-xs font-medium text-[#2F3540]">终端 ➔ POP的逐跳链路诊断</span>
                                     </div>
 
                                     <!-- 逐跳证据表格 (默认展示4跳，局部滚动，灰色tag，首跳无上一跳增量) -->
-                                    <div class="mt-2 overflow-x-auto max-h-[220px] overflow-y-auto">
+                                    <div class="bg-white rounded-[2px] border border-[#EAEEF4] shadow-xs overflow-hidden">
+                                      <div class="overflow-x-auto max-h-[220px] overflow-y-auto">
+                                        <table class="w-full text-left text-xs border-collapse">
+                                          <thead class="sticky top-0 bg-[#FAFBFD] z-10">
+                                            <tr class="border-b border-[#E1E5EB] text-[#5C6270] font-normal text-[11px]">
+                                              <th class="py-1.5 px-2.5 w-10 text-center font-normal">Hop</th>
+                                              <th class="py-1.5 px-2.5 font-normal">节点 IP</th>
+                                              <th class="py-1.5 px-2.5 font-normal">ISP / ASN 属性</th>
+                                              <th class="py-1.5 px-2.5 font-normal">地区</th>
+                                              <th class="py-1.5 px-2.5 font-normal">RTT (较上一跳)</th>
+                                              <th class="py-1.5 px-2.5 font-normal">丢包 (较上一跳)</th>
+                                              <th class="py-1.5 px-2.5 font-normal">抖动 (较上一跳)</th>
+                                            </tr>
+                                          </thead>
+                                          <tbody class="divide-y divide-[#F1F5F9] text-[11px] font-mono font-normal">
+                                            <template x-for="hop in item.hopTraces" :key="hop.hop">
+                                              <tr :class="hop.status === '异常' ? 'bg-[#FFF1F2]/40 text-[#CF171D]' : 'hover:bg-[#FAFBFD] text-[#334155]'">
+                                                <td class="py-1.5 px-2.5 text-center font-normal" x-text="hop.hop"></td>
+                                                <td class="py-1.5 px-2.5 font-normal">
+                                                  <div class="flex items-center gap-1.5 flex-wrap">
+                                                    <span class="font-mono" x-text="hop.ip"></span>
+                                                    <!-- 关键IP角色标签全部为标准中性灰色Tag -->
+                                                    <template x-if="hop.tag">
+                                                      <span class="px-1.5 py-0.5 text-[10px] rounded-[2px] font-sans font-medium whitespace-nowrap bg-[#F1F5F9] text-[#64748B] border border-[#E2E8F0]" x-text="hop.tag"></span>
+                                                    </template>
+                                                  </div>
+                                                </td>
+                                                <td class="py-1.5 px-2.5 font-sans font-normal" x-text="hop.asn"></td>
+                                                <td class="py-1.5 px-2.5 font-sans text-[#64748B] font-normal" x-text="hop.loc"></td>
+                                                <td class="py-1.5 px-2.5 font-normal" x-text="hop.hop === 1 ? hop.rtt : (hop.rtt + (hop.diffRtt && hop.diffRtt !== '-' ? ' (' + hop.diffRtt + ')' : ''))"></td>
+                                                <td class="py-1.5 px-2.5 font-normal" :class="hop.status === '异常' ? 'text-[#CF171D]' : ''" x-text="hop.hop === 1 ? hop.loss : (hop.loss + (hop.diffLoss && hop.diffLoss !== '-' ? ' (' + hop.diffLoss + ')' : ''))"></td>
+                                                <td class="py-1.5 px-2.5 font-normal" :class="hop.status === '异常' ? 'text-[#CF171D]' : ''" x-text="hop.hop === 1 ? hop.jitter : (hop.jitter + (hop.diffJitter && hop.diffJitter !== '-' ? ' (' + hop.diffJitter + ')' : ''))"></td>
+                                              </tr>
+                                            </template>
+                                          </tbody>
+                                        </table>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </template>
+                              </div>
+                            </template>
+
+                            <!-- ==========================================
+                                 3. POP 节点 (node_pop) - POP健康状态 + 本次处理状态 (小标题外置)
+                                 ========================================== -->
+                            <template x-if="item.id === 'node_pop'">
+                              <div class="grid grid-cols-1 md:grid-cols-4 gap-2.5">
+                                <!-- ① POP健康性 (1列，小标题外置) -->
+                                <div class="space-y-1.5 flex flex-col">
+                                  <div class="flex items-center gap-1.5 h-[18px]">
+                                    <span class="w-1 h-3.5 bg-[#1C6EFF] rounded-full"></span>
+                                    <span class="text-xs font-medium text-[#2F3540]">POP健康性</span>
+                                  </div>
+                                  <div class="bg-white p-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between flex-1">
+                                    <span class="text-[11px] text-[#6F7785]">POP健康状态</span>
+                                    <div class="mt-1 flex items-baseline gap-1.5">
+                                      <span class="text-base font-bold text-[#2F3540]" x-text="(currentSlice?.topology?.pop?.name || item?.popName || userPop || '北京POP').replace(/POP/gi, '').trim() || '北京'"></span>
+                                      <span class="text-[#D3D7DE] font-normal">|</span>
+                                      <span class="text-base font-bold" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#12A679]'" x-text="item.status === '异常' ? '异常' : '正常'"></span>
+                                    </div>
+                                    <span class="text-[10px] text-[#94A3B8] mt-1" x-text="item.status === '异常' ? 'API获取异常' : 'API获取正常'"></span>
+                                  </div>
+                                </div>
+
+                                <!-- ② 本次处理状态 (3列，小标题外置，指标卡片直接平铺) -->
+                                <div class="md:col-span-3 space-y-1.5 flex flex-col">
+                                  <div class="flex items-center gap-2 h-[18px]">
+                                    <span class="w-1 h-3.5 bg-[#1C6EFF] rounded-full"></span>
+                                    <span class="text-xs font-medium text-[#2F3540]">本次处理状态</span>
+                                    <span class="text-[11px] text-[#8A92A1]" x-text="'处理本次请求流量的数据联动时刻 ' + (currentSlice.time || '15:37')"></span>
+                                  </div>
+                                  <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 flex-1">
+                                    <!-- 转发时延 -->
+                                    <div class="bg-white p-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
+                                      <span class="text-[11px] text-[#6F7785]">转发时延</span>
+                                      <div class="mt-1 flex items-baseline gap-1">
+                                        <span class="text-base font-bold font-outfit" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="item.status === '异常' ? '32ms' : '6ms'"></span>
+                                      </div>
+                                      <span class="text-[10px] text-[#94A3B8] font-mono mt-1">基线标准&lt;30ms</span>
+                                    </div>
+
+                                    <!-- 丢包率 -->
+                                    <div class="bg-white p-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
+                                      <span class="text-[11px] text-[#6F7785]">丢包率</span>
+                                      <div class="mt-1 flex items-baseline gap-1">
+                                        <span class="text-base font-bold font-outfit" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="item.status === '异常' ? '2.1%' : '0.02%'"></span>
+                                      </div>
+                                      <span class="text-[10px] text-[#94A3B8] font-mono mt-1">基线标准&lt;0.5%</span>
+                                    </div>
+
+                                    <!-- 抖动 -->
+                                    <div class="bg-white p-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
+                                      <span class="text-[11px] text-[#6F7785]">抖动</span>
+                                      <div class="mt-1 flex items-baseline gap-1">
+                                        <span class="text-base font-bold font-outfit" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="item.status === '异常' ? '35ms' : '15ms'"></span>
+                                      </div>
+                                      <span class="text-[10px] text-[#94A3B8] font-mono mt-1">基线标准&lt;30ms</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </template>
+
+                            <!-- ==========================================
+                                 4. POP-连接器段 (seg_pop_gw) - 多维质量对比 & 逐跳诊断 (小标题外置)
+                                 ========================================== -->
+                            <template x-if="item.id === 'seg_pop_gw'">
+                              <div class="space-y-3">
+                                <!-- ① POP-连接器段 多段性能度量可视化表格 (小标题外置) -->
+                                <div class="space-y-1.5">
+                                  <div class="flex items-center gap-2">
+                                    <span class="w-1 h-3.5 bg-[#1C6EFF] rounded-full"></span>
+                                    <span class="text-xs font-medium text-[#2F3540]">POP-连接器段物理链路与专线链路质量对比</span>
+                                  </div>
+
+                                  <!-- 可视化表格 Body (专线隧道置于首行，去除定责列) -->
+                                  <div class="bg-white rounded-[2px] border border-[#EAEEF4] shadow-xs overflow-hidden">
+                                    <div class="overflow-x-auto">
+                                      <table class="w-full text-left text-xs border-collapse">
+                                        <thead>
+                                          <tr class="bg-[#F8FAFC] border-b border-[#EAEEF4] text-[#5C6270] font-normal text-[11px]">
+                                            <th class="py-2.5 px-3 font-medium w-[32%]">路径示意</th>
+                                            <th class="py-2.5 px-3 font-medium w-[20%]">时延</th>
+                                            <th class="py-2.5 px-3 font-medium w-[18%]">丢包率</th>
+                                            <th class="py-2.5 px-3 font-medium w-[18%]">抖动</th>
+                                            <th class="py-2.5 px-3 font-medium w-[12%]">吞吐</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody class="divide-y divide-[#F0F2F5] text-xs">
+                                          <!-- ① POP - 连接器 专线隧道链路 (Overlay，置于首行) -->
+                                          <tr class="hover:bg-[#FAFBFD] transition-colors">
+                                            <td class="py-2.5 px-3">
+                                              <div class="flex items-center gap-2.5">
+                                                <div class="space-y-1">
+                                                  <div class="inline-flex items-center gap-1.5 px-2 py-0.8 bg-[#F1F5F9] rounded-[3px] border border-[#E2E8F0]">
+                                                    <!-- POP 图标 -->
+                                                    <div class="flex items-center gap-1 text-[#2F3540] font-medium text-[11px]">
+                                                      <svg class="w-3.5 h-3.5 text-[#0EA5E9]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                                                      </svg>
+                                                      <span>POP节点</span>
+                                                    </div>
+                                                    <!-- 专线隧道标识 -->
+                                                    <div class="flex items-center px-1">
+                                                      <div class="w-2 h-[1.5px] bg-[#1C6EFF]"></div>
+                                                      <div class="flex items-center gap-0.5 px-1 py-0.2 bg-[#1C6EFF]/10 text-[#1C6EFF] rounded text-[9px] font-mono font-medium">
+                                                        <svg class="w-2.5 h-2.5 text-[#1C6EFF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                                                        </svg>
+                                                        <span>专线隧道</span>
+                                                      </div>
+                                                      <div class="w-2 h-[1.5px] bg-[#1C6EFF]"></div>
+                                                      <svg class="w-2 h-2 text-[#1C6EFF] -ml-0.5" fill="currentColor" viewBox="0 0 6 8"><polygon points="0,0 6,4 0,8"/></svg>
+                                                    </div>
+                                                    <!-- 连接器图标 -->
+                                                    <div class="flex items-center gap-1 text-[#2F3540] font-medium text-[11px]">
+                                                      <svg class="w-3.5 h-3.5 text-[#10B981]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                                                      </svg>
+                                                      <span>连接器</span>
+                                                    </div>
+                                                  </div>
+                                                  <div class="text-[10px] text-[#8A92A1] flex items-center gap-1.5">
+                                                    <span>专线骨干 / 加密互联 Overlay</span>
+                                                  </div>
+                                                </div>
+                                              </div>
+                                            </td>
+                                            <!-- 时延 -->
+                                            <td class="py-2.5 px-3">
+                                              <div class="flex items-baseline gap-1">
+                                                <span class="font-medium font-outfit text-xs" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="item.status === '异常' ? (currentSlice.topology?.segment2?.delay || '120ms') : '28ms'"></span>
+                                              </div>
+                                              <div class="text-[10px] text-[#94A3B8] font-mono mt-0.5">基线 &lt; 40ms</div>
+                                            </td>
+                                            <!-- 丢包率 -->
+                                            <td class="py-2.5 px-3">
+                                              <div class="flex items-baseline gap-1">
+                                                <span class="font-medium font-outfit text-xs" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="item.status === '异常' ? (currentSlice.topology?.segment2?.loss || '5.0%') : '0.0%'"></span>
+                                              </div>
+                                              <div class="text-[10px] text-[#94A3B8] font-mono mt-0.5">基线 &lt; 0.5%</div>
+                                            </td>
+                                            <!-- 抖动 -->
+                                            <td class="py-2.5 px-3">
+                                              <div class="flex items-baseline gap-1">
+                                                <span class="font-medium font-outfit text-xs" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="item.status === '异常' ? (currentSlice.topology?.segment2?.jitter || '18ms') : '2ms'"></span>
+                                              </div>
+                                              <div class="text-[10px] text-[#94A3B8] font-mono mt-0.5">基线 &lt; 5ms</div>
+                                            </td>
+                                            <!-- 吞吐 (无基线) -->
+                                            <td class="py-2.5 px-3">
+                                              <div class="flex items-baseline gap-1">
+                                                <span class="font-medium font-outfit text-xs" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="item.status === '异常' ? '20 Mbps' : '480 Mbps'"></span>
+                                              </div>
+                                            </td>
+                                          </tr>
+
+                                          <!-- ② POP - 连接器 公网物理链路 (Underlay) -->
+                                          <tr class="hover:bg-[#FAFBFD] transition-colors">
+                                            <td class="py-2.5 px-3">
+                                              <div class="flex items-center gap-2.5">
+                                                <div class="space-y-1">
+                                                  <div class="inline-flex items-center gap-1.5 px-2 py-0.8 bg-[#F1F5F9] rounded-[3px] border border-[#E2E8F0]">
+                                                    <!-- POP 图标 -->
+                                                    <div class="flex items-center gap-1 text-[#2F3540] font-medium text-[11px]">
+                                                      <svg class="w-3.5 h-3.5 text-[#0EA5E9]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                                                      </svg>
+                                                      <span>POP节点</span>
+                                                    </div>
+                                                    <!-- 公网直连线与云图标 -->
+                                                    <div class="flex items-center px-1">
+                                                      <div class="w-2.5 h-[1.5px] bg-[#94A3B8]"></div>
+                                                      <svg class="w-3 h-3 text-[#64748B] mx-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 00-9.78 2.096A4.001 4.001 0 003 15z"></path>
+                                                      </svg>
+                                                      <div class="w-2.5 h-[1.5px] bg-[#94A3B8]"></div>
+                                                      <svg class="w-2 h-2 text-[#94A3B8] -ml-0.5" fill="currentColor" viewBox="0 0 6 8"><polygon points="0,0 6,4 0,8"/></svg>
+                                                    </div>
+                                                    <!-- 连接器图标 -->
+                                                    <div class="flex items-center gap-1 text-[#2F3540] font-medium text-[11px]">
+                                                      <svg class="w-3.5 h-3.5 text-[#10B981]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                                                      </svg>
+                                                      <span>连接器</span>
+                                                    </div>
+                                                  </div>
+                                                  <div class="text-[10px] text-[#8A92A1] flex items-center gap-1.5">
+                                                    <span>跨域公网 Underlay 物理承载</span>
+                                                  </div>
+                                                </div>
+                                              </div>
+                                            </td>
+                                            <!-- 时延 -->
+                                            <td class="py-2.5 px-3">
+                                              <div class="flex items-baseline gap-1">
+                                                <span class="font-medium font-outfit text-xs" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="item.status === '异常' ? '110ms' : '26ms'"></span>
+                                              </div>
+                                              <div class="text-[10px] text-[#94A3B8] font-mono mt-0.5">基线 &lt; 40ms</div>
+                                            </td>
+                                            <!-- 丢包率 -->
+                                            <td class="py-2.5 px-3">
+                                              <div class="flex items-baseline gap-1">
+                                                <span class="font-medium font-outfit text-xs" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="item.status === '异常' ? '3.5%' : '0.0%'"></span>
+                                              </div>
+                                              <div class="text-[10px] text-[#94A3B8] font-mono mt-0.5">基线 &lt; 0.5%</div>
+                                            </td>
+                                            <!-- 抖动 -->
+                                            <td class="py-2.5 px-3">
+                                              <div class="flex items-baseline gap-1">
+                                                <span class="font-medium font-outfit text-xs" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="item.status === '异常' ? '15ms' : '2ms'"></span>
+                                              </div>
+                                              <div class="text-[10px] text-[#94A3B8] font-mono mt-0.5">基线 &lt; 5ms</div>
+                                            </td>
+                                            <!-- 吞吐 (无基线) -->
+                                            <td class="py-2.5 px-3">
+                                              <span class="text-xs text-[#94A3B8] font-mono">—</span>
+                                            </td>
+                                          </tr>
+                                        </tbody>
+                                      </table>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <!-- ② POP 到连接器 逐跳链路诊断信息 (Hop-by-Hop Trace，小标题外置) -->
+                                <div class="space-y-1.5">
+                                  <!-- Header 外置 -->
+                                  <div class="flex items-center gap-2">
+                                    <span class="w-1 h-3.5 bg-[#1C6EFF] rounded-full"></span>
+                                    <span class="text-xs font-medium text-[#2F3540]">POP ➔ 连接器的逐跳链路诊断</span>
+                                  </div>
+
+                                  <!-- 逐跳证据表格 (默认展示4跳，局部滚动，灰色tag，首跳无较上一跳增量) -->
+                                  <div class="bg-white rounded-[2px] border border-[#EAEEF4] shadow-xs overflow-hidden">
+                                    <div class="overflow-x-auto max-h-[220px] overflow-y-auto">
                                       <table class="w-full text-left text-xs border-collapse">
                                         <thead class="sticky top-0 bg-[#FAFBFD] z-10">
                                           <tr class="border-b border-[#E1E5EB] text-[#5C6270] font-normal text-[11px]">
@@ -3592,13 +3768,13 @@
                                             <th class="py-1.5 px-2.5 font-normal">节点 IP</th>
                                             <th class="py-1.5 px-2.5 font-normal">ISP / ASN 属性</th>
                                             <th class="py-1.5 px-2.5 font-normal">地区</th>
-                                            <th class="py-1.5 px-2.5 font-normal">RTT (较上一跳)</th>
+                                            <th class="py-1.5 px-2.5 font-normal">时延 (较上一跳)</th>
                                             <th class="py-1.5 px-2.5 font-normal">丢包 (较上一跳)</th>
                                             <th class="py-1.5 px-2.5 font-normal">抖动 (较上一跳)</th>
                                           </tr>
                                         </thead>
                                         <tbody class="divide-y divide-[#F1F5F9] text-[11px] font-mono font-normal">
-                                          <template x-for="hop in item.hopTraces" :key="hop.hop">
+                                          <template x-for="hop in getPopConnectorHopTraces(item)" :key="hop.hop">
                                             <tr :class="hop.status === '异常' ? 'bg-[#FFF1F2]/40 text-[#CF171D]' : 'hover:bg-[#FAFBFD] text-[#334155]'">
                                               <td class="py-1.5 px-2.5 text-center font-normal" x-text="hop.hop"></td>
                                               <td class="py-1.5 px-2.5 font-normal">
@@ -3621,461 +3797,63 @@
                                       </table>
                                     </div>
                                   </div>
-                                </template>
-                              </div>
-                            </template>
-
-                            <!-- ==========================================
-                                 3. POP 节点 (node_pop) - POP健康状态 + 本次处理状态
-                                 ========================================== -->
-                            <template x-if="item.id === 'node_pop'">
-                              <div class="space-y-3">
-                                <!-- ① POP 健康状态 (多线路聚合，线路状态与整体吞吐) -->
-                                <div class="bg-white p-3 rounded-[2px] border border-[#EAEEF4] shadow-xs">
-                                  <div class="flex items-center justify-between pb-2 mb-2.5 border-b border-[#F0F2F5] flex-wrap gap-2">
-                                    <div class="flex items-center gap-2">
-                                      <svg class="w-4 h-4 text-[#1C6EFF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
-                                      </svg>
-                                      <span class="text-xs font-medium text-[#2F3540]">POP健康状态</span>
-                                      <span class="text-[11px] text-[#8A92A1] font-mono" x-text="getPopSelfStatus(item).popName"></span>
-                                    </div>
-                                  </div>
-                                  <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5">
-                                    <!-- 卡片 1: 线路健康性 -->
-                                    <div class="bg-[#FAFBFD] p-3 rounded-[2px] border border-[#EAEEF4] flex flex-col justify-between">
-                                      <div class="flex items-center justify-between">
-                                        <span class="text-[11px] text-[#6F7785]">线路健康性</span>
-                                        <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[2px] text-[10px] font-medium"
-                                              :class="getPopSelfStatus(item).abnormalCount > 0 ? 'bg-[#CF171D]/10 text-[#CF171D]' : 'bg-[#12A679]/10 text-[#12A679]'">
-                                          <span class="w-1.5 h-1.5 rounded-full" :class="getPopSelfStatus(item).abnormalCount > 0 ? 'bg-[#CF171D]' : 'bg-[#12A679]'"></span>
-                                          <span x-text="getPopSelfStatus(item).abnormalCount > 0 ? (getPopSelfStatus(item).abnormalCount + ' 条异常') : '全部健康'"></span>
-                                        </span>
-                                      </div>
-                                      <div class="mt-1.5 flex items-baseline gap-2">
-                                        <span class="text-base font-bold font-outfit text-[#2F3540]" x-text="getPopSelfStatus(item).total + ' 条线路'"></span>
-                                        <span class="text-[11px] text-[#8A92A1] font-normal">多线 BGP 接入</span>
-                                      </div>
-                                      <div class="mt-2 flex items-center gap-1.5 flex-wrap">
-                                        <template x-for="line in getPopSelfStatus(item).lines" :key="line.name">
-                                          <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[2px] text-[10px] border"
-                                                :class="line.status === '异常' ? 'bg-[#FFF1F0] text-[#CF171D] border-[#FFA39E]' : 'bg-white text-[#334155] border-[#E2E8F0]'">
-                                            <span class="w-1 h-1 rounded-full" :class="line.status === '异常' ? 'bg-[#CF171D]' : 'bg-[#12A679]'"></span>
-                                            <span x-text="line.carrier"></span>
-                                          </span>
-                                        </template>
-                                      </div>
-                                    </div>
-
-                                    <!-- 卡片 2: 整体吞吐 -->
-                                    <div class="bg-[#FAFBFD] p-3 rounded-[2px] border border-[#EAEEF4] flex flex-col justify-between">
-                                      <div class="flex items-center justify-between">
-                                        <span class="text-[11px] text-[#6F7785]">整体吞吐</span>
-                                        <span class="text-[10px] text-[#94A3B8]">基线 &lt; 10 Gbps</span>
-                                      </div>
-                                      <div class="mt-1.5 flex items-baseline gap-2">
-                                        <span class="text-base font-bold font-outfit" :class="getPopSelfStatus(item).overallStatus === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="getPopSelfStatus(item).overallThroughput"></span>
-                                        <span class="text-[11px] text-[#12A679] font-normal" x-text="getPopSelfStatus(item).overallStatus === '异常' ? '(流量激增)' : '(利用率 24%)'"></span>
-                                      </div>
-                                      <span class="text-[10px] text-[#64748B] mt-2" x-text="getPopSelfStatus(item).overallStatus === '异常' ? '超限流基线 10 Gbps' : '未触达 10Gbps 限流阈值，带宽充裕'"></span>
-                                    </div>
-                                  </div>
-                                </div>
-
-                                <!-- ② 本次处理状态 (POP 处理本次请求流量的数据) -->
-                                <div class="bg-white p-3 rounded-[2px] border border-[#EAEEF4] shadow-xs">
-                                  <div class="flex items-center justify-between pb-2 mb-2.5 border-b border-[#F0F2F5] flex-wrap gap-2">
-                                    <div class="flex items-center gap-2">
-                                      <span class="w-1 h-3.5 bg-[#1C6EFF] rounded-full"></span>
-                                      <span class="text-xs font-medium text-[#2F3540]">本次处理状态</span>
-                                      <span class="text-[11px] text-[#8A92A1]">POP 处理本次请求流量的数据</span>
-                                      <span class="text-[11px] text-[#8A92A1] font-mono" x-text="'联动时刻 ' + (currentSlice.time || '')"></span>
-                                    </div>
-                                  </div>
-                                  <div class="grid grid-cols-2 md:grid-cols-4 gap-2.5">
-                                    <template x-for="m in getPopMomentMetrics(item)" :key="m.label">
-                                      <div class="bg-white p-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
-                                        <span class="text-[11px] text-[#6F7785]" x-text="m.label"></span>
-                                        <div class="mt-1">
-                                          <span class="text-base font-bold font-outfit" :class="m.color" x-text="m.value"></span>
-                                        </div>
-                                        <span class="text-[10px] text-[#94A3B8]" x-text="m.note"></span>
-                                      </div>
-                                    </template>
-                                  </div>
                                 </div>
                               </div>
                             </template>
 
                             <!-- ==========================================
-                                 4. POP-连接器段 (seg_pop_gw) - 多维质量对比 & 逐跳诊断
-                                 ========================================== -->
-                            <template x-if="item.id === 'seg_pop_gw'">
-                              <div class="space-y-3">
-                                <!-- POP-连接器段 多段性能度量可视化表格 -->
-                                <div class="bg-white rounded-[2px] border border-[#EAEEF4] shadow-xs overflow-hidden">
-                                  <!-- 表格 Header 标题栏 -->
-                                  <div class="p-3 bg-[#FAFBFD] border-b border-[#EAEEF4] flex items-center justify-between">
-                                    <div class="flex items-center gap-2">
-                                      <span class="w-1 h-3.5 bg-[#1C6EFF] rounded-full"></span>
-                                      <span class="text-xs font-medium text-[#2F3540]">POP ➔ 连接器 多维质量对比</span>
-                                    </div>
-                                  </div>
-
-                                  <!-- 可视化表格 Body (专线隧道置于首行，去除定责列) -->
-                                  <div class="overflow-x-auto">
-                                    <table class="w-full text-left text-xs border-collapse">
-                                      <thead>
-                                        <tr class="bg-[#F8FAFC] border-b border-[#EAEEF4] text-[#5C6270] font-normal text-[11px]">
-                                          <th class="py-2.5 px-3 font-medium w-[32%]">链路测量段 / 路径示意</th>
-                                          <th class="py-2.5 px-3 font-medium w-[20%]">时延 (RTT)</th>
-                                          <th class="py-2.5 px-3 font-medium w-[18%]">丢包率 (Loss)</th>
-                                          <th class="py-2.5 px-3 font-medium w-[18%]">抖动 (Jitter)</th>
-                                          <th class="py-2.5 px-3 font-medium w-[12%]">吞吐 (Throughput)</th>
-                                        </tr>
-                                      </thead>
-                                      <tbody class="divide-y divide-[#F0F2F5] text-xs">
-                                        <!-- ① POP - 连接器 专线隧道链路 (Overlay，置于首行) -->
-                                        <tr class="hover:bg-[#FAFBFD] transition-colors">
-                                          <td class="py-2.5 px-3">
-                                            <div class="flex items-center gap-2.5">
-                                              <div class="space-y-1">
-                                                <div class="inline-flex items-center gap-1.5 px-2 py-0.8 bg-[#F1F5F9] rounded-[3px] border border-[#E2E8F0]">
-                                                  <!-- POP 图标 -->
-                                                  <div class="flex items-center gap-1 text-[#2F3540] font-medium text-[11px]">
-                                                    <svg class="w-3.5 h-3.5 text-[#0EA5E9]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
-                                                    </svg>
-                                                    <span>POP节点</span>
-                                                  </div>
-                                                  <!-- 专线隧道标识 -->
-                                                  <div class="flex items-center px-1">
-                                                    <div class="w-2 h-[1.5px] bg-[#1C6EFF]"></div>
-                                                    <div class="flex items-center gap-0.5 px-1 py-0.2 bg-[#1C6EFF]/10 text-[#1C6EFF] rounded text-[9px] font-mono font-medium">
-                                                      <svg class="w-2.5 h-2.5 text-[#1C6EFF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
-                                                      </svg>
-                                                      <span>专线隧道</span>
-                                                    </div>
-                                                    <div class="w-2 h-[1.5px] bg-[#1C6EFF]"></div>
-                                                    <svg class="w-2 h-2 text-[#1C6EFF] -ml-0.5" fill="currentColor" viewBox="0 0 6 8"><polygon points="0,0 6,4 0,8"/></svg>
-                                                  </div>
-                                                  <!-- 连接器图标 -->
-                                                  <div class="flex items-center gap-1 text-[#2F3540] font-medium text-[11px]">
-                                                    <svg class="w-3.5 h-3.5 text-[#10B981]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                                                    </svg>
-                                                    <span>连接器</span>
-                                                  </div>
-                                                </div>
-                                                <div class="text-[10px] text-[#8A92A1] flex items-center gap-1.5">
-                                                  <span>专线骨干 / 加密互联 Overlay</span>
-                                                </div>
-                                              </div>
-                                            </div>
-                                          </td>
-                                          <!-- 时延 -->
-                                          <td class="py-2.5 px-3">
-                                            <div class="flex items-baseline gap-1">
-                                              <span class="font-medium font-outfit text-xs" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="item.status === '异常' ? (currentSlice.topology?.segment2?.delay || '120ms') : '28ms'"></span>
-                                            </div>
-                                            <div class="text-[10px] text-[#94A3B8] font-mono mt-0.5" x-text="item.status === '异常' ? '基线 < 40ms (超出+80ms)' : '基线 < 40ms'"></div>
-                                          </td>
-                                          <!-- 丢包率 -->
-                                          <td class="py-2.5 px-3">
-                                            <div class="flex items-baseline gap-1">
-                                              <span class="font-medium font-outfit text-xs" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="item.status === '异常' ? (currentSlice.topology?.segment2?.loss || '5.0%') : '0.0%'"></span>
-                                            </div>
-                                            <div class="text-[10px] text-[#94A3B8] font-mono mt-0.5" x-text="item.status === '异常' ? '基线 < 0.5% (专线丢包)' : '基线 < 0.5% (极佳)'"></div>
-                                          </td>
-                                          <!-- 抖动 -->
-                                          <td class="py-2.5 px-3">
-                                            <div class="flex items-baseline gap-1">
-                                              <span class="font-medium font-outfit text-xs" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="item.status === '异常' ? (currentSlice.topology?.segment2?.jitter || '18ms') : '2ms'"></span>
-                                            </div>
-                                            <div class="text-[10px] text-[#94A3B8] font-mono mt-0.5" x-text="item.status === '异常' ? '基线 < 5ms (波动+13ms)' : '基线 < 5ms (平稳)'"></div>
-                                          </td>
-                                          <!-- 吞吐 (无基线) -->
-                                          <td class="py-2.5 px-3">
-                                            <div class="flex items-baseline gap-1">
-                                              <span class="font-medium font-outfit text-xs" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="item.status === '异常' ? '20 Mbps' : '480 Mbps'"></span>
-                                            </div>
-                                          </td>
-                                        </tr>
-
-                                        <!-- ② POP - 连接器 公网物理链路 (Underlay) -->
-                                        <tr class="hover:bg-[#FAFBFD] transition-colors">
-                                          <td class="py-2.5 px-3">
-                                            <div class="flex items-center gap-2.5">
-                                              <div class="space-y-1">
-                                                <div class="inline-flex items-center gap-1.5 px-2 py-0.8 bg-[#F1F5F9] rounded-[3px] border border-[#E2E8F0]">
-                                                  <!-- POP 图标 -->
-                                                  <div class="flex items-center gap-1 text-[#2F3540] font-medium text-[11px]">
-                                                    <svg class="w-3.5 h-3.5 text-[#0EA5E9]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
-                                                    </svg>
-                                                    <span>POP节点</span>
-                                                  </div>
-                                                  <!-- 公网直连线与云图标 -->
-                                                  <div class="flex items-center px-1">
-                                                    <div class="w-2.5 h-[1.5px] bg-[#94A3B8]"></div>
-                                                    <svg class="w-3 h-3 text-[#64748B] mx-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 00-9.78 2.096A4.001 4.001 0 003 15z"></path>
-                                                    </svg>
-                                                    <div class="w-2.5 h-[1.5px] bg-[#94A3B8]"></div>
-                                                    <svg class="w-2 h-2 text-[#94A3B8] -ml-0.5" fill="currentColor" viewBox="0 0 6 8"><polygon points="0,0 6,4 0,8"/></svg>
-                                                  </div>
-                                                  <!-- 连接器图标 -->
-                                                  <div class="flex items-center gap-1 text-[#2F3540] font-medium text-[11px]">
-                                                    <svg class="w-3.5 h-3.5 text-[#10B981]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                                                    </svg>
-                                                    <span>连接器</span>
-                                                  </div>
-                                                </div>
-                                                <div class="text-[10px] text-[#8A92A1] flex items-center gap-1.5">
-                                                  <span>跨域公网 Underlay 物理承载</span>
-                                                </div>
-                                              </div>
-                                            </div>
-                                          </td>
-                                          <!-- 时延 -->
-                                          <td class="py-2.5 px-3">
-                                            <div class="flex items-baseline gap-1">
-                                              <span class="font-medium font-outfit text-xs" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="item.status === '异常' ? '110ms' : '26ms'"></span>
-                                            </div>
-                                            <div class="text-[10px] text-[#94A3B8] font-mono mt-0.5" x-text="item.status === '异常' ? '基线 < 40ms (超出+70ms)' : '基线 < 40ms'"></div>
-                                          </td>
-                                          <!-- 丢包率 -->
-                                          <td class="py-2.5 px-3">
-                                            <div class="flex items-baseline gap-1">
-                                              <span class="font-medium font-outfit text-xs" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="item.status === '异常' ? '3.5%' : '0.0%'"></span>
-                                            </div>
-                                            <div class="text-[10px] text-[#94A3B8] font-mono mt-0.5" x-text="item.status === '异常' ? '基线 < 0.5% (轻微丢包)' : '基线 < 0.5% (通畅)'"></div>
-                                          </td>
-                                          <!-- 抖动 -->
-                                          <td class="py-2.5 px-3">
-                                            <div class="flex items-baseline gap-1">
-                                              <span class="font-medium font-outfit text-xs" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="item.status === '异常' ? '15ms' : '2ms'"></span>
-                                            </div>
-                                            <div class="text-[10px] text-[#94A3B8] font-mono mt-0.5" x-text="item.status === '异常' ? '基线 < 5ms (波动+10ms)' : '基线 < 5ms (平稳)'"></div>
-                                          </td>
-                                          <!-- 吞吐 (无基线) -->
-                                          <td class="py-2.5 px-3">
-                                            <span class="text-xs text-[#94A3B8] font-mono">—</span>
-                                          </td>
-                                        </tr>
-                                      </tbody>
-                                    </table>
-                                  </div>
-                                </div>
-
-                                <!-- POP 到连接器 逐跳链路诊断信息 (Hop-by-Hop Trace) -->
-                                <div class="mt-3 bg-white p-3 rounded-[2px] border border-[#EAEEF4] shadow-xs">
-                                  <!-- Header -->
-                                  <div class="flex items-center justify-between pb-2 border-b border-[#F0F2F5]">
-                                    <div class="flex items-center gap-2">
-                                      <span class="w-1 h-3.5 bg-[#1C6EFF] rounded-full"></span>
-                                      <span class="text-xs font-medium text-[#2F3540]">POP ➔ 连接器的逐跳链路诊断</span>
-                                    </div>
-                                  </div>
-
-                                  <!-- 逐跳证据表格 (默认展示4跳，局部滚动，灰色tag，首跳无较上一跳增量) -->
-                                  <div class="mt-2 overflow-x-auto max-h-[220px] overflow-y-auto">
-                                    <table class="w-full text-left text-xs border-collapse">
-                                      <thead class="sticky top-0 bg-[#FAFBFD] z-10">
-                                        <tr class="border-b border-[#E1E5EB] text-[#5C6270] font-normal text-[11px]">
-                                          <th class="py-1.5 px-2.5 w-10 text-center font-normal">Hop</th>
-                                          <th class="py-1.5 px-2.5 font-normal">节点 IP</th>
-                                          <th class="py-1.5 px-2.5 font-normal">ISP / ASN 属性</th>
-                                          <th class="py-1.5 px-2.5 font-normal">地区</th>
-                                          <th class="py-1.5 px-2.5 font-normal">RTT (较上一跳)</th>
-                                          <th class="py-1.5 px-2.5 font-normal">丢包 (较上一跳)</th>
-                                          <th class="py-1.5 px-2.5 font-normal">抖动 (较上一跳)</th>
-                                        </tr>
-                                      </thead>
-                                      <tbody class="divide-y divide-[#F1F5F9] text-[11px] font-mono font-normal">
-                                        <template x-for="hop in getPopConnectorHopTraces(item)" :key="hop.hop">
-                                          <tr :class="hop.status === '异常' ? 'bg-[#FFF1F2]/40 text-[#CF171D]' : 'hover:bg-[#FAFBFD] text-[#334155]'">
-                                            <td class="py-1.5 px-2.5 text-center font-normal" x-text="hop.hop"></td>
-                                            <td class="py-1.5 px-2.5 font-normal">
-                                              <div class="flex items-center gap-1.5 flex-wrap">
-                                                <span class="font-mono" x-text="hop.ip"></span>
-                                                <!-- 关键IP角色标签全部为标准中性灰色Tag -->
-                                                <template x-if="hop.tag">
-                                                  <span class="px-1.5 py-0.5 text-[10px] rounded-[2px] font-sans font-medium whitespace-nowrap bg-[#F1F5F9] text-[#64748B] border border-[#E2E8F0]" x-text="hop.tag"></span>
-                                                </template>
-                                              </div>
-                                            </td>
-                                            <td class="py-1.5 px-2.5 font-sans font-normal" x-text="hop.asn"></td>
-                                            <td class="py-1.5 px-2.5 font-sans text-[#64748B] font-normal" x-text="hop.loc"></td>
-                                            <td class="py-1.5 px-2.5 font-normal" x-text="hop.hop === 1 ? hop.rtt : (hop.rtt + (hop.diffRtt && hop.diffRtt !== '-' ? ' (' + hop.diffRtt + ')' : ''))"></td>
-                                            <td class="py-1.5 px-2.5 font-normal" :class="hop.status === '异常' ? 'text-[#CF171D]' : ''" x-text="hop.hop === 1 ? hop.loss : (hop.loss + (hop.diffLoss && hop.diffLoss !== '-' ? ' (' + hop.diffLoss + ')' : ''))"></td>
-                                            <td class="py-1.5 px-2.5 font-normal" :class="hop.status === '异常' ? 'text-[#CF171D]' : ''" x-text="hop.hop === 1 ? hop.jitter : (hop.jitter + (hop.diffJitter && hop.diffJitter !== '-' ? ' (' + hop.diffJitter + ')' : ''))"></td>
-                                          </tr>
-                                        </template>
-                                      </tbody>
-                                    </table>
-                                  </div>
-                                </div>
-                              </div>
-                            </template>
-
-                            <!-- ==========================================
-                                 5. 连接器 (node_connector) (node_connector) - 仅展示 CPU、内存及趋势图
+                                 5. 连接器 (node_connector) - 仅展示连接器自身健康性结论和相关指标
                                  ========================================== -->
                             <template x-if="item.id === 'node_connector'">
-                              <div class="space-y-3">
-                                <!-- 2 个核心指标卡片 (CPU利用率、内存利用率 - 加细灰描边) -->
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                              <div>
+                                <!-- 连接器健康状态、CPU利用率、内存利用率 (3卡片单行展示) -->
+                                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                                  <!-- 连接器健康状态 -->
+                                  <div class="bg-white p-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
+                                    <span class="text-[11px] text-[#6F7785]">连接器健康状态</span>
+                                    <div class="mt-1 flex items-baseline gap-1.5 font-bold">
+                                      <span class="text-base font-bold text-[#2F3540]">10.23.22.11</span>
+                                      <span class="text-[#D3D7DE] font-normal">|</span>
+                                      <span class="text-base font-bold" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#12A679]'" x-text="item.status === '异常' ? '异常' : '正常'"></span>
+                                    </div>
+                                    <span class="text-[10px] text-[#94A3B8]" x-text="item.status === '异常' ? '信息获取异常' : '信息获取正常'"></span>
+                                  </div>
+
                                   <!-- CPU利用率 -->
                                   <div class="bg-white p-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
                                     <span class="text-[11px] text-[#6F7785]">CPU利用率</span>
                                     <div class="mt-1 flex items-baseline gap-1">
-                                      <span class="text-base font-bold font-outfit" :class="getMetricColor(item.status === '异常' ? 89.2 : 28.4, 70)" x-text="item.status === '异常' ? '89.2%' : '28.4%'"></span>
+                                      <span class="text-base font-bold font-outfit" :class="getMetricColor(item.status === '异常' ? 89.2 : 47.3, 70)" x-text="item.status === '异常' ? '89.2%' : '47.3%'"></span>
                                     </div>
-                                    <span class="text-[10px]" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#64748B]'" x-text="item.status === '异常' ? '高负荷转发 (基线 < 70%)' : '正常 (< 70%)'"></span>
+                                    <span class="text-[10px] text-[#94A3B8] font-mono">基线标准&lt;70%</span>
                                   </div>
 
                                   <!-- 内存利用率 -->
                                   <div class="bg-white p-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
                                     <span class="text-[11px] text-[#6F7785]">内存利用率</span>
                                     <div class="mt-1 flex items-baseline gap-1">
-                                      <span class="text-base font-bold font-outfit" :class="getMetricColor(item.status === '异常' ? 76.5 : 52.5, 60)" x-text="item.status === '异常' ? '76.5%' : '52.5%'"></span>
+                                      <span class="text-base font-bold font-outfit" :class="getMetricColor(item.status === '异常' ? 76.5 : 35.1, 70)" x-text="item.status === '异常' ? '76.5%' : '35.1%'"></span>
                                     </div>
-                                    <span class="text-[10px]" :class="item.status === '异常' ? 'text-[#FA721B]' : 'text-[#64748B]'" x-text="item.status === '异常' ? '内存偏高 (基线 < 60%)' : '正常 (< 60%)'"></span>
-                                  </div>
-                                </div>
-
-                                <!-- 2 副趋势图 (连接器 CPU利用率趋势图 & 连接器 内存利用率趋势图 - 加细灰描边) -->
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
-                                  <!-- CPU利用率趋势图 -->
-                                  <div class="bg-white p-3 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
-                                    <div class="flex items-center justify-between text-xs mb-2">
-                                      <div class="flex items-center gap-2">
-                                        <span class="font-medium text-[#2F3540]">连接器 CPU利用率趋势</span>
-                                        <span class="text-[10px] text-[#1C6EFF] font-mono font-medium" x-text="item.status === '异常' ? '实时 89.2%' : '实时 28.4%'"></span>
-                                      </div>
-                                      <!-- 评估标准 Tooltip -->
-                                      <div class="relative group cursor-pointer flex items-center gap-1 text-[10px] text-[#64748B] hover:text-[#1C6EFF] transition-colors">
-                                        <span>评估标准</span>
-                                        <svg class="w-3 h-3 text-[#94A3B8] group-hover:text-[#1C6EFF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                        </svg>
-                                        <div class="absolute right-0 top-full mt-1 hidden group-hover:block z-30 bg-[#1F2429] text-white text-[10px] px-2.5 py-1.5 rounded shadow-lg whitespace-nowrap pointer-events-none">
-                                          正常 &lt;70% ｜ 一般 ≥70%且&lt;90% ｜ 差 ≥90%
-                                        </div>
-                                      </div>
-                                    </div>
-                                    <div class="h-20 w-full bg-white rounded p-1.5 border border-[#EAEEF4]">
-                                      <svg viewBox="0 0 500 64" preserveAspectRatio="none" class="w-full h-full overflow-visible">
-                                        <defs>
-                                          <linearGradient id="connCpuGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                                            <stop offset="0%" stop-color="#1C6EFF" stop-opacity="0.25"/>
-                                            <stop offset="100%" stop-color="#1C6EFF" stop-opacity="0.0"/>
-                                          </linearGradient>
-                                        </defs>
-                                        <!-- Y 轴刻度与横向辅助线 -->
-                                        <text x="2" y="10" fill="#94A3B8" font-size="8" font-family="sans-serif">100%</text>
-                                        <line x1="26" y1="8" x2="496" y2="8" stroke="#F1F5F9" stroke-width="1"/>
-
-                                        <text x="6" y="29" fill="#94A3B8" font-size="8" font-family="sans-serif">50%</text>
-                                        <line x1="26" y1="28" x2="496" y2="28" stroke="#F1F5F9" stroke-width="1"/>
-
-                                        <text x="11" y="49" fill="#94A3B8" font-size="8" font-family="sans-serif">0%</text>
-                                        <line x1="26" y1="48" x2="496" y2="48" stroke="#E2E8F0" stroke-width="1"/>
-
-                                        <!-- 70% 警戒基线 -->
-                                        <line x1="26" y1="20" x2="496" y2="20" stroke="#FA721B" stroke-width="1" stroke-dasharray="4 2"/>
-                                        <text x="440" y="17" fill="#FA721B" font-size="7.5" font-family="sans-serif">70% 警戒线</text>
-
-                                        <!-- 渐变面积与趋势折线 -->
-                                        <polygon fill="url(#connCpuGrad)" points="28,48 28,36 86,37 144,35 202,36 260,34 318,37 376,36 434,36 494,36 494,48"/>
-                                        <polyline fill="none" stroke="#1C6EFF" stroke-width="1.8" points="28,36 86,37 144,35 202,36 260,34 318,37 376,36 434,36 494,36"/>
-                                        <circle cx="28" cy="36" r="2" fill="#1C6EFF"/><circle cx="144" cy="35" r="2" fill="#1C6EFF"/><circle cx="260" cy="34" r="2" fill="#1C6EFF"/><circle cx="376" cy="36" r="2" fill="#1C6EFF"/><circle cx="494" cy="36" r="2" fill="#1C6EFF"/>
-
-                                        <!-- X 轴时间刻度 -->
-                                        <text x="28" y="58" fill="#94A3B8" font-size="8" font-family="sans-serif">15:40</text>
-                                        <text x="135" y="58" fill="#94A3B8" font-size="8" font-family="sans-serif">16:00</text>
-                                        <text x="251" y="58" fill="#94A3B8" font-size="8" font-family="sans-serif">16:20</text>
-                                        <text x="367" y="58" fill="#94A3B8" font-size="8" font-family="sans-serif">16:40</text>
-                                        <text x="472" y="58" fill="#94A3B8" font-size="8" font-family="sans-serif">17:00</text>
-                                      </svg>
-                                    </div>
-                                  </div>
-
-                                  <!-- 内存利用率趋势图 -->
-                                  <div class="bg-white p-3 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
-                                    <div class="flex items-center justify-between text-xs mb-2">
-                                      <div class="flex items-center gap-2">
-                                        <span class="font-medium text-[#2F3540]">连接器 内存利用率趋势</span>
-                                        <span class="text-[10px] text-[#8B5CF6] font-mono font-medium" x-text="item.status === '异常' ? '实时 76.5%' : '实时 52.5%'"></span>
-                                      </div>
-                                      <!-- 评估标准 Tooltip -->
-                                      <div class="relative group cursor-pointer flex items-center gap-1 text-[10px] text-[#64748B] hover:text-[#1C6EFF] transition-colors">
-                                        <span>评估标准</span>
-                                        <svg class="w-3 h-3 text-[#94A3B8] group-hover:text-[#1C6EFF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                        </svg>
-                                        <div class="absolute right-0 top-full mt-1 hidden group-hover:block z-30 bg-[#1F2429] text-white text-[10px] px-2.5 py-1.5 rounded shadow-lg whitespace-nowrap pointer-events-none">
-                                          正常 &lt;60% ｜ 一般 ≥60%且&lt;80% ｜ 差 ≥80%
-                                        </div>
-                                      </div>
-                                    </div>
-                                    <div class="h-20 w-full bg-white rounded p-1.5 border border-[#EAEEF4]">
-                                      <svg viewBox="0 0 500 64" preserveAspectRatio="none" class="w-full h-full overflow-visible">
-                                        <defs>
-                                          <linearGradient id="connMemGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                                            <stop offset="0%" stop-color="#8B5CF6" stop-opacity="0.25"/>
-                                            <stop offset="100%" stop-color="#8B5CF6" stop-opacity="0.0"/>
-                                          </linearGradient>
-                                        </defs>
-                                        <!-- Y 轴刻度与横向辅助线 -->
-                                        <text x="2" y="10" fill="#94A3B8" font-size="8" font-family="sans-serif">100%</text>
-                                        <line x1="26" y1="8" x2="496" y2="8" stroke="#F1F5F9" stroke-width="1"/>
-
-                                        <text x="6" y="29" fill="#94A3B8" font-size="8" font-family="sans-serif">50%</text>
-                                        <line x1="26" y1="28" x2="496" y2="28" stroke="#F1F5F9" stroke-width="1"/>
-
-                                        <text x="11" y="49" fill="#94A3B8" font-size="8" font-family="sans-serif">0%</text>
-                                        <line x1="26" y1="48" x2="496" y2="48" stroke="#E2E8F0" stroke-width="1"/>
-
-                                        <!-- 60% 警戒基线 -->
-                                        <line x1="26" y1="24" x2="496" y2="24" stroke="#FA721B" stroke-width="1" stroke-dasharray="4 2"/>
-                                        <text x="440" y="21" fill="#FA721B" font-size="7.5" font-family="sans-serif">60% 警戒线</text>
-
-                                        <!-- 渐变面积与趋势折线 -->
-                                        <polygon fill="url(#connMemGrad)" points="28,48 28,27 94,27 160,26 226,28 292,27 358,27 424,27 494,27 494,48"/>
-                                        <polyline fill="none" stroke="#8B5CF6" stroke-width="1.8" points="28,27 94,27 160,26 226,28 292,27 358,27 424,27 494,27"/>
-                                        <circle cx="28" cy="27" r="2" fill="#8B5CF6"/><circle cx="160" cy="26" r="2" fill="#8B5CF6"/><circle cx="292" cy="27" r="2" fill="#8B5CF6"/><circle cx="494" cy="27" r="2" fill="#8B5CF6"/>
-
-                                        <!-- X 轴时间刻度 -->
-                                        <text x="28" y="58" fill="#94A3B8" font-size="8" font-family="sans-serif">15:40</text>
-                                        <text x="135" y="58" fill="#94A3B8" font-size="8" font-family="sans-serif">16:00</text>
-                                        <text x="251" y="58" fill="#94A3B8" font-size="8" font-family="sans-serif">16:20</text>
-                                        <text x="367" y="58" fill="#94A3B8" font-size="8" font-family="sans-serif">16:40</text>
-                                        <text x="472" y="58" fill="#94A3B8" font-size="8" font-family="sans-serif">17:00</text>
-                                      </svg>
-                                    </div>
+                                    <span class="text-[10px] text-[#94A3B8] font-mono">基线标准&lt;70%</span>
                                   </div>
                                 </div>
                               </div>
                             </template>
 
                             <!-- ==========================================
-                                 6. 连接器-应用段 (seg_gw_app / seg_af_oa) - RTT、丢包率、抖动 (无吞吐)
+                                 6. 连接器-应用段 (seg_gw_app / seg_af_oa) - 时延、丢包率、抖动 (无吞吐)
                                  ========================================== -->
                             <template x-if="item.id === 'seg_gw_app' || item.id === 'seg_af_oa'">
                               <div class="space-y-3">
                                 <!-- 3 个指标卡片 (加细灰描边，已删除吞吐) -->
                                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                                  <!-- RTT -->
+                                  <!-- 时延 -->
                                   <div class="bg-white p-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
-                                    <span class="text-[11px] text-[#6F7785]">RTT</span>
+                                    <span class="text-[11px] text-[#6F7785]">时延</span>
                                     <div class="mt-1">
                                       <span class="text-base font-bold font-outfit text-[#2F3540]" x-text="item.id === 'seg_af_oa' ? '2ms' : '15ms'"></span>
                                     </div>
-                                    <span class="text-[10px] text-[#94A3B8]">基线 &lt; 30ms</span>
+                                    <span class="text-[10px] text-[#94A3B8] font-mono">基线 &lt; 30ms</span>
                                   </div>
 
                                   <!-- 丢包率 -->
@@ -4084,7 +3862,7 @@
                                     <div class="mt-1">
                                       <span class="text-base font-bold font-outfit text-[#2F3540]">0.0%</span>
                                     </div>
-                                    <span class="text-[10px] text-[#94A3B8]">基线 &lt; 0.5%</span>
+                                    <span class="text-[10px] text-[#94A3B8] font-mono">基线 &lt; 0.5%</span>
                                   </div>
 
                                   <!-- 抖动 -->
@@ -4093,116 +3871,56 @@
                                     <div class="mt-1">
                                       <span class="text-base font-bold font-outfit text-[#2F3540]">1ms</span>
                                     </div>
-                                    <span class="text-[10px] text-[#94A3B8]">基线 &lt; 5ms</span>
+                                    <span class="text-[10px] text-[#94A3B8] font-mono">基线 &lt; 5ms</span>
                                   </div>
                                 </div>
                               </div>
                             </template>
-
-                                                                                                                <!-- ==========================================
-                                 7. 应用 (node_app / node_final_app)
+                            <!-- ==========================================
+                                 7. 应用 (node_app / node_final_app) - 近10分钟全网访问 + 本次访问 (小标题外置)
                                  ========================================== -->
                             <template x-if="item.id === 'node_app' || item.id === 'node_final_app'">
-                              <div class="space-y-3">
-                                <!-- ① 此时刻单次访问数据 (可用性 100%、HTTP 状态与错误率 0.0%) -->
-                                <div class="bg-white p-3 rounded-[2px] border border-[#EAEEF4] shadow-xs">
-                                  <div class="flex items-center justify-between pb-2 mb-2.5 border-b border-[#F0F2F5] flex-wrap gap-2">
-                                    <div class="flex items-center gap-2">
-                                      <span class="w-1 h-3.5 bg-[#1C6EFF] rounded-full"></span>
-                                      <span class="text-xs font-medium text-[#2F3540]">此时刻单次访问数据</span>
-                                      <span class="text-[11px] text-[#8A92A1] font-mono" x-text="'联动时刻 ' + (currentPoint?.time || currentSlice.time || '16:00')"></span>
-                                    </div>
-                                    <span class="text-[11px] text-[#8A92A1]">单次请求网络探测</span>
+                              <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                                <!-- ① 近10分钟全网访问情况 (左侧卡片，小标题外置，辅助文案紧跟小标题) -->
+                                <div class="space-y-1.5 flex flex-col">
+                                  <div class="flex items-center gap-2 h-[18px]">
+                                    <span class="w-1 h-3.5 bg-[#1C6EFF] rounded-full"></span>
+                                    <span class="text-xs font-medium text-[#2F3540]">近10分钟全网访问情况</span>
+                                    <span class="text-[11px] text-[#8A92A1] font-mono" x-text="getApplicationTimeRange(item)">15:55~16:05</span>
                                   </div>
-                                  <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5">
-                                    <!-- 此时刻可用性 -->
-                                    <div class="bg-[#FAFBFD] p-2.5 rounded-[2px] border border-[#EAEEF4] flex items-center justify-between">
-                                      <div class="space-y-1">
-                                        <span class="text-[11px] text-[#6F7785]">单次访问可用性</span>
-                                        <div class="flex items-baseline gap-1.5">
-                                          <span class="text-base font-bold font-outfit text-[#2F3540]" x-text="isApplicationHealthy(item) ? '100%' : '0%'">100%</span>
-                                          <span class="text-[10px] text-[#12A679]" x-text="isApplicationHealthy(item) ? '(请求成功响应)' : '(请求失败)'"></span>
-                                        </div>
-                                      </div>
-                                      <span class="px-2 py-0.5 text-[10px] bg-[#E6F8F2] text-[#12A679] rounded font-medium">正常</span>
+                                  <div class="bg-white p-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between flex-1 min-h-[76px]">
+                                    <span class="text-[11px] text-[#6F7785]">访问对象情况</span>
+                                    <div class="mt-1 flex items-baseline gap-1.5 font-bold">
+                                      <span class="text-base font-bold font-outfit text-[#2F3540]" x-text="getApplicationAudienceCount(item)">320</span>
+                                      <span class="text-xs text-[#2F3540] font-normal -ml-0.5">人</span>
+                                      <span class="text-[#D3D7DE] font-normal mx-0.5">|</span>
+                                      <span class="text-base font-bold font-outfit text-[#2F3540]" x-text="getApplicationBranchCount(item)">12</span>
+                                      <span class="text-xs text-[#2F3540] font-normal -ml-0.5">分支</span>
                                     </div>
-
-                                    <!-- 此时刻 HTTP 错误率 -->
-                                    <div class="bg-[#FAFBFD] p-2.5 rounded-[2px] border border-[#EAEEF4] flex items-center justify-between">
-                                      <div class="space-y-1">
-                                        <span class="text-[11px] text-[#6F7785]">单次 HTTP 状态 / 错误率</span>
-                                        <div class="flex items-baseline gap-1.5">
-                                          <span class="text-base font-bold font-outfit text-[#2F3540]" x-text="isApplicationHealthy(item) ? '0.0%' : '100%'">0.0%</span>
-                                          <span class="text-[10px] text-[#64748B]" x-text="isApplicationHealthy(item) ? '(HTTP 200 OK)' : '(HTTP 502 / 超时)'"></span>
-                                        </div>
-                                      </div>
-                                      <span class="px-2 py-0.5 text-[10px] bg-[#E6F8F2] text-[#12A679] rounded font-medium">HTTP 200</span>
+                                    <div class="text-[10px] text-[#5C6270] mt-1 flex items-center justify-between">
+                                      <span>受损 <span class="font-outfit font-medium text-[#2F3540]" x-text="getApplicationDamagedCount(item)">2</span> 人 (<span class="font-outfit text-[#12A679]" x-text="getApplicationAudiencePercent(item)">0.6%</span>)</span>
+                                      <span class="px-1.5 py-0.2 rounded text-[10px] bg-[#E6F8F2] text-[#12A679]">通畅</span>
                                     </div>
                                   </div>
                                 </div>
 
-                                <!-- ② 近10分钟全网访问情况 (4 卡片，去除“群体并发交叉推断依据”副标题，时间展示15:55~16:05) -->
-                                <div class="bg-white p-3 rounded-[2px] border border-[#EAEEF4] shadow-xs">
-                                  <div class="flex items-center justify-between pb-2 mb-2.5 border-b border-[#F0F2F5] flex-wrap gap-2">
-                                    <div class="flex items-center gap-2">
-                                      <span class="w-1 h-3.5 bg-[#1C6EFF] rounded-full"></span>
-                                      <span class="text-xs font-medium text-[#2F3540]">近10分钟全网访问情况</span>
-                                    </div>
-                                    <span class="text-[11px] text-[#8A92A1] font-mono" x-text="getApplicationTimeRange(item)">15:55~16:05</span>
+                                <!-- ② 本次访问 (右侧卡片，小标题外置，辅助文案紧跟小标题，去掉正常状态) -->
+                                <div class="space-y-1.5 flex flex-col">
+                                  <div class="flex items-center gap-2 h-[18px]">
+                                    <span class="w-1 h-3.5 bg-[#1C6EFF] rounded-full"></span>
+                                    <span class="text-xs font-medium text-[#2F3540]">本次访问</span>
+                                    <span class="text-[11px] text-[#8A92A1] font-mono" x-text="'联动时刻 ' + (currentPoint?.time || currentSlice.time || '16:00')"></span>
                                   </div>
-                                  <div class="grid grid-cols-2 md:grid-cols-4 gap-2.5">
-                                    <!-- 卡片 1: 访问对象情况 (320人 | 12分支，受损2人 0.6%) -->
-                                    <div class="bg-[#FAFBFD] p-2.5 rounded-[2px] border border-[#EAEEF4] flex flex-col justify-between">
-                                      <span class="text-[11px] text-[#6F7785]">访问对象情况</span>
-                                      <div class="mt-1 flex items-baseline gap-1">
-                                        <span class="text-base font-bold font-outfit text-[#2F3540]" x-text="getApplicationAudienceCount(item)">320</span>
-                                        <span class="text-xs text-[#2F3540]">人</span>
-                                        <span class="text-xs text-[#CBD5E1] mx-0.5">|</span>
-                                        <span class="text-base font-bold font-outfit text-[#2F3540]" x-text="getApplicationBranchCount(item)">12</span>
-                                        <span class="text-xs text-[#2F3540]">分支</span>
-                                      </div>
-                                      <div class="text-[10px] text-[#5C6270] mt-1.5 pt-1 border-t border-[#EAEEF4]">
-                                        受损 <span class="font-outfit font-medium text-[#2F3540]" x-text="getApplicationDamagedCount(item)">2</span> 人 (<span class="font-outfit text-[#12A679]" x-text="getApplicationAudiencePercent(item)">0.6%</span>)
-                                      </div>
+                                  <div class="bg-white p-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between flex-1 min-h-[76px]">
+                                    <span class="text-[11px] text-[#6F7785]">本次响应状态</span>
+                                    <div class="mt-1 flex items-baseline">
+                                      <span class="text-base font-bold font-outfit" :class="isApplicationHealthy(item) ? 'text-[#2F3540]' : 'text-[#F52727]'" x-text="isApplicationHealthy(item) ? 'HTTP 200' : 'HTTP 502'"></span>
                                     </div>
-
-                                    <!-- 卡片 2: 真实访问 & 次数 (2,860次，近10分钟全网采样) -->
-                                    <div class="bg-[#FAFBFD] p-2.5 rounded-[2px] border border-[#EAEEF4] flex flex-col justify-between">
-                                      <span class="text-[11px] text-[#6F7785]">真实访问 &amp; 次数</span>
-                                      <div class="mt-1 flex items-baseline gap-1">
-                                        <span class="text-base font-bold font-outfit text-[#2F3540]" x-text="getApplicationTotalRequests(item)">2,860</span>
-                                        <span class="text-[10px] text-[#6F7785]">次</span>
-                                      </div>
-                                      <span class="text-[10px] text-[#94A3B8] mt-1.5">近 10 分钟全网采样</span>
-                                    </div>
-
-                                    <!-- 卡片 3: 平均可用性 -->
-                                    <div class="bg-[#FAFBFD] p-2.5 rounded-[2px] border border-[#EAEEF4] flex flex-col justify-between">
-                                      <div class="flex items-center justify-between text-[11px]">
-                                        <span class="text-[#6F7785]">平均可用性</span>
-                                        <span class="text-[10px] text-[#94A3B8]">基线 &gt; 99%</span>
-                                      </div>
-                                      <div class="mt-1 flex items-baseline gap-1">
-                                        <span class="text-base font-bold font-outfit" :class="getMetricColor(getApplicationAvailability(item), 99.0, true)" x-text="getApplicationAvailability(item)">99.8%</span>
-                                      </div>
-                                      <span class="text-[10px] text-[#12A679] mt-1.5" x-text="isApplicationAbnormal(item) ? '可用性受损' : '全网通畅良好'"></span>
-                                    </div>
-
-                                    <!-- 卡片 4: 平均 HTTP 错误率 -->
-                                    <div class="bg-[#FAFBFD] p-2.5 rounded-[2px] border border-[#EAEEF4] flex flex-col justify-between">
-                                      <div class="flex items-center justify-between text-[11px]">
-                                        <span class="text-[#6F7785]">平均 HTTP 错误率</span>
-                                        <span class="text-[10px] text-[#94A3B8]">基线 &lt; 2.0%</span>
-                                      </div>
-                                      <div class="mt-1 flex items-baseline gap-1">
-                                        <span class="text-base font-bold font-outfit" :class="getMetricColor(getApplicationHttpErrorRate(item), 2.0)" x-text="getApplicationHttpErrorRate(item)">0.12%</span>
-                                      </div>
-                                      <span class="text-[10px] text-[#64748B] mt-1.5" x-text="isApplicationAbnormal(item) ? '5xx错误偏高' : '服务正常响应'"></span>
-                                    </div>
+                                    <span class="text-[10px] text-[#94A3B8] mt-1" x-text="isApplicationHealthy(item) ? '请求成功响应，未返回报错' : '服务器无响应或返回5xx错误'"></span>
                                   </div>
                                 </div>
                               </div>
-                            </template></div>
+                            </template></template></div>
                         </div>
                       </div>
                     </template>
