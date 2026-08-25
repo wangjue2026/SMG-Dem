@@ -3061,8 +3061,10 @@
                          @click="clickTopologyItem('node', 'node_pop')">
                       <div class="w-11 h-11 rounded-full bg-white flex items-center justify-center shadow-xs group-hover:border-[#1C6EFF] border-2 transition-colors"
                            :class="currentSlice.topology?.pop?.status === '异常' ? 'border-[#F52727]' : 'border-[#12A679]'">
-                        <span class="text-xs font-bold font-outfit"
-                              :class="currentSlice.topology?.pop?.status === '异常' ? 'text-[#F52727]' : 'text-[#12A679]'">POP</span>
+                        <!-- POP 机房/边缘节点图标 -->
+                        <svg class="w-5 h-5" :class="currentSlice.topology?.pop?.status === '异常' ? 'text-[#F52727]' : 'text-[#12A679]'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                        </svg>
                       </div>
                       <span class="text-xs font-medium text-[#2F3540] mt-1.5" x-text="currentSlice.topology?.pop?.name || '马尼拉POP'"></span>
                     </div>
@@ -3097,8 +3099,10 @@
                          @click="clickTopologyItem('node', 'node_connector')">
                       <div class="w-11 h-11 rounded-full bg-white border-2 flex items-center justify-center shadow-xs group-hover:border-[#1C6EFF] transition-colors"
                            :class="currentSlice.topology?.gw?.status === '异常' ? 'border-[#F52727]' : 'border-[#12A679]'">
-                        <span class="text-xs font-bold font-outfit"
-                             :class="currentSlice.topology?.gw?.status === '异常' ? 'text-[#F52727]' : 'text-[#12A679]'">GW</span>
+                        <!-- 连接器/网关设备图标 -->
+                        <svg class="w-5 h-5" :class="currentSlice.topology?.gw?.status === '异常' ? 'text-[#F52727]' : 'text-[#12A679]'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                        </svg>
                       </div>
                       <span class="text-xs font-medium text-[#2F3540] mt-1.5" x-text="currentSlice.topology?.gw?.name || '连接器'"></span>
                     </div>
@@ -3133,9 +3137,17 @@
                          @click="clickTopologyItem('node', 'node_app')">
                       <div class="w-11 h-11 rounded-full bg-white flex items-center justify-center shadow-xs group-hover:border-[#1C6EFF] border-2 transition-colors"
                            :class="(currentSlice.topology?.app?.status === '异常' || currentSlice.topology?.app?.status === '差') ? 'border-[#F52727]' : 'border-[#CBD5E1]'">
-                        <span class="text-xs font-bold font-outfit"
-                              :class="(currentSlice.topology?.app?.status === '异常' || currentSlice.topology?.app?.status === '差') ? 'text-[#F52727]' : 'text-[#64748B]'"
-                              x-text="currentSlice.topology?.finalApp ? 'AF' : 'APP'"></span>
+                        <!-- AF 安全网关 或 通用应用 APP 图标 -->
+                        <template x-if="currentSlice.topology?.finalApp">
+                          <svg class="w-5 h-5" :class="(currentSlice.topology?.app?.status === '异常' || currentSlice.topology?.app?.status === '差') ? 'text-[#F52727]' : 'text-[#64748B]'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                          </svg>
+                        </template>
+                        <template x-if="!currentSlice.topology?.finalApp">
+                          <svg class="w-5 h-5" :class="(currentSlice.topology?.app?.status === '异常' || currentSlice.topology?.app?.status === '差') ? 'text-[#F52727]' : 'text-[#64748B]'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path>
+                          </svg>
+                        </template>
                       </div>
                       <span class="text-xs font-medium text-[#2F3540] mt-1.5" x-text="currentSlice.topology?.app?.name || '飞书'"></span>
                     </div>
@@ -3173,8 +3185,10 @@
                              @click="clickTopologyItem('node', currentSlice.topology?.finalApp?.targetId || 'node_final_app')">
                           <div class="w-11 h-11 rounded-full bg-white flex items-center justify-center shadow-xs group-hover:border-[#1C6EFF] border-2 transition-colors"
                                :class="(currentSlice.topology?.finalApp?.status === '异常' || currentSlice.topology?.finalApp?.status === '差') ? 'border-[#F52727]' : 'border-[#12A679]'">
-                            <span class="text-xs font-bold font-outfit"
-                                  :class="(currentSlice.topology?.finalApp?.status === '异常' || currentSlice.topology?.finalApp?.status === '差') ? 'text-[#F52727]' : 'text-[#12A679]'">APP</span>
+                            <!-- 应用 APP 矩阵网格图标 -->
+                            <svg class="w-5 h-5" :class="(currentSlice.topology?.finalApp?.status === '异常' || currentSlice.topology?.finalApp?.status === '差') ? 'text-[#F52727]' : 'text-[#12A679]'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path>
+                            </svg>
                           </div>
                           <span class="text-xs font-medium text-[#2F3540] mt-1.5" x-text="currentSlice.topology?.finalApp?.name || '总部OA'"></span>
                         </div>
