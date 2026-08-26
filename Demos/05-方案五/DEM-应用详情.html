@@ -635,6 +635,7 @@
         },
 
         // 统一节点与连线点击高亮聚焦逻辑
+        // 统一节点与连线点击高亮聚焦与条件筛选联动逻辑
         focusTarget(type, id, extra = {}) {
           if (this.focusedTarget && this.focusedTarget.type === type && this.focusedTarget.id === id) {
             this.clearTopoFocus();
@@ -642,65 +643,132 @@
           }
           this.focusedTarget = { type, id, ...extra };
 
-          // 构造诊断面板数据
-          if (type === 'pop' && id === 'pop_sz') {
-            this.selectedTopoItem = {
-              title: '【深圳POP】多维异常汇聚与故障定界',
-              status: '差',
-              affected: '2,446人 / 3分支（包含上海跨区 867人 + 东京越洋 999人 + 成都 580人）',
-              rootCause: '深圳POP骨干专线抖动丢包 (5.0%)，且同时承载了上海大区及东京办事处的异常跨区汇聚流量，导致多条上游链路综合 TTFB 飙升。',
-              recommendation: '1. 紧急调度纠偏：将上海终端纠偏回上海本地POP，将东京办事处收敛至东京POP；2. 联系网络运营排查深圳POP出口专线丢包。'
-            };
-          } else if (type === 'geo' && (id === 'geo_sh' || id === 'geo_tyo' || id === 'geo_cd' || id === 'geo_xa' || id === 'geo_nj')) {
-            const geo = this.fullGeoList.find(g => g.id === id);
-            this.selectedTopoItem = {
-              title: `【${geo?.name || '未知地域'}】地域访问链路诊断`,
-              status: '差',
-              affected: `${geo?.users || '800人'} / 1分支（跨区调度至深圳POP）`,
-              rootCause: '终端被智能DNS跨区调度至存在专线抖动的深圳POP，遭遇网络丢包与时延恶化。',
-              recommendation: '下发DNS策略，将终端收敛就近接入本地合规POP或优化专线路由。'
-            };
-          } else if (type === 'geo') {
-            const geo = this.fullGeoList.find(g => g.id === id);
-            this.selectedTopoItem = {
-              title: `【${geo?.name || '未知地域'}】地域访问链路诊断`,
-              status: '正常',
-              affected: `${geo?.users || '500人'} / 1分支`,
-              rootCause: '本地及骨干接入通畅，网络时延与丢包率处于健康基线内。',
-              recommendation: '网络运行良好，维持当前调度策略。'
-            };
-          } else if (type === 'pop') {
-            const pop = this.fullPopList.find(p => p.id === id);
-            this.selectedTopoItem = {
-              title: `【${pop?.name || ''}POP】运行状态诊断`,
-              status: pop?.status || '正常',
-              affected: '网络指标健康，承载各分支汇聚流量。',
-              rootCause: '网关探针连通率 100%，专线无抖动拥塞。',
-              recommendation: '维持当前就近接入与负载均衡策略。'
-            };
-          } else if (type === 'link') {
-            const link = extra.d ? extra : (this.activeTopologyLinks.find(l => l.key === id) || { fromName: '链路节点', toName: '目标节点', status: '正常', users: '100人', branches: '1分支', loss: '0.0%', ttfb: '20ms', isAbnormal: false });
-            this.selectedTopoItem = {
-              title: `【${link.fromName} ➔ ${link.toName}】链路诊断`,
-              status: link.status,
-              affected: `${link.users} / ${link.branches}`,
-              rootCause: link.isAbnormal ? `该段链路出现丢包 (${link.loss}) 及延迟升高 (TTFB ${link.ttfb})。` : '通信畅通，各指标在健康基准线内。',
-              recommendation: link.isAbnormal ? '建议针对该链路进行路由优化或节点旁路切换。' : '网络质量优良，维持当前调度。'
-            };
-          } else {
-            this.selectedTopoItem = {
-              title: '节点与链路运行状态',
-              status: '正常',
-              affected: '指标平稳，全链路各段时延与丢包率处于健康基线内。',
-              rootCause: '当前通信畅通，各网关探针无丢包及拥塞异常。',
-              recommendation: '网络运行良好，维持当前调度策略。'
-            };
+          let title = '';
+          let status = '正常';
+          let conditions = [];
+          let filterLoc = '';
+          let filterIsp = '';
+          let filterPop = '';
+          let summary = '';
+          let guideText = '';
+
+          // 1. 连线点击联动 (type === 'link')
+          if (type === 'link') {
+            if (id === 'conn_app') {
+              title = '【总部01连接器 ➔ OA办公系统】业务承载链路联动查询';
+              status = '正常';
+              conditions = [];
+              summary = '';
+              guideText = '已自动联动对应筛选条件。后端连接器与应用服务链路运行健康，可按需切换查看访问明细。';
+            } else {
+              const link = extra.d ? extra : (this.activeTopologyLinks.find(l => l.key === id) || { fromName: '链路节点', toName: '目标节点', status: '正常', users: '100人', branches: '1分支', loss: '0.0%', ttfb: '20ms', isAbnormal: false });
+              const cleanFrom = (link.fromName || '').replace('中国.', '').replace('日本.', '').replace('菲律宾.', '');
+              const cleanTo = (link.toName || '').replace(' (直汇)', '');
+
+              filterLoc = link.fromName ? link.fromName.replace('.', ' ') : '';
+              filterIsp = cleanFrom;
+              filterPop = cleanTo.includes('POP') ? cleanTo : '';
+
+              title = `【${link.fromName} ➔ ${link.toName}】链路联动条件查询`;
+              status = link.status || (link.isAbnormal ? '差' : '正常');
+
+              conditions = [];
+              if (filterLoc || link.fromName) {
+                conditions.push({ label: 'IP 归属地', value: filterLoc || link.fromName });
+              }
+              if (filterPop) {
+                conditions.push({ label: '接入 POP', value: filterPop });
+              }
+
+              summary = '';
+              if (link.isAbnormal) {
+                guideText = '已自动联动过滤下方表格数据。建议在下方列表中抽样选择重点受损对象（如上海华东运营中心、刘洋等）点击「详情>」查看单实体端到端链路指标，以快速完成现场故障验证与定位。';
+              } else {
+                guideText = '已自动联动过滤下方表格数据。当前链路网络通信质量良好，可结合业务诉求在下方抽样查看对应分支与用户的访问表现。';
+              }
+            }
           }
+          // 2. 接入 POP 节点点击联动 (type === 'pop')
+          else if (type === 'pop') {
+            const pop = this.fullPopList.find(p => p.id === id) || { name: id, status: '正常' };
+            const popName = `${pop.name}POP`;
+            title = `【${popName}】节点汇聚流量联动查询`;
+            status = pop.status || '正常';
+            filterPop = popName;
+            filterLoc = '';
+            filterIsp = '';
+
+            conditions = [
+              { label: '接入 POP', value: popName }
+            ];
+
+            summary = '';
+            if (status === '差') {
+              guideText = '已自动联动过滤下方表格数据。建议在下方列表中重点抽样排查接入该 POP 的受影响分支与用户，点击「详情>」展开深入分析。';
+            } else {
+              guideText = '已自动联动过滤下方表格数据。该 POP 各项指标健康，可按需查看汇聚对象明细。';
+            }
+          }
+          // 3. 地理位置节点点击联动 (type === 'geo')
+          else if (type === 'geo') {
+            const geo = this.fullGeoList.find(g => g.id === id) || { name: '未知地域', abnormal: false, users: '100人', branches: '1分支' };
+            const cleanGeoName = geo.name.replace('中国.', '').replace('日本.', '').replace('菲律宾.', '');
+            filterLoc = geo.name.replace('.', ' ');
+            filterIsp = cleanGeoName;
+            filterPop = '';
+
+            title = `【${geo.name}】地域访问链路联动查询`;
+            status = geo.abnormal ? '差' : '正常';
+
+            conditions = [
+              { label: 'IP 归属地', value: filterLoc }
+            ];
+
+            summary = '';
+            if (geo.abnormal) {
+              guideText = '已自动联动过滤下方表格数据。建议在下方列表中选择该地域下的重点分支或报障用户点击「详情>」进行链路抽样故障验证。';
+            } else {
+              guideText = '已自动联动过滤下方表格数据，可随时查看该地域的访问对象明细。';
+            }
+          }
+          // 4. 连接器/应用节点点击联动 (type === 'conn' | 'app')
+          else {
+            title = (type === 'conn') ? '【总部01连接器】汇聚链路联动查询' : '【OA办公系统】目标应用联动查询';
+            status = '正常';
+            conditions = [];
+            summary = '';
+            guideText = '后端连接器与应用服务链路健康，已自动联动对应条件。';
+          }
+
+          this.selectedTopoItem = {
+            title,
+            status,
+            conditions,
+            filterLoc,
+            filterIsp,
+            filterPop,
+            summary,
+            guideText
+          };
+
+          // 自动同步到下方 Tab 筛选项
+          this.branchFilterLoc = filterLoc || '';
+          this.branchFilterPop = filterPop || '';
+          this.userFilterIsp = filterIsp || '';
+          this.userFilterPop = filterPop || '';
+          this.branchPage = 1;
+          this.userPage = 1;
         },
 
         clearTopoFocus() {
           this.focusedTarget = null;
           this.selectedTopoItem = null;
+          this.branchFilterLoc = '';
+          this.branchFilterPop = '';
+          this.userFilterIsp = '';
+          this.userFilterPop = '';
+          this.branchPage = 1;
+          this.userPage = 1;
         },
 
         // 判断某条连线 key 是否处于活跃高亮状态
@@ -1006,19 +1074,27 @@
         branchPage: 1,
         branchPageSize: 10,
 
-        // 分支列表数据 (4个分支受影响体验差，全部接入香港POP)
+        // 分支列表数据
         branchList: [
-          { name: '广州研发中心', type: 'NGAF', group: '华南大区', location: '中国 广州', exp: '差', isp: '广东电信 (总部01连接器)', pop: '香港POP', affectedUsers: 5, normalCount: 1820, fairCount: 150, poorCount: 65 },
+          // 异常分支
+          { name: '上海华东运营中心', type: 'NGAF', group: '华东大区', location: '中国 上海', exp: '差', isp: '上海电信', pop: '深圳POP', affectedUsers: 12, normalCount: 1200, fairCount: 80, poorCount: 140 },
+          { name: '东京海外办事处', type: 'NGAF', group: '海外大区', location: '日本 东京', exp: '差', isp: '日本 NTT', pop: '深圳POP', affectedUsers: 8, normalCount: 890, fairCount: 60, poorCount: 95 },
+          { name: '成都西南研发基地', type: 'NGAF', group: '西南大区', location: '中国 成都', exp: '差', isp: '四川电信', pop: '深圳POP', affectedUsers: 6, normalCount: 920, fairCount: 40, poorCount: 75 },
+          { name: '广州研发中心', type: 'NGAF', group: '华南大区', location: '中国 广州', exp: '差', isp: '广东电信', pop: '香港POP', affectedUsers: 5, normalCount: 1820, fairCount: 150, poorCount: 65 },
           { name: '马尼拉办公室', type: 'NGAF', group: '海外大区', location: '菲律宾 马尼拉', exp: '差', isp: '菲律宾 PLDT', pop: '香港POP', affectedUsers: 4, normalCount: 320, fairCount: 140, poorCount: 180 },
           { name: '香港办事处', type: 'NGAF', group: '海外大区', location: '中国 香港', exp: '差', isp: '香港 PCCW', pop: '香港POP', affectedUsers: 2, normalCount: 410, fairCount: 110, poorCount: 160 },
-          { name: '华南技术支持中心(广州)', type: 'NGAF', group: '华南大区', location: '中国 广州', exp: '差', isp: '广东电信', pop: '香港POP', affectedUsers: 1, normalCount: 1450, fairCount: 120, poorCount: 45 },
+          { name: '华南技术支持中心', type: 'NGAF', group: '华南大区', location: '中国 广州', exp: '差', isp: '广东电信', pop: '香港POP', affectedUsers: 1, normalCount: 1450, fairCount: 120, poorCount: 45 },
+
+          // 一般体验分支
           { name: '北京研发中心', type: 'NGAF', group: '华北大区', location: '中国 北京', exp: '一般', isp: '北京联通', pop: '北京POP', affectedUsers: 1, normalCount: 1800, fairCount: 320, poorCount: 25 },
           { name: '天津分公司', type: 'NGAF', group: '华北大区', location: '中国 天津', exp: '一般', isp: '天津电信', pop: '北京POP', affectedUsers: 1, normalCount: 1200, fairCount: 180, poorCount: 18 },
+
+          // 正常分支
+          { name: '上海总部大楼', type: 'NGAF', group: '华东大区', location: '中国 上海', exp: '正常', isp: '上海电信', pop: '上海POP', affectedUsers: 0, normalCount: 8520, fairCount: 20, poorCount: 0 },
           { name: '南京办事处', type: 'NGAF', group: '华东大区', location: '中国 南京', exp: '正常', isp: '江苏移动', pop: '上海POP', affectedUsers: 0, normalCount: 1400, fairCount: 160, poorCount: 0 },
           { name: '杭州研发中心', type: 'NGAF', group: '华东大区', location: '中国 杭州', exp: '正常', isp: '浙江电信', pop: '上海POP', affectedUsers: 0, normalCount: 2100, fairCount: 190, poorCount: 0 },
-          { name: '上海总部大楼', type: 'NGAF', group: '华东大区', location: '中国 上海', exp: '正常', isp: '上海电信', pop: '上海POP', affectedUsers: 0, normalCount: 8520, fairCount: 20, poorCount: 0 },
           { name: '深圳分公司', type: 'NGAF', group: '华南大区', location: '中国 深圳', exp: '正常', isp: '深圳移动', pop: '深圳POP', affectedUsers: 0, normalCount: 2140, fairCount: 8, poorCount: 0 },
-          { name: '成都研发基地', type: 'NGAF', group: '西南大区', location: '中国 成都', exp: '正常', isp: '四川电信', pop: '成都POP', affectedUsers: 0, normalCount: 1820, fairCount: 5, poorCount: 0 },
+          { name: '成都本地分部', type: 'NGAF', group: '西南大区', location: '中国 成都', exp: '正常', isp: '四川电信', pop: '成都POP', affectedUsers: 0, normalCount: 1820, fairCount: 5, poorCount: 0 },
           { name: '重庆分公司', type: 'NGAF', group: '西南大区', location: '中国 重庆', exp: '正常', isp: '重庆联通', pop: '成都POP', affectedUsers: 0, normalCount: 1660, fairCount: 4, poorCount: 0 },
           { name: '武汉研发中心', type: 'NGAF', group: '华中大区', location: '中国 武汉', exp: '正常', isp: '湖北电信', pop: '上海POP', affectedUsers: 0, normalCount: 2130, fairCount: 3, poorCount: 0 },
           { name: '西安办事处', type: 'NGAF', group: '西北大区', location: '中国 西安', exp: '正常', isp: '陕西电信', pop: '北京POP', affectedUsers: 0, normalCount: 1440, fairCount: 2, poorCount: 0 },
@@ -1033,7 +1109,10 @@
               item.location.toLowerCase().includes(this.branchSearchQuery.toLowerCase()) ||
               item.pop.toLowerCase().includes(this.branchSearchQuery.toLowerCase());
             const matchExp = !this.branchFilterExp || item.exp === this.branchFilterExp;
-            const matchLoc = !this.branchFilterLoc || item.location === this.branchFilterLoc;
+            const matchLoc = !this.branchFilterLoc || 
+              item.location === this.branchFilterLoc || 
+              item.location.includes(this.branchFilterLoc) || 
+              this.branchFilterLoc.includes(item.location.replace('中国 ', '').replace('日本 ', '').replace('菲律宾 ', ''));
             const matchPop = !this.branchFilterPop || item.pop === this.branchFilterPop;
             return matchSearch && matchExp && matchLoc && matchPop;
           });
@@ -1069,14 +1148,14 @@
         userPage: 1,
         userPageSize: 10,
 
-        // 用户列表数据 (精确34人：12差、2一般、20正常；12名差用户包括报障的刘洋、陈晨、王强，全部接入香港POP)
+        // 用户列表数据
         userList: [
-          // ① 12 名体验差用户（全部接入香港POP）
-          { empId: '2024106', name: '刘洋', dept: '深信服科技 / 研发中心 / DEM产品部', exp: '差', isp: '广东广州 电信 (总部01连接器)', pop: '香港POP', totalApps: 18, normalCount: 9, fairCount: 1, poorCount: 8 },
-          { empId: '2024118', name: '陈晨', dept: '深信服科技 / 研发中心 / DEM产品部', exp: '差', isp: '广东广州 电信 (总部01连接器)', pop: '香港POP', totalApps: 14, normalCount: 7, fairCount: 2, poorCount: 5 },
-          { empId: '2024095', name: '王强', dept: '深信服科技 / 部署中心 / 海外实施部', exp: '差', isp: '广东广州 电信 (总部01连接器)', pop: '香港POP', totalApps: 14, normalCount: 8, fairCount: 2, poorCount: 4 },
-          { empId: '2024019', name: '张三', dept: '深信服科技 / 研发中心 / DEM产品部', exp: '差', isp: '广东广州 电信 (总部01连接器)', pop: '香港POP', totalApps: 17, normalCount: 12, fairCount: 3, poorCount: 2 },
-          { empId: '2024088', name: '李四', dept: '深信服科技 / 销售中心 / 华南大区', exp: '差', isp: '广东广州 电信 (总部01连接器)', pop: '香港POP', totalApps: 15, normalCount: 10, fairCount: 2, poorCount: 3 },
+          // ① 体验差用户
+          { empId: '2024106', name: '刘洋', dept: '深信服科技 / 研发中心 / DEM产品部', exp: '差', isp: '上海电信', pop: '深圳POP', totalApps: 18, normalCount: 9, fairCount: 1, poorCount: 8 },
+          { empId: '2024118', name: '陈晨', dept: '深信服科技 / 研发中心 / DEM产品部', exp: '差', isp: '上海电信', pop: '深圳POP', totalApps: 14, normalCount: 7, fairCount: 2, poorCount: 5 },
+          { empId: '2024095', name: '王强', dept: '深信服科技 / 部署中心 / 海外实施部', exp: '差', isp: '日本 NTT', pop: '深圳POP', totalApps: 14, normalCount: 8, fairCount: 2, poorCount: 4 },
+          { empId: '2024088', name: '李四', dept: '深信服科技 / 销售中心 / 西南大区', exp: '差', isp: '四川电信', pop: '深圳POP', totalApps: 15, normalCount: 10, fairCount: 2, poorCount: 3 },
+          { empId: '2024019', name: '张三', dept: '深信服科技 / 研发中心 / DEM产品部', exp: '差', isp: '广东广州 电信', pop: '香港POP', totalApps: 17, normalCount: 12, fairCount: 3, poorCount: 2 },
           { empId: '2024122', name: '周华', dept: '深信服科技 / 运营中心 / 华南组', exp: '差', isp: '广东广州 电信', pop: '香港POP', totalApps: 16, normalCount: 11, fairCount: 2, poorCount: 3 },
           { empId: '2024135', name: '黄明', dept: '深信服科技 / 客户服务部 / 华南支持', exp: '差', isp: '广东广州 电信', pop: '香港POP', totalApps: 14, normalCount: 8, fairCount: 3, poorCount: 3 },
           { empId: '2024141', name: 'Alex Tan', dept: '海外大区 / 马尼拉办事处 / 技术部', exp: '差', isp: '菲律宾 PLDT', pop: '香港POP', totalApps: 12, normalCount: 5, fairCount: 2, poorCount: 5 },
@@ -1085,11 +1164,11 @@
           { empId: '2024148', name: '林家豪', dept: '海外大区 / 香港办事处 / 销售部', exp: '差', isp: '香港 PCCW', pop: '香港POP', totalApps: 15, normalCount: 7, fairCount: 2, poorCount: 6 },
           { empId: '2024149', name: '陈咏诗', dept: '海外大区 / 香港办事处 / 行政部', exp: '差', isp: '香港 PCCW', pop: '香港POP', totalApps: 13, normalCount: 6, fairCount: 2, poorCount: 5 },
 
-          // ② 2 名体验一般用户
+          // ② 体验一般用户
           { empId: '2024155', name: '赵六', dept: '深信服科技 / 运营中心 / 华北大区', exp: '一般', isp: '北京联通', pop: '北京POP', totalApps: 22, normalCount: 18, fairCount: 3, poorCount: 1 },
           { empId: '2024162', name: '孙伟', dept: '深信服科技 / 市场部 / 华北大区', exp: '一般', isp: '北京联通', pop: '北京POP', totalApps: 25, normalCount: 20, fairCount: 4, poorCount: 1 },
 
-          // ③ 20 名体验正常用户
+          // ③ 体验正常用户
           { empId: '2024178', name: '周杰', dept: '深信服科技 / 技术支持部 / 华东组', exp: '正常', isp: '上海电信', pop: '上海POP', totalApps: 28, normalCount: 28, fairCount: 0, poorCount: 0 },
           { empId: '2024102', name: '王五', dept: '深信服科技 / 研发中心 / 架构组', exp: '正常', isp: '上海电信', pop: '上海POP', totalApps: 45, normalCount: 45, fairCount: 0, poorCount: 0 },
           { empId: '2024210', name: '钱七', dept: '深信服科技 / 财务部 / 总部财务', exp: '正常', isp: '四川电信', pop: '成都POP', totalApps: 49, normalCount: 49, fairCount: 0, poorCount: 0 },
@@ -1121,7 +1200,15 @@
               item.dept.toLowerCase().includes(this.userSearchQuery.toLowerCase()) ||
               item.pop.toLowerCase().includes(this.userSearchQuery.toLowerCase());
             const matchExp = !this.userFilterExp || item.exp === this.userFilterExp;
-            const matchIsp = !this.userFilterIsp || item.isp === this.userFilterIsp;
+            const matchIsp = !this.userFilterIsp || 
+              item.isp.includes(this.userFilterIsp) || 
+              (this.userFilterIsp === '东京' && (item.isp.includes('NTT') || item.dept.includes('海外'))) ||
+              (this.userFilterIsp === '马尼拉' && item.isp.includes('PLDT')) ||
+              (this.userFilterIsp === '香港' && item.isp.includes('PCCW')) ||
+              (this.userFilterIsp === '广州' && item.isp.includes('广东')) ||
+              (this.userFilterIsp === '深圳' && item.isp.includes('深圳')) ||
+              (this.userFilterIsp === '成都' && item.isp.includes('四川')) ||
+              (this.userFilterIsp.includes(' ') && item.isp.includes(this.userFilterIsp.split(' ')[1] || this.userFilterIsp));
             const matchPop = !this.userFilterPop || item.pop === this.userFilterPop;
             return matchSearch && matchExp && matchIsp && matchPop;
           });
@@ -2829,79 +2916,52 @@
 
 
               <!-- ========================================== -->
-              <!-- 第三部分: 异常链路联动诊断与处置排障抽屉   -->
+              <!-- ========================================== -->
+              <!-- 第三部分: 拓扑线路/节点联动条件查询结果卡片 -->
               <!-- ========================================== -->
               <div x-show="selectedTopoItem" x-transition:enter="transition ease-out duration-200"
                 x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0"
-                class="bg-white border rounded-[4px] p-4 shadow-xs space-y-3"
-                :class="selectedTopoItem?.status === '差' ? 'border-[#FFA39E] bg-gradient-to-r from-[#FFF9F9] via-white to-white' : (selectedTopoItem?.status === '一般' ? 'border-[#FFE58F] bg-gradient-to-r from-[#FFFDF5] via-white to-white' : 'border-[#BFD5FF] bg-gradient-to-r from-[#F8FAFF] via-white to-white')"
+                class="bg-white border border-[#E1E5EB] rounded-[4px] p-3 shadow-2xs space-y-2"
                 x-cloak>
 
-                <!-- 诊断头部 -->
-                <div class="flex items-center justify-between border-b pb-2.5"
-                  :class="selectedTopoItem?.status === '差' ? 'border-[#FFA39E]/40' : (selectedTopoItem?.status === '一般' ? 'border-[#FFE58F]/60' : 'border-[#BFD5FF]/40')">
-
-                  <div class="flex items-center gap-2">
-                    <div class="w-6 h-6 rounded-full flex items-center justify-center font-bold text-xs"
-                      :class="selectedTopoItem?.status === '差' ? 'bg-[#FFF1F0] text-[#D9363E] border border-[#FFA39E]' : (selectedTopoItem?.status === '一般' ? 'bg-[#FFFBE6] text-[#FA8C16] border border-[#FFE58F]' : 'bg-[#E6F8F2] text-[#12A679] border border-[#B7EB8F]')">
+                <!-- 头部：标题 + 条件Tag群 (同行展示) + 右侧清除按钮 -->
+                <div class="flex items-center justify-between flex-wrap gap-2">
+                  <div class="flex items-center flex-wrap gap-2">
+                    <div class="w-5 h-5 rounded flex items-center justify-center bg-[#F0F5FF] text-[#1C6EFF] shrink-0">
                       <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path x-show="selectedTopoItem?.status === '差'" stroke-linecap="round" stroke-linejoin="round"
-                          stroke-width="2.5"
-                          d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z">
-                        </path>
-                        <path x-show="selectedTopoItem?.status === '一般'" stroke-linecap="round" stroke-linejoin="round"
-                          stroke-width="2.5" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                        <path x-show="selectedTopoItem?.status === '正常'" stroke-linecap="round" stroke-linejoin="round"
-                          stroke-width="2.5" d="M5 13l4 4L19 7"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path>
                       </svg>
                     </div>
-                    <div class="flex items-center gap-2">
-                      <span class="text-sm font-bold text-[#1E293B]" x-text="selectedTopoItem?.title"></span>
-                      <span class="px-2 py-0.5 text-xs rounded font-bold"
-                        :class="selectedTopoItem?.status === '差' ? 'bg-[#FFF1F0] text-[#D9363E] border border-[#FFA39E]' : (selectedTopoItem?.status === '一般' ? 'bg-[#FFFBE6] text-[#FA8C16] border border-[#FFE58F]' : 'bg-[#E6F8F2] text-[#12A679] border border-[#B7EB8F]')"
-                        x-text="selectedTopoItem?.status + '体验'"></span>
-                    </div>
+                    <span class="text-sm font-bold text-[#1E293B] shrink-0" x-text="selectedTopoItem?.title"></span>
+
+                    <!-- 条件Tag直接跟在标题右侧 -->
+                    <template x-for="(cond, idx) in selectedTopoItem?.conditions || []" :key="idx">
+                      <div class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-[3px] bg-[#F8FAFC] border border-[#E2E8F0] text-xs">
+                        <span class="text-[#8A92A1]" x-text="cond.label + ':'"></span>
+                        <span class="font-medium text-[#1E293B]" x-text="cond.value"></span>
+                      </div>
+                    </template>
                   </div>
 
-                  <div class="flex items-center gap-3">
-                    <span class="text-xs text-[#8A92A1]">影响受众: <b class="text-[#2F3540]"
-                        x-text="selectedTopoItem?.affected"></b></span>
+                  <div class="flex items-center shrink-0">
                     <button type="button" @click="clearTopoFocus()"
-                      class="text-[#8A92A1] hover:text-[#2F3540] p-1 rounded hover:bg-gray-100 transition-colors"
-                      title="关闭诊断详情">
-                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12">
-                        </path>
+                      class="text-xs text-[#1C6EFF] hover:text-[#155BD5] flex items-center gap-1 px-2 py-0.5 rounded hover:bg-blue-50 transition-colors cursor-pointer"
+                      title="清除联动条件">
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                       </svg>
+                      <span>清除联动条件</span>
                     </button>
                   </div>
                 </div>
 
-                <!-- 根因定界与建议 -->
-                <div
-                  class="bg-[#F8FAFC] border border-[#E1E5EB] p-3 rounded-[3px] flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-xs">
-                  <div class="space-y-1">
-                    <div class="text-[#1E293B]">
-                      <span class="font-bold text-[#D9363E]">【根因定界】</span>
-                      <span x-html="selectedTopoItem?.rootCause"></span>
-                    </div>
-                    <div class="text-[#475569]">
-                      <span class="font-bold text-[#1C6EFF]">【处置建议】</span>
-                      <span x-text="selectedTopoItem?.recommendation"></span>
-                    </div>
-                  </div>
-
-                  <!-- 处置动作 -->
-                  <div class="flex items-center gap-2 shrink-0">
-                    <button type="button" @click="alert('指令已下发：将异常受损地域访问流量无缝热切换至就近健康POP上车！')"
-                      class="px-3 py-1.5 bg-[#1C6EFF] hover:bg-[#155BD5] text-white font-medium rounded-[2px] transition-colors cursor-pointer shadow-2xs inline-flex items-center gap-1">
-                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                          d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
-                      </svg>
-                      <span>一键纠偏调度</span>
-                    </button>
-                  </div>
+                <!-- 排障指引说明文案 -->
+                <div class="bg-[#F8FAFC] border border-[#E9ECF1] px-3 py-2 rounded-[3px] text-xs text-[#475569] flex items-start sm:items-center gap-1.5">
+                  <svg class="w-3.5 h-3.5 text-[#1C6EFF] shrink-0 mt-0.5 sm:mt-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                  </svg>
+                  <span class="leading-relaxed" x-text="selectedTopoItem?.guideText"></span>
                 </div>
 
               </div>
@@ -2932,6 +2992,7 @@
 
               <!-- Tab 1: 分支访问表格 -->
               <div x-show="activeTab === 'branch'" class="space-y-3">
+
                 <div class="flex items-center justify-between gap-3">
                   <!-- 3个等宽 select 筛选项在左侧，带悬停一键快捷清除图标 -->
                   <div class="flex items-center gap-2">
@@ -2959,13 +3020,21 @@
                       <select class="dem-select w-full" :class="!branchFilterLoc ? 'text-[#8A92A1]' : 'text-[#2F3540]'"
                         x-model="branchFilterLoc" @change="branchPage = 1">
                         <option value="" class="text-[#8A92A1]">全部地理位置</option>
+                        <option value="中国 上海" class="text-[#2F3540]">中国 上海</option>
+                        <option value="日本 东京" class="text-[#2F3540]">日本 东京</option>
+                        <option value="中国 成都" class="text-[#2F3540]">中国 成都</option>
+                        <option value="中国 广州" class="text-[#2F3540]">中国 广州</option>
                         <option value="菲律宾 马尼拉" class="text-[#2F3540]">菲律宾 马尼拉</option>
                         <option value="中国 香港" class="text-[#2F3540]">中国 香港</option>
-                        <option value="中国 广州" class="text-[#2F3540]">中国 广州</option>
-                        <option value="中国 上海" class="text-[#2F3540]">中国 上海</option>
                         <option value="中国 北京" class="text-[#2F3540]">中国 北京</option>
+                        <option value="中国 天津" class="text-[#2F3540]">中国 天津</option>
                         <option value="中国 深圳" class="text-[#2F3540]">中国 深圳</option>
-                        <option value="中国 成都" class="text-[#2F3540]">中国 成都</option>
+                        <option value="中国 南京" class="text-[#2F3540]">中国 南京</option>
+                        <option value="中国 杭州" class="text-[#2F3540]">中国 杭州</option>
+                        <option value="中国 重庆" class="text-[#2F3540]">中国 重庆</option>
+                        <option value="中国 武汉" class="text-[#2F3540]">中国 武汉</option>
+                        <option value="中国 西安" class="text-[#2F3540]">中国 西安</option>
+                        <option value="中国 长沙" class="text-[#2F3540]">中国 长沙</option>
                       </select>
                       <button type="button" x-show="branchFilterLoc"
                         @click.stop.prevent="branchFilterLoc = ''; branchPage = 1; if(selectedFeature && selectedFeature.includes('地区')) selectedFeature = null"
@@ -2982,11 +3051,13 @@
                       <select class="dem-select w-full" :class="!branchFilterPop ? 'text-[#8A92A1]' : 'text-[#2F3540]'"
                         x-model="branchFilterPop" @change="branchPage = 1">
                         <option value="" class="text-[#8A92A1]">全部接入POP</option>
+                        <option value="深圳POP" class="text-[#2F3540]">深圳POP</option>
                         <option value="香港POP" class="text-[#2F3540]">香港POP</option>
                         <option value="上海POP" class="text-[#2F3540]">上海POP</option>
                         <option value="北京POP" class="text-[#2F3540]">北京POP</option>
-                        <option value="深圳POP" class="text-[#2F3540]">深圳POP</option>
                         <option value="成都POP" class="text-[#2F3540]">成都POP</option>
+                        <option value="广州POP" class="text-[#2F3540]">广州POP</option>
+                        <option value="东京POP" class="text-[#2F3540]">东京POP</option>
                       </select>
                       <button type="button" x-show="branchFilterPop"
                         @click.stop.prevent="branchFilterPop = ''; branchPage = 1; if(selectedFeature && selectedFeature.includes('POP')) selectedFeature = null"
@@ -3111,6 +3182,7 @@
 
               <!-- Tab 2: 用户访问表格 -->
               <div x-show="activeTab === 'user'" class="space-y-3" x-cloak>
+
                 <div class="flex items-center justify-between gap-3">
                   <!-- 3个等宽 select 筛选项在左侧，带悬停一键快捷清除图标 -->
                   <div class="flex items-center gap-2">
@@ -3134,16 +3206,18 @@
                     </div>
 
                     <!-- 2. IP归属地 (与共性特征联动选中) -->
-                    <div class="dem-select-wrapper group w-36">
+                    <div class="dem-select-wrapper group w-44">
                       <select class="dem-select w-full" :class="!userFilterIsp ? 'text-[#8A92A1]' : 'text-[#2F3540]'"
                         x-model="userFilterIsp" @change="userPage = 1">
                         <option value="" class="text-[#8A92A1]">全部IP归属地</option>
-                        <option value="广东广州 电信" class="text-[#2F3540]">广东广州 电信</option>
-                        <option value="广东深圳 电信" class="text-[#2F3540]">广东深圳 电信</option>
-                        <option value="香港 PCCW" class="text-[#2F3540]">香港 PCCW</option>
-                        <option value="上海电信" class="text-[#2F3540]">上海电信</option>
-                        <option value="北京联通" class="text-[#2F3540]">北京联通</option>
-                        <option value="四川电信" class="text-[#2F3540]">四川电信</option>
+                        <option value="上海" class="text-[#2F3540]">上海地区/电信</option>
+                        <option value="东京" class="text-[#2F3540]">日本东京/NTT</option>
+                        <option value="四川" class="text-[#2F3540]">四川地区/电信</option>
+                        <option value="广州" class="text-[#2F3540]">广东广州/电信</option>
+                        <option value="深圳" class="text-[#2F3540]">广东深圳/电信</option>
+                        <option value="香港" class="text-[#2F3540]">香港 PCCW</option>
+                        <option value="马尼拉" class="text-[#2F3540]">菲律宾 PLDT</option>
+                        <option value="北京" class="text-[#2F3540]">北京联通/电信</option>
                       </select>
                       <button type="button" x-show="userFilterIsp"
                         @click.stop.prevent="userFilterIsp = ''; userPage = 1; if(selectedFeature && selectedFeature.includes('连接器')) selectedFeature = null"
@@ -3160,11 +3234,13 @@
                       <select class="dem-select w-full" :class="!userFilterPop ? 'text-[#8A92A1]' : 'text-[#2F3540]'"
                         x-model="userFilterPop" @change="userPage = 1">
                         <option value="" class="text-[#8A92A1]">全部接入POP</option>
+                        <option value="深圳POP" class="text-[#2F3540]">深圳POP</option>
                         <option value="香港POP" class="text-[#2F3540]">香港POP</option>
                         <option value="上海POP" class="text-[#2F3540]">上海POP</option>
                         <option value="北京POP" class="text-[#2F3540]">北京POP</option>
-                        <option value="深圳POP" class="text-[#2F3540]">深圳POP</option>
                         <option value="成都POP" class="text-[#2F3540]">成都POP</option>
+                        <option value="广州POP" class="text-[#2F3540]">广州POP</option>
+                        <option value="东京POP" class="text-[#2F3540]">东京POP</option>
                       </select>
                       <button type="button" x-show="userFilterPop"
                         @click.stop.prevent="userFilterPop = ''; userPage = 1; if(selectedFeature && selectedFeature.includes('POP')) selectedFeature = null"
