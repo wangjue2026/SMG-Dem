@@ -74,9 +74,6 @@
       setShell(s) {
         this.shell = s;
         safeSet('demoShell_v2', s);
-        if (typeof window.ensureWorkspaceInjected === 'function') {
-          window.ensureWorkspaceInjected(s);
-        }
       },
 
       /* 防重复导航标志 */

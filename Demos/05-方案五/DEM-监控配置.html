@@ -31,22 +31,8 @@
       <div class="flex-1 flex overflow-hidden">
         <div id="shell-atrust-sider"></div>
         <div class="flex-1 bg-bg-light flex flex-col overflow-hidden">
-          <div class="flex-1 bg-[#F4F6F9] flex flex-col overflow-hidden" id="atrust-workspace"></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- MODE 2: SASE 线上云底座框架 -->
-    <div x-show="shell === 'sase'" class="flex w-full h-full overflow-hidden">
-      <div id="shell-sase-sider"></div>
-      <div class="flex-1 bg-bg-light flex flex-col overflow-hidden">
-        <div class="flex-1 bg-[#F4F6F9] flex flex-col overflow-hidden" id="sase-workspace"></div>
-      </div>
-    </div>
-
-    <!-- Workspace 内容模板 -->
-    <template id="page-content-template">
-      <div class="flex flex-col w-full h-full overflow-hidden">
+          <div class="flex-1 bg-[#F4F6F9] flex flex-col overflow-hidden" id="atrust-workspace">
+            <div class="flex flex-col w-full h-full overflow-hidden">
         <!-- 页头 -->
         <div class="h-[48px] min-h-[48px] max-h-[48px] bg-white border-b border-[#E2E8F0] px-6 flex items-center flex-shrink-0 select-none z-20">
           <span class="text-[14px] font-semibold text-[#1E293B]">监控配置</span>
@@ -64,32 +50,37 @@
           </div>
         </main>
       </div>
-    </template>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODE 2: SASE 线上云底座框架 -->
+    <div x-show="shell === 'sase'" class="flex w-full h-full overflow-hidden">
+      <div id="shell-sase-sider"></div>
+      <div class="flex-1 bg-bg-light flex flex-col overflow-hidden">
+        <div class="flex-1 bg-[#F4F6F9] flex flex-col overflow-hidden" id="sase-workspace">
+          <div class="flex flex-col w-full h-full overflow-hidden">
+        <!-- 页头 -->
+        <div class="h-[48px] min-h-[48px] max-h-[48px] bg-white border-b border-[#E2E8F0] px-6 flex items-center flex-shrink-0 select-none z-20">
+          <span class="text-[14px] font-semibold text-[#1E293B]">监控配置</span>
+        </div>
+
+        <main class="flex-1 bg-bg-light p-4 flex flex-col overflow-hidden">
+          <div class="bg-white rounded-container border border-bg-line p-8 shadow-sm flex-1 flex flex-col items-center justify-center text-center">
+            <div class="w-14 h-14 rounded-full bg-brand/10 text-brand flex items-center justify-center mb-4">
+              <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+              </svg>
+            </div>
+            <h2 class="text-xl font-bold text-text-title">DEM-监控配置 模块容器</h2>
+            <p class="text-xs text-text-mute mt-2 max-w-md leading-relaxed">路由关系与 Shell 框架已完整保留。您可以在此区域编写【监控配置】重构代码。</p>
+          </div>
+        </main>
+      </div>
+        </div>
+      </div>
+    </div>
   </div>
-
-  <script>
-    (function initLazyConfig() {
-      const tpl = document.getElementById('page-content-template');
-      if (!tpl) return;
-
-      window.ensureWorkspaceInjected = function(shellType) {
-        const targetId = shellType === 'atrust' ? 'atrust-workspace' : 'sase-workspace';
-        const el = document.getElementById(targetId);
-        if (el && el.children.length === 0) {
-          el.appendChild(tpl.content.cloneNode(true));
-          if (window.Alpine) {
-            window.Alpine.initTree(el);
-          }
-        }
-      };
-
-      let currentShell = 'sase';
-      try {
-        currentShell = localStorage.getItem('demoShell_v2') || 'sase';
-      } catch (e) {}
-
-      window.ensureWorkspaceInjected(currentShell);
-    })();
-  </script>
 </body>
 </html>
