@@ -170,22 +170,23 @@
       const appType = types[i % types.length];
       const region = appType === "SaaS应用" ? "-" : internalRegions[i % internalRegions.length];
 
+      const isOA = (i === 12);
       baseApps.push({
-        id: `app_0${i < 10 ? '0' + i : i}`,
-        appName: `核心应用服务_${i}`,
-        isVip: false,
-        domain: `app-service-${i}.internal.net`,
-        appType: appType,
-        region: region,
-        experience: exp,
-        activeUsers: activeU,
-        degradedUsers: degU,
-        activeBranches: activeB,
-        degradedBranches: degB,
-        avgResponseTime: resp,
-        packetLoss: loss,
-        rtt: rttVal,
-        pop: cities[i % cities.length]
+        id: isOA ? 'app_oa' : `app_0${i < 10 ? '0' + i : i}`,
+        appName: isOA ? 'OA系统' : `核心应用服务_${i}`,
+        isVip: isOA ? true : false,
+        domain: isOA ? '230.213.2.22' : `app-service-${i}.internal.net`,
+        appType: isOA ? '内网应用' : appType,
+        region: isOA ? '华南数据中心' : region,
+        experience: isOA ? '差' : exp,
+        activeUsers: isOA ? 34 : activeU,
+        degradedUsers: isOA ? 12 : degU,
+        activeBranches: isOA ? 4 : activeB,
+        degradedBranches: isOA ? 3 : degB,
+        avgResponseTime: isOA ? '385 ms' : resp,
+        packetLoss: isOA ? '5.2%' : loss,
+        rtt: isOA ? '142 ms' : rttVal,
+        pop: isOA ? '深圳' : cities[i % cities.length]
       });
     }
 

@@ -534,84 +534,101 @@
           {
             id: 'app_oa',
             name: 'OA系统',
-            domain: 'https://oa.domain.com',
+            domain: 'https://230.213.2.22',
             experience: '差',
-            tag: '内网应用',
-            summary: '在当前时间段内，用户共访问此应用 24 次，访问异常 3 次，主要原因是 POP 到连接器专线段丢包率升高 (5.0%) 且应用服务器 CPU 满载 (91.2%)，从而访问体验评估为差。',
-            abnormalExplain: 'POP 到连接器专线段丢包率升高 (5.0%) 且应用服务器 CPU 满载 (91.2%)，导致本次访问体验评估为差。',
+            tag: '内网办公',
+            summary: '在当前时间段内，用户在上海办公室通过 SASE 访问 OA系统 响应极慢（真实访问 TTFB 1,420ms，15:20~15:55 持续恶化）。排查确认用户本地 PC 终端及上海局域网正常（本地网关时延 1ms / 丢包 0%），异常收敛于华南深圳 POP 到总部01连接器的 SASE 骨干专线段（专线丢包 5.2%、抖动 48ms、专线 RTT 145ms）。后端总部连接器与 OA 应用服务器自身处理正常（探针 TTFB 12ms，HTTP 200，错误率 0%）。',
+            abnormalExplain: '深圳POP到总部01连接器传输段骨干专线丢包 5.2%、网络抖动 48ms、网络 RTT 145ms，导致访问 OA系统 严重卡慢。',
             aiSummary: {
-              summaryHtml: '用户本次访问 <span class="font-bold text-[#2F3540]">OA系统</span> 体验差，原因由于<span class="text-[#F52727] font-bold">“客户端到POP隧道质量下降”</span>与<span class="text-[#F52727] font-bold">“SASE平台租户限流”</span>。业务表现为访问卡顿与数据包丢失；经链路排查确认该故障具备批量扩散风险，会对<b>马尼拉办公室 34 名用户、马尼拉分支、飞书与 Office 365 应用</b>形成群体性业务影响，建议优先针对 SASE 平台租户限流与客户办公室内网落地解除限流和网关修复处置措施以快速止损。',
+              summaryHtml: '用户本次访问 <span class="font-bold text-[#2F3540]">OA系统</span> 体验差（真实访问 TTFB 1,420ms / 基线 100ms），排查确认异常收敛于<span class="text-[#F52727] font-bold">“华南深圳POP到总部01连接器传输段（骨干专线网络劣化）”</span>（专线丢包 5.2%、抖动 48ms、RTT 145ms）。终端本地接入与局域网正常，后端总部连接器与 OA 应用服务器均健康（探针 TTFB 12ms，HTTP 200）。此故障为 POP 专线群体性问题，影响上海、东京、成都分支经深圳 POP 接入的 <b class="text-[#F52727]">12 名用户</b>（共 34 名用户），建议协调 SASE 平台团队切换备用 POP（如上海POP）或排查专线运营商。',
               problemLocation: {
-                tag: '段/点双重异常',
-                abnormalPoint: '客户端到POP分段异常（私网Hop2） 与 POP节点处理异常（租户10G限流）',
-                abnormalFeature: 'Underlay丢包3.1%/抖动40ms；Overlay吞吐20M；POP流量10.4G命中限流'
+                tag: 'SASE 骨干网专线异常',
+                abnormalPoint: '深圳 POP ➔ 总部01连接器传输段（华南专线告警）',
+                abnormalFeature: '骨干专线丢包率 5.2%，抖动 48ms，TTFB 首字节耗时延展至 1,420ms。本地终端 Wi-Fi/LAN 接入与 OA 后端服务正常。'
               },
               impactScope: {
-                users: '用户及出口 203.177.12.8 下 34 名用户 (占 73.9%)',
-                branches: '马尼拉办公室 (出口 IP 203.177.12.8)',
-                apps: '飞书、Office 365 (SaaS 办公系统)'
+                users: '刘洋、陈晨及同走深圳 POP 接入的 12 名用户 (占 OA 受损用户的 100%)',
+                branches: '上海华东运营中心、东京海外办事处、成都西南研发基地',
+                apps: 'OA系统'
               },
               advice: {
-                stakeholders: '客户办公室网络团队 & SASE 平台运营团队',
-                actions: '1. SASE平台解封/解除租户 10Gbps 限流；2. 客户修复办公室 LAN/网关链路丢包与抖动。'
+                stakeholders: 'SASE 平台运维团队 & 骨干网专线团队',
+                actions: '1. 将受影响的上海/东京/成都分支用户接入策略临时调度切换至上海/广州备用 POP；2. 提交逐跳时延丢包证据，排查华南骨干专线光缆及交换设备。'
               }
             },
             slices: [
               {
                 id: 'slice_1',
-                name: '切片1',
+                name: '切片1 (15:20)',
                 time: '15:20',
+                minute: 440,
                 range: '15:15~15:20',
                 successRate: '94.8%',
                 status: '异常',
-                sampleIdx: 88,
+                sampleIdx: 7,
+                analysis: {
+                  rootCause: '异常收敛于<span class="text-[#F52727] font-medium">【华南深圳POP到总部01连接器骨干专线传输段】</span>。深圳POP至总部连接器专线队列拥塞，丢包达 5.2%，抖动 48ms，导致 TTFB 耗时飙升至 1,420ms。',
+                  feature: '骨干专线丢包 5.2%（基线 <0.5%）、抖动 48ms（基线 <5ms）、专线 RTT 145ms（基线 35ms）。用户终端本地接入（时延 12ms，丢包 0%）与后端 OA 服务器（耗时 12ms）均正常。',
+                  advice: '责任归属【SASE 骨干专线网络】。建议 SASE 运营团队将上海分支用户流量临时调度切换至上海本地 POP，并联系专线运营商排查深圳至总部光纤专线。'
+                },
                 topology: {
-                  client: { name: 'ThinkPad X1', sub: '终端', status: '正常' },
-                  segment1: { name: 'WiFi', delay: '20ms', loss: '0.1%', status: '正常', targetId: 'seg_client_pop' },
-                  pop: { name: '香港POP', sub: 'POP节点', status: '正常' },
-                  segment2: { name: '连接器', delay: '120ms', loss: '5.0%', status: '异常', targetId: 'seg_pop_gw' },
-                  gw: { name: 'GW连接器', sub: '连接器', status: '正常' },
-                  segment3: { name: '应用', delay: '35ms', loss: '0.0%', status: '正常', targetId: 'seg_gw_app' },
-                  app: { name: 'OA系统', sub: '应用', status: '异常', targetId: 'node_app' }
+                  client: { name: 'ThinkPad T14 (上海办公区)', sub: '终端 (上海局域网)', status: '正常', targetId: 'node_terminal' },
+                  segment1: { name: '本地网络/接入', delay: '12ms', loss: '0.0%', jitter: '1ms', status: '正常', targetId: 'seg_client_pop' },
+                  pop: { name: '深圳POP', sub: '接入POP (跨区上车)', status: '正常', targetId: 'node_pop' },
+                  segment2: { name: 'POP-连接器专线', delay: '145ms', loss: '5.2%', jitter: '48ms', status: '异常', targetId: 'seg_pop_gw' },
+                  gw: { name: '总部01连接器', sub: '连接器 (正常)', status: '正常', targetId: 'node_connector' },
+                  segment3: { name: '连接器-应用', delay: '15ms', loss: '0.0%', jitter: '0ms', status: '正常', targetId: 'seg_gw_app' },
+                  app: { name: 'OA系统', sub: '内网应用 (正常)', status: '正常', targetId: 'node_app' }
                 },
                 segmentDetails: [
-                  {
-                    id: 'seg_pop_gw',
-                    name: 'pop-连接器段',
-                    status: '异常',
-                    summary: '该专线段传输发生轻度拥塞与包重传，专线丢包率升至 5.0%，RTT 时延攀升至 120ms。',
-                    metrics: [
-                      { label: '隧道 RTT 时延', value: '120 ms', baseline: '35 ms', isAbnormal: true },
-                      { label: '数据包丢包率', value: '5.0%', baseline: '< 0.5%', isAbnormal: true },
-                      { label: '抖动 (Jitter)', value: '18 ms', baseline: '3 ms', isAbnormal: true },
-                      { label: '选路状态', value: 'ISP 专线绕路', baseline: '最优选路', isAbnormal: true }
-                    ],
-                    cause: 'SASE POP 到内网连接器之间的跨区域专线流量突发拥塞，触发 ISP 运营商路由绕行。'
-                  },
                   {
                     id: 'seg_client_pop',
                     name: '终端-pop段',
                     status: '正常',
-                    summary: '终端至 POP 节点近端无线与骨干接入良好，Wi-Fi 信号强劲，极低丢包。',
+                    summary: '终端无线与上海本地电信宽带接入通畅，时延 12ms，零丢包，抖动 1ms。',
                     metrics: [
                       { label: 'Wi-Fi 信号 (RSSI)', value: '-48 dBm', baseline: '-50 dBm', isAbnormal: false },
-                      { label: 'Wi-Fi 重传率', value: '1.2%', baseline: '< 5.0%', isAbnormal: false },
-                      { label: '信道占用率', value: '28%', baseline: '< 60%', isAbnormal: false },
-                      { label: '近端 RTT 时延', value: '20 ms', baseline: '22 ms', isAbnormal: false }
+                      { label: '丢包率', value: '0.0%', baseline: '< 0.5%', isAbnormal: false },
+                      { label: 'RTT 时延', value: '12 ms', baseline: '< 50 ms', isAbnormal: false }
                     ],
-                    cause: '近端局域网通信质量优良，无局域网干扰。'
+                    hopTraces: [
+                      { hop: 1, ip: '192.168.10.1', tag: '本地网关', tagType: 'default', asn: '局域网 (LAN Gateway)', loc: '上海办公区', rtt: '1ms', diffRtt: '-', loss: '0.0%', diffLoss: '-', jitter: '0ms', diffJitter: '-', status: '正常' },
+                      { hop: 2, ip: '116.228.89.1', tag: '出口网关', tagType: 'default', asn: 'AS4812 上海电信', loc: '中国·上海', rtt: '6ms', diffRtt: '+5ms', loss: '0.0%', diffLoss: '0%', jitter: '1ms', diffJitter: '+1ms', status: '正常' },
+                      { hop: 3, ip: '202.97.33.12', tag: '骨干路由', tagType: 'default', asn: 'AS4134 中国电信', loc: '中国·上海', rtt: '10ms', diffRtt: '+4ms', loss: '0.0%', diffLoss: '0%', jitter: '1ms', diffJitter: '0ms', status: '正常' },
+                      { hop: 4, ip: '10.240.12.1', tag: 'POP接入点', tagType: 'default', asn: 'SASE 深圳POP', loc: '中国·深圳', rtt: '12ms', diffRtt: '+2ms', loss: '0.0%', diffLoss: '0%', jitter: '1ms', diffJitter: '0ms', status: '正常' }
+                    ],
+                    hopConclusion: '终端至深圳POP接入段全链路 RTT 12ms，0 丢包，接入侧健康。'
+                  },
+                  {
+                    id: 'seg_pop_gw',
+                    name: 'pop-连接器段',
+                    status: '异常',
+                    summary: '深圳 POP 到总部01连接器骨干专线严重丢包 (5.2%)、高抖动 (48ms)、时延飙升至 145ms，Overlay 吞吐受限。',
+                    metrics: [
+                      { label: '隧道 RTT 时延', value: '145 ms', baseline: '35 ms', isAbnormal: true },
+                      { label: '数据包丢包率', value: '5.2%', baseline: '< 0.5%', isAbnormal: true },
+                      { label: '抖动 (Jitter)', value: '48 ms', baseline: '< 5 ms', isAbnormal: true },
+                      { label: '选路状态', value: '华南专线告警', baseline: '最优选路', isAbnormal: true }
+                    ],
+                    cause: '华南深圳 POP 骨干出向专线队列拥塞，触发告警。',
+                    hopTraces: [
+                      { hop: 1, ip: '10.240.12.1', tag: 'POP出口', tagType: 'default', asn: '深圳POP网关', loc: '中国·深圳', rtt: '12ms', diffRtt: '-', loss: '0.0%', diffLoss: '-', jitter: '1ms', diffJitter: '-', status: '正常' },
+                      { hop: 2, ip: '10.200.8.22', tag: '专线中间跳', tagType: 'default', asn: '华南骨干专线', loc: '专线传输', rtt: '98ms', diffRtt: '+86ms', loss: '4.8%', diffLoss: '+4.8%', jitter: '42ms', diffJitter: '+41ms', status: '异常' },
+                      { hop: 3, ip: '10.23.22.23', tag: '总部连接器', tagType: 'default', asn: '总部01连接器', loc: '总部机房', rtt: '145ms', diffRtt: '+47ms', loss: '5.2%', diffLoss: '+0.4%', jitter: '48ms', diffJitter: '+6ms', status: '异常' }
+                    ],
+                    hopConclusion: '从专线传输跳点开始突发 4.8% 丢包与 42ms 抖动，最终到达总部连接器累计丢包 5.2%，异常明确收敛于 POP-连接器专线传输段。'
                   },
                   {
                     id: 'seg_gw_app',
                     name: '连接器-应用段',
                     status: '正常',
-                    summary: '连接器至内网服务器内网链路畅通，端口 443 可达性 100%，代理转发无延迟。',
+                    summary: '总部01连接器到 OA 办公系统内网千兆直连，RTT 15ms，零丢包，服务处理迅速。',
                     metrics: [
-                      { label: '连接器出网 RTT', value: '35 ms', baseline: '30 ms', isAbnormal: false },
+                      { label: '连接器出网 RTT', value: '15 ms', baseline: '30 ms', isAbnormal: false },
                       { label: '端口 443 可达性', value: '100%', baseline: '100%', isAbnormal: false },
-                      { label: '代理转发耗时', value: '8 ms', baseline: '10 ms', isAbnormal: false }
+                      { label: 'TCP 建立耗时', value: '18 ms', baseline: '< 50 ms', isAbnormal: false }
                     ],
-                    cause: '内网网段物理连通性正常。'
+                    cause: '内网连接通畅，服务器响应迅速。'
                   }
                 ],
                 nodeDetails: [
@@ -619,155 +636,47 @@
                     id: 'node_terminal',
                     name: '终端',
                     status: '正常',
-                    summary: 'ThinkPad X1 客户端设备运行平稳，资源使用合理，Agent 状态 UP。',
+                    summary: '客户端设备运行平稳，Wi-Fi 信号优良 (-48dBm)，本地网关时延 1ms。',
                     metrics: [
-                      { label: '终端名称', value: 'ThinkPad X1 (张三的主机)' },
-                      { label: '操作系统', value: 'Windows 11 Enterprise x64' },
-                      { label: 'Agent 版本', value: 'v4.2.0-stable (健康)' },
-                      { label: 'IP / MAC', value: '10.18.24.36 (7C:10:C9:88)' },
-                      { label: 'CPU 利用率', value: '24.5%' },
-                      { label: '内存占用率', value: '68.2% (10.9GB / 16GB)' },
-                      { label: '当前 Wi-Fi', value: 'Corporate-5G (-48dBm)' },
-                      { label: '并发请求数', value: '12 个/min' }
+                      { label: '终端设备', value: 'ThinkPad T14 (研发机)' },
+                      { label: '操作系统', value: 'Windows 11 Enterprise' },
+                      { label: 'CPU 利用率', value: '18.5%' },
+                      { label: '内存占用率', value: '45.0%' }
                     ]
                   },
                   {
                     id: 'node_pop',
                     name: 'pop',
                     status: '正常',
-                    summary: '香港 POP01 代理节点集群状态良好，CPU 32%，内存充裕。',
+                    summary: '深圳 POP 节点负载平稳 (2.4 Gbps / 限流阈值 10 Gbps)，节点无过载。',
                     metrics: [
-                      { label: '接入 POP 名称', value: '华南-香港POP01' },
-                      { label: '节点服务状态', value: 'UP (集群健康度 99.9%)' },
-                      { label: '节点 CPU 利用率', value: '32.0%' },
-                      { label: '节点内存占用', value: '45.2%' },
-                      { label: '并发会话数', value: '14,200 会话' },
-                      { label: '代理转发吞吐', value: '1.2 Gbps' }
+                      { label: '接入 POP', value: '华南-深圳POP' },
+                      { label: '服务状态', value: 'UP (正常运行)' },
+                      { label: '当前吞吐', value: '2.4 Gbps' }
                     ]
                   },
                   {
                     id: 'node_connector',
                     name: '连接器',
                     status: '正常',
-                    summary: '华东内网网关连接器负载正常，活跃会话 2,850，未见 NAT 端口枯竭。',
+                    summary: '总部01连接器集群运行稳定，CPU 22%，活跃连接 3,400，100% 连通。',
                     metrics: [
-                      { label: '连接器名称', value: '华东内网网关-01' },
-                      { label: '部署形态', value: '云端私有化 Cluster' },
-                      { label: 'CPU 利用率', value: '28.4%' },
-                      { label: '内存占用率', value: '52.5% (4.2GB / 8GB)' },
-                      { label: 'NAT 端口占用', value: '34%' },
-                      { label: '活跃 TCP 会话', value: '2,850 会话' }
+                      { label: '连接器名称', value: '总部01连接器 (10.23.22.23)' },
+                      { label: '连接状态', value: '100% 连通 (Online)' },
+                      { label: 'CPU 负载', value: '22.0%' }
                     ]
                   },
                   {
                     id: 'node_app',
                     name: '应用',
-                    status: '异常',
-                    summary: '应用服务器硬件 CPU 利用率达到 91.2% 满载，内存 86.4%，导致 HTTP 504 响应超时。',
+                    status: '正常',
+                    summary: 'OA办公系统服务器健康，HTTP 200 OK，服务端处理耗时仅 12ms，无内部死锁。',
                     metrics: [
-                      { label: '应用名称 / 域名', value: 'OA系统 (oa.domain.com)' },
-                      { label: '目标服务器 IP', value: '192.168.10.50 (Port 443)' },
-                      { label: '服务器 CPU 利用率', value: '91.2% (高负载警告)', isAbnormal: true },
-                      { label: '服务器内存占用', value: '86.4% (27.6GB / 32GB)', isAbnormal: true },
-                      { label: '磁盘 I/O 读写时延', value: '45 ms (偏高)', isAbnormal: true },
-                      { label: 'HTTP 状态码', value: '504 Gateway Timeout', isAbnormal: true },
-                      { label: 'TTFB 首字节耗时', value: '680 ms (基线 95ms)', isAbnormal: true },
-                      { label: 'DNS 解析耗时', value: '12 ms' },
-                      { label: 'TCP 握手 / SSL', value: '35 ms / 48 ms' }
+                      { label: '目标应用', value: 'OA办公系统 (https://230.213.2.22)' },
+                      { label: 'HTTP 状态', value: '200 OK' },
+                      { label: '服务处理耗时', value: '12 ms' }
                     ]
                   }
-                ]
-              },
-              {
-                id: 'slice_2',
-                name: '切片2',
-                time: '10:15',
-                range: '10:10~10:15',
-                successRate: '92.1%',
-                status: '异常',
-                sampleIdx: 27,
-                topology: {
-                  client: { name: 'ThinkPad X1', sub: '终端', status: '正常' },
-                  segment1: { name: 'WiFi', delay: '85ms', loss: '2.4%', status: '异常', targetId: 'seg_client_pop' },
-                  pop: { name: '香港POP', sub: 'POP节点', status: '正常' },
-                  segment2: { name: '连接器', delay: '40ms', loss: '0.2%', status: '正常', targetId: 'seg_pop_gw' },
-                  gw: { name: 'GW连接器', sub: '连接器', status: '正常' },
-                  segment3: { name: '应用', delay: '30ms', loss: '0.0%', status: '正常', targetId: 'seg_gw_app' },
-                  app: { name: 'OA系统', sub: '应用', status: '正常', targetId: 'node_app' }
-                },
-                segmentDetails: [
-                  {
-                    id: 'seg_pop_gw',
-                    name: 'pop-连接器段',
-                    status: '正常',
-                    summary: 'POP 到连接器专线段平稳，RTT 40ms，无抛包。',
-                    metrics: [
-                      { label: '隧道 RTT 时延', value: '40 ms', baseline: '35 ms', isAbnormal: false },
-                      { label: '数据包丢包率', value: '0.2%', baseline: '< 0.5%', isAbnormal: false }
-                    ]
-                  },
-                  {
-                    id: 'seg_client_pop',
-                    name: '终端-pop段',
-                    status: '异常',
-                    summary: '终端无线 Wi-Fi 信号干扰剧烈 (-78dBm)，导致高重传与 2.4% 丢包。',
-                    metrics: [
-                      { label: 'Wi-Fi 信号 (RSSI)', value: '-78 dBm', baseline: '-50 dBm', isAbnormal: true },
-                      { label: 'Wi-Fi 重传率', value: '18.4%', baseline: '< 5.0%', isAbnormal: true },
-                      { label: '信道占用率', value: '75%', baseline: '< 60%', isAbnormal: true },
-                      { label: '近端 RTT 时延', value: '85 ms', baseline: '22 ms', isAbnormal: true }
-                    ]
-                  },
-                  {
-                    id: 'seg_gw_app',
-                    name: '连接器-应用段',
-                    status: '正常',
-                    summary: '内网段通信正常。',
-                    metrics: [
-                      { label: '连接器出网 RTT', value: '30 ms', baseline: '30 ms', isAbnormal: false }
-                    ]
-                  }
-                ],
-                nodeDetails: [
-                  { id: 'node_terminal', name: '终端', status: '正常', summary: '终端指标正常', metrics: [{ label: '终端名称', value: 'ThinkPad X1' }] },
-                  { id: 'node_pop', name: 'pop', status: '正常', summary: 'POP指标正常', metrics: [{ label: 'POP名称', value: '香港POP' }] },
-                  { id: 'node_connector', name: '连接器', status: '正常', summary: '连接器正常', metrics: [{ label: '连接器', value: '华东GW-01' }] },
-                  { id: 'node_app', name: '应用', status: '正常', summary: '应用正常', metrics: [{ label: '应用名称', value: 'OA系统' }] }
-                ]
-              },
-              {
-                id: 'slice_3',
-                name: '切片3',
-                time: '08:40',
-                range: '08:35~08:40',
-                successRate: '96.0%',
-                status: '异常',
-                sampleIdx: 8,
-                topology: {
-                  client: { name: 'ThinkPad X1', sub: '终端', status: '正常' },
-                  segment1: { name: 'WiFi', delay: '22ms', loss: '0.1%', status: '正常', targetId: 'seg_client_pop' },
-                  pop: { name: '香港POP', sub: 'POP节点', status: '正常' },
-                  segment2: { name: '连接器', delay: '110ms', loss: '3.2%', status: '异常', targetId: 'seg_pop_gw' },
-                  gw: { name: 'GW连接器', sub: '连接器', status: '正常' },
-                  segment3: { name: '应用', delay: '32ms', loss: '0.0%', status: '正常', targetId: 'seg_gw_app' },
-                  app: { name: 'OA系统', sub: '应用', status: '正常', targetId: 'node_app' }
-                },
-                segmentDetails: [
-                  {
-                    id: 'seg_pop_gw',
-                    name: 'pop-连接器段',
-                    status: '异常',
-                    summary: '早高峰 POP-连接器专线段丢包 3.2%，RTT 时延 110ms。',
-                    metrics: [{ label: '隧道 RTT 时延', value: '110 ms', baseline: '35 ms', isAbnormal: true }]
-                  },
-                  { id: 'seg_client_pop', name: '终端-pop段', status: '正常', summary: '终端段良好', metrics: [] },
-                  { id: 'seg_gw_app', name: '连接器-应用段', status: '正常', summary: '应用段良好', metrics: [] }
-                ],
-                nodeDetails: [
-                  { id: 'node_terminal', name: '终端', status: '正常', summary: '终端正常', metrics: [] },
-                  { id: 'node_pop', name: 'pop', status: '正常', summary: 'POP正常', metrics: [] },
-                  { id: 'node_connector', name: '连接器', status: '正常', summary: '连接器正常', metrics: [] },
-                  { id: 'node_app', name: '应用', status: '正常', summary: '应用正常', metrics: [] }
                 ]
               }
             ]
@@ -1024,14 +933,17 @@
                 loadedCustom = true;
               } else {
                 this.queryType = '用户';
-                const nameOnly = paramName || '张三';
+                const nameOnly = paramName || '刘洋';
                 const fullUserName = paramEmpId ? `${paramEmpId}（${nameOnly}）` : nameOnly;
                 const deptText = paramDept || '深信服科技 / 研发中心 / DEM产品部';
 
                 if (paramName?.includes('何总') || paramEmpId === '45232' || paramEmpId === '4343' || paramEmpId === '45343' || nameOnly?.includes('何总')) {
                   this.loadHeZongScriptData(fullUserName, deptText);
-                } else {
+                } else if (paramName?.toLowerCase().includes('maria')) {
                   this.loadDigiPlusMariaScriptData();
+                } else {
+                  // 默认及刘洋/陈晨等用户加载 OA系统-深圳POP专线丢包故障剧本
+                  this.loadLiuYangOaScriptData(fullUserName, deptText, paramEmpId, paramPop);
                 }
                 // 覆盖剧本默认头部字段为真实用户信息
                 this.userName = fullUserName;
@@ -1107,15 +1019,13 @@
                   const name = selectedItem?.label || `${queryValue}`;
                   const dept = selectedItem?.sub || selectedItem?.dept || '深信服科技 / 研发中心 / DEM产品部';
                   const nameOnly = selectedItem?.nameOnly || queryValue;
+                  const empId = valLower.includes('2024118') || nameLower.includes('陈晨') ? '2024118' : (valLower.includes('2024106') || nameLower.includes('刘洋') ? '2024106' : '');
 
                   this.userName = name;
                   this.userDept = dept;
-                  // 动态赋值头部统计字段（应用数、体验分布）
                   applyHeaderStats(selectedItem);
 
-                  // 图表数据复用 DigiPlus 剧本作为演示底座，然后用真实用户名替换显示
-                  this.loadDigiPlusMariaScriptData();
-                  // 重新覆盖 loadDigiPlusMariaScriptData 设置的头部字段
+                  this.loadLiuYangOaScriptData(name, dept, empId, '深圳POP');
                   this.userName = name;
                   this.userDept = dept;
                   applyHeaderStats(selectedItem);
@@ -1139,10 +1049,10 @@
             }
           }
 
-          // 默认进入页面未带特殊参数时，默认加载 DigiPlus 剧本 Maria 数据，便于全流程演示
+          // 默认进入页面未带特殊参数时，默认加载刘洋 OA 排障剧本数据，便于全流程演示
           if (!loadedCustom) {
             this.queryType = '用户';
-            this.loadDigiPlusMariaScriptData();
+            this.loadLiuYangOaScriptData('2024106（刘洋）', '深信服科技 / 研发中心 / DEM产品部 (接入深圳POP)', '2024106', '深圳POP');
           }
 
           // 初始化前置槽位展示应用 (异常应用优先置顶，正常应用收纳)
@@ -1162,6 +1072,7 @@
           const isPoorApp = app.experience === '差';
           const isFairApp = app.experience === '一般';
           const isHeZong = this.userName?.includes('何总') || this.userId === 'usr_hezong';
+          const isOaIncident = (app.name === 'OA系统' || app.id === 'app_oa' || this.userId === 'usr_liuyang' || this.userId === 'usr_chenchen' || this.userName?.includes('刘洋') || this.userName?.includes('陈晨'));
 
           // 预设离散真实访问槽位配置 (08:00 ~ 18:00，共 600 分钟)
           let activeSlotConfigs = [];
@@ -1183,6 +1094,25 @@
               { slot: 26, minute: 495, exp: isPoorApp ? '差' : '正常', score: isPoorApp ? 25 : 94, ttfb: isPoorApp ? 1450 : 64, loss: isPoorApp ? '5.5%' : '0.0%', sr: isPoorApp ? '99.6%' : '100%' }, // 16:15
               { slot: 27, minute: 502, exp: isPoorApp ? '差' : '正常', score: isPoorApp ? 36 : 91, ttfb: isPoorApp ? 1320 : 72, loss: isPoorApp ? '4.6%' : '0.0%', sr: isPoorApp ? '99.8%' : '100%' }, // 16:22
               { slot: 28, minute: 510, exp: isPoorApp ? '差' : '正常', score: isPoorApp ? 30 : 93, ttfb: isPoorApp ? 1390 : 68, loss: isPoorApp ? '5.0%' : '0.0%', sr: isPoorApp ? '99.7%' : '100%' }  // 16:30
+            ];
+          } else if (isOaIncident) {
+            // 刘洋/陈晨 OA系统 15:20 深圳POP故障剧本 (08:30~15:00 正常；15:20~15:55 深圳POP专线丢包故障)
+            activeSlotConfigs = [
+              { slot: 1, minute: 30, exp: '正常', score: 95, ttfb: 45, loss: '0.0%', sr: '100%' },   // 08:30
+              { slot: 3, minute: 75, exp: '正常', score: 92, ttfb: 42, loss: '0.0%', sr: '100%' },   // 09:15
+              { slot: 5, minute: 120, exp: '正常', score: 96, ttfb: 48, loss: '0.0%', sr: '100%' },  // 10:00
+              { slot: 8, minute: 190, exp: '正常', score: 90, ttfb: 44, loss: '0.0%', sr: '100%' },  // 11:10
+              { slot: 15, minute: 340, exp: '正常', score: 91, ttfb: 46, loss: '0.0%', sr: '100%' }, // 13:40
+              { slot: 18, minute: 390, exp: '正常', score: 93, ttfb: 50, loss: '0.0%', sr: '100%' }, // 14:30
+              { slot: 20, minute: 420, exp: '正常', score: 89, ttfb: 48, loss: '0.1%', sr: '99.8%' },// 15:00
+              // === 15:20 - 15:55 深圳POP到总部连接器专线丢包故障期 (15:20 为主切片) ===
+              { slot: 22, minute: 440, exp: isPoorApp ? '差' : '正常', score: isPoorApp ? 32 : 94, ttfb: isPoorApp ? 1420 : 45, loss: isPoorApp ? '5.2%' : '0.0%', sr: isPoorApp ? '94.8%' : '100%' }, // 15:20 (典型故障主点)
+              { slot: 23, minute: 445, exp: isPoorApp ? '差' : '正常', score: isPoorApp ? 28 : 92, ttfb: isPoorApp ? 1380 : 48, loss: isPoorApp ? '4.9%' : '0.0%', sr: isPoorApp ? '93.6%' : '100%' }, // 15:25
+              { slot: 25, minute: 455, exp: isPoorApp ? '差' : '正常', score: isPoorApp ? 26 : 95, ttfb: isPoorApp ? 1450 : 42, loss: isPoorApp ? '5.5%' : '0.0%', sr: isPoorApp ? '92.8%' : '100%' }, // 15:35
+              { slot: 27, minute: 465, exp: isPoorApp ? '差' : '正常', score: isPoorApp ? 34 : 91, ttfb: isPoorApp ? 1350 : 46, loss: isPoorApp ? '4.8%' : '0.0%', sr: isPoorApp ? '94.2%' : '100%' }, // 15:45
+              { slot: 29, minute: 475, exp: isPoorApp ? '差' : '正常', score: isPoorApp ? 42 : 93, ttfb: isPoorApp ? 1280 : 50, loss: isPoorApp ? '4.2%' : '0.0%', sr: isPoorApp ? '95.5%' : '100%' }, // 15:55
+              { slot: 32, minute: 510, exp: '正常', score: 94, ttfb: 52, loss: '0.0%', sr: '100%' }, // 16:30
+              { slot: 35, minute: 555, exp: '正常', score: 95, ttfb: 45, loss: '0.0%', sr: '100%' }  // 17:15
             ];
           } else {
             activeSlotConfigs = [
@@ -1281,10 +1211,15 @@
 
           this.samplePoints = points;
 
-          // 默认选中主故障点 (何总剧本选中 16:00，其他默认 10:00 或首个异常点)
-          const defaultIdx = isHeZong 
-            ? points.findIndex(p => p.time === '16:00' || p.experience === '差')
-            : points.findIndex(p => p.time === '10:00' || p.experience === '差');
+          // 默认选中主故障点 (何总剧本选中 16:00，OA剧本选中 15:20，其他默认 10:00 或首个异常点)
+          let defaultIdx = 0;
+          if (isHeZong) {
+            defaultIdx = points.findIndex(p => p.time === '16:00' || p.experience === '差');
+          } else if (isOaIncident) {
+            defaultIdx = points.findIndex(p => p.time === '15:20' || p.experience === '差');
+          } else {
+            defaultIdx = points.findIndex(p => p.time === '10:00' || p.experience === '差');
+          }
           this.selectedSampleIdx = defaultIdx !== -1 ? defaultIdx : 0;
         },
 
@@ -2149,6 +2084,264 @@
             { id: 'app_fapiao', name: '电子发票平台', domain: 'https://invoice.sangfor.corp', experience: '正常', tag: '财务发票', summary: '发票开具正常。', abnormalExplain: '无异常', slices: [] },
             { id: 'app_kb', name: '业务知识库', domain: 'https://kb.sangfor.corp', experience: '正常', tag: '运营支持', summary: '知识库访问正常。', abnormalExplain: '无异常', slices: [] },
             { id: 'app_test', name: '研发测试平台', domain: 'https://test.sangfor.corp', experience: '正常', tag: '测试环境', summary: '自动化流水线正常。', abnormalExplain: '无异常', slices: [] }
+          ];
+
+          this.activeAppId = 'app_oa';
+          this.initPinnedApps();
+        },
+
+        // 加载完整的【上海研发中心刘洋/陈晨访问OA系统卡慢 (华南深圳POP骨干专线丢包故障)】排障剧本 Mock 数据
+        loadLiuYangOaScriptData(userDisplayName, userDept, paramEmpId, paramPop) {
+          const isChenChen = (userDisplayName?.includes('陈晨') || paramEmpId === '2024118');
+          const empId = isChenChen ? '2024118' : '2024106';
+          const nameOnly = isChenChen ? '陈晨' : '刘洋';
+          const fullUserName = userDisplayName || `${empId}（${nameOnly}）`;
+          const deptText = userDept || '深信服科技 / 研发中心 / DEM产品部';
+
+          this.queryType = '用户';
+          this.userName = fullUserName;
+          this.userDept = deptText;
+          this.userId = isChenChen ? 'usr_chenchen' : 'usr_liuyang';
+          this.userTerminal = isChenChen ? 'MacBook Pro 14 (研发专用)' : 'ThinkPad T14 (研发专用)';
+          this.userPop = paramPop || '深圳POP';
+          this.overallExperience = '差';
+          this.totalApps = isChenChen ? 14 : 18;
+          this.poorApps = isChenChen ? 5 : 8;
+          this.fairApps = isChenChen ? 2 : 1;
+          this.normalApps = isChenChen ? 7 : 9;
+
+          this.rawAppList = [
+            {
+              id: 'app_oa',
+              name: 'OA系统',
+              domain: 'https://230.213.2.22',
+              experience: '差',
+              tag: '内网办公',
+              summary: `${nameOnly}在上海办公室通过 SASE 访问 OA系统 响应极慢（真实访问 TTFB 1,420ms，15:20~15:55 持续恶化）。排查确认用户本地 PC 终端及上海局域网正常（本地网关时延 1ms / 丢包 0%），异常收敛于华南深圳 POP 到总部01连接器的 SASE 骨干专线段（专线丢包 5.2%、抖动 48ms、专线 RTT 145ms）。后端总部连接器与 OA 应用服务器自身处理正常（探针 TTFB 12ms，HTTP 200，错误率 0%）。`,
+              abnormalExplain: '深圳POP到总部01连接器传输段骨干专线丢包 5.2%、网络抖动 48ms、网络 RTT 145ms，导致访问 OA系统 严重卡慢。',
+              aiSummary: {
+                summaryHtml: `用户本次访问 <span class="font-bold text-[#2F3540]">OA系统</span> 体验差（真实访问 TTFB 1,420ms / 基线 100ms），排查确认异常收敛于<span class="text-[#F52727] font-bold">“华南深圳POP到总部01连接器传输段（骨干专线网络劣化）”</span>（专线丢包 5.2%、抖动 48ms、RTT 145ms）。终端本地接入与局域网正常，后端总部连接器与 OA 应用服务器均健康（探针 TTFB 12ms，HTTP 200）。此故障为 POP 专线群体性问题，影响上海、东京、成都分支经深圳 POP 接入的 <b class="text-[#F52727]">12 名用户</b>（共 34 名用户），建议协调 SASE 平台团队切换备用 POP（如上海POP）或排查专线运营商。`,
+                problemLocation: {
+                  tag: 'SASE 骨干网专线异常',
+                  abnormalPoint: '深圳 POP ➔ 总部01连接器传输段（华南专线告警）',
+                  abnormalFeature: '骨干专线丢包率 5.2%，抖动 48ms，TTFB 首字节耗时延展至 1,420ms。本地终端 Wi-Fi/LAN 接入与 OA 后端服务正常。'
+                },
+                impactScope: {
+                  users: `${nameOnly}及同走深圳 POP 接入的 12 名用户 (占 OA 受损用户的 100%)`,
+                  branches: '上海华东运营中心、东京海外办事处、成都西南研发基地',
+                  apps: 'OA系统'
+                },
+                advice: {
+                  stakeholders: 'SASE 平台运维团队 & 骨干网专线团队',
+                  actions: '1. 将受影响的上海/东京/成都分支用户接入策略临时调度切换至上海/广州备用 POP；2. 提交逐跳时延丢包证据，排查华南骨干专线光缆及交换设备。'
+                }
+              },
+              slices: [
+                {
+                  id: 'slice_1',
+                  name: '切片1 (15:20)',
+                  time: '15:20',
+                  minute: 440,
+                  range: '15:15~15:20',
+                  successRate: '94.8%',
+                  status: '异常',
+                  sampleIdx: 7,
+                  analysis: {
+                    rootCause: '异常收敛于<span class="text-[#F52727] font-medium">【华南深圳POP到总部01连接器骨干专线传输段】</span>。深圳POP至总部连接器专线队列拥塞，丢包达 5.2%，抖动 48ms，导致 TTFB 耗时飙升至 1,420ms。',
+                    feature: '骨干专线丢包 5.2%（基线 <0.5%）、抖动 48ms（基线 <5ms）、专线 RTT 145ms（基线 35ms）。用户终端本地接入（时延 12ms，丢包 0%）与后端 OA 服务器（耗时 12ms）均正常。',
+                    advice: '责任归属【SASE 骨干专线网络】。建议 SASE 运营团队将上海分支用户流量临时调度切换至上海本地 POP，并联系专线运营商排查深圳至总部光纤专线。'
+                  },
+                  topology: {
+                    client: { name: isChenChen ? '陈晨 MacBook' : '刘洋 ThinkPad', sub: '终端 (上海局域网)', status: '正常', targetId: 'node_terminal' },
+                    segment1: { name: '本地网络/接入', delay: '12ms', loss: '0.0%', jitter: '1ms', status: '正常', targetId: 'seg_client_pop' },
+                    pop: { name: '深圳POP', sub: '接入POP (跨区上车)', status: '正常', targetId: 'node_pop' },
+                    segment2: { name: 'POP-连接器专线', delay: '145ms', loss: '5.2%', jitter: '48ms', status: '异常', targetId: 'seg_pop_gw' },
+                    gw: { name: '总部01连接器', sub: '连接器 (正常)', status: '正常', targetId: 'node_connector' },
+                    segment3: { name: '连接器-应用', delay: '15ms', loss: '0.0%', jitter: '0ms', status: '正常', targetId: 'seg_gw_app' },
+                    app: { name: 'OA系统', sub: '内网应用 (正常)', status: '正常', targetId: 'node_app' }
+                  },
+                  segmentDetails: [
+                    {
+                      id: 'seg_client_pop',
+                      name: '终端-pop段',
+                      status: '正常',
+                      summary: '终端无线与上海本地电信宽带接入通畅，时延 12ms，零丢包，抖动 1ms。',
+                      metrics: [
+                        { label: 'Wi-Fi 信号 (RSSI)', value: '-48 dBm', baseline: '-50 dBm', isAbnormal: false },
+                        { label: '丢包率', value: '0.0%', baseline: '< 0.5%', isAbnormal: false },
+                        { label: 'RTT 时延', value: '12 ms', baseline: '< 50 ms', isAbnormal: false }
+                      ],
+                      hopTraces: [
+                        { hop: 1, ip: '192.168.10.1', tag: '本地网关', tagType: 'default', asn: '局域网 (LAN Gateway)', loc: '上海办公区', rtt: '1ms', diffRtt: '-', loss: '0.0%', diffLoss: '-', jitter: '0ms', diffJitter: '-', status: '正常' },
+                        { hop: 2, ip: '116.228.89.1', tag: '出口网关', tagType: 'default', asn: 'AS4812 上海电信', loc: '中国·上海', rtt: '6ms', diffRtt: '+5ms', loss: '0.0%', diffLoss: '0%', jitter: '1ms', diffJitter: '+1ms', status: '正常' },
+                        { hop: 3, ip: '202.97.33.12', tag: '骨干路由', tagType: 'default', asn: 'AS4134 中国电信', loc: '中国·上海', rtt: '10ms', diffRtt: '+4ms', loss: '0.0%', diffLoss: '0%', jitter: '1ms', diffJitter: '0ms', status: '正常' },
+                        { hop: 4, ip: '10.240.12.1', tag: 'POP接入点', tagType: 'default', asn: 'SASE 深圳POP', loc: '中国·深圳', rtt: '12ms', diffRtt: '+2ms', loss: '0.0%', diffLoss: '0%', jitter: '1ms', diffJitter: '0ms', status: '正常' }
+                      ],
+                      hopConclusion: '终端至深圳POP接入段全链路 RTT 12ms，0 丢包，接入侧健康。'
+                    },
+                    {
+                      id: 'seg_pop_gw',
+                      name: 'pop-连接器段',
+                      status: '异常',
+                      summary: '深圳 POP 到总部01连接器骨干专线严重丢包 (5.2%)、高抖动 (48ms)、时延飙升至 145ms，Overlay 吞吐受限。',
+                      metrics: [
+                        { label: '隧道 RTT 时延', value: '145 ms', baseline: '35 ms', isAbnormal: true },
+                        { label: '数据包丢包率', value: '5.2%', baseline: '< 0.5%', isAbnormal: true },
+                        { label: '抖动 (Jitter)', value: '48 ms', baseline: '< 5 ms', isAbnormal: true },
+                        { label: '选路状态', value: '华南专线告警', baseline: '最优选路', isAbnormal: true }
+                      ],
+                      cause: '华南深圳 POP 骨干出向专线队列拥塞，触发告警。',
+                      hopTraces: [
+                        { hop: 1, ip: '10.240.12.1', tag: 'POP出口', tagType: 'default', asn: '深圳POP网关', loc: '中国·深圳', rtt: '12ms', diffRtt: '-', loss: '0.0%', diffLoss: '-', jitter: '1ms', diffJitter: '-', status: '正常' },
+                        { hop: 2, ip: '10.200.8.22', tag: '专线中间跳', tagType: 'default', asn: '华南骨干专线', loc: '专线传输', rtt: '98ms', diffRtt: '+86ms', loss: '4.8%', diffLoss: '+4.8%', jitter: '42ms', diffJitter: '+41ms', status: '异常' },
+                        { hop: 3, ip: '10.23.22.23', tag: '总部连接器', tagType: 'default', asn: '总部01连接器', loc: '总部机房', rtt: '145ms', diffRtt: '+47ms', loss: '5.2%', diffLoss: '+0.4%', jitter: '48ms', diffJitter: '+6ms', status: '异常' }
+                      ],
+                      hopConclusion: '从专线传输跳点开始突发 4.8% 丢包与 42ms 抖动，最终到达总部连接器累计丢包 5.2%，异常明确收敛于 POP-连接器专线传输段。'
+                    },
+                    {
+                      id: 'seg_gw_app',
+                      name: '连接器-应用段',
+                      status: '正常',
+                      summary: '总部01连接器到 OA 办公系统内网千兆直连，RTT 15ms，零丢包，服务处理迅速。',
+                      metrics: [
+                        { label: '连接器出网 RTT', value: '15 ms', baseline: '30 ms', isAbnormal: false },
+                        { label: '端口 443 可达性', value: '100%', baseline: '100%', isAbnormal: false },
+                        { label: 'TCP 建立耗时', value: '18 ms', baseline: '< 50 ms', isAbnormal: false }
+                      ],
+                      cause: '内网连接通畅，服务器响应迅速。'
+                    }
+                  ],
+                  nodeDetails: [
+                    {
+                      id: 'node_terminal',
+                      name: '终端',
+                      status: '正常',
+                      summary: `${isChenChen ? 'MacBook Pro' : 'ThinkPad T14'} 客户端设备运行平稳，Wi-Fi 信号优良 (-48dBm)，本地网关时延 1ms。`,
+                      metrics: [
+                        { label: '终端设备', value: isChenChen ? 'MacBook Pro 14 (研发机)' : 'ThinkPad T14 (研发机)' },
+                        { label: '操作系统', value: isChenChen ? 'macOS Sonoma 14.5' : 'Windows 11 Enterprise' },
+                        { label: 'CPU 利用率', value: '18.5%' },
+                        { label: '内存占用率', value: '45.0%' }
+                      ]
+                    },
+                    {
+                      id: 'node_pop',
+                      name: 'pop',
+                      status: '正常',
+                      summary: '深圳 POP 节点负载平稳 (2.4 Gbps / 限流阈值 10 Gbps)，节点无过载。',
+                      metrics: [
+                        { label: '接入 POP', value: '华南-深圳POP' },
+                        { label: '服务状态', value: 'UP (正常运行)' },
+                        { label: '当前吞吐', value: '2.4 Gbps' }
+                      ]
+                    },
+                    {
+                      id: 'node_connector',
+                      name: '连接器',
+                      status: '正常',
+                      summary: '总部01连接器集群运行稳定，CPU 22%，活跃连接 3,400，100% 连通。',
+                      metrics: [
+                        { label: '连接器名称', value: '总部01连接器 (10.23.22.23)' },
+                        { label: '连接状态', value: '100% 连通 (Online)' },
+                        { label: 'CPU 负载', value: '22.0%' }
+                      ]
+                    },
+                    {
+                      id: 'node_app',
+                      name: '应用',
+                      status: '正常',
+                      summary: 'OA办公系统服务器健康，HTTP 200 OK，服务端处理耗时仅 12ms，无内部死锁。',
+                      metrics: [
+                        { label: '目标应用', value: 'OA办公系统 (https://230.213.2.22)' },
+                        { label: 'HTTP 状态', value: '200 OK' },
+                        { label: '服务处理耗时', value: '12 ms' }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  id: 'slice_2',
+                  name: '切片2 (15:35)',
+                  time: '15:35',
+                  minute: 455,
+                  range: '15:30~15:35',
+                  successRate: '92.8%',
+                  status: '异常',
+                  sampleIdx: 9,
+                  analysis: {
+                    rootCause: '异常收敛于<span class="text-[#F52727] font-medium">【华南深圳POP到总部01连接器骨干专线传输段】</span>。故障持续，专线丢包率升至 5.5%，时延 150ms。',
+                    feature: '骨干专线丢包 5.5%，专线抖动 52ms，TTFB 1,450ms。',
+                    advice: '建议联系 SASE 运营团队调优 BGP 选路或切换备用专线。'
+                  },
+                  topology: {
+                    client: { name: isChenChen ? '陈晨 MacBook' : '刘洋 ThinkPad', sub: '终端 (上海局域网)', status: '正常', targetId: 'node_terminal' },
+                    segment1: { name: '本地网络/接入', delay: '12ms', loss: '0.0%', jitter: '1ms', status: '正常', targetId: 'seg_client_pop' },
+                    pop: { name: '深圳POP', sub: '接入POP (跨区上车)', status: '正常', targetId: 'node_pop' },
+                    segment2: { name: 'POP-连接器专线', delay: '150ms', loss: '5.5%', jitter: '52ms', status: '异常', targetId: 'seg_pop_gw' },
+                    gw: { name: '总部01连接器', sub: '连接器 (正常)', status: '正常', targetId: 'node_connector' },
+                    segment3: { name: '连接器-应用', delay: '15ms', loss: '0.0%', jitter: '0ms', status: '正常', targetId: 'seg_gw_app' },
+                    app: { name: 'OA系统', sub: '内网应用 (正常)', status: '正常', targetId: 'node_app' }
+                  },
+                  segmentDetails: [
+                    { id: 'seg_client_pop', name: '终端-pop段', status: '正常', summary: '终端接入段保持健康，RTT 12ms，丢包 0.0%。', metrics: [{ label: 'RTT 时延', value: '12 ms' }] },
+                    { id: 'seg_pop_gw', name: 'pop-连接器段', status: '异常', summary: '专线丢包率 5.5%，网络抖动 52ms，持续影响应用响应。', metrics: [{ label: '丢包率', value: '5.5%', isAbnormal: true }] },
+                    { id: 'seg_gw_app', name: '连接器-应用段', status: '正常', summary: '内网千兆互通，RTT 15ms，丢包 0.0%。', metrics: [{ label: 'RTT 时延', value: '15 ms' }] }
+                  ],
+                  nodeDetails: [
+                    { id: 'node_terminal', name: '终端', status: '正常', summary: '终端运行正常。' },
+                    { id: 'node_pop', name: 'pop', status: '正常', summary: '深圳 POP 节点健康。' },
+                    { id: 'node_connector', name: '连接器', status: '正常', summary: '总部连接器负载平稳。' },
+                    { id: 'node_app', name: '应用', status: '正常', summary: 'OA 服务端响应正常。' }
+                  ]
+                }
+              ]
+            },
+            {
+              id: 'app_crm',
+              name: 'Salesforce CRM',
+              domain: 'https://salesforce.company.com',
+              experience: '一般',
+              tag: 'SaaS 业务',
+              summary: '海外 SaaS 应用访问偶发轻微绕行抖动，平均响应耗时 180ms。',
+              abnormalExplain: '国际出口网络轻微抖动，整体可用性 98.5%。',
+              aiSummary: {
+                summaryHtml: '访问 <span class="font-bold text-[#2F3540]">Salesforce CRM</span> 体验一般，主要由于海外公网传输偶发轻微抖动，不影响核心功能操作。',
+                problemLocation: { tag: '公网抖动', abnormalPoint: '国际互联出口', abnormalFeature: 'RTT 180ms，抖动 12ms' },
+                impactScope: { users: `${nameOnly}`, branches: '上海办公区', apps: 'Salesforce CRM' },
+                advice: { stakeholders: '网络运营团队', actions: '持续观察国际链路质量。' }
+              },
+              slices: []
+            },
+            {
+              id: 'app_erp',
+              name: '企业内部 ERP',
+              domain: 'https://erp.sangfor.corp',
+              experience: '正常',
+              tag: '内网应用',
+              summary: '企业 ERP 系统访问顺畅，走上海本地连接器，全链路指标健康。',
+              abnormalExplain: '全链路正常。',
+              slices: []
+            },
+            {
+              id: 'app_git',
+              name: '内网 GitLab',
+              domain: 'https://git.sangfor.corp',
+              experience: '正常',
+              tag: '研发协作',
+              summary: 'GitLab 代码拉取与提交迅速，网络延时 15ms，零丢包。',
+              abnormalExplain: '全链路正常。',
+              slices: []
+            },
+            {
+              id: 'app_feishu',
+              name: 'SaaS 飞书平台',
+              domain: 'https://feishu.cn',
+              experience: '正常',
+              tag: '协同办公',
+              summary: '飞书音视频与消息收发流畅，TTFB 28ms。',
+              abnormalExplain: '全链路正常。',
+              slices: []
+            }
           ];
 
           this.activeAppId = 'app_oa';
