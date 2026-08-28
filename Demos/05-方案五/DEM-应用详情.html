@@ -6,12 +6,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>DEM-应用详情 - 访问体验监控</title>
 
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link
-    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@400;500;600;700&display=swap"
-    rel="stylesheet">
-
   <link rel="stylesheet" href="../assets/css/css-overrides.css">
   <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/collapse@3.x.x/dist/cdn.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
@@ -51,6 +45,17 @@
     .dem-select:focus {
       border-color: #1C6EFF;
       outline: none;
+    }
+
+    /* 采样点时间线竖条轻量发光与悬停交互 */
+    .timeline-bar-wrapper {
+      transition: transform 0.15s ease;
+    }
+    .timeline-bar-wrapper:hover {
+      transform: translateY(-2px);
+    }
+    .selected-bar-glow {
+      box-shadow: 0 0 6px rgba(217, 54, 62, 0.4);
     }
 
     /* 下拉选择框快捷清除包装器与图标 */
@@ -212,6 +217,240 @@
   </style>
 
   <script>
+    // 预计算静态采样点数据与时间映射（避免在响应式 Getter 中重复计算）
+    const STATIC_TIMELINE_SLICES = [];
+    const STATIC_TIMELINE_MAP = {};
+    const STATIC_NORMAL_TIMELINE_SLICES = [];
+    (function initStaticTimeline() {
+      const startHour = 8;
+      const endHour = 16;
+      let idx = 0;
+      for (let h = startHour; h <= endHour; h++) {
+        const maxM = (h === endHour) ? 0 : 55;
+        for (let m = 0; m <= maxM; m += 5) {
+          const minuteTotal = (h - 8) * 60 + m; // 0 ~ 480
+          const timeStr = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+          
+          let status = '正常';
+          let score = 94;
+          let avgTtfb = '45ms';
+          let successRate = '99.8%';
+
+          if (minuteTotal >= 440 && minuteTotal <= 475) {
+            status = '差';
+            const faultOffsets = {
+              '15:20': { score: 32, ttfb: '78ms', sr: '94.8%' },
+              '15:25': { score: 28, ttfb: '85ms', sr: '93.6%' },
+              '15:30': { score: 35, ttfb: '76ms', sr: '94.1%' },
+              '15:35': { score: 26, ttfb: '88ms', sr: '92.8%' },
+              '15:40': { score: 30, ttfb: '80ms', sr: '93.5%' },
+              '15:45': { score: 34, ttfb: '75ms', sr: '94.2%' },
+              '15:50': { score: 38, ttfb: '72ms', sr: '94.9%' },
+              '15:55': { score: 45, ttfb: '68ms', sr: '95.5%' }
+            };
+            const fo = faultOffsets[timeStr] || { score: 30, ttfb: '78ms', sr: '94.0%' };
+            score = fo.score;
+            avgTtfb = fo.ttfb;
+            successRate = fo.sr;
+          } else if (timeStr === '08:45') {
+            status = '差';
+            score = 36;
+            avgTtfb = '82ms';
+            successRate = '93.2%';
+          } else if (timeStr === '10:00') {
+            status = '差';
+            score = 34;
+            avgTtfb = '80ms';
+            successRate = '93.2%';
+          } else if (timeStr === '11:15') {
+            status = '一般';
+            score = 72;
+            avgTtfb = '58ms';
+            successRate = '97.5%';
+          } else if (timeStr === '14:10') {
+            status = '一般';
+            score = 70;
+            avgTtfb = '56ms';
+            successRate = '97.5%';
+          } else {
+            score = 92 + (idx % 5);
+            avgTtfb = (42 + (idx % 4) * 2) + 'ms';
+            successRate = (99.6 + (idx % 3) * 0.1).toFixed(1) + '%';
+          }
+
+          let prevM = m - 5;
+          let prevH = h;
+          if (prevM < 0) {
+            prevM = 55;
+            prevH = h - 1;
+          }
+          const prevTimeStr = `${String(prevH).padStart(2, '0')}:${String(prevM).padStart(2, '0')}`;
+          const x = 48 + (minuteTotal / 480) * 928;
+          let y = 28;
+          if (status === '正常') {
+            y = 38 - ((score - 80) / 20) * 22;
+          } else if (status === '一般') {
+            y = 74 - ((score - 60) / 20) * 22;
+          } else {
+            y = 110 - (score / 60) * 22;
+          }
+
+          const slice = {
+            id: idx,
+            time: timeStr,
+            timeRange: `${prevTimeStr}~${timeStr}`,
+            minute: minuteTotal,
+            status: status,
+            score: score,
+            avgTtfb: avgTtfb,
+            successRate: successRate,
+            x: Number(x.toFixed(1)),
+            y: Number(y.toFixed(1)),
+            isPoor: status === '差',
+            isFair: status === '一般',
+            isNormal: status === '正常'
+          };
+          STATIC_TIMELINE_SLICES.push(slice);
+          STATIC_TIMELINE_MAP[timeStr] = slice;
+
+          // 正常线路切片序列 (全时段健康)
+          const normalScore = 93 + (idx % 4);
+          const normalY = 38 - ((normalScore - 80) / 20) * 22;
+          STATIC_NORMAL_TIMELINE_SLICES.push({
+            id: idx,
+            time: timeStr,
+            timeRange: `${prevTimeStr}~${timeStr}`,
+            minute: minuteTotal,
+            status: '正常',
+            score: normalScore,
+            avgTtfb: (40 + (idx % 3) * 2) + 'ms',
+            successRate: '99.9%',
+            x: Number(x.toFixed(1)),
+            y: Number(normalY.toFixed(1)),
+            isPoor: false,
+            isFair: false,
+            isNormal: true
+          });
+
+          idx++;
+        }
+      }
+    })();
+
+    const STATIC_TREND_POLYLINE_POINTS = STATIC_TIMELINE_SLICES.map(p => `${p.x},${p.y}`).join(' ');
+    const STATIC_POOR_SEGMENT_POINTS = STATIC_TIMELINE_SLICES.filter(p => p.minute >= 440 && p.minute <= 475).map(p => `${p.x},${p.y}`).join(' ');
+    const STATIC_NORMAL_TREND_POLYLINE_POINTS = STATIC_NORMAL_TIMELINE_SLICES.map(p => `${p.x},${p.y}`).join(' ');
+
+    // 静态地理与 POP 数据缓存构建
+    const BASE_GEO_NORMAL = [
+      { id: 'geo_sh', name: '中国.上海', users: '1734人', branches: '1分支', share: '27.5%', shareVal: 27.5, abnormal: false, targetPopId: 'pop_sz', targetPops: [{ popId: 'pop_sh', isAbnormal: false, loss: '0.0%', ttfb: '18ms' }, { popId: 'pop_bj', isAbnormal: false, loss: '0.0%', ttfb: '24ms' }], desc: '华东大区总部' },
+      { id: 'geo_tyo', name: '日本.东京', users: '999人', branches: '1分支', share: '15.8%', shareVal: 15.8, abnormal: false, targetPopId: 'pop_sz', targetPops: [{ popId: 'pop_tyo', isAbnormal: false, loss: '0.0%', ttfb: '15ms' }, { popId: 'pop_bj', isAbnormal: false, loss: '0.0%', ttfb: '32ms' }], desc: '亚太海外办事处' },
+      { id: 'geo_cd', name: '中国.成都', users: '580人', branches: '1分支', share: '7.2%', shareVal: 7.2, abnormal: false, targetPopId: 'pop_sz', targetPops: [{ popId: 'pop_gz', isAbnormal: false, loss: '0.0%', ttfb: '28ms' }], desc: '西南运营分支' },
+      { id: 'geo_xa', name: '中国.西安', users: '410人', branches: '1分支', share: '5.2%', shareVal: 5.2, abnormal: false, targetPopId: 'pop_bj', targetPops: [{ popId: 'pop_bj', isAbnormal: false, loss: '0.0%', ttfb: '22ms' }, { popId: 'pop_tyo', isAbnormal: false, loss: '0.0%', ttfb: '45ms' }], desc: '西北研发基地' },
+      { id: 'geo_nj', name: '中国.南京', users: '460人', branches: '1分支', share: '5.8%', shareVal: 5.8, abnormal: false, targetPopId: 'pop_sh', targetPops: [{ popId: 'pop_sh', isAbnormal: false, loss: '0.0%', ttfb: '16ms' }, { popId: 'pop_gz', isAbnormal: false, loss: '0.0%', ttfb: '26ms' }], desc: '江苏研发分支' },
+      { id: 'geo_sz', name: '中国.深圳', users: '1390人', branches: '1分支', share: '22.9%', shareVal: 22.9, abnormal: false, targetPopId: 'pop_gz', targetPops: [{ popId: 'pop_gz', isAbnormal: false, loss: '0.0%', ttfb: '12ms' }], desc: '华南研发基地' },
+      { id: 'geo_cs', name: '中国.长沙', users: '999人', branches: '1分支', share: '15.8%', shareVal: 15.8, abnormal: false, targetPopId: 'pop_gz', targetPops: [{ popId: 'pop_gz', isAbnormal: false, loss: '0.0%', ttfb: '20ms' }, { popId: 'pop_sh', isAbnormal: false, loss: '0.0%', ttfb: '28ms' }], desc: '华中运营中心' },
+      { id: 'geo_bj', name: '中国.北京', users: '850人', branches: '1分支', share: '12.4%', shareVal: 12.4, abnormal: false, targetPopId: 'pop_bj', targetPops: [{ popId: 'pop_bj', isAbnormal: false, loss: '0.0%', ttfb: '14ms' }], desc: '华北大区研发部' },
+      { id: 'geo_gz', name: '中国.广州', users: '720人', branches: '1分支', share: '9.8%', shareVal: 9.8, abnormal: false, targetPopId: 'pop_gz', targetPops: [{ popId: 'pop_gz', isAbnormal: false, loss: '0.0%', ttfb: '15ms' }], desc: '华南销售分中心' },
+      { id: 'geo_hz', name: '中国.杭州', users: '650人', branches: '1分支', share: '8.5%', shareVal: 8.5, abnormal: false, targetPopId: 'pop_hz', targetPops: [{ popId: 'pop_sh', isAbnormal: false, loss: '0.0%', ttfb: '16ms' }], desc: '电商业务中心' },
+      { id: 'geo_wh', name: '中国.武汉', users: '520人', branches: '1分支', share: '6.5%', shareVal: 6.5, abnormal: false, targetPopId: 'pop_gz', targetPops: [{ popId: 'pop_gz', isAbnormal: false, loss: '0.0%', ttfb: '22ms' }], desc: '华中客服中心' },
+      { id: 'geo_cq', name: '中国.重庆', users: '390人', branches: '1分支', share: '4.8%', shareVal: 4.8, abnormal: false, targetPopId: 'pop_sz', targetPops: [{ popId: 'pop_sz', isAbnormal: false, loss: '0.0%', ttfb: '25ms' }], desc: '西南服务中心' },
+      { id: 'geo_tj', name: '中国.天津', users: '350人', branches: '1分支', share: '4.2%', shareVal: 4.2, abnormal: false, targetPopId: 'pop_bj', targetPops: [{ popId: 'pop_bj', isAbnormal: false, loss: '0.0%', ttfb: '16ms' }], desc: '华北制造中心' },
+      { id: 'geo_zz', name: '中国.郑州', users: '320人', branches: '1分支', share: '3.9%', shareVal: 3.9, abnormal: false, targetPopId: 'pop_bj', targetPops: [{ popId: 'pop_bj', isAbnormal: false, loss: '0.0%', ttfb: '24ms' }], desc: '中原分部' },
+      { id: 'geo_qd', name: '中国.青岛', users: '300人', branches: '1分支', share: '3.6%', shareVal: 3.6, abnormal: false, targetPopId: 'pop_bj', targetPops: [{ popId: 'pop_bj', isAbnormal: false, loss: '0.0%', ttfb: '20ms' }], desc: '山东沿海办事处' },
+      { id: 'geo_su', name: '中国.苏州', users: '280人', branches: '1分支', share: '3.4%', shareVal: 3.4, abnormal: false, targetPopId: 'pop_sh', targetPops: [{ popId: 'pop_sh', isAbnormal: false, loss: '0.0%', ttfb: '14ms' }], desc: '工业园分支' },
+      { id: 'geo_xm', name: '中国.厦门', users: '260人', branches: '1分支', share: '3.1%', shareVal: 3.1, abnormal: false, targetPopId: 'pop_gz', targetPops: [{ popId: 'pop_gz', isAbnormal: false, loss: '0.0%', ttfb: '22ms' }], desc: '闽南分部' },
+      { id: 'geo_sy', name: '中国.沈阳', users: '240人', branches: '1分支', share: '2.8%', shareVal: 2.8, abnormal: false, targetPopId: 'pop_bj', targetPops: [{ popId: 'pop_bj', isAbnormal: false, loss: '0.0%', ttfb: '28ms' }], desc: '东北大区分支' },
+      { id: 'geo_dl', name: '中国.大连', users: '220人', branches: '1分支', share: '2.6%', shareVal: 2.6, abnormal: false, targetPopId: 'pop_bj', targetPops: [{ popId: 'pop_bj', isAbnormal: false, loss: '0.0%', ttfb: '26ms' }], desc: '东北研发中心' },
+      { id: 'geo_jn', name: '中国.济南', users: '200人', branches: '1分支', share: '2.4%', shareVal: 2.4, abnormal: false, targetPopId: 'pop_bj', targetPops: [{ popId: 'pop_bj', isAbnormal: false, loss: '0.0%', ttfb: '22ms' }], desc: '山东区域总部' },
+      { id: 'geo_hf', name: '中国.合肥', users: '190人', branches: '1分支', share: '2.2%', shareVal: 2.2, abnormal: false, targetPopId: 'pop_sh', targetPops: [{ popId: 'pop_sh', isAbnormal: false, loss: '0.0%', ttfb: '18ms' }], desc: '安徽办事处' },
+      { id: 'geo_fz', name: '中国.福州', users: '180人', branches: '1分支', share: '2.1%', shareVal: 2.1, abnormal: false, targetPopId: 'pop_gz', targetPops: [{ popId: 'pop_gz', isAbnormal: false, loss: '0.0%', ttfb: '24ms' }], desc: '福建运营中心' },
+      { id: 'geo_nb', name: '中国.宁波', users: '170人', branches: '1分支', share: '2.0%', shareVal: 2.0, abnormal: false, targetPopId: 'pop_hz', targetPops: [{ popId: 'pop_sh', isAbnormal: false, loss: '0.0%', ttfb: '19ms' }], desc: '浙东分部' },
+      { id: 'geo_km', name: '中国.昆明', users: '160人', branches: '1分支', share: '1.9%', shareVal: 1.9, abnormal: false, targetPopId: 'pop_sz', targetPops: [{ popId: 'pop_gz', isAbnormal: false, loss: '0.0%', ttfb: '32ms' }], desc: '云南办事处' },
+      { id: 'geo_gy', name: '中国.贵阳', users: '150人', branches: '1分支', share: '1.8%', shareVal: 1.8, abnormal: false, targetPopId: 'pop_sz', targetPops: [{ popId: 'pop_gz', isAbnormal: false, loss: '0.0%', ttfb: '30ms' }], desc: '大数据中心' },
+      { id: 'geo_nn', name: '中国.南宁', users: '140人', branches: '1分支', share: '1.7%', shareVal: 1.7, abnormal: false, targetPopId: 'pop_gz', targetPops: [{ popId: 'pop_gz', isAbnormal: false, loss: '0.0%', ttfb: '25ms' }], desc: '广西办事处' },
+      { id: 'geo_lz', name: '中国.兰州', users: '130人', branches: '1分支', share: '1.5%', shareVal: 1.5, abnormal: false, targetPopId: 'pop_xa', targetPops: [{ popId: 'pop_bj', isAbnormal: false, loss: '0.0%', ttfb: '38ms' }], desc: '甘肃分支' },
+      { id: 'geo_urc', name: '中国.乌鲁木齐', users: '120人', branches: '1分支', share: '1.4%', shareVal: 1.4, abnormal: false, targetPopId: 'pop_xa', targetPops: [{ popId: 'pop_bj', isAbnormal: false, loss: '0.0%', ttfb: '52ms' }], desc: '新疆办事处' },
+      { id: 'geo_hrb', name: '中国.哈尔滨', users: '110人', branches: '1分支', share: '1.3%', shareVal: 1.3, abnormal: false, targetPopId: 'pop_bj', targetPops: [{ popId: 'pop_bj', isAbnormal: false, loss: '0.0%', ttfb: '36ms' }], desc: '黑龙江分支' },
+      { id: 'geo_cc', name: '中国.长春', users: '100人', branches: '1分支', share: '1.2%', shareVal: 1.2, abnormal: false, targetPopId: 'pop_bj', targetPops: [{ popId: 'pop_bj', isAbnormal: false, loss: '0.0%', ttfb: '34ms' }], desc: '吉林分支' },
+      { id: 'geo_sjz', name: '中国.石家庄', users: '95人', branches: '1分支', share: '1.1%', shareVal: 1.1, abnormal: false, targetPopId: 'pop_bj', targetPops: [{ popId: 'pop_bj', isAbnormal: false, loss: '0.0%', ttfb: '18ms' }], desc: '河北办事处' },
+      { id: 'geo_ty', name: '中国.太原', users: '90人', branches: '1分支', share: '1.0%', shareVal: 1.0, abnormal: false, targetPopId: 'pop_bj', targetPops: [{ popId: 'pop_bj', isAbnormal: false, loss: '0.0%', ttfb: '24ms' }], desc: '山西办事处' },
+      { id: 'geo_hhht', name: '中国.呼和浩特', users: '85人', branches: '1分支', share: '0.9%', shareVal: 0.9, abnormal: false, targetPopId: 'pop_bj', targetPops: [{ popId: 'pop_bj', isAbnormal: false, loss: '0.0%', ttfb: '30ms' }], desc: '内蒙古分支' },
+      { id: 'geo_nc', name: '中国.南昌', users: '80人', branches: '1分支', share: '0.9%', shareVal: 0.9, abnormal: false, targetPopId: 'pop_wh', targetPops: [{ popId: 'pop_gz', isAbnormal: false, loss: '0.0%', ttfb: '22ms' }], desc: '江西办事处' },
+      { id: 'geo_hk_node', name: '中国.香港', users: '75人', branches: '1分支', share: '0.8%', shareVal: 0.8, abnormal: false, targetPopId: 'pop_hk', targetPops: [{ popId: 'pop_hk', isAbnormal: false, loss: '0.0%', ttfb: '10ms' }], desc: '港澳大区分部' },
+      { id: 'geo_mo', name: '中国.澳门', users: '70人', branches: '1分支', share: '0.7%', shareVal: 0.7, abnormal: false, targetPopId: 'pop_hk', targetPops: [{ popId: 'pop_hk', isAbnormal: false, loss: '0.0%', ttfb: '12ms' }], desc: '澳门联络处' },
+      { id: 'geo_tpe', name: '中国.台北', users: '65人', branches: '1分支', share: '0.6%', shareVal: 0.6, abnormal: false, targetPopId: 'pop_hk', targetPops: [{ popId: 'pop_hk', isAbnormal: false, loss: '0.0%', ttfb: '16ms' }], desc: '台湾分支' },
+      { id: 'geo_sg', name: '新加坡', users: '60人', branches: '1分支', share: '0.6%', shareVal: 0.6, abnormal: false, targetPopId: 'pop_sg', targetPops: [{ popId: 'pop_sg', isAbnormal: false, loss: '0.0%', ttfb: '8ms' }], desc: '东南亚办事处' },
+      { id: 'geo_bkk', name: '泰国.曼谷', users: '55人', branches: '1分支', share: '0.5%', shareVal: 0.5, abnormal: false, targetPopId: 'pop_sg', targetPops: [{ popId: 'pop_sg', isAbnormal: false, loss: '0.0%', ttfb: '24ms' }], desc: '泰国联络处' },
+      { id: 'geo_kul', name: '马来西亚.吉隆坡', users: '50人', branches: '1分支', share: '0.5%', shareVal: 0.5, abnormal: false, targetPopId: 'pop_sg', targetPops: [{ popId: 'pop_sg', isAbnormal: false, loss: '0.0%', ttfb: '26ms' }], desc: '马来西亚办事处' },
+      { id: 'geo_icn', name: '韩国.首尔', users: '45人', branches: '1分支', share: '0.4%', shareVal: 0.4, abnormal: false, targetPopId: 'pop_icn', targetPops: [{ popId: 'pop_icn', isAbnormal: false, loss: '0.0%', ttfb: '18ms' }], desc: '韩国分部' },
+      { id: 'geo_lon', name: '英国.伦敦', users: '40人', branches: '1分支', share: '0.4%', shareVal: 0.4, abnormal: false, targetPopId: 'pop_fra', targetPops: [{ popId: 'pop_fra', isAbnormal: false, loss: '0.0%', ttfb: '120ms' }], desc: '欧洲代表处' },
+      { id: 'geo_syd', name: '澳大利亚.悉尼', users: '35人', branches: '1分支', share: '0.3%', shareVal: 0.3, abnormal: false, targetPopId: 'pop_sg', targetPops: [{ popId: 'pop_sg', isAbnormal: false, loss: '0.0%', ttfb: '110ms' }], desc: '大洋洲联络处' },
+      { id: 'geo_fra', name: '德国.法兰克福', users: '30人', branches: '1分支', share: '0.3%', shareVal: 0.3, abnormal: false, targetPopId: 'pop_fra', targetPops: [{ popId: 'pop_fra', isAbnormal: false, loss: '0.0%', ttfb: '125ms' }], desc: '欧洲数据节点' },
+      { id: 'geo_sanya', name: '中国.三亚', users: '25人', branches: '1分支', share: '0.2%', shareVal: 0.2, abnormal: false, targetPopId: 'pop_gz', targetPops: [{ popId: 'pop_gz', isAbnormal: false, loss: '0.0%', ttfb: '28ms' }], desc: '海南自贸区分支' }
+    ];
+
+    const BASE_GEO_ABNORMAL = BASE_GEO_NORMAL.map(g => {
+      if (g.id === 'geo_sh') {
+        return { ...g, abnormal: true, targetPops: [{ popId: 'pop_sz', isAbnormal: true, loss: '5.2%', ttfb: '142ms' }, { popId: 'pop_sh', isAbnormal: false, loss: '0.0%', ttfb: '18ms' }, { popId: 'pop_bj', isAbnormal: false, loss: '0.0%', ttfb: '24ms' }] };
+      }
+      if (g.id === 'geo_tyo') {
+        return { ...g, abnormal: true, targetPops: [{ popId: 'pop_sz', isAbnormal: true, loss: '4.8%', ttfb: '168ms' }, { popId: 'pop_tyo', isAbnormal: false, loss: '0.0%', ttfb: '15ms' }, { popId: 'pop_bj', isAbnormal: false, loss: '0.0%', ttfb: '32ms' }] };
+      }
+      if (g.id === 'geo_cd') {
+        return { ...g, abnormal: true, targetPops: [{ popId: 'pop_sz', isAbnormal: true, loss: '6.1%', ttfb: '156ms' }, { popId: 'pop_gz', isAbnormal: false, loss: '0.0%', ttfb: '28ms' }] };
+      }
+      return g;
+    });
+
+    const BASE_POP_NORMAL = [
+      { id: 'pop_sz', name: '深圳', status: '正常', statusRank: 2, desc: '华南核心POP' },
+      { id: 'pop_bj', name: '北京', status: '正常', statusRank: 2, desc: '华北核心POP' },
+      { id: 'pop_sh', name: '上海', status: '正常', statusRank: 2, desc: '华东主POP' },
+      { id: 'pop_tyo', name: '东京', status: '正常', statusRank: 2, desc: '亚太边缘POP' },
+      { id: 'pop_gz', name: '广州', status: '正常', statusRank: 2, desc: '华南主备POP' },
+      { id: 'pop_hz', name: '杭州', status: '正常', statusRank: 2, desc: '华东边缘POP' },
+      { id: 'pop_hk', name: '香港', status: '正常', statusRank: 2, desc: '亚太核心POP' },
+      { id: 'pop_sg', name: '新加坡', status: '正常', statusRank: 2, desc: '东南亚骨干POP' },
+      { id: 'pop_icn', name: '首尔', status: '正常', statusRank: 2, desc: '东北亚边缘POP' },
+      { id: 'pop_fra', name: '法兰克福', status: '正常', statusRank: 2, desc: '欧洲边缘POP' },
+      { id: 'pop_lon', name: '伦敦', status: '正常', statusRank: 2, desc: '欧洲骨干POP' },
+      { id: 'pop_sv', name: '硅谷', status: '正常', statusRank: 2, desc: '美西骨干POP' },
+      { id: 'pop_va', name: '弗吉尼亚', status: '正常', statusRank: 2, desc: '美东骨干POP' },
+      { id: 'pop_syd', name: '悉尼', status: '正常', statusRank: 2, desc: '澳洲核心POP' },
+      { id: 'pop_bom', name: '孟买', status: '正常', statusRank: 2, desc: '南亚核心POP' },
+      { id: 'pop_dxb', name: '迪拜', status: '正常', statusRank: 2, desc: '中东核心POP' },
+      { id: 'pop_sao', name: '圣保罗', status: '正常', statusRank: 2, desc: '南美核心POP' },
+      { id: 'pop_jnb', name: '约翰内斯堡', status: '正常', statusRank: 2, desc: '非洲核心POP' },
+      { id: 'pop_tpe', name: '台北', status: '正常', statusRank: 2, desc: '台湾POP' },
+      { id: 'pop_kix', name: '大阪', status: '正常', statusRank: 2, desc: '关西POP' },
+      { id: 'pop_bkk', name: '曼谷', status: '正常', statusRank: 2, desc: '中南半岛POP' },
+      { id: 'pop_kul', name: '吉隆坡', status: '正常', statusRank: 2, desc: '马来西亚POP' },
+      { id: 'pop_cgk', name: '雅加达', status: '正常', statusRank: 2, desc: '印尼POP' },
+      { id: 'pop_mnl', name: '马尼拉', status: '正常', statusRank: 2, desc: '菲律宾POP' },
+      { id: 'pop_cdg', name: '巴黎', status: '正常', statusRank: 2, desc: '西欧POP' },
+      { id: 'pop_ams', name: '阿姆斯特丹', status: '正常', statusRank: 2, desc: '西欧网络枢纽POP' },
+      { id: 'pop_zrh', name: '苏黎世', status: '正常', statusRank: 2, desc: '中欧POP' },
+      { id: 'pop_arn', name: '斯德哥尔摩', status: '正常', statusRank: 2, desc: '北欧POP' },
+      { id: 'pop_mad', name: '马德里', status: '正常', statusRank: 2, desc: '南欧POP' },
+      { id: 'pop_yyz', name: '多伦多', status: '正常', statusRank: 2, desc: '加拿大POP' },
+      { id: 'pop_ord', name: '芝加哥', status: '正常', statusRank: 2, desc: '美中POP' }
+    ];
+
+    const BASE_POP_ABNORMAL = BASE_POP_NORMAL.map(p => {
+      if (p.id === 'pop_sz') {
+        return { ...p, status: '差', statusRank: 0, desc: '华南专线告警' };
+      }
+      return p;
+    });
+
+    const BASE_POP_FAIR = BASE_POP_NORMAL.map(p => {
+      if (p.id === 'pop_bj') {
+        return { ...p, status: '一般', statusRank: 1, desc: '华北核心POP' };
+      }
+      return p;
+    });
+
     function demAppDetailState() {
       return {
         ...window.dualShellAppStore('应用详情'),
@@ -242,139 +481,35 @@
         focusedTarget: null, // { type: 'node'|'link'|'pop'|'geo', id: string }
         selectedTopoItem: null,
 
-        // 5分钟切片/采样点时间线生成 (08:00 ~ 16:00 共97个点，480分钟跨度)
+        // 5分钟切片/采样点时间线 (读取预计算好的静态数组)
         get globalTimelineSlices() {
-          const slices = [];
-          const startHour = 8;
-          const endHour = 16;
-          let idx = 0;
-          for (let h = startHour; h <= endHour; h++) {
-            const maxM = (h === endHour) ? 0 : 55;
-            for (let m = 0; m <= maxM; m += 5) {
-              const minuteTotal = (h - 8) * 60 + m; // 0 ~ 480
-              const timeStr = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-              
-              // 判定状态与指标配置
-              // OA系统专属：15:20 ~ 15:55 (440 ~ 475分钟) 连续全部为「差」；08:45, 10:00 亦有散点故障；11:15, 14:10 为一般；其余正常
-              let status = '正常';
-              let score = 94; // 正常 80~100
-              let avgTtfb = '45ms';
-              let successRate = '99.8%';
-
-              if (minuteTotal >= 440 && minuteTotal <= 475) {
-                // === 15:20 ~ 15:55 连续故障恶化期 (全段全部为「差」) ===
-                status = '差';
-                const faultOffsets = {
-                  '15:20': { score: 32, ttfb: '78ms', sr: '94.8%' },
-                  '15:25': { score: 28, ttfb: '85ms', sr: '93.6%' },
-                  '15:30': { score: 35, ttfb: '76ms', sr: '94.1%' },
-                  '15:35': { score: 26, ttfb: '88ms', sr: '92.8%' },
-                  '15:40': { score: 30, ttfb: '80ms', sr: '93.5%' },
-                  '15:45': { score: 34, ttfb: '75ms', sr: '94.2%' },
-                  '15:50': { score: 38, ttfb: '72ms', sr: '94.9%' },
-                  '15:55': { score: 45, ttfb: '68ms', sr: '95.5%' }
-                };
-                const fo = faultOffsets[timeStr] || { score: 30, ttfb: '78ms', sr: '94.0%' };
-                score = fo.score;
-                avgTtfb = fo.ttfb;
-                successRate = fo.sr;
-              } else if (timeStr === '08:45') {
-                status = '差';
-                score = 36;
-                avgTtfb = '82ms';
-                successRate = '93.2%';
-              } else if (timeStr === '10:00') {
-                status = '差';
-                score = 34;
-                avgTtfb = '80ms';
-                successRate = '93.2%';
-              } else if (timeStr === '11:15') {
-                status = '一般';
-                score = 72;
-                avgTtfb = '58ms';
-                successRate = '97.5%';
-              } else if (timeStr === '14:10') {
-                status = '一般';
-                score = 70;
-                avgTtfb = '56ms';
-                successRate = '97.5%';
-              } else {
-                // 正常时段自然微波动 (score: 91 ~ 96)
-                score = 92 + (idx % 5);
-                avgTtfb = (42 + (idx % 4) * 2) + 'ms';
-                successRate = (99.6 + (idx % 3) * 0.1).toFixed(1) + '%';
-              }
-
-              // 计算 5分钟范围字符串
-              let prevM = m - 5;
-              let prevH = h;
-              if (prevM < 0) {
-                prevM = 55;
-                prevH = h - 1;
-              }
-              const prevTimeStr = `${String(prevH).padStart(2, '0')}:${String(prevM).padStart(2, '0')}`;
-
-              // 坐标映射: X: 48 ~ 976 (480分钟跨度，为左侧 Y 轴纯灰文字留出空间)
-              const x = 48 + (minuteTotal / 480) * 928;
-
-              // Y 坐标映射: 正常 (80~100) -> 16~38; 一般 (60~80) -> 52~74; 差 (0~60) -> 88~110
-              let y = 28;
-              if (status === '正常') {
-                y = 38 - ((score - 80) / 20) * 22;
-              } else if (status === '一般') {
-                y = 74 - ((score - 60) / 20) * 22;
-              } else {
-                y = 110 - (score / 60) * 22;
-              }
-
-              slices.push({
-                id: idx++,
-                time: timeStr,
-                timeRange: `${prevTimeStr}~${timeStr}`,
-                minute: minuteTotal,
-                status: status,
-                score: score,
-                avgTtfb: avgTtfb,
-                successRate: successRate,
-                x: Number(x.toFixed(1)),
-                y: Number(y.toFixed(1)),
-                isPoor: status === '差',
-                isFair: status === '一般',
-                isNormal: status === '正常'
-              });
-            }
-          }
-          return slices;
+          return STATIC_TIMELINE_SLICES;
         },
 
         // 折线连线所有坐标点 (SVG polyline points)
         get trendPolylinePoints() {
-          if (!this.globalTimelineSlices || this.globalTimelineSlices.length === 0) return '';
-          return this.globalTimelineSlices.map(p => `${p.x},${p.y}`).join(' ');
+          return STATIC_TREND_POLYLINE_POINTS;
         },
 
-        // 15:20~15:55 连续差区域加粗红线段 (SVG polyline points，将差的时间段连起来)
+        // 15:20~15:55 连续差区域加粗红线段 (SVG polyline points)
         get poorSegmentPolylinePoints() {
-          if (!this.globalTimelineSlices) return '';
-          const poorSlices = this.globalTimelineSlices.filter(p => p.minute >= 440 && p.minute <= 475);
-          return poorSlices.map(p => `${p.x},${p.y}`).join(' ');
+          return STATIC_POOR_SEGMENT_POINTS;
         },
 
         // 当前选中的采样点
         get selectedPoint() {
-          if (!this.globalTimelineSlices || this.globalTimelineSlices.length === 0) return null;
-          return this.globalTimelineSlices.find(s => s.time === this.selectedGlobalSliceTime) || this.globalTimelineSlices[0];
+          return STATIC_TIMELINE_MAP[this.selectedGlobalSliceTime] || STATIC_TIMELINE_SLICES[0];
         },
 
         // 鼠标悬停的采样点
         get hoveredTimelinePoint() {
-          if (this.hoveredTimelineIdx === null || !this.globalTimelineSlices) return null;
-          return this.globalTimelineSlices[this.hoveredTimelineIdx] || null;
+          if (this.hoveredTimelineIdx === null) return null;
+          return STATIC_TIMELINE_SLICES[this.hoveredTimelineIdx] || null;
         },
 
         // 当前选中的切片完整聚合数据
         get currentGlobalSlice() {
-          const found = this.globalTimelineSlices.find(s => s.time === this.selectedGlobalSliceTime);
+          const found = STATIC_TIMELINE_MAP[this.selectedGlobalSliceTime] || STATIC_TIMELINE_SLICES[0];
           const isAbnormal = (found && found.status === '差');
           const isFair = (found && found.status === '一般');
           return {
@@ -391,141 +526,10 @@
           };
         },
 
-        // 全量地理位置库 (45个实体)
+        // 全量地理位置库 (根据当前切片异常状态返回对应常量缓存，45个实体)
         get fullGeoList() {
           const isAbnormal = (this.currentGlobalSlice.status === '差');
-          return [
-            // 异常地理位置 (部分走深圳POP异常告警，同时走其他POP正常)
-            {
-              id: 'geo_sh',
-              name: '中国.上海',
-              users: '1734人',
-              branches: '1分支',
-              share: '27.5%',
-              shareVal: 27.5,
-              abnormal: isAbnormal,
-              targetPopId: 'pop_sz',
-              targetPops: isAbnormal ? [
-                { popId: 'pop_sz', isAbnormal: true, loss: '5.2%', ttfb: '142ms' },
-                { popId: 'pop_sh', isAbnormal: false, loss: '0.0%', ttfb: '18ms' },
-                { popId: 'pop_bj', isAbnormal: false, loss: '0.0%', ttfb: '24ms' }
-              ] : [
-                { popId: 'pop_sh', isAbnormal: false, loss: '0.0%', ttfb: '18ms' },
-                { popId: 'pop_bj', isAbnormal: false, loss: '0.0%', ttfb: '24ms' }
-              ],
-              desc: '华东大区总部'
-            },
-            {
-              id: 'geo_tyo',
-              name: '日本.东京',
-              users: '999人',
-              branches: '1分支',
-              share: '15.8%',
-              shareVal: 15.8,
-              abnormal: isAbnormal,
-              targetPopId: 'pop_sz',
-              targetPops: isAbnormal ? [
-                { popId: 'pop_sz', isAbnormal: true, loss: '4.8%', ttfb: '168ms' },
-                { popId: 'pop_tyo', isAbnormal: false, loss: '0.0%', ttfb: '15ms' },
-                { popId: 'pop_bj', isAbnormal: false, loss: '0.0%', ttfb: '32ms' }
-              ] : [
-                { popId: 'pop_tyo', isAbnormal: false, loss: '0.0%', ttfb: '15ms' },
-                { popId: 'pop_bj', isAbnormal: false, loss: '0.0%', ttfb: '32ms' }
-              ],
-              desc: '亚太海外办事处'
-            },
-            {
-              id: 'geo_cd',
-              name: '中国.成都',
-              users: '580人',
-              branches: '1分支',
-              share: '7.2%',
-              shareVal: 7.2,
-              abnormal: isAbnormal,
-              targetPopId: 'pop_sz',
-              targetPops: isAbnormal ? [
-                { popId: 'pop_sz', isAbnormal: true, loss: '6.1%', ttfb: '156ms' },
-                { popId: 'pop_gz', isAbnormal: false, loss: '0.0%', ttfb: '28ms' }
-              ] : [
-                { popId: 'pop_gz', isAbnormal: false, loss: '0.0%', ttfb: '28ms' }
-              ],
-              desc: '西南运营分支'
-            },
-
-            // 全正常地理位置 (连接访问多个POP，全为绿色正常连线)
-            {
-              id: 'geo_xa',
-              name: '中国.西安',
-              users: '410人',
-              branches: '1分支',
-              share: '5.2%',
-              shareVal: 5.2,
-              abnormal: false, // 西安：全正常
-              targetPopId: 'pop_bj',
-              targetPops: [
-                { popId: 'pop_bj', isAbnormal: false, loss: '0.0%', ttfb: '22ms' },
-                { popId: 'pop_tyo', isAbnormal: false, loss: '0.0%', ttfb: '45ms' }
-              ],
-              desc: '西北研发基地'
-            },
-            {
-              id: 'geo_nj',
-              name: '中国.南京',
-              users: '460人',
-              branches: '1分支',
-              share: '5.8%',
-              shareVal: 5.8,
-              abnormal: false, // 南京：全正常
-              targetPopId: 'pop_sh',
-              targetPops: [
-                { popId: 'pop_sh', isAbnormal: false, loss: '0.0%', ttfb: '16ms' },
-                { popId: 'pop_gz', isAbnormal: false, loss: '0.0%', ttfb: '26ms' }
-              ],
-              desc: '江苏研发分支'
-            },
-
-            // 正常项 (按占比降序排列)
-            { id: 'geo_sz', name: '中国.深圳', users: '1390人', branches: '1分支', share: '22.9%', shareVal: 22.9, abnormal: false, targetPopId: 'pop_gz', targetPops: [{ popId: 'pop_gz', isAbnormal: false, loss: '0.0%', ttfb: '12ms' }], desc: '华南研发基地' },
-            { id: 'geo_cs', name: '中国.长沙', users: '999人', branches: '1分支', share: '15.8%', shareVal: 15.8, abnormal: false, targetPopId: 'pop_gz', targetPops: [{ popId: 'pop_gz', isAbnormal: false, loss: '0.0%', ttfb: '20ms' }, { popId: 'pop_sh', isAbnormal: false, loss: '0.0%', ttfb: '28ms' }], desc: '华中运营中心' },
-            { id: 'geo_bj', name: '中国.北京', users: '850人', branches: '1分支', share: '12.4%', shareVal: 12.4, abnormal: false, targetPopId: 'pop_bj', targetPops: [{ popId: 'pop_bj', isAbnormal: false, loss: '0.0%', ttfb: '14ms' }], desc: '华北大区研发部' },
-            { id: 'geo_gz', name: '中国.广州', users: '720人', branches: '1分支', share: '9.8%', shareVal: 9.8, abnormal: false, targetPopId: 'pop_gz', targetPops: [{ popId: 'pop_gz', isAbnormal: false, loss: '0.0%', ttfb: '15ms' }], desc: '华南销售分中心' },
-            { id: 'geo_hz', name: '中国.杭州', users: '650人', branches: '1分支', share: '8.5%', shareVal: 8.5, abnormal: false, targetPopId: 'pop_hz', targetPops: [{ popId: 'pop_sh', isAbnormal: false, loss: '0.0%', ttfb: '16ms' }], desc: '电商业务中心' },
-            { id: 'geo_wh', name: '中国.武汉', users: '520人', branches: '1分支', share: '6.5%', shareVal: 6.5, abnormal: false, targetPopId: 'pop_gz', targetPops: [{ popId: 'pop_gz', isAbnormal: false, loss: '0.0%', ttfb: '22ms' }], desc: '华中客服中心' },
-            { id: 'geo_cq', name: '中国.重庆', users: '390人', branches: '1分支', share: '4.8%', shareVal: 4.8, abnormal: false, targetPopId: 'pop_sz', targetPops: [{ popId: 'pop_sz', isAbnormal: false, loss: '0.0%', ttfb: '25ms' }], desc: '西南服务中心' },
-            { id: 'geo_tj', name: '中国.天津', users: '350人', branches: '1分支', share: '4.2%', shareVal: 4.2, abnormal: false, targetPopId: 'pop_bj', targetPops: [{ popId: 'pop_bj', isAbnormal: false, loss: '0.0%', ttfb: '16ms' }], desc: '华北制造中心' },
-            { id: 'geo_zz', name: '中国.郑州', users: '320人', branches: '1分支', share: '3.9%', shareVal: 3.9, abnormal: false, targetPopId: 'pop_bj', targetPops: [{ popId: 'pop_bj', isAbnormal: false, loss: '0.0%', ttfb: '24ms' }], desc: '中原分部' },
-            { id: 'geo_qd', name: '中国.青岛', users: '300人', branches: '1分支', share: '3.6%', shareVal: 3.6, abnormal: false, targetPopId: 'pop_bj', targetPops: [{ popId: 'pop_bj', isAbnormal: false, loss: '0.0%', ttfb: '20ms' }], desc: '山东沿海办事处' },
-            { id: 'geo_su', name: '中国.苏州', users: '280人', branches: '1分支', share: '3.4%', shareVal: 3.4, abnormal: false, targetPopId: 'pop_sh', targetPops: [{ popId: 'pop_sh', isAbnormal: false, loss: '0.0%', ttfb: '14ms' }], desc: '工业园分支' },
-            { id: 'geo_xm', name: '中国.厦门', users: '260人', branches: '1分支', share: '3.1%', shareVal: 3.1, abnormal: false, targetPopId: 'pop_gz', targetPops: [{ popId: 'pop_gz', isAbnormal: false, loss: '0.0%', ttfb: '22ms' }], desc: '闽南分部' },
-            { id: 'geo_sy', name: '中国.沈阳', users: '240人', branches: '1分支', share: '2.8%', shareVal: 2.8, abnormal: false, targetPopId: 'pop_bj', targetPops: [{ popId: 'pop_bj', isAbnormal: false, loss: '0.0%', ttfb: '28ms' }], desc: '东北大区分支' },
-            { id: 'geo_dl', name: '中国.大连', users: '220人', branches: '1分支', share: '2.6%', shareVal: 2.6, abnormal: false, targetPopId: 'pop_bj', targetPops: [{ popId: 'pop_bj', isAbnormal: false, loss: '0.0%', ttfb: '26ms' }], desc: '东北研发中心' },
-            { id: 'geo_jn', name: '中国.济南', users: '200人', branches: '1分支', share: '2.4%', shareVal: 2.4, abnormal: false, targetPopId: 'pop_bj', targetPops: [{ popId: 'pop_bj', isAbnormal: false, loss: '0.0%', ttfb: '22ms' }], desc: '山东区域总部' },
-            { id: 'geo_hf', name: '中国.合肥', users: '190人', branches: '1分支', share: '2.2%', shareVal: 2.2, abnormal: false, targetPopId: 'pop_sh', targetPops: [{ popId: 'pop_sh', isAbnormal: false, loss: '0.0%', ttfb: '18ms' }], desc: '安徽办事处' },
-            { id: 'geo_fz', name: '中国.福州', users: '180人', branches: '1分支', share: '2.1%', shareVal: 2.1, abnormal: false, targetPopId: 'pop_gz', targetPops: [{ popId: 'pop_gz', isAbnormal: false, loss: '0.0%', ttfb: '24ms' }], desc: '福建运营中心' },
-            { id: 'geo_nb', name: '中国.宁波', users: '170人', branches: '1分支', share: '2.0%', shareVal: 2.0, abnormal: false, targetPopId: 'pop_hz', targetPops: [{ popId: 'pop_sh', isAbnormal: false, loss: '0.0%', ttfb: '19ms' }], desc: '浙东分部' },
-            { id: 'geo_km', name: '中国.昆明', users: '160人', branches: '1分支', share: '1.9%', shareVal: 1.9, abnormal: false, targetPopId: 'pop_sz', targetPops: [{ popId: 'pop_gz', isAbnormal: false, loss: '0.0%', ttfb: '32ms' }], desc: '云南办事处' },
-            { id: 'geo_gy', name: '中国.贵阳', users: '150人', branches: '1分支', share: '1.8%', shareVal: 1.8, abnormal: false, targetPopId: 'pop_sz', targetPops: [{ popId: 'pop_gz', isAbnormal: false, loss: '0.0%', ttfb: '30ms' }], desc: '大数据中心' },
-            { id: 'geo_nn', name: '中国.南宁', users: '140人', branches: '1分支', share: '1.7%', shareVal: 1.7, abnormal: false, targetPopId: 'pop_gz', targetPops: [{ popId: 'pop_gz', isAbnormal: false, loss: '0.0%', ttfb: '25ms' }], desc: '广西办事处' },
-            { id: 'geo_lz', name: '中国.兰州', users: '130人', branches: '1分支', share: '1.5%', shareVal: 1.5, abnormal: false, targetPopId: 'pop_xa', targetPops: [{ popId: 'pop_bj', isAbnormal: false, loss: '0.0%', ttfb: '38ms' }], desc: '甘肃分支' },
-            { id: 'geo_urc', name: '中国.乌鲁木齐', users: '120人', branches: '1分支', share: '1.4%', shareVal: 1.4, abnormal: false, targetPopId: 'pop_xa', targetPops: [{ popId: 'pop_bj', isAbnormal: false, loss: '0.0%', ttfb: '52ms' }], desc: '新疆办事处' },
-            { id: 'geo_hrb', name: '中国.哈尔滨', users: '110人', branches: '1分支', share: '1.3%', shareVal: 1.3, abnormal: false, targetPopId: 'pop_bj', targetPops: [{ popId: 'pop_bj', isAbnormal: false, loss: '0.0%', ttfb: '36ms' }], desc: '黑龙江分支' },
-            { id: 'geo_cc', name: '中国.长春', users: '100人', branches: '1分支', share: '1.2%', shareVal: 1.2, abnormal: false, targetPopId: 'pop_bj', targetPops: [{ popId: 'pop_bj', isAbnormal: false, loss: '0.0%', ttfb: '34ms' }], desc: '吉林分支' },
-            { id: 'geo_sjz', name: '中国.石家庄', users: '95人', branches: '1分支', share: '1.1%', shareVal: 1.1, abnormal: false, targetPopId: 'pop_bj', targetPops: [{ popId: 'pop_bj', isAbnormal: false, loss: '0.0%', ttfb: '18ms' }], desc: '河北办事处' },
-            { id: 'geo_ty', name: '中国.太原', users: '90人', branches: '1分支', share: '1.0%', shareVal: 1.0, abnormal: false, targetPopId: 'pop_bj', targetPops: [{ popId: 'pop_bj', isAbnormal: false, loss: '0.0%', ttfb: '24ms' }], desc: '山西办事处' },
-            { id: 'geo_hhht', name: '中国.呼和浩特', users: '85人', branches: '1分支', share: '0.9%', shareVal: 0.9, abnormal: false, targetPopId: 'pop_bj', targetPops: [{ popId: 'pop_bj', isAbnormal: false, loss: '0.0%', ttfb: '30ms' }], desc: '内蒙古分支' },
-            { id: 'geo_nc', name: '中国.南昌', users: '80人', branches: '1分支', share: '0.9%', shareVal: 0.9, abnormal: false, targetPopId: 'pop_wh', targetPops: [{ popId: 'pop_gz', isAbnormal: false, loss: '0.0%', ttfb: '22ms' }], desc: '江西办事处' },
-            { id: 'geo_hk_node', name: '中国.香港', users: '75人', branches: '1分支', share: '0.8%', shareVal: 0.8, abnormal: false, targetPopId: 'pop_hk', targetPops: [{ popId: 'pop_hk', isAbnormal: false, loss: '0.0%', ttfb: '10ms' }], desc: '港澳大区分部' },
-            { id: 'geo_mo', name: '中国.澳门', users: '70人', branches: '1分支', share: '0.7%', shareVal: 0.7, abnormal: false, targetPopId: 'pop_hk', targetPops: [{ popId: 'pop_hk', isAbnormal: false, loss: '0.0%', ttfb: '12ms' }], desc: '澳门联络处' },
-            { id: 'geo_tpe', name: '中国.台北', users: '65人', branches: '1分支', share: '0.6%', shareVal: 0.6, abnormal: false, targetPopId: 'pop_hk', targetPops: [{ popId: 'pop_hk', isAbnormal: false, loss: '0.0%', ttfb: '16ms' }], desc: '台湾分支' },
-            { id: 'geo_sg', name: '新加坡', users: '60人', branches: '1分支', share: '0.6%', shareVal: 0.6, abnormal: false, targetPopId: 'pop_sg', targetPops: [{ popId: 'pop_sg', isAbnormal: false, loss: '0.0%', ttfb: '8ms' }], desc: '东南亚办事处' },
-            { id: 'geo_bkk', name: '泰国.曼谷', users: '55人', branches: '1分支', share: '0.5%', shareVal: 0.5, abnormal: false, targetPopId: 'pop_sg', targetPops: [{ popId: 'pop_sg', isAbnormal: false, loss: '0.0%', ttfb: '24ms' }], desc: '泰国联络处' },
-            { id: 'geo_kul', name: '马来西亚.吉隆坡', users: '50人', branches: '1分支', share: '0.5%', shareVal: 0.5, abnormal: false, targetPopId: 'pop_sg', targetPops: [{ popId: 'pop_sg', isAbnormal: false, loss: '0.0%', ttfb: '26ms' }], desc: '马来西亚办事处' },
-            { id: 'geo_icn', name: '韩国.首尔', users: '45人', branches: '1分支', share: '0.4%', shareVal: 0.4, abnormal: false, targetPopId: 'pop_icn', targetPops: [{ popId: 'pop_icn', isAbnormal: false, loss: '0.0%', ttfb: '18ms' }], desc: '韩国分部' },
-            { id: 'geo_lon', name: '英国.伦敦', users: '40人', branches: '1分支', share: '0.4%', shareVal: 0.4, abnormal: false, targetPopId: 'pop_fra', targetPops: [{ popId: 'pop_fra', isAbnormal: false, loss: '0.0%', ttfb: '120ms' }], desc: '欧洲代表处' },
-            { id: 'geo_syd', name: '澳大利亚.悉尼', users: '35人', branches: '1分支', share: '0.3%', shareVal: 0.3, abnormal: false, targetPopId: 'pop_sg', targetPops: [{ popId: 'pop_sg', isAbnormal: false, loss: '0.0%', ttfb: '110ms' }], desc: '大洋洲联络处' },
-            { id: 'geo_fra', name: '德国.法兰克福', users: '30人', branches: '1分支', share: '0.3%', shareVal: 0.3, abnormal: false, targetPopId: 'pop_fra', targetPops: [{ popId: 'pop_fra', isAbnormal: false, loss: '0.0%', ttfb: '125ms' }], desc: '欧洲数据节点' },
-            { id: 'geo_sanya', name: '中国.三亚', users: '25人', branches: '1分支', share: '0.2%', shareVal: 0.2, abnormal: false, targetPopId: 'pop_gz', targetPops: [{ popId: 'pop_gz', isAbnormal: false, loss: '0.0%', ttfb: '28ms' }], desc: '海南自贸区分支' }
-          ];
+          return isAbnormal ? BASE_GEO_ABNORMAL : BASE_GEO_NORMAL;
         },
 
         // 地理位置搜索过滤与排序 (优先展示有异常链路选项，再按访问对象占比降序排列)
@@ -541,48 +545,13 @@
           });
         },
 
-        // 全量接入 POP 库 (31个实体)
+        // 全量接入 POP 库 (根据当前切片异常状态返回对应常量缓存，31个实体)
         get fullPopList() {
           const isAbnormal = (this.currentGlobalSlice.status === '差');
           const isFair = (this.currentGlobalSlice.status === '一般');
-          return [
-            // 差 (0: 告警异常)
-            { id: 'pop_sz', name: '深圳', status: isAbnormal ? '差' : '正常', statusRank: isAbnormal ? 0 : 2, desc: isAbnormal ? '华南专线告警' : '华南核心POP' },
-
-            // 一般 (1: 体验一般)
-            { id: 'pop_bj', name: '北京', status: isFair ? '一般' : '正常', statusRank: isFair ? 1 : 2, desc: '华北核心POP' },
-
-            // 正常 (2: 正常)
-            { id: 'pop_sh', name: '上海', status: '正常', statusRank: 2, desc: '华东主POP' },
-            { id: 'pop_tyo', name: '东京', status: '正常', statusRank: 2, desc: '亚太边缘POP' },
-            { id: 'pop_gz', name: '广州', status: '正常', statusRank: 2, desc: '华南主备POP' },
-            { id: 'pop_hz', name: '杭州', status: '正常', statusRank: 2, desc: '华东边缘POP' },
-            { id: 'pop_hk', name: '香港', status: '正常', statusRank: 2, desc: '亚太核心POP' },
-            { id: 'pop_sg', name: '新加坡', status: '正常', statusRank: 2, desc: '东南亚骨干POP' },
-            { id: 'pop_icn', name: '首尔', status: '正常', statusRank: 2, desc: '东北亚边缘POP' },
-            { id: 'pop_fra', name: '法兰克福', status: '正常', statusRank: 2, desc: '欧洲边缘POP' },
-            { id: 'pop_lon', name: '伦敦', status: '正常', statusRank: 2, desc: '欧洲骨干POP' },
-            { id: 'pop_sv', name: '硅谷', status: '正常', statusRank: 2, desc: '美西骨干POP' },
-            { id: 'pop_va', name: '弗吉尼亚', status: '正常', statusRank: 2, desc: '美东骨干POP' },
-            { id: 'pop_syd', name: '悉尼', status: '正常', statusRank: 2, desc: '澳洲核心POP' },
-            { id: 'pop_bom', name: '孟买', status: '正常', statusRank: 2, desc: '南亚核心POP' },
-            { id: 'pop_dxb', name: '迪拜', status: '正常', statusRank: 2, desc: '中东核心POP' },
-            { id: 'pop_sao', name: '圣保罗', status: '正常', statusRank: 2, desc: '南美核心POP' },
-            { id: 'pop_jnb', name: '约翰内斯堡', status: '正常', statusRank: 2, desc: '非洲核心POP' },
-            { id: 'pop_tpe', name: '台北', status: '正常', statusRank: 2, desc: '台湾POP' },
-            { id: 'pop_kix', name: '大阪', status: '正常', statusRank: 2, desc: '关西POP' },
-            { id: 'pop_bkk', name: '曼谷', status: '正常', statusRank: 2, desc: '中南半岛POP' },
-            { id: 'pop_kul', name: '吉隆坡', status: '正常', statusRank: 2, desc: '马来西亚POP' },
-            { id: 'pop_cgk', name: '雅加达', status: '正常', statusRank: 2, desc: '印尼POP' },
-            { id: 'pop_mnl', name: '马尼拉', status: '正常', statusRank: 2, desc: '菲律宾POP' },
-            { id: 'pop_cdg', name: '巴黎', status: '正常', statusRank: 2, desc: '西欧POP' },
-            { id: 'pop_ams', name: '阿姆斯特丹', status: '正常', statusRank: 2, desc: '西欧网络枢纽POP' },
-            { id: 'pop_zrh', name: '苏黎世', status: '正常', statusRank: 2, desc: '中欧POP' },
-            { id: 'pop_arn', name: '斯德哥尔摩', status: '正常', statusRank: 2, desc: '北欧POP' },
-            { id: 'pop_mad', name: '马德里', status: '正常', statusRank: 2, desc: '南欧POP' },
-            { id: 'pop_yyz', name: '多伦多', status: '正常', statusRank: 2, desc: '加拿大POP' },
-            { id: 'pop_ord', name: '芝加哥', status: '正常', statusRank: 2, desc: '美中POP' }
-          ];
+          if (isAbnormal) return BASE_POP_ABNORMAL;
+          if (isFair) return BASE_POP_FAIR;
+          return BASE_POP_NORMAL;
         },
 
         // POP 搜索过滤与排序 (按健康状态异常在前面: 差 -> 一般 -> 正常)
@@ -1606,6 +1575,77 @@
           return this.probeLines.find(l => l.id === this.activeProbeLineId) || this.sortedProbeLines[0];
         },
 
+        // 探测线路切片时间线状态
+        selectedProbeSliceTime: '15:20',
+        hoveredProbeTimelineIdx: null,
+
+        get probeTimelineSlices() {
+          const isPoorLine = (this.currentProbeLine && this.currentProbeLine.exp === '差');
+          return isPoorLine ? STATIC_TIMELINE_SLICES : STATIC_NORMAL_TIMELINE_SLICES;
+        },
+
+        get probeTrendPolylinePoints() {
+          const isPoorLine = (this.currentProbeLine && this.currentProbeLine.exp === '差');
+          return isPoorLine ? STATIC_TREND_POLYLINE_POINTS : STATIC_NORMAL_TREND_POLYLINE_POINTS;
+        },
+
+        get probePoorSegmentPolylinePoints() {
+          const isPoorLine = (this.currentProbeLine && this.currentProbeLine.exp === '差');
+          return isPoorLine ? STATIC_POOR_SEGMENT_POINTS : '';
+        },
+
+        get selectedProbePoint() {
+          const slices = this.probeTimelineSlices;
+          return slices.find(s => s.time === this.selectedProbeSliceTime) || slices[0];
+        },
+
+        get hoveredProbeTimelinePoint() {
+          if (this.hoveredProbeTimelineIdx === null) return null;
+          return this.probeTimelineSlices[this.hoveredProbeTimelineIdx] || null;
+        },
+
+        get currentProbeSlice() {
+          const pt = this.selectedProbePoint;
+          const isAbnormal = (pt && pt.status === '差');
+          const isFair = (pt && pt.status === '一般');
+          const isPoorLine = (this.currentProbeLine && this.currentProbeLine.exp === '差');
+
+          if (!isPoorLine) {
+            return {
+              time: this.selectedProbeSliceTime,
+              timeRange: pt ? pt.timeRange : '15:15~15:20',
+              status: '正常',
+              score: 95,
+              ttfb: '42ms',
+              rtt: '22ms',
+              jitter: '2ms',
+              loss: '0.0%',
+              httpError: '0.1%',
+              httpStatusText: '200 OK',
+              segments: 'DNS 11ms | TCP 18ms | TLS 22ms'
+            };
+          }
+
+          return {
+            time: this.selectedProbeSliceTime,
+            timeRange: pt ? pt.timeRange : '15:15~15:20',
+            status: pt ? pt.status : '差',
+            score: pt ? pt.score : 32,
+            ttfb: isAbnormal ? '850ms' : (isFair ? '180ms' : '45ms'),
+            rtt: isAbnormal ? '145ms' : (isFair ? '55ms' : '28ms'),
+            jitter: isAbnormal ? '48ms' : (isFair ? '12ms' : '3ms'),
+            loss: isAbnormal ? '4.5%' : (isFair ? '0.8%' : '0.0%'),
+            httpError: isAbnormal ? '0.4%' : (isFair ? '0.2%' : '0.1%'),
+            httpStatusText: isAbnormal ? '200 OK (网络传输卡慢)' : '200 OK',
+            segments: isAbnormal ? 'DNS 28ms | TCP 110ms | TLS 210ms | TTFB 850ms' : (isFair ? 'DNS 16ms | TCP 35ms | TLS 45ms' : 'DNS 12ms | TCP 20ms | TLS 24ms')
+          };
+        },
+
+        selectProbeSlice(timeStr) {
+          this.selectedProbeSliceTime = timeStr;
+          this.renderProbeLineCharts();
+        },
+
         selectMoreLineAndSwapSlot3(lineId) {
           this.pinnedLineIds[2] = lineId;
           this.activeProbeLineId = lineId;
@@ -1663,17 +1703,16 @@
           const isPoor = lineExp === '差';
           const isFair = lineExp === '一般';
 
-          let availData, errorData;
+          let errorData;
           if (isPoor) {
-            availData = [99.8, 99.7, 99.9, 99.8, 99.5, 99.2, 98.0, 97.5, 96.0, 95.2, 94.5, 88.0, 84.5, 83.0, 92.0, 96.5, 98.2, 99.0, 99.5, 99.6, 99.8, 99.7, 99.8, 99.8];
             errorData = [0.1, 0.2, 0.1, 0.2, 0.3, 0.3, 0.4, 0.4, 0.5, 0.4, 0.4, 0.5, 0.5, 0.4, 0.3, 0.3, 0.2, 0.2, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1];
           } else if (isFair) {
-            availData = [99.9, 99.8, 99.9, 99.8, 99.7, 99.5, 99.0, 98.2, 97.5, 98.0, 97.2, 95.0, 93.5, 94.8, 96.2, 97.5, 98.5, 99.2, 99.5, 99.7, 99.8, 99.8, 99.9, 99.8];
             errorData = [0.1, 0.2, 0.1, 0.2, 0.2, 0.3, 0.3, 0.4, 0.4, 0.5, 0.4, 0.4, 0.4, 0.3, 0.3, 0.2, 0.2, 0.2, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1];
           } else {
-            availData = [99.8, 99.9, 99.8, 99.9, 99.8, 99.7, 99.8, 99.9, 99.6, 99.8, 99.7, 99.8, 99.9, 99.7, 99.6, 99.8, 99.9, 99.8, 99.9, 99.8, 99.9, 99.8, 99.9, 99.8];
             errorData = [0.1, 0.1, 0.2, 0.1, 0.2, 0.2, 0.2, 0.1, 0.2, 0.2, 0.2, 0.2, 0.1, 0.2, 0.2, 0.2, 0.1, 0.2, 0.1, 0.2, 0.1, 0.2, 0.1, 0.2];
           }
+
+          const targetHour = (this.selectedProbeSliceTime ? this.selectedProbeSliceTime.split(':')[0] + ':00' : '15:00');
 
           chart.setOption({
             tooltip: {
@@ -1693,16 +1732,15 @@
               }
             },
             legend: {
-              data: ['可用性 (%)', 'HTTP 错误率 (%)'],
+              data: ['HTTP 错误率 (%)'],
               top: 0,
               right: 5,
               itemWidth: 6,
               itemHeight: 6,
-              itemGap: 12,
               textStyle: { fontSize: 11, color: '#5C6270' },
               icon: 'circle'
             },
-            grid: { top: 28, left: 36, right: 36, bottom: 20, containLabel: false },
+            grid: { top: 28, left: 36, right: 15, bottom: 20, containLabel: false },
             xAxis: {
               type: 'category',
               data: hours,
@@ -1710,47 +1748,38 @@
               axisLine: { lineStyle: { color: '#D3D7DE' } },
               axisLabel: { color: '#8A92A1', fontSize: 10 }
             },
-            yAxis: [
-              {
-                type: 'value',
-                name: '可用性 (%)',
-                nameTextStyle: { color: '#8A92A1', fontSize: 10 },
-                min: isPoor ? 75 : 90,
-                max: 100,
-                axisLabel: { color: '#8A92A1', fontSize: 10 },
-                splitLine: { lineStyle: { color: '#F0F2F5', type: 'dashed' } }
-              },
-              {
-                type: 'value',
-                name: '错误率 (%)',
-                nameTextStyle: { color: '#8A92A1', fontSize: 10 },
-                min: 0,
-                max: 5,
-                axisLabel: { color: '#8A92A1', fontSize: 10 },
-                splitLine: { show: false }
-              }
-            ],
+            yAxis: {
+              type: 'value',
+              name: '错误率 (%)',
+              nameTextStyle: { color: '#8A92A1', fontSize: 10 },
+              min: 0,
+              max: isPoor ? 1.0 : 0.5,
+              axisLabel: { color: '#8A92A1', fontSize: 10 },
+              splitLine: { lineStyle: { color: '#F0F2F5', type: 'dashed' } }
+            },
             series: [
-              {
-                name: '可用性 (%)',
-                type: 'line',
-                smooth: true,
-                showSymbol: false,
-                symbolSize: 6,
-                itemStyle: { color: '#12A679' },
-                lineStyle: { width: 2 },
-                data: availData
-              },
               {
                 name: 'HTTP 错误率 (%)',
                 type: 'line',
-                yAxisIndex: 1,
                 smooth: true,
                 showSymbol: false,
                 symbolSize: 6,
                 itemStyle: { color: '#FA721B' },
+                areaStyle: {
+                  color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                    { offset: 0, color: 'rgba(250, 114, 27, 0.25)' },
+                    { offset: 1, color: 'rgba(250, 114, 27, 0.01)' }
+                  ])
+                },
                 lineStyle: { width: 2 },
-                data: errorData
+                data: errorData,
+                markLine: {
+                  symbol: 'none',
+                  lineStyle: { color: '#1C6EFF', type: 'dashed', width: 1.5 },
+                  data: [
+                    { xAxis: targetHour, label: { show: true, formatter: '当前切片', position: 'insideEndTop', color: '#1C6EFF', fontSize: 10 } }
+                  ]
+                }
               }
             ]
           });
@@ -1791,6 +1820,8 @@
             ttfbData = [35, 32, 30, 32, 34, 38, 42, 45, 48, 46, 45, 48, 50, 52, 55, 58, 52, 48, 42, 38, 35, 34, 32, 35];
             downloadData = [12, 11, 12, 11, 12, 13, 14, 15, 14, 14, 15, 16, 15, 16, 15, 14, 13, 12, 12, 11, 12, 11, 12, 11];
           }
+
+          const targetHour = (this.selectedProbeSliceTime ? this.selectedProbeSliceTime.split(':')[0] + ':00' : '15:00');
 
           chart.setOption({
             tooltip: {
@@ -1838,7 +1869,24 @@
               splitLine: { lineStyle: { color: '#F0F2F5', type: 'dashed' } }
             },
             series: [
-              { name: 'DNS', type: 'line', stack: 'Total', smooth: true, showSymbol: false, itemStyle: { color: '#85A5FF' }, lineStyle: { width: 1.5 }, areaStyle: { opacity: 0.15 }, data: dnsData },
+              {
+                name: 'DNS',
+                type: 'line',
+                stack: 'Total',
+                smooth: true,
+                showSymbol: false,
+                itemStyle: { color: '#85A5FF' },
+                lineStyle: { width: 1.5 },
+                areaStyle: { opacity: 0.15 },
+                data: dnsData,
+                markLine: {
+                  symbol: 'none',
+                  lineStyle: { color: '#1C6EFF', type: 'dashed', width: 1.5 },
+                  data: [
+                    { xAxis: targetHour, label: { show: true, formatter: '当前切片', position: 'insideEndTop', color: '#1C6EFF', fontSize: 10 } }
+                  ]
+                }
+              },
               { name: 'TCP握手', type: 'line', stack: 'Total', smooth: true, showSymbol: false, itemStyle: { color: '#5CDBD3' }, lineStyle: { width: 1.5 }, areaStyle: { opacity: 0.2 }, data: tcpData },
               { name: 'TLS建连', type: 'line', stack: 'Total', smooth: true, showSymbol: false, itemStyle: { color: '#FFC069' }, lineStyle: { width: 1.5 }, areaStyle: { opacity: 0.2 }, data: tlsData },
               { name: 'TTFB (首包)', type: 'line', stack: 'Total', smooth: true, showSymbol: false, itemStyle: { color: '#FF7875' }, lineStyle: { width: 2 }, areaStyle: { opacity: 0.35 }, data: ttfbData },
@@ -1873,6 +1921,8 @@
             rttData = [15, 14, 15, 14, 15, 16, 18, 20, 22, 21, 20, 22, 23, 24, 25, 26, 24, 22, 20, 18, 16, 15, 15, 14];
             jitterData = [1, 2, 1, 1, 2, 2, 3, 3, 4, 3, 2, 3, 3, 4, 3, 2, 2, 2, 1, 2, 1, 2, 1, 2];
           }
+
+          const targetHour = (this.selectedProbeSliceTime ? this.selectedProbeSliceTime.split(':')[0] + ':00' : '15:00');
 
           chart.setOption({
             tooltip: {
@@ -1917,7 +1967,22 @@
               splitLine: { lineStyle: { color: '#F0F2F5', type: 'dashed' } }
             },
             series: [
-              { name: 'RTT 往返时延 (ms)', type: 'line', smooth: true, showSymbol: false, itemStyle: { color: '#1C6EFF' }, lineStyle: { width: 2 }, data: rttData },
+              {
+                name: 'RTT 往返时延 (ms)',
+                type: 'line',
+                smooth: true,
+                showSymbol: false,
+                itemStyle: { color: '#1C6EFF' },
+                lineStyle: { width: 2 },
+                data: rttData,
+                markLine: {
+                  symbol: 'none',
+                  lineStyle: { color: '#1C6EFF', type: 'dashed', width: 1.5 },
+                  data: [
+                    { xAxis: targetHour, label: { show: true, formatter: '当前切片', position: 'insideEndTop', color: '#1C6EFF', fontSize: 10 } }
+                  ]
+                }
+              },
               { name: '网络抖动 (ms)', type: 'line', smooth: true, showSymbol: false, itemStyle: { color: '#722ED1' }, lineStyle: { width: 1.8, type: 'dashed' }, data: jitterData }
             ]
           });
@@ -1947,6 +2012,8 @@
             lossData = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.1, 0.0, 0.0, 0.1, 0.0, 0.0, 0.0, 0.1, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
           }
 
+          const targetHour = (this.selectedProbeSliceTime ? this.selectedProbeSliceTime.split(':')[0] + ':00' : '15:00');
+
           chart.setOption({
             tooltip: { trigger: 'axis', backgroundColor: 'rgba(255, 255, 255, 0.96)', borderColor: '#E1E5EB', textStyle: { color: '#2F3540', fontSize: 12 }, formatter: '{b} <br/> 数据包丢包率: <b>{c} %</b>' },
             legend: { data: ['数据包丢包率 (%)'], top: 0, right: 5, itemWidth: 6, itemHeight: 6, textStyle: { fontSize: 11, color: '#5C6270' }, icon: 'circle' },
@@ -1962,7 +2029,14 @@
                 itemStyle: { color: '#D9363E' },
                 areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: 'rgba(217, 54, 62, 0.25)' }, { offset: 1, color: 'rgba(217, 54, 62, 0.01)' }]) },
                 lineStyle: { width: 2 },
-                data: lossData
+                data: lossData,
+                markLine: {
+                  symbol: 'none',
+                  lineStyle: { color: '#1C6EFF', type: 'dashed', width: 1.5 },
+                  data: [
+                    { xAxis: targetHour, label: { show: true, formatter: '当前切片', position: 'insideEndTop', color: '#1C6EFF', fontSize: 10 } }
+                  ]
+                }
               }
             ]
           });
@@ -3548,7 +3622,7 @@
                           <td class="text-center">
                             <a :href="'./DEM-用户详情.html?type=分支&name=' + encodeURIComponent(item.name) + '&location=' + encodeURIComponent(item.location || '') + '&pop=' + encodeURIComponent(item.pop || '') + '&exp=' + encodeURIComponent(item.exp || '差') + '&totalApps=' + (item.affectedUsers || 12) + '&poorApps=' + (item.poorCount || 0) + '&fairApps=' + (item.fairCount || 0) + '&normalApps=' + (item.normalCount || 0)"
                               target="_blank"
-                              class="text-[#1C6EFF] hover:underline font-medium text-xs cursor-pointer inline-flex items-center justify-center gap-0.5">详情&gt;</a>
+                              class="text-[#1C6EFF] hover:underline font-medium text-xs cursor-pointer inline-flex items-center justify-center gap-0.5">详情&nbsp;&nbsp;&gt;</a>
                           </td>
                         </tr>
                       </template>
@@ -3724,7 +3798,7 @@
                           <td class="text-center">
                             <a :href="'./DEM-用户详情.html?type=用户&empId=' + encodeURIComponent(item.empId) + '&name=' + encodeURIComponent(item.name) + '&dept=' + encodeURIComponent(item.dept) + '&exp=' + encodeURIComponent(item.exp || '差') + '&totalApps=' + (item.totalApps || 17) + '&poorApps=' + (item.poorCount || 0) + '&fairApps=' + (item.fairCount || 0) + '&normalApps=' + (item.normalCount || 0)"
                               target="_blank"
-                              class="text-[#1C6EFF] hover:underline font-medium text-xs cursor-pointer inline-flex items-center justify-center gap-0.5">详情&gt;</a>
+                              class="text-[#1C6EFF] hover:underline font-medium text-xs cursor-pointer inline-flex items-center justify-center gap-0.5">详情&nbsp;&nbsp;&gt;</a>
                           </td>
                         </tr>
                       </template>
@@ -3915,136 +3989,127 @@
                   </div>
                 </div>
 
-                <!-- ② 最近一次探测结果 (快照卡片) -->
-                <div class="bg-[#F8FAFC] border border-[#E1E5EB] rounded-[2px] p-3 space-y-2.5">
-                  <div class="flex items-center justify-between">
-                    <div class="flex items-center gap-2">
-                      <span class="w-2 h-2 rounded-full"
-                        :class="currentProbeLine.latestResult.status === '差' ? 'bg-[#D9363E] animate-pulse' : (currentProbeLine.latestResult.status === '一般' ? 'bg-[#FA8C16]' : 'bg-[#12A679]')"></span>
-                      <span class="text-xs font-bold text-[#2F3540]">最近一次探测快照</span>
-                      <span class="text-[11px] text-[#8A92A1]"
-                        x-text="'(探测时间: ' + currentProbeLine.latestResult.time + ')'"></span>
+                <!-- ② 线路时段探测切片 (离散切片时间线，参考方案一规范) -->
+                <div class="bg-[#F8FAFC] p-3.5 rounded-[2px] relative flex flex-col border border-[#E1E5EB]">
+                  
+                  <!-- 垂直竖条切片序列 -->
+                  <div class="h-11 flex items-center justify-between gap-[2px] px-1 relative">
+                    <template x-for="(pt, idx) in probeTimelineSlices" :key="pt.id">
+                      <div class="flex-1 flex flex-col items-center justify-center h-full cursor-pointer timeline-bar-wrapper relative group"
+                           @mouseenter="hoveredProbeTimelineIdx = idx"
+                           @mouseleave="hoveredProbeTimelineIdx = null"
+                           @click="selectProbeSlice(pt.time)">
+                        
+                        <!-- Tooltip 悬浮浮层 -->
+                        <div x-show="hoveredProbeTimelineIdx === idx"
+                             x-transition:enter="transition ease-out duration-150"
+                             x-transition:enter-start="opacity-0 translate-y-1 scale-95"
+                             x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+                             class="absolute -top-12 left-1/2 -translate-x-1/2 bg-[#1E293B] text-white text-[10px] px-2 py-1 rounded shadow-lg whitespace-nowrap z-30 pointer-events-none" x-cloak>
+                          <div class="font-mono font-bold" x-text="pt.time"></div>
+                          <div class="flex items-center gap-1.5 mt-0.5 text-[10px]">
+                            <span>TTFB: <b class="font-outfit" x-text="pt.avgTtfb"></b></span>
+                            <span :class="pt.status === '差' ? 'text-rose-400 font-bold' : (pt.status === '一般' ? 'text-amber-400 font-bold' : 'text-emerald-400 font-bold')" x-text="'(' + pt.status + ')'"></span>
+                          </div>
+                        </div>
+
+                        <!-- 采样竖条 (精确根据状态展示绿、黄、红) -->
+                        <div class="w-full h-full rounded-[1px] relative transition-all duration-200"
+                             :class="{
+                               'bg-[#12A679]': pt.status === '正常',
+                               'bg-[#FA721B]': pt.status === '一般',
+                               'bg-[#D9363E]': pt.status === '差',
+                               'ring-2 ring-[#D9363E] selected-bar-glow z-20 scale-y-105': selectedProbeSliceTime === pt.time
+                             }">
+                          <template x-if="selectedProbeSliceTime === pt.time">
+                            <div class="absolute -top-2 left-1/2 -translate-x-1/2 text-[#D9363E] text-[9px] leading-none pointer-events-none">▼</div>
+                          </template>
+                        </div>
+
+                      </div>
+                    </template>
+                  </div>
+
+                  <!-- X 轴时间刻度 (08:00 ~ 16:00) -->
+                  <div class="flex items-center justify-between text-[10px] text-[#6F7785] mt-2 px-1 border-t border-[#E1E5EB] pt-1.5 font-mono select-none">
+                    <span>08:00</span>
+                    <span>10:00</span>
+                    <span>12:00</span>
+                    <span class="text-[#D9363E] font-medium" x-text="(selectedProbeSliceTime || '15:20') + ' (当前切片时刻)'"></span>
+                    <span>16:00</span>
+                  </div>
+
+                  <!-- 选中时刻联动信息展示条 (与截图完全一致的白底白边卡片) -->
+                  <div class="mt-2.5 bg-white border border-[#D3D7DE] px-3.5 py-2 rounded-[2px] flex items-center justify-between text-xs select-none shadow-xs">
+                    <div class="flex items-center flex-wrap gap-6 font-mono text-[#2F3540]">
+                      <div>
+                        <span class="text-[#6F7785] font-sans">选中时间：</span>
+                        <span class="font-bold text-[#2F3540]" x-text="currentProbeSlice.time"></span>
+                      </div>
+                      <div>
+                        <span class="text-[#6F7785] font-sans">探测范围：</span>
+                        <span class="text-[#2F3540]" x-text="currentProbeSlice.timeRange"></span>
+                      </div>
+                      <div>
+                        <span class="text-[#6F7785] font-sans">TTFB：</span>
+                        <span class="font-bold font-outfit" :class="getTtfbClass(currentProbeSlice.ttfb)" x-text="currentProbeSlice.ttfb"></span>
+                      </div>
+                      <div>
+                        <span class="text-[#6F7785] font-sans">网络时延 (RTT)：</span>
+                        <span class="font-bold font-outfit" :class="getRttClass(currentProbeSlice.rtt)" x-text="currentProbeSlice.rtt"></span>
+                      </div>
+                      <div>
+                        <span class="text-[#6F7785] font-sans">数据包丢包率：</span>
+                        <span class="font-bold font-outfit" :class="getPacketLossClass(currentProbeSlice.loss)" x-text="currentProbeSlice.loss"></span>
+                      </div>
+                      <div>
+                        <span class="text-[#6F7785] font-sans">HTTP 错误率：</span>
+                        <span class="font-bold font-outfit" :class="getErrorRateClass(currentProbeSlice.httpError)" x-text="currentProbeSlice.httpError"></span>
+                      </div>
                     </div>
-                    <div class="flex items-center gap-2 text-xs">
-                      <span class="text-[#8A92A1]">响应状态:</span>
-                      <span class="font-mono font-bold"
-                        :class="currentProbeLine.latestResult.httpCode >= 400 ? 'text-[#D9363E]' : (currentProbeLine.latestResult.status === '一般' ? 'text-[#FA721B]' : 'text-[#12A679]')"
-                        x-text="currentProbeLine.latestResult.httpStatusText"></span>
+
+                    <div class="flex items-center gap-1.5 flex-shrink-0">
+                      <span class="text-[#6F7785] font-sans">评估状态：</span>
+                      <span class="inline-flex items-center gap-1 text-xs font-normal"
+                            :class="currentProbeSlice.status === '差' ? 'text-[#D9363E]' : (currentProbeSlice.status === '一般' ? 'text-[#FA721B]' : 'text-[#12A679]')">
+                        <span class="w-2 h-2 rounded-full"
+                              :class="currentProbeSlice.status === '差' ? 'bg-[#D9363E] animate-pulse' : (currentProbeSlice.status === '一般' ? 'bg-[#FA721B]' : 'bg-[#12A679]')"></span>
+                        <span class="font-sans font-medium" x-text="currentProbeSlice.status === '差' ? '异常' : currentProbeSlice.status"></span>
+                      </span>
                     </div>
                   </div>
-                  <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-2.5">
-                    <div class="bg-white p-2.5 rounded-[2px] border border-[#E1E5EB]/80">
-                      <div class="text-[11px] text-[#8A92A1] mb-0.5 whitespace-nowrap">TTFB (首字节耗时)</div>
-                      <div class="text-base font-bold font-mono" :class="getTtfbClass(currentProbeLine.latestResult.ttfb)"
-                        x-text="currentProbeLine.latestResult.ttfb"></div>
-                    </div>
-                    <div class="bg-white p-2.5 rounded-[2px] border border-[#E1E5EB]/80">
-                      <div class="text-[11px] text-[#8A92A1] mb-0.5 whitespace-nowrap">网络时延 (RTT)</div>
-                      <div class="text-base font-bold font-mono" :class="getRttClass(currentProbeLine.latestResult.rtt)"
-                        x-text="currentProbeLine.latestResult.rtt"></div>
-                    </div>
-                    <div class="bg-white p-2.5 rounded-[2px] border border-[#E1E5EB]/80">
-                      <div class="text-[11px] text-[#8A92A1] mb-0.5 whitespace-nowrap">网络抖动</div>
-                      <div class="text-base font-bold font-mono"
-                        :class="getJitterClass(currentProbeLine.latestResult.jitter)"
-                        x-text="currentProbeLine.latestResult.jitter"></div>
-                    </div>
-                    <div class="bg-white p-2.5 rounded-[2px] border border-[#E1E5EB]/80">
-                      <div class="text-[11px] text-[#8A92A1] mb-0.5 whitespace-nowrap">数据包丢包率</div>
-                      <div class="text-base font-bold font-mono"
-                        :class="getPacketLossClass(currentProbeLine.latestResult.loss)"
-                        x-text="currentProbeLine.latestResult.loss"></div>
-                    </div>
-                    <div
-                      class="bg-white p-2.5 rounded-[2px] border border-[#E1E5EB]/80 col-span-2 sm:col-span-4 lg:col-span-1">
-                      <div class="text-[11px] text-[#8A92A1] mb-0.5 whitespace-nowrap">分段耗时</div>
-                      <div class="text-xs font-mono text-[#5C6270] truncate pt-0.5"
-                        x-text="currentProbeLine.latestResult.segments"></div>
-                    </div>
-                  </div>
+
                 </div>
 
-                <!-- ③ 时段整体指标统计 5 宫格 -->
-                <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 pt-1">
-                  <div
-                    class="bg-[#F8FAFC] py-2 px-3 rounded-[2px] border border-[#E1E5EB]/60 flex flex-col justify-between">
-                    <div class="text-xs text-[#8A92A1] mb-0.5 whitespace-nowrap">探测总次数</div>
-                    <div class="text-base lg:text-lg font-bold text-[#2F3540]" x-text="currentProbeLine.count + ' 次'">
+                <!-- 4张探测趋势图 (2x2 网格，移除小标题) -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 pt-1">
+                  <div class="border border-[#E1E5EB] rounded-[2px] p-3 bg-white">
+                    <div class="flex items-center justify-between mb-1">
+                      <span class="text-xs font-semibold text-[#454C59]">HTTP 错误率趋势图</span>
+                    </div>
+                    <div id="chart-probe-avail-error" x-ref="chartProbeAvailError" class="w-full"
+                      style="height:175px"></div>
+                  </div>
+                  <div class="border border-[#E1E5EB] rounded-[2px] p-3 bg-white">
+                    <div class="flex items-center justify-between mb-1">
+                      <span class="text-xs font-semibold text-[#454C59]">分段耗时趋势图</span>
+                    </div>
+                    <div id="chart-probe-seg-time" x-ref="chartProbeSegTime" class="w-full" style="height:175px">
                     </div>
                   </div>
-                  <div
-                    class="bg-[#F8FAFC] py-2 px-3 rounded-[2px] border border-[#E1E5EB]/60 flex flex-col justify-between">
-                    <div class="text-xs text-[#8A92A1] mb-0.5 whitespace-nowrap">可用性 (体验正常占比)</div>
-                    <div class="text-base lg:text-lg font-bold"
-                      :class="getAvailabilityClass(currentProbeLine.availability)" x-text="currentProbeLine.availability">
+                  <div class="border border-[#E1E5EB] rounded-[2px] p-3 bg-white">
+                    <div class="flex items-center justify-between mb-1">
+                      <span class="text-xs font-semibold text-[#454C59]">网络 RTT 与抖动趋势图</span>
+                    </div>
+                    <div id="chart-probe-rtt-jitter" x-ref="chartProbeRttJitter" class="w-full" style="height:175px">
                     </div>
                   </div>
-                  <div
-                    class="bg-[#F8FAFC] py-2 px-3 rounded-[2px] border border-[#E1E5EB]/60 flex flex-col justify-between">
-                    <div class="text-xs text-[#8A92A1] mb-0.5 whitespace-nowrap">HTTP 错误率</div>
-                    <div class="text-base lg:text-lg font-bold" :class="getErrorRateClass(currentProbeLine.httpError)"
-                      x-text="currentProbeLine.httpError"></div>
-                  </div>
-                  <div
-                    class="bg-[#F8FAFC] py-2 px-3 rounded-[2px] border border-[#E1E5EB]/60 flex flex-col justify-between">
-                    <div class="text-xs text-[#8A92A1] mb-0.5 whitespace-nowrap">平均数据包丢包率</div>
-                    <div class="text-base lg:text-lg font-bold" :class="getPacketLossClass(currentProbeLine.loss)"
-                      x-text="currentProbeLine.loss"></div>
-                  </div>
-                  <div
-                    class="bg-[#F8FAFC] py-2 px-3 rounded-[2px] border border-[#E1E5EB]/60 flex flex-col justify-between">
-                    <div class="text-xs text-[#8A92A1] mb-0.5 whitespace-nowrap">平均 TTFB</div>
-                    <div class="text-base lg:text-lg font-bold" :class="getTtfbClass(currentProbeLine.ttfb)"
-                      x-text="currentProbeLine.ttfb"></div>
-                  </div>
-                </div>
-
-                <!-- ④ 4张探测趋势图 -->
-                <div class="space-y-3 pt-1">
-                  <div>
-                    <div class="text-xs font-semibold text-[#8A92A1] mb-1.5 flex items-center gap-1.5">
-                      <span class="w-1.5 h-1.5 rounded-full bg-[#1C6EFF]"></span>
-                      <span>探测线路应用层性能趋势</span>
+                  <div class="border border-[#E1E5EB] rounded-[2px] p-3 bg-white">
+                    <div class="flex items-center justify-between mb-1">
+                      <span class="text-xs font-semibold text-[#454C59]">数据包丢包率趋势图</span>
                     </div>
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                      <div class="border border-[#E1E5EB] rounded-[2px] p-3 bg-white">
-                        <div class="flex items-center justify-between mb-1">
-                          <span class="text-xs font-semibold text-[#454C59]">可用性与 HTTP 错误率趋势图</span>
-                        </div>
-                        <div id="chart-probe-avail-error" x-ref="chartProbeAvailError" class="w-full"
-                          style="height:175px"></div>
-                      </div>
-                      <div class="border border-[#E1E5EB] rounded-[2px] p-3 bg-white">
-                        <div class="flex items-center justify-between mb-1">
-                          <span class="text-xs font-semibold text-[#454C59]">分段耗时趋势图</span>
-                        </div>
-                        <div id="chart-probe-seg-time" x-ref="chartProbeSegTime" class="w-full" style="height:175px">
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <div class="text-xs font-semibold text-[#8A92A1] mb-1.5 flex items-center gap-1.5">
-                      <span class="w-1.5 h-1.5 rounded-full bg-[#722ED1]"></span>
-                      <span>探测线路网络层性能趋势</span>
-                    </div>
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                      <div class="border border-[#E1E5EB] rounded-[2px] p-3 bg-white">
-                        <div class="flex items-center justify-between mb-1">
-                          <span class="text-xs font-semibold text-[#454C59]">网络 RTT 与抖动趋势图</span>
-                        </div>
-                        <div id="chart-probe-rtt-jitter" x-ref="chartProbeRttJitter" class="w-full" style="height:175px">
-                        </div>
-                      </div>
-                      <div class="border border-[#E1E5EB] rounded-[2px] p-3 bg-white">
-                        <div class="flex items-center justify-between mb-1">
-                          <span class="text-xs font-semibold text-[#454C59]">数据包丢包率趋势图</span>
-                        </div>
-                        <div id="chart-probe-packet-loss" x-ref="chartProbePacketLoss" class="w-full"
-                          style="height:175px"></div>
-                      </div>
-                    </div>
+                    <div id="chart-probe-packet-loss" x-ref="chartProbePacketLoss" class="w-full"
+                      style="height:175px"></div>
                   </div>
                 </div>
 
@@ -4061,18 +4126,30 @@
 
   </div>
 
-  <!-- 自动填充模板内容脚本 (匹配双底座统一规范) -->
+  <!-- 自动填充模板内容脚本 (按需惰性挂载，首屏秒开加速) -->
   <script>
-    (function injectAppDetailTemplate() {
+    (function initLazyWorkspace() {
       const tpl = document.getElementById('page-content-template');
       if (!tpl) return;
-      ['atrust-workspace', 'sase-workspace'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) {
-          el.innerHTML = '';
+
+      window.ensureWorkspaceInjected = function(shellType) {
+        const targetId = shellType === 'atrust' ? 'atrust-workspace' : 'sase-workspace';
+        const el = document.getElementById(targetId);
+        if (el && el.children.length === 0) {
           el.appendChild(tpl.content.cloneNode(true));
+          if (window.Alpine) {
+            window.Alpine.initTree(el);
+          }
         }
-      });
+      };
+
+      // 默认优先激活 SASE 线上云底座
+      let currentShell = 'sase';
+      try {
+        currentShell = localStorage.getItem('demoShell_v2') || 'sase';
+      } catch (e) {}
+
+      window.ensureWorkspaceInjected(currentShell);
     })();
   </script>
 

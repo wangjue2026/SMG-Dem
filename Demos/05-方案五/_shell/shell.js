@@ -59,8 +59,8 @@
     }
 
     return {
-      /* 底座切换：'atrust' | 'sase' */
-      shell: safeGet('demoShell_v2', 'atrust'),
+      /* 底座切换：'atrust' | 'sase'（默认优先激活 SASE 线上云底座） */
+      shell: safeGet('demoShell_v2', 'sase'),
 
       /* 当前激活页面（由各子页面传入） */
       activePage: activePage || '体验监控',
@@ -74,6 +74,9 @@
       setShell(s) {
         this.shell = s;
         safeSet('demoShell_v2', s);
+        if (typeof window.ensureWorkspaceInjected === 'function') {
+          window.ensureWorkspaceInjected(s);
+        }
       },
 
       /* 防重复导航标志 */
