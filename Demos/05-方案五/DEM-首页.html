@@ -5,6 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>DEM-首页 - 全网体验监控指挥中心</title>
 
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+
   <link rel="stylesheet" href="../assets/css/css-overrides.css">
   <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/collapse@3.x.x/dist/cdn.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
@@ -13,9 +17,8 @@
   <script src="../assets/js/tailwind-config.js"></script>
   <link rel="stylesheet" href="../assets/css/ai-dem.css" />
 
-  <!-- 集中维护的双底座公共 Shell 样式与逻辑 -->
+  <!-- 集中维护的双底座公共 Shell 样式 -->
   <link rel="stylesheet" href="./_shell/shell.css" />
-  <script src="./_shell/shell.js"></script>
 
   <style>
     /* -------------------------------------------------------------
@@ -735,311 +738,7 @@
       <div class="flex-1 flex overflow-hidden">
         <div id="shell-atrust-sider"></div>
         <div class="flex-1 bg-bg-light flex flex-col overflow-hidden">
-          <div class="flex-1 bg-[#F4F6F9] flex flex-col overflow-hidden" id="atrust-workspace">
-            <div class="flex flex-col w-full h-full overflow-hidden">
-        <!-- 体验监控 单标题页头 -->
-        <div class="h-[48px] min-h-[48px] bg-white border-b border-bg-line px-6 flex items-center justify-between flex-shrink-0 select-none z-20">
-          <div class="flex items-center h-full">
-            <span class="text-[14px] font-bold text-[#3D3D3D]">体验监控</span>
-          </div>
-
-          <button @click="showAiDrawer1 = true; aiDrawerOpen = true;" 
-                  class="group relative inline-flex items-center justify-center p-[1px] rounded-full overflow-hidden transition-all duration-200 hover:shadow-[0_2px_10px_rgba(28,110,255,0.25)] cursor-pointer active:scale-95"
-                  style="background: linear-gradient(135deg, #1C6EFF 0%, #10B981 100%);">
-            <div class="h-[30px] px-3.5 bg-white group-hover:bg-gradient-to-r group-hover:from-[#1C6EFF]/5 group-hover:to-[#10B981]/5 rounded-full flex items-center gap-1.5 transition-all">
-              <svg class="w-3.5 h-3.5 text-[#1C6EFF] group-hover:text-[#059669] transition-colors flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2L14.4 7.6L20 10L14.4 12.4L12 18L9.6 12.4L4 10L9.6 7.6L12 2Z"/>
-                <path d="M19 14L20.2 16.8L23 18L20.2 19.2L19 22L17.8 19.2L15 18L17.8 16.8L19 14Z"/>
-              </svg>
-              <span class="text-xs font-medium text-[#1C6EFF] group-hover:text-[#059669] transition-colors whitespace-nowrap">智能排障</span>
-            </div>
-          </button>
-        </div>
-
-        <!-- 主内容区域 -->
-        <main class="flex-1 bg-[#F4F6F9] px-4 py-2 flex flex-col gap-2 overflow-y-auto custom-scrollbar">
-
-          <!-- 1. 时间日期筛选与租户体验定性 -->
-          <div class="bg-white border border-[#E2E8F0] rounded-[4px] px-5 py-2.5 flex items-center justify-between flex-shrink-0 select-none shadow-2xs">
-            <!-- 左侧：租户整体体验定性 -->
-            <div class="flex items-center gap-2 text-xs">
-              <span class="text-[#262626] font-medium">整体访问体验：</span>
-              <span class="bg-[#FFFBE6] border border-[#FFE58F] text-[#D46B08] rounded-[2px] font-normal px-2 h-5 inline-flex items-center justify-center text-xs select-none">一般</span>
-              <span class="text-[#8C8C8C] ml-2">此时段内应用访问体验得分均值不足70分</span>
-            </div>
-
-            <!-- 右侧：时间筛选器 + 刷新按钮 -->
-            <div class="flex items-center gap-3">
-              <div class="inline-flex items-center h-8 bg-white border border-[#D9D9D9] rounded-[2px] hover:border-[#1890FF] transition-colors text-xs">
-                <!-- 左侧快捷选择区 -->
-                <div class="relative bg-[#FAFAFA] h-full px-2.5 flex items-center justify-between border-r border-[#D9D9D9] min-w-[80px] cursor-pointer group">
-                  <select x-model="dateShortcut" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full text-xs">
-                    <option value="今天">今天</option>
-                    <option value="近24小时">近24小时</option>
-                    <option value="近3天">近3天</option>
-                    <option value="近7天">近7天</option>
-                    <option value="近30天">近30天</option>
-                    <option value="自定义">自定义</option>
-                  </select>
-                  <span class="text-[#262626] font-normal text-xs" x-text="dateShortcut || '今天'"></span>
-                  <svg class="w-3.5 h-3.5 text-[#BFBFBF] ml-2 group-hover:text-[#1890FF] transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                  </svg>
-                </div>
-
-                <!-- 右侧日期范围展示区 -->
-                <div class="h-full pl-3 pr-2.5 flex items-center justify-between cursor-pointer whitespace-nowrap">
-                  <span class="font-mono text-xs text-[#595959] whitespace-nowrap" x-text="dateRange || '2025-08-01 00:00:00 至 2025-08-01 23:59:59'"></span>
-                  <svg class="w-3.5 h-3.5 text-[#BFBFBF] flex-shrink-0 ml-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                  </svg>
-                </div>
-              </div>
-
-              <!-- 刷新按钮 -->
-              <button class="w-8 h-8 bg-white border border-[#D9D9D9] rounded-[2px] hover:border-[#1890FF] hover:text-[#1890FF] transition-colors text-[#595959] inline-flex items-center justify-center cursor-pointer select-none" title="刷新数据">
-                <svg class="w-4 h-4 text-[#595959] hover:text-[#1890FF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-                </svg>
-              </button>
-            </div>
-          </div>
-
-          <!-- 2. 顶部综合概览大卡片 (三段比例 4:3:3 布局: 体验预警事件分布 30% + 访问体验质量 40% + VIP对象体验 30%) -->
-          <div x-show="showOverview" x-collapse class="flex-shrink-0 w-full overflow-hidden mt-1">
-            <div class="bg-white border border-[#E2E8F0] rounded-[4px] p-4 shadow-2xs grid divide-x divide-[#F0F0F0] box-border min-h-[170px]"
-                 style="grid-template-columns: 30% 40% 30%;">
-              
-              <!-- 模块 1: 体验预警事件分布 (佔 30% 宽度) -->
-              <div class="pr-4 flex flex-col justify-between select-none h-full">
-                <div class="flex items-center justify-between mb-2">
-                  <span class="text-[14px] font-bold text-[#262626]">体验预警事件分布</span>
-                </div>
-                <div class="flex items-center gap-[40px] flex-1 min-w-0">
-                  <!-- 左侧：待处置数字 (24px, 加粗) -->
-                  <div class="flex flex-col items-center justify-center min-w-[48px] flex-shrink-0">
-                    <span class="text-[24px] font-bold text-[#262626] font-outfit leading-none" x-text="metrics.pendingCount">16</span>
-                    <span class="text-[12px] text-[#8C8C8C] mt-2 font-normal">待处置</span>
-                  </div>
-
-                  <!-- 中间：环形图 -->
-                  <div class="relative w-[76px] h-[76px] flex items-center justify-center flex-shrink-0 cursor-pointer group" title="点击环形弧线按告警等级筛选">
-                    <svg class="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
-                      <circle cx="50" cy="50" r="33" fill="#F0F5FF" />
-                      <circle cx="50" cy="50" r="36" fill="none" stroke="#D0E2FF" stroke-width="1" stroke-dasharray="2.5 2.5" />
-                      <circle cx="50" cy="50" r="43" fill="none" stroke="#F0F2F5" stroke-width="8" />
-                      <circle @click="filterAlertLevel('高优')" cx="50" cy="50" r="43" fill="none" stroke="#FF5752" stroke-width="8" stroke-dasharray="47 223" stroke-dashoffset="0" class="cursor-pointer transition-all duration-200 hover:stroke-[10px]" title="高优告警 (4)" />
-                      <circle @click="filterAlertLevel('中优')" cx="50" cy="50" r="43" fill="none" stroke="#FF9245" stroke-width="8" stroke-dasharray="141 129" stroke-dashoffset="-49" class="cursor-pointer transition-all duration-200 hover:stroke-[10px]" title="中优告警 (12)" />
-                      <circle @click="filterAlertLevel('低优')" cx="50" cy="50" r="43" fill="none" stroke="#5BD8A6" stroke-width="8" stroke-dasharray="12 258" stroke-dashoffset="-241" class="cursor-pointer transition-all duration-200 hover:stroke-[10px]" title="低优告警 (1)" />
-                      <circle @click="filterAlertLevel('all')" cx="50" cy="50" r="43" fill="none" stroke="#39C317" stroke-width="8" stroke-dasharray="47 223" stroke-dashoffset="-192" class="cursor-pointer transition-all duration-200 hover:stroke-[10px]" title="已修复 (4)" />
-                    </svg>
-                    <div class="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
-                      <span class="text-[18px] font-bold text-[#262626] leading-none" x-text="metrics.total">23</span>
-                      <span class="text-[9px] text-[#8C8C8C] transform origin-center mt-1 font-normal">问题总数</span>
-                    </div>
-                  </div>
-
-                  <!-- 右侧：图例列表 -->
-                  <div class="flex flex-col gap-[7px] text-[12px] min-w-[66px] flex-shrink-0 select-none">
-                    <div @click="filterAlertLevel('高优')" class="flex items-center justify-between gap-1.5 cursor-pointer hover:opacity-80 transition-opacity" title="过滤高优告警">
-                      <div class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-[2px] bg-[#FF5752]"></span><span class="text-[#595959] font-normal">高优</span></div>
-                      <span class="font-normal text-[#262626] font-outfit text-right w-4" x-text="metrics.highCount">4</span>
-                    </div>
-                    <div @click="filterAlertLevel('中优')" class="flex items-center justify-between gap-1.5 cursor-pointer hover:opacity-80 transition-opacity" title="过滤中优告警">
-                      <div class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-[2px] bg-[#FF9245]"></span><span class="text-[#595959] font-normal">中优</span></div>
-                      <span class="font-normal text-[#262626] font-outfit text-right w-4" x-text="metrics.medCount">12</span>
-                    </div>
-                    <div @click="filterAlertLevel('低优')" class="flex items-center justify-between gap-1.5 cursor-pointer hover:opacity-80 transition-opacity" title="过滤低优告警">
-                      <div class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-[2px] bg-[#5BD8A6]"></span><span class="text-[#595959] font-normal">低优</span></div>
-                      <span class="font-normal text-[#262626] font-outfit text-right w-4" x-text="metrics.lowCount">1</span>
-                    </div>
-                    <div @click="filterAlertLevel('all')" class="flex items-center justify-between gap-1.5 cursor-pointer hover:opacity-80 transition-opacity" title="显示全部分级">
-                      <div class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-[2px] bg-[#39C317]"></span><span class="text-[#595959] font-normal">已修复</span></div>
-                      <span class="font-normal text-[#262626] font-outfit text-right w-4" x-text="metrics.resolvedCount">4</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- 模块 2: 访问体验质量 (佔 40% 宽度 - 获得宽敞空间，支持点击正常/一般/差联动) -->
-              <div class="px-5 flex flex-col justify-between select-none h-full">
-                <div class="flex items-center justify-between mb-2">
-                  <span class="text-[14px] font-bold text-[#262626]">访问体验质量</span>
-                </div>
-                <div class="flex flex-col gap-[8px] text-[12px] flex-1 justify-center items-start">
-                  <!-- 行1：分支 -->
-                  <div class="w-full bg-[#F7F9FC] px-3.5 h-[36px] rounded-[4px] flex items-center justify-between transition-all hover:bg-white hover:border-[#1890FF]/40 border border-transparent group">
-                    <!-- 左侧：图标+文案 + 间距24px + 右对齐数字 + 间距8px + 右对齐分割线 -->
-                    <div @click="navigateToDimension('分支')" class="flex items-center justify-between w-[146px] min-w-[146px] flex-shrink-0 cursor-pointer hover:text-[#1890FF]" title="切换至分支 Tab (全部)">
-                      <div class="flex items-center gap-1.5 text-[13px] text-[#262626] font-normal group-hover:text-[#1890FF]">
-                        <svg class="w-3.5 h-3.5 text-[#8C8C8C]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                        <span>分支</span>
-                      </div>
-                      <div class="flex items-center ml-[24px]">
-                        <span class="text-[13px] text-[#8C8C8C] font-normal text-right font-outfit">24<span class="font-sans">个</span></span>
-                        <span class="text-[#E0E0E0] ml-[8px]">|</span>
-                      </div>
-                    </div>
-
-                    <!-- 右侧：正常文案左对齐、数字右对齐 + 进度条对齐 -->
-                    <div class="flex flex-col justify-center items-end flex-1 min-w-0 ml-4 max-w-[216px]">
-                      <div class="flex items-center text-[#8C8C8C] text-[12px] font-normal justify-between w-full">
-                        <!-- 正常：文案左对齐，数字右对齐 -->
-                        <span @click.stop="navigateToDimension('分支', '正常')" class="inline-flex items-center justify-between w-[70px] cursor-pointer hover:text-[#1890FF] group/n" title="点击筛选分支体验为正常">
-                          <span class="group-hover/n:text-[#1890FF]">正常</span>
-                          <span class="font-outfit text-[#595959] group-hover/n:text-[#1890FF] font-medium text-right">22</span>
-                        </span>
-                        <span class="text-[#E0E0E0]">|</span>
-                        <!-- 一般：文案左对齐，数字右对齐 -->
-                        <span @click.stop="navigateToDimension('分支', '一般')" class="inline-flex items-center justify-between w-[52px] cursor-pointer hover:text-[#1890FF] group/f" title="点击筛选分支体验为一般">
-                          <span class="group-hover/f:text-[#1890FF]">一般</span>
-                          <span class="font-outfit text-[#595959] group-hover/f:text-[#1890FF] font-medium text-right">2</span>
-                        </span>
-                        <span class="text-[#E0E0E0]">|</span>
-                        <!-- 差：文案左对齐，数字右对齐 -->
-                        <span @click.stop="navigateToDimension('分支', '差')" class="inline-flex items-center justify-between w-[44px] cursor-pointer hover:text-[#1890FF] group/p" title="点击筛选分支体验为差">
-                          <span class="group-hover/p:text-[#1890FF]">差</span>
-                          <span class="font-outfit text-[#595959] group-hover/p:text-[#1890FF] font-medium text-right">2</span>
-                        </span>
-                      </div>
-                      <div class="w-full h-[4px] bg-[#F0F0F0] rounded-full overflow-hidden flex mt-1">
-                        <div @click.stop="navigateToDimension('分支', '正常')" class="h-full bg-[#39C317] cursor-pointer hover:opacity-80 transition-opacity" style="width: 70%;" title="正常: 22"></div>
-                        <div @click.stop="navigateToDimension('分支', '一般')" class="h-full bg-[#FF9245] cursor-pointer hover:opacity-80 transition-opacity" style="width: 15%;" title="一般: 2"></div>
-                        <div @click.stop="navigateToDimension('分支', '差')" class="h-full bg-[#FF5752] cursor-pointer hover:opacity-80 transition-opacity" style="width: 15%;" title="差: 2"></div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <!-- 行2：用户 -->
-                  <div class="w-full bg-[#F7F9FC] px-3.5 h-[36px] rounded-[4px] flex items-center justify-between transition-all hover:bg-white hover:border-[#1890FF]/40 border border-transparent group">
-                    <!-- 左侧：图标+文案 + 间距24px + 右对齐数字 + 间距8px + 右对齐分割线 -->
-                    <div @click="navigateToDimension('用户')" class="flex items-center justify-between w-[146px] min-w-[146px] flex-shrink-0 cursor-pointer hover:text-[#1890FF]" title="切换至用户 Tab (全部)">
-                      <div class="flex items-center gap-1.5 text-[13px] text-[#262626] font-normal group-hover:text-[#1890FF]">
-                        <svg class="w-3.5 h-3.5 text-[#8C8C8C]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-                        <span>用户</span>
-                      </div>
-                      <div class="flex items-center ml-[24px]">
-                        <span class="text-[13px] text-[#8C8C8C] font-normal text-right font-outfit">3568<span class="font-sans">个</span></span>
-                        <span class="text-[#E0E0E0] ml-[8px]">|</span>
-                      </div>
-                    </div>
-
-                    <!-- 右侧：正常文案左对齐、数字右对齐 + 进度条对齐 -->
-                    <div class="flex flex-col justify-center items-end flex-1 min-w-0 ml-4 max-w-[216px]">
-                      <div class="flex items-center text-[#8C8C8C] text-[12px] font-normal justify-between w-full">
-                        <!-- 正常：文案左对齐，数字右对齐 -->
-                        <span @click.stop="navigateToDimension('用户', '正常')" class="inline-flex items-center justify-between w-[70px] cursor-pointer hover:text-[#1890FF] group/n" title="点击筛选用户体验为正常">
-                          <span class="group-hover/n:text-[#1890FF]">正常</span>
-                          <span class="font-outfit text-[#595959] group-hover/n:text-[#1890FF] font-medium text-right">3546</span>
-                        </span>
-                        <span class="text-[#E0E0E0]">|</span>
-                        <!-- 一般：文案左对齐，数字右对齐 -->
-                        <span @click.stop="navigateToDimension('用户', '一般')" class="inline-flex items-center justify-between w-[52px] cursor-pointer hover:text-[#1890FF] group/f" title="点击筛选用户体验为一般">
-                          <span class="group-hover/f:text-[#1890FF]">一般</span>
-                          <span class="font-outfit text-[#595959] group-hover/f:text-[#1890FF] font-medium text-right">13</span>
-                        </span>
-                        <span class="text-[#E0E0E0]">|</span>
-                        <!-- 差：文案左对齐，数字右对齐 -->
-                        <span @click.stop="navigateToDimension('用户', '差')" class="inline-flex items-center justify-between w-[44px] cursor-pointer hover:text-[#1890FF] group/p" title="点击筛选用户体验为差">
-                          <span class="group-hover/p:text-[#1890FF]">差</span>
-                          <span class="font-outfit text-[#595959] group-hover/p:text-[#1890FF] font-medium text-right">9</span>
-                        </span>
-                      </div>
-                      <div class="w-full h-[4px] bg-[#F0F0F0] rounded-full overflow-hidden flex mt-1">
-                        <div @click.stop="navigateToDimension('用户', '正常')" class="h-full bg-[#39C317] cursor-pointer hover:opacity-80 transition-opacity" style="width: 80%;" title="正常: 3546"></div>
-                        <div @click.stop="navigateToDimension('用户', '一般')" class="h-full bg-[#FF9245] cursor-pointer hover:opacity-80 transition-opacity" style="width: 12%;" title="一般: 13"></div>
-                        <div @click.stop="navigateToDimension('用户', '差')" class="h-full bg-[#FF5752] cursor-pointer hover:opacity-80 transition-opacity" style="width: 8%;" title="差: 9"></div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <!-- 行3：应用 -->
-                  <div class="w-full bg-[#F7F9FC] px-3.5 h-[36px] rounded-[4px] flex items-center justify-between transition-all hover:bg-white hover:border-[#1890FF]/40 border border-transparent group">
-                    <!-- 左侧：图标+文案 + 间距24px + 右对齐数字 + 间距8px + 右对齐分割线 -->
-                    <div @click="navigateToDimension('应用')" class="flex items-center justify-between w-[146px] min-w-[146px] flex-shrink-0 cursor-pointer hover:text-[#1890FF]" title="切换至应用 Tab (全部)">
-                      <div class="flex items-center gap-1.5 text-[13px] text-[#262626] font-normal group-hover:text-[#1890FF]">
-                        <svg class="w-3.5 h-3.5 text-[#8C8C8C]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
-                        <span>应用</span>
-                      </div>
-                      <div class="flex items-center ml-[24px]">
-                        <span class="text-[13px] text-[#8C8C8C] font-normal text-right font-outfit">171<span class="font-sans">个</span></span>
-                        <span class="text-[#E0E0E0] ml-[8px]">|</span>
-                      </div>
-                    </div>
-
-                    <!-- 右侧：正常文案左对齐、数字右对齐 + 进度条对齐 -->
-                    <div class="flex flex-col justify-center items-end flex-1 min-w-0 ml-4 max-w-[216px]">
-                      <div class="flex items-center text-[#8C8C8C] text-[12px] font-normal justify-between w-full">
-                        <!-- 正常：文案左对齐，数字右对齐 -->
-                        <span @click.stop="navigateToDimension('应用', '正常')" class="inline-flex items-center justify-between w-[70px] cursor-pointer hover:text-[#1890FF] group/n" title="点击筛选应用体验为正常">
-                          <span class="group-hover/n:text-[#1890FF]">正常</span>
-                          <span class="font-outfit text-[#595959] group-hover/n:text-[#1890FF] font-medium text-right">157</span>
-                        </span>
-                        <span class="text-[#E0E0E0]">|</span>
-                        <!-- 一般：文案左对齐，数字右对齐 -->
-                        <span @click.stop="navigateToDimension('应用', '一般')" class="inline-flex items-center justify-between w-[52px] cursor-pointer hover:text-[#1890FF] group/f" title="点击筛选应用体验为一般">
-                          <span class="group-hover/f:text-[#1890FF]">一般</span>
-                          <span class="font-outfit text-[#595959] group-hover/f:text-[#1890FF] font-medium text-right">2</span>
-                        </span>
-                        <span class="text-[#E0E0E0]">|</span>
-                        <!-- 差：文案左对齐，数字右对齐 -->
-                        <span @click.stop="navigateToDimension('应用', '差')" class="inline-flex items-center justify-between w-[44px] cursor-pointer hover:text-[#1890FF] group/p" title="点击筛选应用体验为差">
-                          <span class="group-hover/p:text-[#1890FF]">差</span>
-                          <span class="font-outfit text-[#595959] group-hover/p:text-[#1890FF] font-medium text-right">12</span>
-                        </span>
-                      </div>
-                      <div class="w-full h-[4px] bg-[#F0F0F0] rounded-full overflow-hidden flex mt-1">
-                        <div @click.stop="navigateToDimension('应用', '正常')" class="h-full bg-[#39C317] cursor-pointer hover:opacity-80 transition-opacity" style="width: 91.8%;" title="正常: 157"></div>
-                        <div @click.stop="navigateToDimension('应用', '一般')" class="h-full bg-[#FF9245] cursor-pointer hover:opacity-80 transition-opacity" style="width: 1.2%;" title="一般: 2"></div>
-                        <div @click.stop="navigateToDimension('应用', '差')" class="h-full bg-[#FF5752] cursor-pointer hover:opacity-80 transition-opacity" style="width: 7.0%;" title="差: 12"></div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- 模块 3: VIP对象体验 (佔 30% 宽度，支持局部切页与从上往下规整排列) -->
-              <div class="pl-4 flex flex-col justify-start select-none h-full">
-                <!-- 标题与 Tab 切换 -->
-                <div class="flex items-center justify-between mb-1">
-                  <span class="text-[14px] font-bold text-[#262626]">VIP对象体验</span>
-                  <!-- 右上角切换页 -->
-                  <div class="inline-flex items-center bg-[#F1F5F9] p-[2px] rounded-[3px] text-[11px] text-[#454C59] flex-shrink-0">
-                    <button @click="vipTab = 'user'" :class="vipTab === 'user' ? 'bg-white text-[#1890FF] font-medium shadow-2xs' : 'text-[#8C8C8C] hover:text-[#262626]'" class="px-2 py-[1px] rounded-[2px] transition-all cursor-pointer">用户</button>
-                    <button @click="vipTab = 'app'" :class="vipTab === 'app' ? 'bg-white text-[#1890FF] font-medium shadow-2xs' : 'text-[#8C8C8C] hover:text-[#262626]'" class="px-2 py-[1px] rounded-[2px] transition-all cursor-pointer">应用</button>
-                  </div>
-                </div>
-
-                <!-- 副标题与局部切页按钮 (方案: 局部切页) -->
-                <div class="flex items-center justify-between text-[12px] mb-2 font-normal">
-                  <span class="text-[#8C8C8C]" x-text="vipTab === 'user' ? '监测用户 18 人，体验异常 ' + vipUsersList.length + ' 人：' : '监测 VIP 应用 6 个，体验异常 ' + vipAppsList.length + ' 个：'"></span>
-                  <!-- 局部翻页指示器与按钮 -->
-                  <div class="flex items-center gap-1 text-[11px] text-[#8C8C8C] select-none">
-                    <button @click="prevVipPage()" :disabled="currentVipPage <= 1" :class="currentVipPage <= 1 ? 'opacity-30 cursor-not-allowed text-[#BFBFBF]' : 'hover:text-[#1890FF] hover:bg-[#F0F2F5] cursor-pointer text-[#595959]'" class="w-4 h-4 rounded flex items-center justify-center transition-all" title="上一页">
-                      <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
-                    </button>
-                    <span class="font-outfit text-[11px] leading-none"><span class="text-[#262626] font-medium" x-text="currentVipPage">1</span>/<span x-text="totalVipPages">2</span></span>
-                    <button @click="nextVipPage()" :disabled="currentVipPage >= totalVipPages" :class="currentVipPage >= totalVipPages ? 'opacity-30 cursor-not-allowed text-[#BFBFBF]' : 'hover:text-[#1890FF] hover:bg-[#F0F2F5] cursor-pointer text-[#595959]'" class="w-4 h-4 rounded flex items-center justify-center transition-all" title="下一页">
-                      <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-                    </button>
-                  </div>
-                </div>
-
-                <!-- VIP 用户明细列表 (每行 30px，从上往下排，优先保障用户名完整显示) -->
-                <div class="flex flex-col gap-[4px] text-[12px] flex-1 justify-start" x-show="vipTab === 'user'">
-                  <template x-for="item in pagedVipUsers" :key="item.id">
-                    <div @click="goToVipDetail(item, 'user')" 
-                         class="h-[30px] px-2.5 bg-[#F7F9FC] rounded-[4px] flex items-center cursor-pointer hover:bg-white hover:border-[#1890FF]/40 border border-transparent transition-all group"
-                         :title="item.userName + ' 受损应用：' + item.primaryApp + (item.degradedCount > 1 ? ' 等 ' + item.degradedCount + ' 个' : '')">
-                      <!-- 名字（自适应宽度，完整展示无省略，带红点） -->
-                      <div class="flex items-center gap-1.5 flex-shrink-0">
-                        <span class="w-1.5 h-1.5 rounded-full bg-[#FF5752] flex-shrink-0"></span>
-                        <span class="text-[12px] text-[#262626] font-medium group-hover:text-[#1890FF] whitespace-nowrap" x-text="item.userName"></span>
-                      </div>
-                      <!-- 描述文案（紧随用户名之后，左对齐） -->
-                      <div class="text-[12px] text-[#8C8C8C] ml-3 text-left font-normal whitespace-nowrap flex-shrink-0">
-                        <span>受损应用：</span><span class="text-[#595959]" x-text="item.primaryApp"></span><template x-if="item.degradedCount > 1"><span> 等 <span class="text-[#FF5752] font-medium font-outfit" x-text="item.degradedCount"></span> 个</span>
-          </div>
+          <div class="flex-1 bg-[#F4F6F9] flex flex-col overflow-hidden" id="atrust-workspace"></div>
         </div>
       </div>
     </div>
@@ -1048,8 +747,13 @@
     <div x-show="shell === 'sase'" class="flex w-full h-full overflow-hidden">
       <div id="shell-sase-sider"></div>
       <div class="flex-1 bg-bg-light flex flex-col overflow-hidden">
-        <div class="flex-1 bg-[#F4F6F9] flex flex-col overflow-hidden" id="sase-workspace">
-          <div class="flex flex-col w-full h-full overflow-hidden">
+        <div class="flex-1 bg-[#F4F6F9] flex flex-col overflow-hidden" id="sase-workspace"></div>
+      </div>
+    </div>
+
+    <!-- 首页 Workspace 内容模板 -->
+    <template id="page-content-template">
+      <div class="flex flex-col w-full h-full overflow-hidden">
         <!-- 体验监控 单标题页头 -->
         <div class="h-[48px] min-h-[48px] bg-white border-b border-bg-line px-6 flex items-center justify-between flex-shrink-0 select-none z-20">
           <div class="flex items-center h-full">
@@ -1351,10 +1055,10 @@
                       </div>
                       <!-- 描述文案（紧随用户名之后，左对齐） -->
                       <div class="text-[12px] text-[#8C8C8C] ml-3 text-left font-normal whitespace-nowrap flex-shrink-0">
-                        <span>受损应用：</span><span class="text-[#595959]" x-text="item.primaryApp"></span><template x-if="item.degradedCount > 1"><span> 等 <span class="text-[#FF5752] font-medium font-outfit" x-text="item.degradedCount"></span> 个</span>
-        </div>
-      </div>
-    </div>
+                        <span>受损应用：</span><span class="text-[#595959]" x-text="item.primaryApp"></span><template x-if="item.degradedCount > 1"><span> 等 <span class="text-[#FF5752] font-medium font-outfit" x-text="item.degradedCount"></span> 个</span></template>
+                      </div>
+                    </div>
+                  </template>
                 </div>
 
                 <!-- VIP 应用明细列表 (每行 30px，从上往下排，优先保障应用名完整显示) -->
@@ -2836,5 +2540,21 @@
     </div>
     </template>
   </div>
+
+  <!-- 双底座公共 Shell 逻辑 -->
+  <script src="./_shell/shell.js"></script>
+  <script>
+    (function injectHomeTemplate() {
+      const tpl = document.getElementById('page-content-template');
+      if (!tpl) return;
+      ['atrust-workspace', 'sase-workspace'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+          el.innerHTML = '';
+          el.appendChild(tpl.content.cloneNode(true));
+        }
+      });
+    })();
+  </script>
 </body>
 </html>

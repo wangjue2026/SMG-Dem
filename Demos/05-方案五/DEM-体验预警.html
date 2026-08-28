@@ -5,6 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>DEM-体验预警 - 访问体验监测</title>
 
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+
   <link rel="stylesheet" href="../assets/css/css-overrides.css">
   <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/collapse@3.x.x/dist/cdn.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
@@ -13,9 +17,8 @@
   <script src="../assets/js/tailwind-config.js"></script>
   <link rel="stylesheet" href="../assets/css/ai-dem.css" />
 
-  <!-- 集中维护的双底座公共 Shell 样式与逻辑 -->
+  <!-- 集中维护的双底座公共 Shell 样式 -->
   <link rel="stylesheet" href="./_shell/shell.css" />
-  <script src="./_shell/shell.js"></script>
 
   <style>
     /* 极细平滑滚动条 */
@@ -64,101 +67,7 @@
       <div class="flex-1 flex overflow-hidden">
         <div id="shell-atrust-sider"></div>
         <div class="flex-1 bg-bg-light flex flex-col overflow-hidden">
-          <div class="flex-1 bg-[#F4F6F9] flex flex-col overflow-hidden" id="atrust-workspace">
-            <div class="flex flex-col w-full h-full overflow-hidden">
-        
-        <!-- Tab 式页头（标题：体验预警，Tab1：告警列表，Tab2：告警配置） -->
-        <div class="h-[48px] min-h-[48px] max-h-[48px] bg-white border-b border-[#E2E8F0] px-6 flex items-center justify-between flex-shrink-0 select-none z-20">
-          <!-- 左侧：文本标题 + Tab 选项组 -->
-          <div class="flex items-center h-full">
-            <span class="text-[14px] font-semibold text-[#1E293B]">体验预警</span>
-            <div class="w-[1px] h-[16px] mx-[16px] bg-[#E1E5EB]"></div>
-            <div class="flex items-center h-full gap-6 relative">
-              <!-- Tab 1: 告警列表 -->
-              <div class="relative h-full flex items-center cursor-pointer select-none group" @click="switchTab('alarmList')">
-                <span class="text-[14px] transition-colors" :class="currentTab === 'alarmList' ? 'text-[#1C6EFF] font-semibold' : 'text-[#2F3540] font-normal group-hover:text-[#1C6EFF]'">告警列表</span>
-                <div x-show="currentTab === 'alarmList'" class="absolute bottom-0 left-0 right-0 h-[2px] bg-[#1C6EFF] rounded-t-[2px]"></div>
-              </div>
-              <!-- Tab 2: 告警配置 -->
-              <div class="relative h-full flex items-center cursor-pointer select-none group" @click="switchTab('alarmConfig')">
-                <span class="text-[14px] transition-colors" :class="currentTab === 'alarmConfig' ? 'text-[#1C6EFF] font-semibold' : 'text-[#2F3540] font-normal group-hover:text-[#1C6EFF]'">告警配置</span>
-                <div x-show="currentTab === 'alarmConfig'" class="absolute bottom-0 left-0 right-0 h-[2px] bg-[#1C6EFF] rounded-t-[2px]"></div>
-              </div>
-            </div>
-          </div>
-
-          <!-- 右侧：时间筛选 & 刷新按钮 -->
-          <div class="flex items-center select-none gap-2">
-            <div class="inline-flex items-center h-8 bg-white border border-[#D9D9D9] rounded-[2px] hover:border-[#1890FF] transition-colors text-xs shadow-2xs">
-              <!-- 快捷选择下拉 -->
-              <div class="relative bg-[#FAFAFA] h-full px-2.5 flex items-center justify-between border-r border-[#D9D9D9] min-w-[80px] cursor-pointer group">
-                <select x-model="dateShortcut" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full text-xs">
-                  <option value="今天">今天</option>
-                  <option value="近24小时">近24小时</option>
-                  <option value="近3天">近3天</option>
-                  <option value="近7天">近7天</option>
-                  <option value="近30天">近30天</option>
-                  <option value="自定义">自定义</option>
-                </select>
-                <span class="text-[#262626] font-normal text-xs" x-text="dateShortcut || '今天'"></span>
-                <svg class="w-3.5 h-3.5 text-[#BFBFBF] ml-2 group-hover:text-[#1890FF] transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                </svg>
-              </div>
-
-              <!-- 日期范围展示 -->
-              <div class="h-full pl-3 pr-2.5 flex items-center justify-between cursor-pointer whitespace-nowrap">
-                <span class="font-mono text-xs text-[#595959] whitespace-nowrap" x-text="dateRange"></span>
-                <svg class="w-3.5 h-3.5 text-[#BFBFBF] flex-shrink-0 ml-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                </svg>
-              </div>
-            </div>
-
-            <!-- 刷新按钮 -->
-            <button class="w-8 h-8 bg-white border border-[#D9D9D9] rounded-[2px] hover:border-[#1890FF] hover:text-[#1890FF] transition-colors text-[#595959] inline-flex items-center justify-center cursor-pointer select-none" title="刷新数据">
-              <svg class="w-4 h-4 text-[#595959] hover:text-[#1890FF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-              </svg>
-            </button>
-          </div>
-        </div>
-
-        <!-- 主内容区域（内容暂未开发） -->
-        <main class="flex-1 bg-bg-light p-4 flex flex-col overflow-hidden">
-          
-          <!-- Tab 1 内容：告警列表 -->
-          <div x-show="currentTab === 'alarmList'" class="bg-white rounded-container border border-bg-line p-8 shadow-sm flex-1 flex flex-col items-center justify-center text-center">
-            <div class="w-16 h-16 rounded-full bg-blue-50 text-[#1C6EFF] flex items-center justify-center mb-4 ring-8 ring-blue-50/50">
-              <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
-              </svg>
-            </div>
-            <div class="flex items-center gap-2">
-              <h2 class="text-lg font-bold text-text-title">体验预警 - 告警列表</h2>
-              <span class="px-2 py-0.5 text-xs bg-blue-50 text-blue-600 rounded border border-blue-100 font-medium">模块容器</span>
-            </div>
-            <p class="text-xs text-text-mute mt-2 max-w-md leading-relaxed">实时汇总全网终端、分支及应用体验劣化的预警告警事件。功能暂未开发，敬请期待。</p>
-          </div>
-
-          <!-- Tab 2 内容：告警配置 -->
-          <div x-show="currentTab === 'alarmConfig'" class="bg-white rounded-container border border-bg-line p-8 shadow-sm flex-1 flex flex-col items-center justify-center text-center" x-cloak>
-            <div class="w-16 h-16 rounded-full bg-blue-50 text-[#1C6EFF] flex items-center justify-center mb-4 ring-8 ring-blue-50/50">
-              <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-              </svg>
-            </div>
-            <div class="flex items-center gap-2">
-              <h2 class="text-lg font-bold text-text-title">体验预警 - 告警配置</h2>
-              <span class="px-2 py-0.5 text-xs bg-blue-50 text-blue-600 rounded border border-blue-100 font-medium">模块容器</span>
-            </div>
-            <p class="text-xs text-text-mute mt-2 max-w-md leading-relaxed">设置体验异常预警规则、触发阈值及通知对象。功能暂未开发，敬请期待。</p>
-          </div>
-
-        </main>
-      </div>
-          </div>
+          <div class="flex-1 bg-[#F4F6F9] flex flex-col overflow-hidden" id="atrust-workspace"></div>
         </div>
       </div>
     </div>
@@ -167,8 +76,13 @@
     <div x-show="shell === 'sase'" class="flex w-full h-full overflow-hidden">
       <div id="shell-sase-sider"></div>
       <div class="flex-1 bg-bg-light flex flex-col overflow-hidden">
-        <div class="flex-1 bg-[#F4F6F9] flex flex-col overflow-hidden" id="sase-workspace">
-          <div class="flex flex-col w-full h-full overflow-hidden">
+        <div class="flex-1 bg-[#F4F6F9] flex flex-col overflow-hidden" id="sase-workspace"></div>
+      </div>
+    </div>
+
+    <!-- 体验预警 Workspace 模板（同时填充到 aTrust 和 SASE） -->
+    <template id="page-content-template">
+      <div class="flex flex-col w-full h-full overflow-hidden">
         
         <!-- Tab 式页头（标题：体验预警，Tab1：告警列表，Tab2：告警配置） -->
         <div class="h-[48px] min-h-[48px] max-h-[48px] bg-white border-b border-[#E2E8F0] px-6 flex items-center justify-between flex-shrink-0 select-none z-20">
@@ -261,9 +175,23 @@
 
         </main>
       </div>
-        </div>
-      </div>
-    </div>
+    </template>
   </div>
+
+  <!-- 双底座公共 Shell 逻辑 -->
+  <script src="./_shell/shell.js"></script>
+  <script>
+    (function injectPageTemplate() {
+      const tpl = document.getElementById('page-content-template');
+      if (!tpl) return;
+      ['atrust-workspace', 'sase-workspace'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+          el.innerHTML = '';
+          el.appendChild(tpl.content.cloneNode(true));
+        }
+      });
+    })();
+  </script>
 </body>
 </html>
