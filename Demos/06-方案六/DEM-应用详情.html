@@ -213,20 +213,40 @@
       animation: topo-ping-slow 2s cubic-bezier(0, 0, 0.2, 1) infinite;
     }
 
-    /* POP 异常群体事件关键节点呼吸扩散光晕动效 */
-    @keyframes topo-pop-breathe {
-      0%, 100% {
+    /* 轻量浮层滚动条样式 (4px 浅灰极简) */
+    .dem-popover-scroll::-webkit-scrollbar {
+      width: 4px;
+      height: 4px;
+    }
+    .dem-popover-scroll::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .dem-popover-scroll::-webkit-scrollbar-thumb {
+      background: #E2E8F0;
+      border-radius: 4px;
+    }
+    .dem-popover-scroll::-webkit-scrollbar-thumb:hover {
+      background: #CBD5E1;
+    }
+    .dem-popover-scroll {
+      scrollbar-width: thin;
+      scrollbar-color: #E2E8F0 transparent;
+    }
+
+    /* POP 异常节点外圈向外脉冲扩散动效 (与时间线异常首点 animate-ping 节奏对齐) */
+    @keyframes topo-pop-ping {
+      0% {
         transform: scale(1);
-        opacity: 0.85;
+        opacity: 0.8;
       }
-      50% {
-        transform: scale(1.15);
-        opacity: 0.15;
+      75%, 100% {
+        transform: scale(1.38);
+        opacity: 0;
       }
     }
-    .topo-pop-pulse {
+    .topo-pop-pulse-ping {
       transform-origin: 460px 118px;
-      animation: topo-pop-breathe 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+      animation: topo-pop-ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;
     }
 
     .topo-smooth {
@@ -900,19 +920,19 @@
           const isAbnormal = (this.currentGlobalSlice.status === '差');
           const isFair = (this.currentGlobalSlice.status === '一般');
 
-          // 1. 用户终端 ➔ POP (20人访问)
-          const clientPoor = isAbnormal ? 4 : 0;
+          // 1. 用户终端 ➔ POP (28人访问: 差9 / 一般1 / 正常18)
+          const clientPoor = isAbnormal ? 9 : 0;
           const clientFair = isAbnormal ? 1 : (isFair ? 1 : 0);
-          const clientNormal = isAbnormal ? 15 : (isFair ? 19 : 20);
-          const clientTotal = 20;
+          const clientNormal = isAbnormal ? 18 : (isFair ? 27 : 28);
+          const clientTotal = 28;
 
-          // 2. 分支防火墙 ➔ POP (5个分支/14人)
-          const branchPoor = isAbnormal ? 2 : 0;
+          // 2. 分支防火墙 ➔ POP (6个分支: 差3 / 一般1 / 正常2)
+          const branchPoor = isAbnormal ? 3 : 0;
           const branchFair = isAbnormal ? 1 : (isFair ? 1 : 0);
-          const branchNormal = isAbnormal ? 2 : (isFair ? 4 : 5);
-          const branchTotal = 5;
+          const branchNormal = isAbnormal ? 2 : (isFair ? 5 : 6);
+          const branchTotal = 6;
 
-          // 3. POP 节点集群 (共10个POP)
+          // 3. POP 节点集群 (共10个POP: 2异常)
           const popTotal = 10;
           const popAbnormal = isAbnormal ? 2 : (isFair ? 1 : 0);
           const popNormal = popTotal - popAbnormal;
@@ -920,13 +940,13 @@
           const popCircumference = 2 * Math.PI * 32; // ~201.06
           const popStrokeDash = `${(popAbnormal / popTotal) * popCircumference} ${popCircumference}`;
 
-          // 4. POP ➔ 连接器 (总全网流量汇聚 34人)
-          const popConnPoor = isAbnormal ? 12 : 0;
-          const popConnFair = isAbnormal ? 2 : (isFair ? 2 : 0);
-          const popConnNormal = isAbnormal ? 20 : (isFair ? 32 : 34);
+          // 4. POP ➔ 连接器 (总全网流量汇聚 34 个对象: 终端28 + 分支6)
+          const popConnPoor = isAbnormal ? 12 : 0; // 9 + 3 = 12
+          const popConnFair = isAbnormal ? 2 : (isFair ? 2 : 0); // 1 + 1 = 2
+          const popConnNormal = isAbnormal ? 20 : (isFair ? 32 : 34); // 18 + 2 = 20
           const popConnTotal = 34;
 
-          // 5. 连接器 ➔ 应用 (全网汇聚 34人: 后端常态健康)
+          // 5. 连接器 ➔ 应用 (全网汇聚 34 个对象: 后端常态健康)
           const connAppPoor = 0;
           const connAppFair = 0;
           const connAppNormal = 34;
@@ -942,7 +962,7 @@
             },
             branch: {
               total: branchTotal,
-              totalUsers: 14,
+              totalUsers: 28,
               poor: branchPoor,
               fair: branchFair,
               normal: branchNormal,
@@ -1151,11 +1171,11 @@
             overallStatus: '差',
             damagedRatioText: '体验受损访问对象占比41.2%',
 
-            // 覆盖统计 (34个人，4个分支)
-            branchesCount: 4,
-            usersCount: 34,
+            // 覆盖统计 (28个人，6个分支，共34个访问对象)
+            branchesCount: 6,
+            usersCount: 28,
 
-            // 1. 访问对象体验 (差 12人，一般 2人，正常 20人，共34人)
+            // 1. 访问对象体验 (差 12人/分支，一般 2人/分支，正常 20人/分支，共34个访问对象)
             objectExperience: {
               normal: 20,
               normalRatio: '58.8%',
@@ -1179,11 +1199,11 @@
               ]
             },
 
-            // 异常共性特征聚类 (TOP1: 同香港POP接入 12人/4分支 100%覆盖全部差体验用户，点击快速筛选排障)
+            // 异常共性特征聚类 (TOP1: 同香港POP接入 12对象(9人/3分支) 100%覆盖全部差体验用户，点击快速筛选排障)
             topCommonFeatures: [
-              { rankText: 'TOP1', type: 'pop', label: '同香港POP接入', ratio: '85.7%', count: '12人/4分支', keyword: '香港POP', filterKey: 'pop', filterVal: '香港POP' },
-              { rankText: 'TOP2', type: 'region', label: '同广州地区', ratio: '57.1%', count: '8人/2分支', keyword: '广州', filterKey: 'loc', filterVal: '中国 广州' },
-              { rankText: 'TOP3', type: 'connector', label: '同总部01连接器', ratio: '50.0%', count: '7人/2分支', keyword: '广州', filterKey: 'loc', filterVal: '中国 广州' },
+              { rankText: 'TOP1', type: 'pop', label: '同香港POP接入', ratio: '85.7%', count: '12对象 (9人/3分支)', keyword: '香港POP', filterKey: 'pop', filterVal: '香港POP' },
+              { rankText: 'TOP2', type: 'region', label: '同广州地区', ratio: '57.1%', count: '8对象 (6人/2分支)', keyword: '广州', filterKey: 'loc', filterVal: '中国 广州' },
+              { rankText: 'TOP3', type: 'connector', label: '同总部01连接器', ratio: '50.0%', count: '7对象 (5人/2分支)', keyword: '广州', filterKey: 'loc', filterVal: '中国 广州' },
               { rankText: 'TOP4', type: 'dept', label: '同DEM产品部', ratio: '28.6%', count: '4人', keyword: 'DEM产品部', filterKey: 'dept', filterVal: 'DEM产品部' }
             ]
           },
@@ -1381,31 +1401,19 @@
         branchPage: 1,
         branchPageSize: 10,
 
-        // 分支列表数据
+        // 分支列表数据 (共 6 个分支: 3差 / 1一般 / 2正常)
         branchList: [
-          // 异常分支
-          { name: '上海华东运营中心', type: 'NGAF', group: '华东大区', location: '中国 上海', exp: '差', isp: '上海电信', pop: '深圳POP', affectedUsers: 12, anomalies: ['POP-连接器段异常'], normalCount: 1200, fairCount: 80, poorCount: 140 },
-          { name: '东京海外办事处', type: 'NGAF', group: '海外大区', location: '日本 东京', exp: '差', isp: '日本 NTT', pop: '深圳POP', affectedUsers: 8, anomalies: ['分支-POP段异常'], normalCount: 890, fairCount: 60, poorCount: 95 },
-          { name: '成都西南研发基地', type: 'NGAF', group: '西南大区', location: '中国 成都', exp: '差', isp: '四川电信', pop: '深圳POP', affectedUsers: 6, anomalies: ['分支-POP段异常'], normalCount: 920, fairCount: 40, poorCount: 75 },
-          { name: '广州研发中心', type: 'NGAF', group: '华南大区', location: '中国 广州', exp: '差', isp: '广东电信', pop: '香港POP', affectedUsers: 5, anomalies: ['POP-连接器段异常'], normalCount: 1820, fairCount: 150, poorCount: 65 },
-          { name: '马尼拉办公室', type: 'NGAF', group: '海外大区', location: '菲律宾 马尼拉', exp: '差', isp: '菲律宾 PLDT', pop: '香港POP', affectedUsers: 4, anomalies: ['分支-POP段异常'], normalCount: 320, fairCount: 140, poorCount: 180 },
-          { name: '香港办事处', type: 'NGAF', group: '海外大区', location: '中国 香港', exp: '差', isp: '香港 PCCW', pop: '香港POP', affectedUsers: 2, anomalies: ['POP-连接器段异常'], normalCount: 410, fairCount: 110, poorCount: 160 },
-          { name: '华南技术支持中心', type: 'NGAF', group: '华南大区', location: '中国 广州', exp: '差', isp: '广东电信', pop: '香港POP', affectedUsers: 1, anomalies: ['POP异常'], normalCount: 1450, fairCount: 120, poorCount: 45 },
+          // 异常分支 (3个)
+          { name: '香港办事处', type: 'NGAF', group: '海外大区', location: '中国 香港', exp: '差', isp: '香港 PCCW', pop: '香港POP', affectedUsers: 2, anomalies: ['POP异常', 'POP-连接器段异常'], normalCount: 410, fairCount: 110, poorCount: 160 },
+          { name: '马尼拉办公室', type: 'NGAF', group: '海外大区', location: '菲律宾 马尼拉', exp: '差', isp: '菲律宾 PLDT', pop: '香港POP', affectedUsers: 4, anomalies: ['POP异常', '分支-POP段异常'], normalCount: 320, fairCount: 140, poorCount: 180 },
+          { name: '广州研发中心', type: 'NGAF', group: '华南大区', location: '中国 广州', exp: '差', isp: '广东电信', pop: '香港POP', affectedUsers: 5, anomalies: ['POP异常', 'POP-连接器段异常'], normalCount: 1820, fairCount: 150, poorCount: 65 },
 
-          // 一般体验分支
+          // 一般体验分支 (1个)
           { name: '北京研发中心', type: 'NGAF', group: '华北大区', location: '中国 北京', exp: '一般', isp: '北京联通', pop: '北京POP', affectedUsers: 1, anomalies: ['连接器异常'], normalCount: 1800, fairCount: 320, poorCount: 25 },
-          { name: '天津分公司', type: 'NGAF', group: '华北大区', location: '中国 天津', exp: '一般', isp: '天津电信', pop: '北京POP', affectedUsers: 1, anomalies: ['连接器异常'], normalCount: 1200, fairCount: 180, poorCount: 18 },
 
-          // 正常分支
+          // 正常分支 (2个)
           { name: '上海总部大楼', type: 'NGAF', group: '华东大区', location: '中国 上海', exp: '正常', isp: '上海电信', pop: '上海POP', affectedUsers: 0, anomalies: [], normalCount: 8520, fairCount: 20, poorCount: 0 },
-          { name: '南京办事处', type: 'NGAF', group: '华东大区', location: '中国 南京', exp: '正常', isp: '江苏移动', pop: '上海POP', affectedUsers: 0, anomalies: [], normalCount: 1400, fairCount: 160, poorCount: 0 },
-          { name: '杭州研发中心', type: 'NGAF', group: '华东大区', location: '中国 杭州', exp: '正常', isp: '浙江电信', pop: '上海POP', affectedUsers: 0, anomalies: [], normalCount: 2100, fairCount: 190, poorCount: 0 },
-          { name: '深圳分公司', type: 'NGAF', group: '华南大区', location: '中国 深圳', exp: '正常', isp: '深圳移动', pop: '深圳POP', affectedUsers: 0, anomalies: [], normalCount: 2140, fairCount: 8, poorCount: 0 },
-          { name: '成都本地分部', type: 'NGAF', group: '西南大区', location: '中国 成都', exp: '正常', isp: '四川电信', pop: '成都POP', affectedUsers: 0, anomalies: [], normalCount: 1820, fairCount: 5, poorCount: 0 },
-          { name: '重庆分公司', type: 'NGAF', group: '西南大区', location: '中国 重庆', exp: '正常', isp: '重庆联通', pop: '成都POP', affectedUsers: 0, anomalies: [], normalCount: 1660, fairCount: 4, poorCount: 0 },
-          { name: '武汉研发中心', type: 'NGAF', group: '华中大区', location: '中国 武汉', exp: '正常', isp: '湖北电信', pop: '上海POP', affectedUsers: 0, anomalies: [], normalCount: 2130, fairCount: 3, poorCount: 0 },
-          { name: '西安办事处', type: 'NGAF', group: '西北大区', location: '中国 西安', exp: '正常', isp: '陕西电信', pop: '北京POP', affectedUsers: 0, anomalies: [], normalCount: 1440, fairCount: 2, poorCount: 0 },
-          { name: '长沙分公司', type: 'NGAF', group: '华中大区', location: '中国 长沙', exp: '正常', isp: '湖南移动', pop: '深圳POP', affectedUsers: 0, anomalies: [], normalCount: 1590, fairCount: 2, poorCount: 0 }
+          { name: '成都西南研发基地', type: 'NGAF', group: '西南大区', location: '中国 成都', exp: '正常', isp: '四川电信', pop: '成都POP', affectedUsers: 0, anomalies: [], normalCount: 1820, fairCount: 5, poorCount: 0 }
         ],
 
         get filteredBranchList() {
@@ -1459,27 +1467,23 @@
         userPage: 1,
         userPageSize: 10,
 
-        // 用户列表数据
+        // 用户列表数据 (共 28 位用户: 9差 / 1一般 / 18正常)
         userList: [
-          // ① 体验差用户
-          { empId: '2024106', name: '刘洋', dept: '深信服科技 / 研发中心 / DEM产品部', exp: '差', isp: '上海电信', pop: '深圳POP', anomalies: ['POP-连接器段异常'], totalApps: 18, normalCount: 9, fairCount: 1, poorCount: 8 },
-          { empId: '2024118', name: '陈晨', dept: '深信服科技 / 研发中心 / DEM产品部', exp: '差', isp: '上海电信', pop: '深圳POP', anomalies: ['POP-连接器段异常'], totalApps: 14, normalCount: 7, fairCount: 2, poorCount: 5 },
-          { empId: '2024095', name: '王强', dept: '深信服科技 / 部署中心 / 海外实施部', exp: '差', isp: '日本 NTT', pop: '深圳POP', anomalies: ['终端-POP段异常'], totalApps: 14, normalCount: 8, fairCount: 2, poorCount: 4 },
-          { empId: '2024088', name: '李四', dept: '深信服科技 / 销售中心 / 西南大区', exp: '差', isp: '四川电信', pop: '深圳POP', anomalies: ['终端-POP段异常'], totalApps: 15, normalCount: 10, fairCount: 2, poorCount: 3 },
-          { empId: '2024019', name: '张三', dept: '深信服科技 / 研发中心 / DEM产品部', exp: '差', isp: '广东广州 电信', pop: '香港POP', anomalies: ['POP-连接器段异常'], totalApps: 17, normalCount: 12, fairCount: 3, poorCount: 2 },
-          { empId: '2024122', name: '周华', dept: '深信服科技 / 运营中心 / 华南组', exp: '差', isp: '广东广州 电信', pop: '香港POP', anomalies: ['POP-连接器段异常'], totalApps: 16, normalCount: 11, fairCount: 2, poorCount: 3 },
-          { empId: '2024135', name: '黄明', dept: '深信服科技 / 客户服务部 / 华南支持', exp: '差', isp: '广东广州 电信', pop: '香港POP', anomalies: ['POP异常'], totalApps: 14, normalCount: 8, fairCount: 3, poorCount: 3 },
-          { empId: '2024141', name: 'Alex Tan', dept: '海外大区 / 马尼拉办事处 / 技术部', exp: '差', isp: '菲律宾 PLDT', pop: '香港POP', anomalies: ['终端-POP段异常'], totalApps: 12, normalCount: 5, fairCount: 2, poorCount: 5 },
-          { empId: '2024142', name: 'Maria Santos', dept: '海外大区 / 马尼拉办事处 / 运营部', exp: '差', isp: '菲律宾 PLDT', pop: '香港POP', anomalies: ['终端-POP段异常'], totalApps: 11, normalCount: 4, fairCount: 2, poorCount: 5 },
-          { empId: '2024143', name: 'John Doe', dept: '海外大区 / 马尼拉办事处 / 商务部', exp: '差', isp: '菲律宾 PLDT', pop: '香港POP', anomalies: ['终端-POP段异常'], totalApps: 10, normalCount: 3, fairCount: 3, poorCount: 4 },
-          { empId: '2024148', name: '林家豪', dept: '海外大区 / 香港办事处 / 销售部', exp: '差', isp: '香港 PCCW', pop: '香港POP', anomalies: ['POP-连接器段异常'], totalApps: 15, normalCount: 7, fairCount: 2, poorCount: 6 },
-          { empId: '2024149', name: '陈咏诗', dept: '海外大区 / 香港办事处 / 行政部', exp: '差', isp: '香港 PCCW', pop: '香港POP', anomalies: ['POP-连接器段异常'], totalApps: 13, normalCount: 6, fairCount: 2, poorCount: 5 },
+          // ① 体验差用户 (9人，全部受到接入 POP 异常波及)
+          { empId: '88012', name: '彭经理', dept: '海外业务部 / 香港办事处', exp: '差', isp: '香港 PCCW', pop: '香港POP', anomalies: ['POP异常', 'POP-连接器段异常'], totalApps: 15, normalCount: 7, fairCount: 2, poorCount: 6 },
+          { empId: '88015', name: '张工', dept: '海外业务部 / 香港办事处', exp: '差', isp: '香港 PCCW', pop: '香港POP', anomalies: ['POP异常', 'POP-连接器段异常'], totalApps: 13, normalCount: 6, fairCount: 2, poorCount: 5 },
+          { empId: '88028', name: 'Maria', dept: '海外业务部 / 马尼拉办事处', exp: '差', isp: '菲律宾 PLDT', pop: '马尼拉POP', anomalies: ['POP异常', 'POP-连接器段异常'], totalApps: 14, normalCount: 8, fairCount: 2, poorCount: 4 },
+          { empId: '2024019', name: '陈工', dept: '研发中心 / 广州研发部', exp: '差', isp: '广东广州 电信', pop: '深圳POP', anomalies: ['POP异常', 'POP-连接器段异常'], totalApps: 17, normalCount: 12, fairCount: 3, poorCount: 2 },
+          { empId: '2024106', name: '刘洋', dept: '深信服科技 / 研发中心 / DEM产品部', exp: '差', isp: '广东深圳 电信', pop: '深圳POP', anomalies: ['POP异常', 'POP-连接器段异常'], totalApps: 18, normalCount: 9, fairCount: 1, poorCount: 8 },
+          { empId: '2024118', name: '陈晨', dept: '深信服科技 / 研发中心 / DEM产品部', exp: '差', isp: '广东深圳 电信', pop: '深圳POP', anomalies: ['POP异常', 'POP-连接器段异常'], totalApps: 14, normalCount: 7, fairCount: 2, poorCount: 5 },
+          { empId: '2024122', name: '周华', dept: '深信服科技 / 运营中心 / 华南组', exp: '差', isp: '广东广州 电信', pop: '深圳POP', anomalies: ['POP异常', 'POP-连接器段异常'], totalApps: 16, normalCount: 11, fairCount: 2, poorCount: 3 },
+          { empId: '2024135', name: '黄明', dept: '深信服科技 / 客户服务部 / 华南支持', exp: '差', isp: '广东广州 电信', pop: '深圳POP', anomalies: ['POP异常', 'POP-连接器段异常'], totalApps: 14, normalCount: 8, fairCount: 3, poorCount: 3 },
+          { empId: '2024088', name: '李四', dept: '深信服科技 / 销售中心 / 西南大区', exp: '差', isp: '四川电信', pop: '深圳POP', anomalies: ['POP异常', '终端-POP段异常'], totalApps: 15, normalCount: 10, fairCount: 2, poorCount: 3 },
 
-          // ② 体验一般用户
-          { empId: '2024155', name: '赵六', dept: '深信服科技 / 运营中心 / 华北大区', exp: '一般', isp: '北京联通', pop: '北京POP', totalApps: 22, normalCount: 18, fairCount: 3, poorCount: 1 },
-          { empId: '2024162', name: '孙伟', dept: '深信服科技 / 市场部 / 华北大区', exp: '一般', isp: '北京联通', pop: '北京POP', totalApps: 25, normalCount: 20, fairCount: 4, poorCount: 1 },
+          // ② 体验一般用户 (1人)
+          { empId: '2024155', name: '赵六', dept: '深信服科技 / 运营中心 / 华北大区', exp: '一般', isp: '北京联通', pop: '北京POP', anomalies: ['连接器异常'], totalApps: 22, normalCount: 18, fairCount: 3, poorCount: 1 },
 
-          // ③ 体验正常用户
+          // ③ 体验正常用户 (18人)
           { empId: '2024178', name: '周杰', dept: '深信服科技 / 技术支持部 / 华东组', exp: '正常', isp: '上海电信', pop: '上海POP', totalApps: 28, normalCount: 28, fairCount: 0, poorCount: 0 },
           { empId: '2024102', name: '王五', dept: '深信服科技 / 研发中心 / 架构组', exp: '正常', isp: '上海电信', pop: '上海POP', totalApps: 45, normalCount: 45, fairCount: 0, poorCount: 0 },
           { empId: '2024210', name: '钱七', dept: '深信服科技 / 财务部 / 总部财务', exp: '正常', isp: '四川电信', pop: '成都POP', totalApps: 49, normalCount: 49, fairCount: 0, poorCount: 0 },
@@ -1497,8 +1501,6 @@
           { empId: '2024295', name: '曹十九', dept: '深信服科技 / 技术支持部 / 华北大区', exp: '正常', isp: '北京联通', pop: '北京POP', totalApps: 31, normalCount: 31, fairCount: 0, poorCount: 0 },
           { empId: '2024300', name: '陶二十', dept: '深信服科技 / 销售中心 / 西南大区', exp: '正常', isp: '四川电信', pop: '成都POP', totalApps: 29, normalCount: 29, fairCount: 0, poorCount: 0 },
           { empId: '2024305', name: '孔廿一', dept: '深信服科技 / 财务部 / 税务组', exp: '正常', isp: '四川电信', pop: '成都POP', totalApps: 33, normalCount: 33, fairCount: 0, poorCount: 0 },
-          { empId: '2024310', name: '严廿二', dept: '深信服科技 / 法务部 / 合规组', exp: '正常', isp: '上海电信', pop: '上海POP', totalApps: 27, normalCount: 27, fairCount: 0, poorCount: 0 },
-          { empId: '2024315', name: '华廿三', dept: '深信服科技 / 人力资源部 / 薪酬组', exp: '正常', isp: '上海电信', pop: '上海POP', totalApps: 38, normalCount: 38, fairCount: 0, poorCount: 0 },
           { empId: '45232', name: '何总', dept: '深信服科技 / 总裁办 / 总经办', exp: '正常', isp: '广东深圳 电信', pop: '深圳POP', totalApps: 42, normalCount: 42, fairCount: 0, poorCount: 0 }
         ],
 
@@ -2266,10 +2268,10 @@
               isAbnormal: true,
               summary: {
                 totalLabel: '访问终端总数',
-                total: '20 人',
-                poor: '4 (20.0%)',
+                total: '28 人',
+                poor: '9 (32.1%)',
                 fair: '1',
-                normal: '15'
+                normal: '18'
               },
               items: [
                 { label: '平均时延', value: '142 ms', baseline: '< 50 ms', isAbnormal: true },
@@ -2277,7 +2279,7 @@
                 { label: '平均抖动', value: '40 ms', baseline: '< 5 ms', isAbnormal: true },
                 { label: '平均吞吐', value: '20 Mbps', baseline: '50 Mbps', isAbnormal: true }
               ],
-              hint: '💡 该段存在 4 人体验差，主要受移动端弱网与边缘抖动影响。'
+              hint: '💡 该段存在 9 人体验差，主要受移动端弱网与边缘抖动影响。'
             };
           }
 
@@ -2288,8 +2290,8 @@
               isAbnormal: true,
               summary: {
                 totalLabel: '接入分支总数',
-                total: '5 个分支',
-                poor: '2 (40.0%)',
+                total: '6 个分支',
+                poor: '3 (50.0%)',
                 fair: '1',
                 normal: '2'
               },
@@ -2299,7 +2301,7 @@
                 { label: '平均抖动', value: '45 ms', baseline: '< 5 ms', isAbnormal: true },
                 { label: '平均吞吐', value: '20 Mbps', baseline: '50 Mbps', isAbnormal: true }
               ],
-              hint: '💡 2 个分支接入异常，集中在香港与马尼拉分支出口线路。'
+              hint: '💡 3 个分支接入异常，集中在香港、马尼拉与广州分支出口线路。'
             };
           }
 
@@ -2311,7 +2313,7 @@
               priorityBadge: '🔥 建议优先排查',
               summary: {
                 totalLabel: '全网访问对象总数',
-                total: '34 个 (终端+分支汇总)',
+                total: '34 个 (终端28+分支6汇总)',
                 poor: '12 (35.3%)',
                 fair: '2',
                 normal: '20'
@@ -2347,23 +2349,43 @@
             };
           }
 
-          // 6. 连接器 (个体硬件服务对象：无流量聚合框，无均值字样，展示个体指标)
-          if (tag.includes('连接器')) {
+          // 6. 连接器 (个体硬件服务对象：无流量聚合框，展示个体指标)
+          if (tag.includes('连接器') && !tag.includes('连接器-应用')) {
             return {
               title: '总部01连接器',
+              timeText: this.selectedGlobalSliceTime || '15:20',
               isAbnormal: false,
-              metricHeader: '质量指标',
-              metricSubHeader: '当前状态',
+              metricHeader: null,
               summary: null, // 连接器是个体实体，非流量聚合对象，不展示概况框
               items: [
                 { label: '健康状态', value: '正常', isAbnormal: false },
                 { label: 'CPU 使用率', value: '24%', baseline: '< 70%', isAbnormal: false },
                 { label: '内存占用', value: '38%', baseline: '< 75%', isAbnormal: false }
-              ]
+              ],
+              hint: '💡 连接器处于健康常态，各项系统负载平稳。'
             };
           }
 
-          // 7. 连接器-应用 (时延、丢包、抖动)
+          // 7. 应用服务实体卡片 (OA办公系统)
+          if (tag === 'OA办公系统' || tag === '应用' || tag === '业务系统') {
+            return {
+              title: 'OA办公系统',
+              timeText: this.selectedGlobalSliceTime || '15:20',
+              isAbnormal: false,
+              metricHeader: null,
+              summary: null,
+              items: [
+                { label: '探测状态', value: '正常 (HTTP 200)', isAbnormal: false },
+                { label: '服务端响应(TTFB)', value: '45 ms', baseline: '< 150 ms', isAbnormal: false },
+                { label: 'HTTP 错误率', value: '0.0%', baseline: '< 0.5%', isAbnormal: false },
+                { label: '服务可用性', value: '100%', baseline: '> 99.9%', isAbnormal: false },
+                { label: '活跃承载会话', value: '34 人在线', isAbnormal: false }
+              ],
+              hint: '💡 服务可用性 100%，初步排除后端系统自身故障。'
+            };
+          }
+
+          // 8. 连接器-应用段 (时延、丢包、抖动)
           if (tag.includes('连接器-应用') || tag.includes('应用服务') || tag.includes('应用异常')) {
             return {
               title: '总部01连接器 ➔ OA办公系统段',
@@ -2843,15 +2865,15 @@
                     <!-- ====== 1. 连线层 (平直折线，支持悬浮指标与点击联动过滤) ====== -->
                     <g class="topo-links">
 
-                      <!-- 1.1 用户终端 ➔ POP 连线 (折线: (185, 58) ➔ (360, 58) ➔ (360, 118) ➔ (418, 118)) -->
+                      <!-- 1.1 用户终端 ➔ POP 连线 (折线: (176, 58) ➔ (350, 58) ➔ (350, 118) ➔ (418, 118)) -->
                       <g class="cursor-pointer"
                          @mouseenter="showAnomalyTip($event, '终端-POP段', { pop: '深圳POP' })"
                          @mouseleave="hideAnomalyTip()"
                          @click.stop="filterBySegment('client_pop', '差')">
                          <!-- 悬停判定加宽透明路径 -->
-                         <path d="M 185 58 L 360 58 L 360 118 L 418 118" fill="none" stroke="transparent" stroke-width="20" />
+                         <path d="M 176 58 L 350 58 L 350 118 L 418 118" fill="none" stroke="transparent" stroke-width="20" />
                          <!-- 实体/虚线折线 -->
-                         <path d="M 185 58 L 360 58 L 360 118 L 418 118" fill="none"
+                         <path d="M 176 58 L 350 58 L 350 118 L 418 118" fill="none"
                                :stroke="topoCompositeData.client.style.color"
                                :stroke-width="topoCompositeData.client.style.strokeWidth"
                                :stroke-dasharray="topoCompositeData.client.style.dashed ? topoCompositeData.client.style.dashArray : 'none'"
@@ -2860,15 +2882,15 @@
                                :marker-end="topoCompositeData.client.style.level === 'critical-high' || topoCompositeData.client.style.level === 'critical' ? 'url(#arrow-danger)' : (topoCompositeData.client.style.level === 'warning' ? 'url(#arrow-warning)' : 'url(#arrow-success)')" />
                       </g>
 
-                      <!-- 1.2 分支防火墙 ➔ POP 连线 (折线: (185, 178) ➔ (360, 178) ➔ (360, 118) ➔ (418, 118)) -->
+                      <!-- 1.2 分支防火墙 ➔ POP 连线 (折线: (176, 178) ➔ (350, 178) ➔ (350, 118) ➔ (418, 118)) -->
                       <g class="cursor-pointer"
                          @mouseenter="showAnomalyTip($event, '分支-POP段', { pop: '香港POP' })"
                          @mouseleave="hideAnomalyTip()"
                          @click.stop="filterBySegment('branch_pop', '差')">
                          <!-- 悬停判定加宽透明路径 -->
-                         <path d="M 185 178 L 360 178 L 360 118 L 418 118" fill="none" stroke="transparent" stroke-width="20" />
+                         <path d="M 176 178 L 350 178 L 350 118 L 418 118" fill="none" stroke="transparent" stroke-width="20" />
                          <!-- 实体/虚线折线 -->
-                         <path d="M 185 178 L 360 178 L 360 118 L 418 118" fill="none"
+                         <path d="M 176 178 L 350 178 L 350 118 L 418 118" fill="none"
                                :stroke="topoCompositeData.branch.style.color"
                                :stroke-width="topoCompositeData.branch.style.strokeWidth"
                                :stroke-dasharray="topoCompositeData.branch.style.dashed ? topoCompositeData.branch.style.dashArray : 'none'"
@@ -2877,15 +2899,15 @@
                                :marker-end="topoCompositeData.branch.style.level === 'critical-high' || topoCompositeData.branch.style.level === 'critical' ? 'url(#arrow-danger)' : (topoCompositeData.branch.style.level === 'warning' ? 'url(#arrow-warning)' : 'url(#arrow-success)')" />
                       </g>
 
-                      <!-- 1.3 POP ➔ 总部01连接器 专线段 (直线: (502, 118) ➔ (670, 118)) -->
+                      <!-- 1.3 POP ➔ 总部01连接器 专线段 (直线: (502, 118) ➔ (675, 118)) -->
                       <g class="cursor-pointer"
                          @mouseenter="showAnomalyTip($event, 'POP-连接器段', { pop: '深圳POP' })"
                          @mouseleave="hideAnomalyTip()"
                          @click.stop="filterBySegment('pop_conn', '差')">
                          <!-- 悬停判定加宽透明路径 -->
-                         <path d="M 502 118 L 670 118" fill="none" stroke="transparent" stroke-width="20" />
+                         <path d="M 502 118 L 675 118" fill="none" stroke="transparent" stroke-width="20" />
                          <!-- 实体/虚线线段 -->
-                         <path d="M 502 118 L 670 118" fill="none"
+                         <path d="M 502 118 L 675 118" fill="none"
                                :stroke="topoCompositeData.popConn.style.color"
                                :stroke-width="topoCompositeData.popConn.style.strokeWidth"
                                :stroke-dasharray="topoCompositeData.popConn.style.dashed ? topoCompositeData.popConn.style.dashArray : 'none'"
@@ -2894,15 +2916,15 @@
                                :marker-end="topoCompositeData.popConn.style.level === 'critical-high' || topoCompositeData.popConn.style.level === 'critical' ? 'url(#arrow-danger)' : (topoCompositeData.popConn.style.level === 'warning' ? 'url(#arrow-warning)' : 'url(#arrow-success)')" />
                       </g>
 
-                      <!-- 1.4 总部01连接器 ➔ OA办公系统 段 (直线: (830, 118) ➔ (900, 118)) -->
+                      <!-- 1.4 总部01连接器 ➔ OA办公系统 段 (直线: (835, 118) ➔ (904, 118)) -->
                       <g class="cursor-pointer"
                          @mouseenter="showAnomalyTip($event, '连接器-应用段', {})"
                          @mouseleave="hideAnomalyTip()"
                          @click.stop="filterBySegment('conn_app', '')">
                          <!-- 悬停判定加宽透明路径 -->
-                         <path d="M 830 118 L 900 118" fill="none" stroke="transparent" stroke-width="20" />
+                         <path d="M 835 118 L 904 118" fill="none" stroke="transparent" stroke-width="20" />
                          <!-- 实体/虚线线段 -->
-                         <path d="M 830 118 L 900 118" fill="none"
+                         <path d="M 835 118 L 904 118" fill="none"
                                :stroke="topoCompositeData.connApp.style.color"
                                :stroke-width="topoCompositeData.connApp.style.strokeWidth"
                                :stroke-dasharray="topoCompositeData.connApp.style.dashed ? topoCompositeData.connApp.style.dashArray : 'none'"
@@ -2918,9 +2940,9 @@
                     <g class="topo-nodes">
 
                       <!-- ============================================== -->
-                      <!-- 起点 1: 用户终端卡片 x = 25, y = 32, w = 160, h = 52 (聚合抽象节点) -->
+                      <!-- 起点 1: 用户终端卡片 x = 16, y = 32, w = 160, h = 52 (左间距 16px) -->
                       <!-- ============================================== -->
-                      <g class="cursor-pointer" transform="translate(25, 32)"
+                      <g class="cursor-pointer" transform="translate(16, 32)"
                          @mouseenter="openClientGeoPopover($event)"
                          @mouseleave="scheduleCloseClientGeoPopover()"
                          @click.stop="filterBySegment('client_pop', '')">
@@ -2943,13 +2965,13 @@
                         <!-- 标题 -->
                         <text x="34" y="22" font-size="12.5" font-weight="700" fill="#1E293B">用户终端</text>
                         <!-- 描述 -->
-                        <text x="12" y="40" font-size="10.5" fill="#64748B">移动/远程接入 (20人)</text>
+                        <text x="12" y="40" font-size="10.5" fill="#64748B">移动/远程接入 (28人)</text>
                       </g>
 
                       <!-- ============================================== -->
-                      <!-- 起点 2: 分支防火墙卡片 x = 25, y = 152, w = 160, h = 52 -->
+                      <!-- 起点 2: 分支防火墙卡片 x = 16, y = 152, w = 160, h = 52 (左间距 16px) -->
                       <!-- ============================================== -->
-                      <g class="cursor-pointer" transform="translate(25, 152)"
+                      <g class="cursor-pointer" transform="translate(16, 152)"
                          @mouseenter="openBranchGeoPopover($event)"
                          @mouseleave="scheduleCloseBranchGeoPopover()"
                          @click.stop="filterBySegment('branch_pop', '')">
@@ -2970,7 +2992,7 @@
                         <!-- 标题 -->
                         <text x="34" y="22" font-size="12.5" font-weight="700" fill="#1E293B">分支防火墙</text>
                         <!-- 描述 -->
-                        <text x="12" y="40" font-size="10.5" fill="#64748B">分支互联机构 (5分支)</text>
+                        <text x="12" y="40" font-size="10.5" fill="#64748B">分支互联机构 (6分支)</text>
                       </g>
 
                       <!-- ============================================== -->
@@ -2997,13 +3019,9 @@
                                 stroke-dashoffset="0"
                                 transform="rotate(-90 460 118)" />
 
-                        <!-- 5. 异常 POP 节点外圈呼吸微波 (圆内始终纯白底无染色，外圈极细微波灵动扩散) -->
-                        <g x-show="topoCompositeData.pop.abnormal > 0">
-                          <circle cx="460" cy="118" r="40" fill="none" stroke="#F52727" stroke-width="1.8">
-                            <animate attributeName="r" values="40;52;40" dur="2.4s" repeatCount="indefinite" />
-                            <animate attributeName="stroke-opacity" values="0.75;0;0.75" dur="2.4s" repeatCount="indefinite" />
-                            <animate attributeName="stroke-width" values="1.8;0.2;1.8" dur="2.4s" repeatCount="indefinite" />
-                          </circle>
+                        <!-- 5. 异常 POP 节点外圈向外脉冲扩散光环 (与时间线异常首点 ping 动效对齐) -->
+                        <g x-show="topoCompositeData.pop.abnormal > 0" class="pointer-events-none">
+                          <circle cx="460" cy="118" r="40" fill="none" stroke="#F52727" stroke-width="1.6" class="topo-pop-pulse-ping" />
                         </g>
 
                         <!-- 6. 中心比例文字 (正常显示绿色 0/10，异常显示红色) -->
@@ -3018,9 +3036,9 @@
                       </g>
 
                       <!-- ============================================== -->
-                      <!-- 汇聚 2: 总部01连接器 x = 670, y = 92, w = 160, h = 52 (个体硬件对象，健康常态) -->
+                      <!-- 汇聚 2: 总部01连接器 x = 675, y = 92, w = 160, h = 52 (个体硬件对象，健康常态) -->
                       <!-- ============================================== -->
-                      <g class="cursor-pointer" transform="translate(670, 92)"
+                      <g class="cursor-pointer" transform="translate(675, 92)"
                          @mouseenter="showAnomalyTip($event, '总部01连接器', {})"
                          @mouseleave="hideAnomalyTip()"
                          @click.stop="filterBySegment('pop_conn', '差')">
@@ -3043,10 +3061,10 @@
                       </g>
 
                       <!-- ============================================== -->
-                      <!-- 终点: OA办公系统 x = 900, y = 92, w = 140, h = 52 -->
+                      <!-- 终点: OA办公系统 x = 904, y = 92, w = 140, h = 52 (右间距 16px: 1060 - 1044 = 16) -->
                       <!-- ============================================== -->
-                      <g class="cursor-pointer" transform="translate(900, 92)"
-                         @mouseenter="showAnomalyTip($event, '连接器-应用段', {})"
+                      <g class="cursor-pointer" transform="translate(904, 92)"
+                         @mouseenter="showAnomalyTip($event, 'OA办公系统', {})"
                          @mouseleave="hideAnomalyTip()"
                          @click.stop="filterBySegment('conn_app', '')">
                         <rect x="0" y="0" width="140" height="52" rx="4" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1.2"
@@ -3071,7 +3089,7 @@
                     <g class="topo-chips">
 
                       <!-- 3.1 用户终端 ➔ POP 连线上方指标 (Line at y=58, Box at y=28) -->
-                      <foreignObject x="195" y="28" width="155" height="24">
+                      <foreignObject x="185" y="28" width="155" height="24">
                         <div xmlns="http://www.w3.org/1999/xhtml" 
                              class="w-full h-full flex items-center justify-center gap-2 bg-white rounded-[3px] text-[11px] select-none text-[#1E293B] shadow-2xs border border-[#E2E8F0]/50">
                           <button type="button" @click.stop="filterBySegment('client_pop', '差')"
@@ -3087,7 +3105,7 @@
                       </foreignObject>
 
                       <!-- 3.2 分支防火墙 ➔ POP 连线上方指标 (Line at y=178, Box at y=148) -->
-                      <foreignObject x="195" y="148" width="155" height="24">
+                      <foreignObject x="185" y="148" width="155" height="24">
                         <div xmlns="http://www.w3.org/1999/xhtml" 
                              class="w-full h-full flex items-center justify-center gap-2 bg-white rounded-[3px] text-[11px] select-none text-[#1E293B] shadow-2xs border border-[#E2E8F0]/50">
                           <button type="button" @click.stop="filterBySegment('branch_pop', '差')"
@@ -3103,7 +3121,7 @@
                       </foreignObject>
 
                       <!-- 3.3 POP ➔ 连接器 专线上方指标 (Line at y=118, Box at y=88) -->
-                      <foreignObject x="508" y="88" width="155" height="24">
+                      <foreignObject x="510" y="88" width="155" height="24">
                         <div xmlns="http://www.w3.org/1999/xhtml" 
                              class="w-full h-full flex items-center justify-center gap-2 bg-white rounded-[3px] text-[11px] select-none text-[#1E293B] shadow-2xs border border-[#E2E8F0]/50">
                           <button type="button" @click.stop="filterBySegment('pop_conn', '差')"
@@ -3119,7 +3137,7 @@
                       </foreignObject>
 
                       <!-- 3.4 连接器 ➔ 应用段上方指标 (Line at y=118, Box at y=88) -->
-                      <foreignObject x="834" y="88" width="62" height="24">
+                      <foreignObject x="840" y="88" width="58" height="24">
                         <div xmlns="http://www.w3.org/1999/xhtml" 
                              class="w-full h-full flex items-center justify-center bg-white rounded-[3px] text-[11px] select-none text-[#1E293B] shadow-2xs border border-[#E2E8F0]/50">
                           <span>正常 <span class="text-[#12A679] font-bold" x-text="topoCompositeData.connApp.normal"></span></span>
@@ -3129,51 +3147,6 @@
                     </g>
 
                   </svg>
-                </div>
-
-                <!-- 2.3 拓扑正下方: AI 智能排障简洁诊断结论 (单容器精简 3 句话呈现) -->
-                <div class="mt-2.5 bg-[#F8FAFC] rounded-[4px] border border-[#E2E8F0] px-3.5 py-2.5 flex flex-col md:flex-row md:items-center justify-between gap-2.5 shadow-2xs select-none">
-                  <!-- 左侧：AI 智能芯片发光图标 + 标题 -->
-                  <div class="flex items-center gap-2 shrink-0">
-                    <div class="w-5 h-5 rounded-[4px] bg-gradient-to-br from-[#1C6EFF] to-[#7C3AED] flex items-center justify-center text-white shadow-xs">
-                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/>
-                      </svg>
-                    </div>
-                    <span class="text-xs font-bold text-[#1E293B]">AI 智能排障：</span>
-                  </div>
-
-                  <!-- 中间：3 句话核心诊断结论 -->
-                  <div class="flex-1 grid grid-cols-1 md:grid-cols-3 gap-2.5 text-xs">
-                    <!-- 1. 基础设施 -->
-                    <div class="flex items-center gap-1.5 min-w-0 bg-white/70 px-2 py-1 rounded-[2px] border border-[#E2E8F0]/60">
-                      <span class="w-1.5 h-1.5 rounded-full shrink-0" :class="aiDiagnosisSummary[0].dotClass"></span>
-                      <span class="text-[#64748B] font-medium shrink-0">① 基础设施：</span>
-                      <span class="text-[#2F3540] truncate" :title="aiDiagnosisSummary[0].text" x-text="aiDiagnosisSummary[0].text"></span>
-                    </div>
-                    <!-- 2. 应用后端 -->
-                    <div class="flex items-center gap-1.5 min-w-0 bg-white/70 px-2 py-1 rounded-[2px] border border-[#E2E8F0]/60">
-                      <span class="w-1.5 h-1.5 rounded-full shrink-0" :class="aiDiagnosisSummary[1].dotClass"></span>
-                      <span class="text-[#64748B] font-medium shrink-0">② 应用后端：</span>
-                      <span class="text-[#2F3540] truncate" :title="aiDiagnosisSummary[1].text" x-text="aiDiagnosisSummary[1].text"></span>
-                    </div>
-                    <!-- 3. 受损定界 -->
-                    <div class="flex items-center gap-1.5 min-w-0 bg-white/70 px-2 py-1 rounded-[2px] border border-[#E2E8F0]/60">
-                      <span class="w-1.5 h-1.5 rounded-full shrink-0" :class="aiDiagnosisSummary[2].dotClass"></span>
-                      <span class="text-[#64748B] font-medium shrink-0">③ 瓶颈定界：</span>
-                      <span class="text-[#2F3540] truncate font-medium" :class="currentGlobalSlice.status === '差' ? 'text-[#D9363E]' : 'text-[#2F3540]'" :title="aiDiagnosisSummary[2].text" x-text="aiDiagnosisSummary[2].text"></span>
-                    </div>
-                  </div>
-
-                  <!-- 右侧：当前切片状态提示 Badge -->
-                  <div class="flex items-center shrink-0">
-                    <span class="px-2 py-0.5 rounded-[3px] text-[11px] font-semibold border flex items-center gap-1.5"
-                          :class="currentGlobalSlice.status === '差' ? 'bg-[#FFF1F0] text-[#D9363E] border-[#FFA39E]' : (currentGlobalSlice.status === '一般' ? 'bg-[#FFF7E6] text-[#FA8C16] border-[#FFD591]' : 'bg-[#E6F8F1] text-[#12A679] border-[#B7EB8F]')">
-                      <span class="w-1.5 h-1.5 rounded-full"
-                            :class="currentGlobalSlice.status === '差' ? 'bg-[#F52727] animate-ping' : (currentGlobalSlice.status === '一般' ? 'bg-[#FA8C16]' : 'bg-[#12A679]')"></span>
-                      <span x-text="currentGlobalSlice.status === '差' ? 'P0 异常' : (currentGlobalSlice.status === '一般' ? '局部波动' : '运行健康')"></span>
-                    </span>
-                  </div>
                 </div>
 
               </div>
@@ -3401,10 +3374,8 @@
                             <template x-if="item.anomalies && item.anomalies.length > 0">
                               <div class="flex flex-wrap items-center gap-1.5">
                                 <template x-for="(tag, tIdx) in item.anomalies" :key="tIdx">
-                                  <span class="inline-flex items-center px-2 py-0.5 text-[11px] font-medium rounded-[2px] whitespace-nowrap cursor-pointer hover:shadow-xs transition-all select-none"
-                                    :class="item.exp === '差' ? 'bg-[#D9363E]/10 text-[#D9363E] border border-[#D9363E]/20 hover:bg-[#D9363E]/20' : 'bg-[#FA721B]/10 text-[#FA721B] border border-[#FA721B]/20 hover:bg-[#FA721B]/20'"
-                                    @mouseenter="showAnomalyTip($event, tag, item)"
-                                    @mouseleave="hideAnomalyTip()"
+                                  <span class="inline-flex items-center px-2 py-0.5 text-[11px] font-medium rounded-[2px] whitespace-nowrap select-none"
+                                    :class="item.exp === '差' ? 'bg-[#D9363E]/10 text-[#D9363E] border border-[#D9363E]/20' : 'bg-[#FA721B]/10 text-[#FA721B] border border-[#FA721B]/20'"
                                     x-text="tag"></span>
                                 </template>
                               </div>
@@ -3643,10 +3614,8 @@
                             <template x-if="item.anomalies && item.anomalies.length > 0">
                               <div class="flex flex-wrap items-center gap-1.5">
                                 <template x-for="(tag, tIdx) in item.anomalies" :key="tIdx">
-                                  <span class="inline-flex items-center px-2 py-0.5 text-[11px] font-medium rounded-[2px] whitespace-nowrap cursor-pointer hover:shadow-xs transition-all select-none"
-                                    :class="item.exp === '差' ? 'bg-[#D9363E]/10 text-[#D9363E] border border-[#D9363E]/20 hover:bg-[#D9363E]/20' : 'bg-[#FA721B]/10 text-[#FA721B] border border-[#FA721B]/20 hover:bg-[#FA721B]/20'"
-                                    @mouseenter="showAnomalyTip($event, tag, item)"
-                                    @mouseleave="hideAnomalyTip()"
+                                  <span class="inline-flex items-center px-2 py-0.5 text-[11px] font-medium rounded-[2px] whitespace-nowrap select-none"
+                                    :class="item.exp === '差' ? 'bg-[#D9363E]/10 text-[#D9363E] border border-[#D9363E]/20' : 'bg-[#FA721B]/10 text-[#FA721B] border border-[#FA721B]/20'"
                                     x-text="tag"></span>
                                 </template>
                               </div>
@@ -4010,16 +3979,22 @@
              x-cloak>
           <template x-if="anomalyTip.data">
             <div class="space-y-2.5">
-              <!-- 头部：标题与状态点 + 优先级Tag -->
+              <!-- 头部：标题与状态点 + 右上角时间 + 优先级Tag -->
               <div class="flex items-center justify-between pb-2 border-b border-[#F1F5F9] gap-2">
                 <div class="flex items-center gap-1.5 font-bold text-[#1E293B] text-xs font-sans min-w-0">
                   <span class="w-2 h-2 rounded-full flex-shrink-0" :class="anomalyTip.data.isAbnormal ? 'bg-[#F52727]' : 'bg-[#12A679]'"></span>
                   <span class="truncate" x-text="anomalyTip.data.title"></span>
                 </div>
-                <template x-if="anomalyTip.data.priorityBadge">
-                  <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#FFF1F0] text-[#D9363E] border border-[#FFA39E] flex-shrink-0"
-                        x-text="anomalyTip.data.priorityBadge"></span>
-                </template>
+                <div class="flex items-center gap-2 flex-shrink-0">
+                  <template x-if="anomalyTip.data.timeText || selectedGlobalSliceTime">
+                    <span class="font-mono text-xs font-normal text-[#8A92A1]" 
+                          x-text="anomalyTip.data.timeText || selectedGlobalSliceTime"></span>
+                  </template>
+                  <template x-if="anomalyTip.data.priorityBadge">
+                    <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#FFF1F0] text-[#D9363E] border border-[#FFA39E]"
+                          x-text="anomalyTip.data.priorityBadge"></span>
+                  </template>
+                </div>
               </div>
 
               <!-- 1. 时间点访问对象与正常/异常分布概况 -->
@@ -4042,12 +4017,14 @@
                 </div>
               </template>
 
-              <!-- 2. 相关质量指标列表 (支持个体对象与聚合对象动态表头，去除死板的均值字样) -->
+              <!-- 2. 相关质量指标列表 (支持动态表头，无表头时不显示多余表头行) -->
               <div class="space-y-1.5 text-[11px]">
-                <div class="text-[10px] text-[#64748B] font-sans font-medium flex items-center justify-between pb-1 border-b border-[#F1F5F9]">
-                  <span x-text="anomalyTip.data.metricHeader || '质量指标'"></span>
-                  <span class="text-[#94A3B8]" x-text="anomalyTip.data.metricSubHeader || '当前状态'"></span>
-                </div>
+                <template x-if="anomalyTip.data.metricHeader">
+                  <div class="text-[10px] text-[#64748B] font-sans font-medium flex items-center justify-between pb-1 border-b border-[#F1F5F9]">
+                    <span x-text="anomalyTip.data.metricHeader"></span>
+                    <span class="text-[#94A3B8]" x-text="anomalyTip.data.metricSubHeader || '当前状态'"></span>
+                  </div>
+                </template>
                 <template x-for="(metric, mIdx) in anomalyTip.data.items" :key="mIdx">
                   <div class="flex items-center justify-between gap-3 pt-0.5">
                     <span class="font-sans text-[#64748B] text-xs" x-text="metric.label + ':'"></span>
@@ -4063,9 +4040,10 @@
                 </template>
               </div>
 
-              <!-- 3. 排查建议提示 -->
+              <!-- 3. 排查建议提示 (正常为浅灰色框，异常为警示黄色框) -->
               <template x-if="anomalyTip.data.hint">
-                <div class="bg-[#FFFBE6] border border-[#FFE58F] rounded p-2 text-[10.5px] text-[#D48806] leading-relaxed font-sans">
+                <div class="rounded p-2 text-[10.5px] leading-relaxed font-sans"
+                     :class="anomalyTip.data.isAbnormal ? 'bg-[#FFFBE6] border border-[#FFE58F] text-[#D48806]' : 'bg-[#F8FAFC] border border-[#E2E8F0] text-[#64748B]'">
                   <span x-text="anomalyTip.data.hint"></span>
                 </div>
               </template>
@@ -4085,27 +4063,27 @@
              class="fixed z-[9999] bg-white p-2.5 rounded-[4px] shadow-2xl border border-[#CBD5E1] text-xs min-w-[270px] max-w-[320px] select-none"
              :style="`left: ${popPopoverPos.x}px; top: ${popPopoverPos.y}px; transform: translate(-50%, 0);`"
              x-cloak>
-          <!-- 浮层头部 (显示为异常) -->
+          <!-- 浮层头部 (显示为异常，不加粗) -->
           <div class="flex items-center justify-between border-b border-[#F1F5F9] pb-1.5 mb-1.5">
-            <span class="font-bold text-[#1E293B] flex items-center gap-1.5 text-xs">
+            <span class="font-normal text-[#1E293B] flex items-center gap-1.5 text-xs">
               <span>接入 POP 列表</span>
               <span class="text-[10px] text-[#64748B] font-normal">(共 10 个)</span>
             </span>
-            <span class="text-[10.5px] font-medium text-[#D9363E] bg-[#FFF1F0] px-1.5 py-0.2 rounded border border-[#FFA39E]">2 异常</span>
+            <span class="text-[10.5px] font-normal text-[#D9363E] bg-[#FFF1F0] px-1.5 py-0.2 rounded border border-[#FFA39E]">2 异常</span>
           </div>
-          <!-- POP 列表 (异常排前，显示为异常 Tag) -->
-          <div class="max-h-56 overflow-y-auto space-y-0.5 dem-scrollbar pr-0.5">
+          <!-- POP 列表 (默认展示 5 个，更多轻量滚动，文字不加粗) -->
+          <div class="max-h-[150px] overflow-y-auto space-y-0.5 dem-popover-scroll pr-0.5">
             <template x-for="p in popListForPopover" :key="p.id">
               <div @click.stop="filterBySpecificPop(p)"
                    class="flex items-center justify-between px-2 py-1.5 rounded hover:bg-[#F1F5F9] cursor-pointer transition-colors group">
                 <div class="flex items-center gap-2 min-w-0">
                   <span class="w-2 h-2 rounded-full shrink-0"
                         :class="p.status === '差' ? 'bg-[#F52727]' : (p.status === '一般' ? 'bg-[#FA8C16]' : 'bg-[#12A679]')"></span>
-                  <span class="font-medium text-xs text-[#1E293B] group-hover:text-[#1C6EFF] truncate" x-text="p.name + 'POP'"></span>
-                  <span x-show="p.status === '差'" class="px-1 py-0.2 rounded text-[9.5px] font-bold bg-[#FFF1F0] text-[#D9363E] border border-[#FFA39E] shrink-0">异常</span>
+                  <span class="font-normal text-xs text-[#1E293B] group-hover:text-[#1C6EFF] truncate" x-text="p.name + 'POP'"></span>
+                  <span x-show="p.status === '差'" class="px-1 py-0.2 rounded text-[9.5px] font-normal bg-[#FFF1F0] text-[#D9363E] border border-[#FFA39E] shrink-0">异常</span>
                 </div>
                 <div class="flex items-center gap-1.5 text-[10.5px] text-[#64748B] font-mono shrink-0">
-                  <span :class="p.status === '差' ? 'text-[#D9363E] font-bold' : 'text-[#64748B]'"
+                  <span :class="p.status === '差' ? 'text-[#D9363E] font-normal' : 'text-[#64748B]'"
                         x-text="p.loss ? ('丢包 ' + p.loss) : (p.status === '差' ? '丢包 4.8%' : '0% 丢包')"></span>
                   <span class="text-[#1C6EFF] opacity-0 group-hover:opacity-100 transition-opacity text-[11px] font-sans">过滤 →</span>
                 </div>
@@ -4113,12 +4091,12 @@
             </template>
           </div>
           <!-- 浮层底部提示 -->
-          <div class="pt-1.5 mt-1.5 border-t border-[#F1F5F9] text-[10px] text-[#94A3B8] text-center">
+          <div class="pt-1.5 mt-1.5 border-t border-[#F1F5F9] text-[10px] text-[#94A3B8] text-center font-normal">
             💡 点击任意 POP 可直接联动下方表格数据
           </div>
         </div>
 
-        <!-- 用户终端 IP 归属地分布悬浮浮层 (纯净极简设计，无多余彩色线条干扰) -->
+        <!-- 用户终端 IP 归属地分布悬浮浮层 (默认优先展示 5 个对象，更多轻量滚动) -->
         <div x-show="clientGeoPopoverOpen"
              @mouseenter="cancelCloseClientGeoPopover()"
              @mouseleave="scheduleCloseClientGeoPopover()"
@@ -4147,8 +4125,8 @@
             </span>
           </div>
 
-          <!-- 分布列表条目 (纯净列表：无进度条线条干扰，纯粹展示地区与数量) -->
-          <div class="max-h-60 overflow-y-auto space-y-0.5 dem-scrollbar pr-0.5">
+          <!-- 分布列表条目 (默认优先展示 5 个对象，超过 5 个轻量滚动) -->
+          <div class="max-h-[148px] overflow-y-auto space-y-0.5 dem-popover-scroll pr-0.5">
             <template x-for="item in userGeoDistribution" :key="item.region">
               <div @click.stop="filterByClientGeo(item)"
                    class="flex items-center justify-between px-2 py-1.5 rounded-[3px] hover:bg-[#F8FAFC] cursor-pointer transition-colors group">
@@ -4162,12 +4140,12 @@
           </div>
 
           <!-- 底部提示 -->
-          <div class="pt-1.5 mt-1 border-t border-[#F1F5F9] text-[10px] text-[#94A3B8] text-center">
+          <div class="pt-1.5 mt-1 border-t border-[#F1F5F9] text-[10px] text-[#94A3B8] text-center font-normal">
             💡 点击任意区域可直接筛选下方用户列表
           </div>
         </div>
 
-        <!-- 分支机构地理位置分布悬浮浮层 (纯净极简设计，无多余彩色线条干扰) -->
+        <!-- 分支机构地理位置分布悬浮浮层 (默认优先展示 5 个对象，更多轻量滚动) -->
         <div x-show="branchGeoPopoverOpen"
              @mouseenter="cancelCloseBranchGeoPopover()"
              @mouseleave="scheduleCloseBranchGeoPopover()"
@@ -4195,8 +4173,8 @@
             </span>
           </div>
 
-          <!-- 分布列表条目 (纯净列表：无进度条线条干扰，纯粹展示地区与数量) -->
-          <div class="max-h-60 overflow-y-auto space-y-0.5 dem-scrollbar pr-0.5">
+          <!-- 分布列表条目 (默认优先展示 5 个对象，超过 5 个轻量滚动) -->
+          <div class="max-h-[148px] overflow-y-auto space-y-0.5 dem-popover-scroll pr-0.5">
             <template x-for="item in branchGeoDistribution" :key="item.location">
               <div @click.stop="filterByBranchGeo(item)"
                    class="flex items-center justify-between px-2 py-1.5 rounded-[3px] hover:bg-[#F8FAFC] cursor-pointer transition-colors group">
@@ -4210,7 +4188,7 @@
           </div>
 
           <!-- 底部提示 -->
-          <div class="pt-1.5 mt-1 border-t border-[#F1F5F9] text-[10px] text-[#94A3B8] text-center">
+          <div class="pt-1.5 mt-1 border-t border-[#F1F5F9] text-[10px] text-[#94A3B8] text-center font-normal">
             💡 点击任意城市可直接筛选下方分支列表
           </div>
         </div>

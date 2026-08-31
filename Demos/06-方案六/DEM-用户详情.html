@@ -2090,25 +2090,34 @@
           this.initPinnedApps();
         },
 
-        // 加载完整的【上海研发中心刘洋/陈晨访问OA系统卡慢 (华南深圳POP骨干专线丢包故障)】排障剧本 Mock 数据
+        // 加载完整的【OA系统访问卡慢 (POP骨干专线丢包故障)】排障剧本 Mock 数据
         loadLiuYangOaScriptData(userDisplayName, userDept, paramEmpId, paramPop) {
           const isChenChen = (userDisplayName?.includes('陈晨') || paramEmpId === '2024118');
-          const empId = isChenChen ? '2024118' : '2024106';
-          const nameOnly = isChenChen ? '陈晨' : '刘洋';
+          const isPeng = (userDisplayName?.includes('彭') || paramEmpId === '88012');
+          const isZhang = (userDisplayName?.includes('张') || paramEmpId === '88015');
+          const isMaria = (userDisplayName?.includes('Maria') || paramEmpId === '88028');
+
+          let empId = paramEmpId || (isChenChen ? '2024118' : (isPeng ? '88012' : (isZhang ? '88015' : (isMaria ? '88028' : '2024106'))));
+          let nameOnly = '刘洋';
+          if (userDisplayName) {
+            nameOnly = userDisplayName.replace(/^[0-9]+[（(]/, '').replace(/[）)]$/, '').trim();
+          }
           const fullUserName = userDisplayName || `${empId}（${nameOnly}）`;
-          const deptText = userDept || '深信服科技 / 研发中心 / DEM产品部';
+          const deptText = userDept || (isPeng || isZhang ? '海外业务部 / 香港办事处' : (isMaria ? '海外业务部 / 马尼拉办事处' : '深信服科技 / 研发中心 / DEM产品部'));
+          const targetPop = paramPop || (isPeng || isZhang ? '香港POP' : (isMaria ? '马尼拉POP' : '深圳POP'));
+          const isAbnormalPop = targetPop.includes('香港') || targetPop.includes('马尼拉');
 
           this.queryType = '用户';
           this.userName = fullUserName;
           this.userDept = deptText;
-          this.userId = isChenChen ? 'usr_chenchen' : 'usr_liuyang';
-          this.userTerminal = isChenChen ? 'MacBook Pro 14 (研发专用)' : 'ThinkPad T14 (研发专用)';
-          this.userPop = paramPop || '深圳POP';
+          this.userId = isChenChen ? 'usr_chenchen' : (isPeng ? 'usr_peng' : (isZhang ? 'usr_zhang' : (isMaria ? 'usr_maria' : 'usr_liuyang')));
+          this.userTerminal = (isChenChen || isPeng) ? 'MacBook Pro 14 (外派专用)' : (isMaria ? 'Dell Latitude (海外专用)' : 'ThinkPad T14 (研发专用)');
+          this.userPop = targetPop;
           this.overallExperience = '差';
-          this.totalApps = isChenChen ? 14 : 18;
-          this.poorApps = isChenChen ? 5 : 8;
-          this.fairApps = isChenChen ? 2 : 1;
-          this.normalApps = isChenChen ? 7 : 9;
+          this.totalApps = isChenChen ? 14 : (isPeng ? 15 : (isMaria ? 14 : 18));
+          this.poorApps = isChenChen ? 5 : (isPeng ? 6 : (isMaria ? 4 : 8));
+          this.fairApps = 2;
+          this.normalApps = this.totalApps - this.poorApps - this.fairApps;
 
           this.rawAppList = [
             {
@@ -2117,23 +2126,23 @@
               domain: 'https://230.213.2.22',
               experience: '差',
               tag: '内网办公',
-              summary: `${nameOnly}在上海办公室通过 SASE 访问 OA系统 响应极慢（真实访问 TTFB 1,420ms，15:20~15:55 持续恶化）。排查确认用户本地 PC 终端及上海局域网正常（本地网关时延 1ms / 丢包 0%），异常收敛于华南深圳 POP 到总部01连接器的 SASE 骨干专线段（专线丢包 5.2%、抖动 48ms、专线 RTT 145ms）。后端总部连接器与 OA 应用服务器自身处理正常（探针 TTFB 12ms，HTTP 200，错误率 0%）。`,
-              abnormalExplain: '深圳POP到总部01连接器传输段骨干专线丢包 5.2%、网络抖动 48ms、网络 RTT 145ms，导致访问 OA系统 严重卡慢。',
+              summary: `${nameOnly}通过【${targetPop}】访问 OA系统 响应极慢（真实访问 TTFB 1,420ms，15:20~15:55 持续恶化）。排查确认用户本地 PC 终端及局域网正常（本地网关时延 1ms / 丢包 0%），异常收敛于【${targetPop} ➔ 总部01连接器】的 SASE 骨干专线段（专线丢包 5.2%、抖动 48ms、专线 RTT 145ms）。后端总部连接器与 OA 应用服务器自身处理正常（探针 TTFB 12ms，HTTP 200，错误率 0%）。`,
+              abnormalExplain: `${targetPop}到总部01连接器传输段骨干专线丢包 5.2%、网络抖动 48ms、网络 RTT 145ms，导致访问 OA系统 严重卡慢。`,
               aiSummary: {
-                summaryHtml: `用户本次访问 <span class="font-bold text-[#2F3540]">OA系统</span> 体验差（真实访问 TTFB 1,420ms / 基线 100ms），排查确认异常收敛于<span class="text-[#F52727] font-bold">“华南深圳POP到总部01连接器传输段（骨干专线网络劣化）”</span>（专线丢包 5.2%、抖动 48ms、RTT 145ms）。终端本地接入与局域网正常，后端总部连接器与 OA 应用服务器均健康（探针 TTFB 12ms，HTTP 200）。此故障为 POP 专线群体性问题，影响上海、东京、成都分支经深圳 POP 接入的 <b class="text-[#F52727]">12 名用户</b>（共 34 名用户），建议协调 SASE 平台团队切换备用 POP（如上海POP）或排查专线运营商。`,
+                summaryHtml: `用户本次访问 <span class="font-bold text-[#2F3540]">OA系统</span> 体验差（真实访问 TTFB 1,420ms / 基线 100ms），排查确认异常收敛于<span class="text-[#F52727] font-bold">“${targetPop}到总部01连接器传输段（骨干专线网络劣化）”</span>（专线丢包 5.2%、抖动 48ms、RTT 145ms）。终端本地接入与局域网正常，后端总部连接器与 OA 应用服务器均健康（探针 TTFB 12ms，HTTP 200）。此故障为 POP 专线群体性问题，影响经异常 POP 接入的 <b class="text-[#F52727]">12 名用户/分支</b>（共 34 个访问对象），建议协调 SASE 平台团队切换备用 POP 专线或排查运营商线路。`,
                 problemLocation: {
                   tag: 'SASE 骨干网专线异常',
-                  abnormalPoint: '深圳 POP ➔ 总部01连接器传输段（华南专线告警）',
+                  abnormalPoint: `${targetPop} ➔ 总部01连接器传输段（骨干专线告警）`,
                   abnormalFeature: '骨干专线丢包率 5.2%，抖动 48ms，TTFB 首字节耗时延展至 1,420ms。本地终端 Wi-Fi/LAN 接入与 OA 后端服务正常。'
                 },
                 impactScope: {
-                  users: `${nameOnly}及同走深圳 POP 接入的 12 名用户 (占 OA 受损用户的 100%)`,
-                  branches: '上海华东运营中心、东京海外办事处、成都西南研发基地',
+                  users: `${nameOnly}及同走${targetPop}接入的 12 名用户/分支 (占 OA 受损对象的 100%)`,
+                  branches: '香港办事处、马尼拉办公室、广州研发中心',
                   apps: 'OA系统'
                 },
                 advice: {
                   stakeholders: 'SASE 平台运维团队 & 骨干网专线团队',
-                  actions: '1. 将受影响的上海/东京/成都分支用户接入策略临时调度切换至上海/广州备用 POP；2. 提交逐跳时延丢包证据，排查华南骨干专线光缆及交换设备。'
+                  actions: `1. 将受影响的${targetPop}用户接入策略临时调度切换至备用优质 BGP 专线；2. 提交逐跳时延丢包证据，排查骨干专线光缆及交换设备。`
                 }
               },
               slices: [
@@ -2147,14 +2156,14 @@
                   status: '异常',
                   sampleIdx: 7,
                   analysis: {
-                    rootCause: '异常收敛于<span class="text-[#F52727] font-medium">【华南深圳POP到总部01连接器骨干专线传输段】</span>。深圳POP至总部连接器专线队列拥塞，丢包达 5.2%，抖动 48ms，导致 TTFB 耗时飙升至 1,420ms。',
+                    rootCause: `异常收敛于<span class="text-[#F52727] font-medium">【${targetPop}到总部01连接器骨干专线传输段】</span>。${targetPop}至总部连接器专线队列拥塞，丢包达 5.2%，抖动 48ms，导致 TTFB 耗时飙升至 1,420ms。`,
                     feature: '骨干专线丢包 5.2%（基线 <0.5%）、抖动 48ms（基线 <5ms）、专线 RTT 145ms（基线 35ms）。用户终端本地接入（时延 12ms，丢包 0%）与后端 OA 服务器（耗时 12ms）均正常。',
-                    advice: '责任归属【SASE 骨干专线网络】。建议 SASE 运营团队将上海分支用户流量临时调度切换至上海本地 POP，并联系专线运营商排查深圳至总部光纤专线。'
+                    advice: `责任归属【SASE 骨干专线网络】。建议 SASE 运营团队将${targetPop}用户流量临时调度切换至备用优质专线，并联系专线运营商排查光纤专线。`
                   },
                   topology: {
-                    client: { name: isChenChen ? '陈晨 MacBook' : '刘洋 ThinkPad', sub: '终端 (上海局域网)', status: '正常', targetId: 'node_terminal' },
+                    client: { name: `${nameOnly} 终端`, sub: '终端 (局域网正常)', status: '正常', targetId: 'node_terminal' },
                     segment1: { name: '本地网络/接入', delay: '12ms', loss: '0.0%', jitter: '1ms', status: '正常', targetId: 'seg_client_pop' },
-                    pop: { name: '深圳POP', sub: '接入POP (跨区上车)', status: '正常', targetId: 'node_pop' },
+                    pop: { name: targetPop, sub: isAbnormalPop ? '接入POP (异常)' : '接入POP (正常)', status: isAbnormalPop ? '异常' : '正常', targetId: 'node_pop' },
                     segment2: { name: 'POP-连接器专线', delay: '145ms', loss: '5.2%', jitter: '48ms', status: '异常', targetId: 'seg_pop_gw' },
                     gw: { name: '总部01连接器', sub: '连接器 (正常)', status: '正常', targetId: 'node_connector' },
                     segment3: { name: '连接器-应用', delay: '15ms', loss: '0.0%', jitter: '0ms', status: '正常', targetId: 'seg_gw_app' },
@@ -2165,35 +2174,35 @@
                       id: 'seg_client_pop',
                       name: '终端-pop段',
                       status: '正常',
-                      summary: '终端无线与上海本地电信宽带接入通畅，时延 12ms，零丢包，抖动 1ms。',
+                      summary: `终端无线与本地宽带接入通畅，时延 12ms，零丢包，抖动 1ms。`,
                       metrics: [
                         { label: 'Wi-Fi 信号 (RSSI)', value: '-48 dBm', baseline: '-50 dBm', isAbnormal: false },
                         { label: '丢包率', value: '0.0%', baseline: '< 0.5%', isAbnormal: false },
                         { label: 'RTT 时延', value: '12 ms', baseline: '< 50 ms', isAbnormal: false }
                       ],
                       hopTraces: [
-                        { hop: 1, ip: '192.168.10.1', tag: '本地网关', tagType: 'default', asn: '局域网 (LAN Gateway)', loc: '上海办公区', rtt: '1ms', diffRtt: '-', loss: '0.0%', diffLoss: '-', jitter: '0ms', diffJitter: '-', status: '正常' },
-                        { hop: 2, ip: '116.228.89.1', tag: '出口网关', tagType: 'default', asn: 'AS4812 上海电信', loc: '中国·上海', rtt: '6ms', diffRtt: '+5ms', loss: '0.0%', diffLoss: '0%', jitter: '1ms', diffJitter: '+1ms', status: '正常' },
-                        { hop: 3, ip: '202.97.33.12', tag: '骨干路由', tagType: 'default', asn: 'AS4134 中国电信', loc: '中国·上海', rtt: '10ms', diffRtt: '+4ms', loss: '0.0%', diffLoss: '0%', jitter: '1ms', diffJitter: '0ms', status: '正常' },
-                        { hop: 4, ip: '10.240.12.1', tag: 'POP接入点', tagType: 'default', asn: 'SASE 深圳POP', loc: '中国·深圳', rtt: '12ms', diffRtt: '+2ms', loss: '0.0%', diffLoss: '0%', jitter: '1ms', diffJitter: '0ms', status: '正常' }
+                        { hop: 1, ip: '192.168.10.1', tag: '本地网关', tagType: 'default', asn: '局域网 (LAN Gateway)', loc: '办公区', rtt: '1ms', diffRtt: '-', loss: '0.0%', diffLoss: '-', jitter: '0ms', diffJitter: '-', status: '正常' },
+                        { hop: 2, ip: '116.228.89.1', tag: '出口网关', tagType: 'default', asn: '本地宽带出口', loc: '本地出向', rtt: '6ms', diffRtt: '+5ms', loss: '0.0%', diffLoss: '0%', jitter: '1ms', diffJitter: '+1ms', status: '正常' },
+                        { hop: 3, ip: '202.97.33.12', tag: '骨干路由', tagType: 'default', asn: '骨干网络', loc: '运营商骨干', rtt: '10ms', diffRtt: '+4ms', loss: '0.0%', diffLoss: '0%', jitter: '1ms', diffJitter: '0ms', status: '正常' },
+                        { hop: 4, ip: '10.240.12.1', tag: 'POP接入点', tagType: 'default', asn: 'SASE ' + targetPop, loc: targetPop, rtt: '12ms', diffRtt: '+2ms', loss: '0.0%', diffLoss: '0%', jitter: '1ms', diffJitter: '0ms', status: '正常' }
                       ],
-                      hopConclusion: '终端至深圳POP接入段全链路 RTT 12ms，0 丢包，接入侧健康。'
+                      hopConclusion: `终端至${targetPop}接入段全链路 RTT 12ms，0 丢包，接入侧健康。`
                     },
                     {
                       id: 'seg_pop_gw',
                       name: 'pop-连接器段',
                       status: '异常',
-                      summary: '深圳 POP 到总部01连接器骨干专线严重丢包 (5.2%)、高抖动 (48ms)、时延飙升至 145ms，Overlay 吞吐受限。',
+                      summary: `${targetPop} 到总部01连接器骨干专线严重丢包 (5.2%)、高抖动 (48ms)、时延飙升至 145ms，Overlay 吞吐受限。`,
                       metrics: [
                         { label: '隧道 RTT 时延', value: '145 ms', baseline: '35 ms', isAbnormal: true },
                         { label: '数据包丢包率', value: '5.2%', baseline: '< 0.5%', isAbnormal: true },
                         { label: '抖动 (Jitter)', value: '48 ms', baseline: '< 5 ms', isAbnormal: true },
-                        { label: '选路状态', value: '华南专线告警', baseline: '最优选路', isAbnormal: true }
+                        { label: '选路状态', value: '骨干专线告警', baseline: '最优选路', isAbnormal: true }
                       ],
-                      cause: '华南深圳 POP 骨干出向专线队列拥塞，触发告警。',
+                      cause: `${targetPop} 骨干出向专线队列拥塞，触发告警。`,
                       hopTraces: [
-                        { hop: 1, ip: '10.240.12.1', tag: 'POP出口', tagType: 'default', asn: '深圳POP网关', loc: '中国·深圳', rtt: '12ms', diffRtt: '-', loss: '0.0%', diffLoss: '-', jitter: '1ms', diffJitter: '-', status: '正常' },
-                        { hop: 2, ip: '10.200.8.22', tag: '专线中间跳', tagType: 'default', asn: '华南骨干专线', loc: '专线传输', rtt: '98ms', diffRtt: '+86ms', loss: '4.8%', diffLoss: '+4.8%', jitter: '42ms', diffJitter: '+41ms', status: '异常' },
+                        { hop: 1, ip: '10.240.12.1', tag: 'POP出口', tagType: 'default', asn: targetPop + '网关', loc: targetPop, rtt: '12ms', diffRtt: '-', loss: '0.0%', diffLoss: '-', jitter: '1ms', diffJitter: '-', status: '正常' },
+                        { hop: 2, ip: '10.200.8.22', tag: '专线中间跳', tagType: 'default', asn: '骨干专线链路', loc: '专线传输', rtt: '98ms', diffRtt: '+86ms', loss: '4.8%', diffLoss: '+4.8%', jitter: '42ms', diffJitter: '+41ms', status: '异常' },
                         { hop: 3, ip: '10.23.22.23', tag: '总部连接器', tagType: 'default', asn: '总部01连接器', loc: '总部机房', rtt: '145ms', diffRtt: '+47ms', loss: '5.2%', diffLoss: '+0.4%', jitter: '48ms', diffJitter: '+6ms', status: '异常' }
                       ],
                       hopConclusion: '从专线传输跳点开始突发 4.8% 丢包与 42ms 抖动，最终到达总部连接器累计丢包 5.2%，异常明确收敛于 POP-连接器专线传输段。'
@@ -2216,10 +2225,10 @@
                       id: 'node_terminal',
                       name: '终端',
                       status: '正常',
-                      summary: `${isChenChen ? 'MacBook Pro' : 'ThinkPad T14'} 客户端设备运行平稳，Wi-Fi 信号优良 (-48dBm)，本地网关时延 1ms。`,
+                      summary: `${nameOnly} 客户端设备运行平稳，Wi-Fi 信号优良 (-48dBm)，本地网关时延 1ms。`,
                       metrics: [
-                        { label: '终端设备', value: isChenChen ? 'MacBook Pro 14 (研发机)' : 'ThinkPad T14 (研发机)' },
-                        { label: '操作系统', value: isChenChen ? 'macOS Sonoma 14.5' : 'Windows 11 Enterprise' },
+                        { label: '终端设备', value: (isChenChen || isPeng) ? 'MacBook Pro 14' : (isMaria ? 'Dell Latitude' : 'ThinkPad T14') },
+                        { label: '操作系统', value: (isChenChen || isPeng) ? 'macOS Sequoia 15.1' : 'Windows 11 Enterprise' },
                         { label: 'CPU 利用率', value: '18.5%' },
                         { label: '内存占用率', value: '45.0%' }
                       ]
@@ -2227,11 +2236,11 @@
                     {
                       id: 'node_pop',
                       name: 'pop',
-                      status: '正常',
-                      summary: '深圳 POP 节点负载平稳 (2.4 Gbps / 限流阈值 10 Gbps)，节点无过载。',
+                      status: isAbnormalPop ? '异常' : '正常',
+                      summary: `${targetPop} 节点转发负载平稳 (2.4 Gbps / 限流阈值 10 Gbps)，${isAbnormalPop ? '检测到出向骨干专线拥塞告警' : '节点运行健康'}。`,
                       metrics: [
-                        { label: '接入 POP', value: '华南-深圳POP' },
-                        { label: '服务状态', value: 'UP (正常运行)' },
+                        { label: '接入 POP', value: targetPop },
+                        { label: '服务状态', value: isAbnormalPop ? 'WARNING (专线告警)' : 'UP (正常运行)' },
                         { label: '当前吞吐', value: '2.4 Gbps' }
                       ]
                     },
