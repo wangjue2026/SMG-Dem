@@ -3149,17 +3149,75 @@
                       <span class="text-xs font-semibold text-[#2F3540]">访问链路</span>
                       <span class="text-[11px] text-[#6F7785] font-normal" x-text="'（' + currentApp.name + ' · 联动时刻 ' + (currentPoint?.time || currentSlice.time || '16:00') + '）'"></span>
                     </div>
-                    <!-- 右侧展示网络协议层耗时链 (符合全局基线判定颜色规则) -->
-                    <div class="flex items-center gap-2.5 text-[11px] text-[#6F7785] font-mono">
-                      <span>TTFB：<span class="font-medium font-outfit" :class="getMetricColor(currentPoint?.experience === '差' ? 1823 : 68, 300)" x-text="currentPoint?.experience === '差' ? '1,823ms' : '68ms'"></span></span>
-                      <span class="text-[#D3D7DE]">|</span>
-                      <span>DNS解析：<span class="font-medium font-outfit" :class="getMetricColor(currentPoint?.experience === '差' ? 24 : 12, 50)" x-text="currentPoint?.experience === '差' ? '24ms' : '12ms'"></span></span>
-                      <span class="text-[#D3D7DE]">|</span>
-                      <span>TCP连接：<span class="font-medium font-outfit" :class="getMetricColor(currentPoint?.experience === '差' ? 186 : 18, 50)" x-text="currentPoint?.experience === '差' ? '186ms' : '18ms'"></span></span>
-                      <span class="text-[#D3D7DE]">|</span>
-                      <span>TLS：<span class="font-medium font-outfit" :class="getMetricColor(currentPoint?.experience === '差' ? 210 : 38, 80)" x-text="currentPoint?.experience === '差' ? '210ms' : '38ms'"></span></span>
-                      <span class="text-[#D3D7DE]">|</span>
-                      <span>HTTP响应：<span class="font-medium font-outfit" :class="getMetricColor(currentPoint?.experience === '差' ? 1403 : 28, 300)" x-text="currentPoint?.experience === '差' ? '1,403ms' : '28ms'"></span></span>
+                    <!-- 右侧：TTFB 下拉收纳展示网络协议层耗时链 (悬停查看 DNS、TCP、TLS、HTTP 子指标) -->
+                    <div class="relative"
+                         x-data="{ ttfbHoverOpen: false, ttfbTimeout: null }"
+                         @mouseenter="clearTimeout(ttfbTimeout); ttfbHoverOpen = true"
+                         @mouseleave="ttfbTimeout = setTimeout(() => { ttfbHoverOpen = false }, 200)">
+                      <div class="flex items-center gap-1.5 cursor-pointer py-0.5 px-2 rounded-[3px] bg-[#F8FAFC] border border-[#E2E8F0] hover:border-[#BFD5FF] hover:bg-[#F0F7FF] transition-all">
+                        <span class="text-xs text-[#6F7785] font-sans">TTFB:</span>
+                        <span class="text-xs font-bold font-mono font-outfit"
+                              :class="getMetricColor(currentPoint?.experience === '差' ? (currentPoint?.ttfb || 1823) : (currentPoint?.ttfb || 68), 300)"
+                              x-text="currentPoint?.experience === '差' ? (currentPoint?.ttfb ? (currentPoint.ttfb >= 1000 ? currentPoint.ttfb.toLocaleString() : currentPoint.ttfb) + 'ms' : '1,823ms') : (currentPoint?.ttfb ? currentPoint.ttfb + 'ms' : '68ms')"></span>
+                        <svg class="w-3.5 h-3.5 text-[#94A3B8] transition-transform duration-200"
+                             :class="ttfbHoverOpen ? 'rotate-180 text-[#1C6EFF]' : ''"
+                             fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                      </div>
+
+                      <!-- 下拉展示全部子指标信息浮层 (DNS解析、TCP连接、TLS握手、HTTP响应等) -->
+                      <div x-show="ttfbHoverOpen"
+                           x-transition:enter="transition ease-out duration-150"
+                           x-transition:enter-start="opacity-0 translate-y-1 scale-95"
+                           x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+                           x-transition:leave="transition ease-in duration-100"
+                           x-transition:leave-start="opacity-100"
+                           x-transition:leave-end="opacity-0"
+                           class="absolute right-0 top-full mt-1.5 z-[9999] bg-white p-3 rounded-[4px] shadow-2xl border border-[#CBD5E1] text-xs min-w-[220px] select-none"
+                           x-cloak>
+                        <div class="space-y-2 font-sans">
+                          <!-- 头部：当前联动时刻与TTFB总耗时 -->
+                          <div class="flex items-center justify-between pb-1.5 border-b border-[#F1F5F9] text-xs">
+                            <span class="text-[#64748B]">联动采样时刻:</span>
+                            <span class="font-bold font-mono text-[#1E293B]" x-text="currentPoint?.time || currentSlice.time || '15:20'"></span>
+                          </div>
+                          
+                          <!-- 耗时解构子指标列表 -->
+                          <div class="space-y-1.5 text-xs">
+                            <div class="flex items-center justify-between">
+                              <span class="text-[#64748B]">TTFB 总耗时:</span>
+                              <span class="font-bold font-mono font-outfit"
+                                    :class="getMetricColor(currentPoint?.experience === '差' ? (currentPoint?.ttfb || 1823) : (currentPoint?.ttfb || 68), 300)"
+                                    x-text="currentPoint?.experience === '差' ? (currentPoint?.ttfb ? (currentPoint.ttfb >= 1000 ? currentPoint.ttfb.toLocaleString() : currentPoint.ttfb) + 'ms' : '1,823ms') : (currentPoint?.ttfb ? currentPoint.ttfb + 'ms' : '68ms')"></span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                              <span class="text-[#64748B]">DNS 解析:</span>
+                              <span class="font-mono font-outfit"
+                                    :class="getMetricColor(currentPoint?.experience === '差' ? 24 : 12, 50)"
+                                    x-text="currentPoint?.experience === '差' ? '24ms' : '12ms'"></span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                              <span class="text-[#64748B]">TCP 连接:</span>
+                              <span class="font-mono font-outfit"
+                                    :class="getMetricColor(currentPoint?.experience === '差' ? 186 : 18, 50)"
+                                    x-text="currentPoint?.experience === '差' ? '186ms' : '18ms'"></span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                              <span class="text-[#64748B]">TLS 握手:</span>
+                              <span class="font-mono font-outfit"
+                                    :class="getMetricColor(currentPoint?.experience === '差' ? 210 : 38, 80)"
+                                    x-text="currentPoint?.experience === '差' ? '210ms' : '38ms'"></span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                              <span class="text-[#64748B]">HTTP 响应:</span>
+                              <span class="font-mono font-outfit"
+                                    :class="getMetricColor(currentPoint?.experience === '差' ? 1403 : 28, 300)"
+                                    x-text="currentPoint?.experience === '差' ? '1,403ms' : '28ms'"></span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
 
@@ -3443,9 +3501,8 @@
                                 </span>
                               </template>
 
-                              <!-- 推断依据：xxxx (状态分析理由说明，辅助灰色字体) -->
-                              <div class="text-xs flex items-center gap-1 min-w-0 overflow-hidden text-[#6F7785]">
-                                <span class="font-medium shrink-0 text-[#6F7785]">推断依据：</span>
+                              <!-- 状态分析理由说明 (辅助灰色字体) -->
+                              <div class="text-xs flex items-center min-w-0 overflow-hidden text-[#6F7785]">
                                 <span class="truncate font-normal text-[#6F7785]" x-text="getItemInferenceText(item)"></span>
                               </div>
                             </div>
