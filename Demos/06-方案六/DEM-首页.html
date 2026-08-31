@@ -207,8 +207,9 @@
           { id: '5', userName: '88219（张总）', nameOnly: '张总', department: '/深信服/总经办', experience: '差', appCount: 20, primaryApp: 'SAP ERP', degradedCount: 2, ipLocation: '183.14.5.18 (移动-深圳)', pop: 'POP (深圳)' }
         ],
         vipAppsList: [
-          { id: '1', appName: 'Salesforce CRM', affectedUsers: 28, affectedBranches: 2 },
-          { id: '2', appName: 'SAP ERP', affectedUsers: 12, affectedBranches: 1 }
+          { id: '1', appName: 'OA系统', affectedUsers: 12, affectedBranches: 3 },
+          { id: '2', appName: 'ERP系统', affectedUsers: 28, affectedBranches: 2 },
+          { id: '3', appName: 'Salesforce CRM', affectedUsers: 42, affectedBranches: 2 }
         ],
         get currentVipPage() {
           return this.vipTab === 'user' ? this.vipUserPage : this.vipAppPage;
@@ -307,7 +308,7 @@
           this.users = [...designUsers, ...baseUsers];
           if (window.initDemAppData) this.apps = window.initDemAppData();
 
-          this.contentTab = '用户'; // Default to 访问用户 tab as in design mockup
+          this.contentTab = '分支'; // 默认进入“站点分支”tab
 
           try {
             const activeTab = sessionStorage.getItem('dem_active_tab');
@@ -424,18 +425,30 @@
         },
 
         formatIpLocation(ipLoc) {
-          if (!ipLoc) return '-';
-          if (ipLoc.includes('(') || ipLoc.includes('（')) {
-            const parts = ipLoc.trim().split(' ');
-            const ip = parts[0] || '-';
-            const location = parts[1] ? parts[1].replace(/[（()）]/g, '') : '';
-            return location ? `${ip} (${location})` : ip;
+          if (!ipLoc) return { ip: '-', location: '' };
+          let str = String(ipLoc).trim();
+          const match = str.match(/^([^\s（(]+)\s*[（(](.*?)[）)]$/);
+          if (match) {
+            return {
+              ip: match[1].trim(),
+              location: match[2].trim()
+            };
           }
-          if (ipLoc.includes('·')) {
-            const parts = ipLoc.split('·');
-            return `${parts[0]} (${parts[1]})`;
+          if (str.includes('·')) {
+            const parts = str.split('·');
+            return {
+              ip: parts[0].trim(),
+              location: parts[1] ? parts[1].trim().replace(/[（()）]/g, '') : ''
+            };
           }
-          return ipLoc;
+          if (str.includes(' ')) {
+            const parts = str.split(/\s+/);
+            return {
+              ip: parts[0].trim(),
+              location: parts.slice(1).join(' ').replace(/[（()）]/g, '').trim()
+            };
+          }
+          return { ip: str, location: '' };
         },
         formatCityName(popStr) {
           if (!popStr) return '-';
@@ -1736,7 +1749,14 @@
                         <!-- 3. 最近使用终端 -->
                         <td><div class="truncate max-w-[130px] text-xs font-mono text-[#3D3D3D] whitespace-nowrap block" :title="user.terminals ? user.terminals.join('、') : (user.terminalName || 'WIN-DESK-88--WIN-YZ')" x-text="user.terminals ? user.terminals.join('、') : (user.terminalName || 'WIN-DESK-88--WIN-YZ')"></div></td>
                         <!-- 4. IP 归属地 -->
-                        <td><span class="font-mono text-xs text-[#3D3D3D]" x-text="formatIpLocation(user.ipLocation)"></span></td>
+                        <td>
+                          <div class="flex flex-col justify-center leading-snug py-0.5">
+                            <span class="font-mono text-xs text-[#2F3540]" x-text="formatIpLocation(user.ipLocation).ip"></span>
+                            <template x-if="formatIpLocation(user.ipLocation).location">
+                              <span class="text-[11px] text-[#8C8C8C] leading-tight mt-0.5" x-text="formatIpLocation(user.ipLocation).location"></span>
+                            </template>
+                          </div>
+                        </td>
                         <!-- 5. 最近接入 POP -->
                         <td><span class="text-[#3D3D3D] font-normal text-xs" x-text="formatCityName(user.pop)"></span></td>
                         <!-- 6. 访问体验 -->

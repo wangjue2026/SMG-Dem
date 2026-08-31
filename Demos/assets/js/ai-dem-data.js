@@ -142,8 +142,9 @@
   // -------------------------------------------------------------
   window.initDemAppData = function () {
     const baseApps = [
+      { id: "app_oa", appName: "OA系统", isVip: true, domain: "230.213.2.22", appType: "内网应用", region: "华南数据中心", experience: "差", activeUsers: 34, degradedUsers: 12, activeBranches: 4, degradedBranches: 3, avgResponseTime: "385 ms", packetLoss: "5.2%", rtt: "142 ms", pop: "深圳" },
+      { id: "app_002", appName: "ERP系统", isVip: true, domain: "erp.internal.net", appType: "内网应用", region: "上海数据中心", experience: "差", activeUsers: 290, degradedUsers: 28, activeBranches: 6, degradedBranches: 2, avgResponseTime: "390 ms", packetLoss: "2.8%", rtt: "65 ms", pop: "上海" },
       { id: "app_001", appName: "Salesforce CRM", isVip: true, domain: "crm.salesforce.com", appType: "SaaS应用", region: "-", experience: "差", activeUsers: 348, degradedUsers: 42, activeBranches: 8, degradedBranches: 2, avgResponseTime: "480 ms", packetLoss: "3.5%", rtt: "88 ms", pop: "北京" },
-      { id: "app_002", appName: "企业内部 ERP", isVip: true, domain: "erp.internal.net", appType: "内网应用", region: "上海数据中心", experience: "差", activeUsers: 290, degradedUsers: 28, activeBranches: 6, degradedBranches: 2, avgResponseTime: "390 ms", packetLoss: "2.8%", rtt: "65 ms", pop: "上海" },
       { id: "app_003", appName: "Harbor 镜像仓库", isVip: false, domain: "registry.internal.net", appType: "内网应用", region: "西北数据中心", experience: "差", activeUsers: 160, degradedUsers: 24, activeBranches: 5, degradedBranches: 2, avgResponseTime: "520 ms", packetLoss: "4.2%", rtt: "110 ms", pop: "西安" },
       { id: "app_004", appName: "内网 GitLab", isVip: false, domain: "git.internal.net", appType: "内网应用", region: "华南数据中心", experience: "差", activeUsers: 410, degradedUsers: 19, activeBranches: 9, degradedBranches: 1, avgResponseTime: "310 ms", packetLoss: "2.1%", rtt: "54 ms", pop: "深圳" },
       { id: "app_005", appName: "仓储 WMS 系统", isVip: false, domain: "wms.supplychain.net", appType: "内网应用", region: "华中数据中心", experience: "差", activeUsers: 115, degradedUsers: 14, activeBranches: 4, degradedBranches: 1, avgResponseTime: "640 ms", packetLoss: "3.8%", rtt: "92 ms", pop: "武汉" },
@@ -170,23 +171,22 @@
       const appType = types[i % types.length];
       const region = appType === "SaaS应用" ? "-" : internalRegions[i % internalRegions.length];
 
-      const isOA = (i === 12);
       baseApps.push({
-        id: isOA ? 'app_oa' : `app_0${i < 10 ? '0' + i : i}`,
-        appName: isOA ? 'OA系统' : `核心应用服务_${i}`,
-        isVip: isOA ? true : false,
-        domain: isOA ? '230.213.2.22' : `app-service-${i}.internal.net`,
-        appType: isOA ? '内网应用' : appType,
-        region: isOA ? '华南数据中心' : region,
-        experience: isOA ? '差' : exp,
-        activeUsers: isOA ? 34 : activeU,
-        degradedUsers: isOA ? 12 : degU,
-        activeBranches: isOA ? 4 : activeB,
-        degradedBranches: isOA ? 3 : degB,
-        avgResponseTime: isOA ? '385 ms' : resp,
-        packetLoss: isOA ? '5.2%' : loss,
-        rtt: isOA ? '142 ms' : rttVal,
-        pop: isOA ? '深圳' : cities[i % cities.length]
+        id: `app_0${i < 10 ? '0' + i : i}`,
+        appName: `核心应用服务_${i}`,
+        isVip: false,
+        domain: `app-service-${i}.internal.net`,
+        appType: appType,
+        region: region,
+        experience: exp,
+        activeUsers: activeU,
+        degradedUsers: degU,
+        activeBranches: activeB,
+        degradedBranches: degB,
+        avgResponseTime: resp,
+        packetLoss: loss,
+        rtt: rttVal,
+        pop: cities[i % cities.length]
       });
     }
 
