@@ -1128,8 +1128,23 @@
           try {
             const urlParams = new URLSearchParams(window.location.search);
             const paramType = urlParams.get('type') || urlParams.get('queryType');
-            const paramName = urlParams.get('name') || urlParams.get('userName');
-            const paramEmpId = urlParams.get('empId');
+            let paramName = urlParams.get('name') || urlParams.get('userName');
+            let paramEmpId = urlParams.get('empId');
+            const paramUser = urlParams.get('user');
+            if (paramUser && (!paramName || !paramEmpId)) {
+              const match = paramUser.match(/(\d+)\(([^)]+)\)/) || paramUser.match(/([^(]+)\((\d+)\)/);
+              if (match) {
+                if (/^\d+$/.test(match[1])) {
+                  paramEmpId = paramEmpId || match[1];
+                  paramName = paramName || match[2];
+                } else {
+                  paramName = paramName || match[1];
+                  paramEmpId = paramEmpId || match[2];
+                }
+              } else {
+                paramName = paramName || paramUser;
+              }
+            }
             const paramDept = urlParams.get('dept');
             const paramLoc = urlParams.get('location');
             const paramPop = urlParams.get('pop');
@@ -1142,7 +1157,10 @@
               const paramFairApps = urlParams.get('fairApps');
               const paramNormalApps = urlParams.get('normalApps');
 
-              if (paramType === '分支' || (paramName && paramName.includes('分支')) || (paramName && paramName.includes('办公室'))) {
+              const isBranch = paramType === '分支' || 
+                               (paramName && (paramName.includes('分支') || paramName.includes('办公室') || paramName.includes('办事处') || paramName.includes('办') || paramName.includes('中心') || paramName.includes('总部')));
+
+              if (isBranch) {
                 this.queryType = '分支';
                 const branchTitle = paramName || '马尼拉办公室';
                 const locationText = paramLoc ? `地理位置：${paramLoc}` : '';
@@ -2971,8 +2989,8 @@
         <div id="shell-atrust-sider"></div>
 
         <!-- aTrust 右侧 Workspace -->
-        <div class="flex-1 bg-bg-light flex flex-col overflow-hidden">
-          <div class="flex-1 bg-[#F5F7FA] flex flex-col overflow-hidden" id="atrust-workspace">
+        <div class="flex-1 bg-[#EDF1F7] flex flex-col overflow-hidden">
+          <div class="flex-1 bg-[#EDF1F7] flex flex-col overflow-hidden" id="atrust-workspace">
             <!-- 页面专属内容占位，由下方模板填充 -->
           </div>
         </div>
@@ -2987,8 +3005,8 @@
       <div id="shell-sase-sider"></div>
 
       <!-- SASE 右侧 Workspace -->
-      <div class="flex-1 bg-bg-light flex flex-col overflow-hidden">
-        <div class="flex-1 bg-[#F5F7FA] flex flex-col overflow-hidden" id="sase-workspace">
+      <div class="flex-1 bg-[#EDF1F7] flex flex-col overflow-hidden">
+        <div class="flex-1 bg-[#EDF1F7] flex flex-col overflow-hidden" id="sase-workspace">
           <!-- 页面专属内容占位，由下方模板填充 -->
         </div>
       </div>
@@ -3001,7 +3019,7 @@
       <div class="flex flex-col w-full h-full overflow-hidden" x-data="demUserDetailState()" x-init="init()">
         
         <!-- 页面 Sub Header (面包屑与时间筛选器) -->
-        <div class="h-[48px] min-h-[48px] bg-white border-b border-[#E1E5EB] px-6 flex items-center justify-between flex-shrink-0 select-none z-20">
+        <div class="h-[48px] min-h-[48px] bg-white border-b border-[#E1E5EB] px-3 flex items-center justify-between flex-shrink-0 select-none z-20">
           <div class="flex items-center gap-2">
             <button @click="goBackUserList()" class="inline-flex items-center gap-1.5 text-xs text-[#2F3540] hover:text-[#1C6EFF] font-medium transition-colors cursor-pointer group" title="返回体验监控首页">
               <svg class="w-4 h-4 text-[#5C6270] group-hover:text-[#1C6EFF] transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -3174,7 +3192,7 @@
         </div>
 
         <!-- 主内容区域 (主视口容器，顶部概览可折叠，主体分为左侧 240px 应用列表与右侧独立滚动排障看板) -->
-        <main class="flex-1 bg-[#F5F7FA] p-4 flex flex-col space-y-3 overflow-hidden relative min-h-0">
+        <main class="flex-1 bg-[#EDF1F7] px-3 pt-2 pb-3 flex flex-col space-y-2 overflow-hidden relative min-h-0">
 
           <!-- 4.1 顶部用户/分支基本信息卡片 (完全对齐应用详情卡片规范与视觉 - 支持一键收起/展开) -->
           <div x-show="showUserOverview" x-collapse class="bg-white border border-[#E1E5EB] rounded-[2px] p-4 shadow-xs flex-shrink-0">

@@ -979,8 +979,8 @@
       <div id="shell-atrust-header"></div>
       <div class="flex-1 flex overflow-hidden">
         <div id="shell-atrust-sider"></div>
-        <div class="flex-1 bg-bg-light flex flex-col overflow-hidden">
-          <div class="flex-1 bg-[#F4F6F9] flex flex-col overflow-hidden" id="atrust-workspace"></div>
+        <div class="flex-1 bg-[#EDF1F7] flex flex-col overflow-hidden">
+          <div class="flex-1 bg-[#EDF1F7] flex flex-col overflow-hidden" id="atrust-workspace"></div>
         </div>
       </div>
     </div>
@@ -988,8 +988,8 @@
     <!-- MODE 2: SASE 线上云底座框架 -->
     <div x-show="shell === 'sase'" class="flex w-full h-full overflow-hidden">
       <div id="shell-sase-sider"></div>
-      <div class="flex-1 bg-bg-light flex flex-col overflow-hidden">
-        <div class="flex-1 bg-[#F4F6F9] flex flex-col overflow-hidden" id="sase-workspace"></div>
+      <div class="flex-1 bg-[#EDF1F7] flex flex-col overflow-hidden">
+        <div class="flex-1 bg-[#EDF1F7] flex flex-col overflow-hidden" id="sase-workspace"></div>
       </div>
     </div>
 
@@ -997,7 +997,7 @@
     <template id="page-content-template">
       <div class="flex flex-col w-full h-full overflow-hidden">
         <!-- 体验监控 单标题页头 -->
-        <div class="h-[48px] min-h-[48px] bg-white border-b border-bg-line px-6 flex items-center justify-between flex-shrink-0 select-none z-20">
+        <div class="h-[48px] min-h-[48px] bg-white border-b border-bg-line px-3 flex items-center justify-between flex-shrink-0 select-none z-20">
           <div class="flex items-center h-full">
             <span class="text-[14px] font-bold text-[#3D3D3D]">体验监控</span>
           </div>
@@ -1172,8 +1172,8 @@
           </div>
         </div>
 
-        <!-- 主内容区域 -->
-        <main class="flex-1 bg-[#F4F6F9] p-4 flex flex-col gap-3.5 overflow-y-auto custom-scrollbar">
+        <!-- 主内容区域：左边距12px、右边距12px、下边距12px；页头与内容上下间距8px；垂直内容间距默认8px -->
+        <main class="flex-1 bg-[#EDF1F7] px-3 pt-2 pb-3 flex flex-col gap-2 overflow-y-auto custom-scrollbar">
 
           <!-- 2. 顶部综合概览大卡片 (三段比例 4:3:3 布局: 体验预警事件分布 30% + 访问体验质量 40% + VIP对象体验 30%) -->
           <div x-show="showOverview" x-collapse class="flex-shrink-0 w-full overflow-hidden">

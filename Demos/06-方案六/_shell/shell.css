@@ -419,3 +419,18 @@
 .alert-node-pulse-amber {
   animation: pulse-amber-subtle 2s infinite ease-in-out;
 }
+
+/* ────────────────────────────────────────────────────────────
+   10. 双底座右侧内容区核心布局规范 (背景色与边距间距)
+   ──────────────────────────────────────────────────────────── */
+.dem-workspace {
+  background-color: #EDF1F7 !important;
+}
+
+.dem-workspace-content {
+  background-color: #EDF1F7 !important;
+  padding: 8px 12px 12px 12px !important; /* 页头与内容上下间距 8px，左 12px，右 12px，下 12px */
+  display: flex;
+  flex-direction: column;
+  gap: 8px; /* 垂直内容间距默认为 8px */
+}
