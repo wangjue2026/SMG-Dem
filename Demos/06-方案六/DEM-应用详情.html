@@ -17,8 +17,8 @@
   <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
 
   <!-- 集中维护的双底座公共 Shell 样式与脚本 -->
-  <link rel="stylesheet" href="./_shell/shell.css" />
-  <script src="./_shell/shell.js"></script>
+  <link rel="stylesheet" href="./_shell/shell.css?v=sase_logo_v2" />
+  <script src="./_shell/shell.js?v=sase_logo_v2"></script>
 
   <style>
     [x-cloak] { display: none !important; }
@@ -245,7 +245,7 @@
       }
     }
     .topo-pop-pulse-ping {
-      transform-origin: 460px 118px;
+      transform-origin: 455px 112px;
       animation: topo-pop-ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;
     }
 
@@ -273,6 +273,36 @@
           let score = 94;
           let avgTtfb = '45ms';
           let successRate = '99.8%';
+
+          // 数据源判断：真实访问 vs 主动探测
+          // 业务逻辑：时间线趋势由真实访问和主动探测聚合而成；
+          // 某些时段无真实访问（如早间未上班、全员午休），某些时刻无探测；当两者同时存在时以真实访问信息为主。
+          let hasRealTraffic = true;
+          let hasProbe = true;
+
+          if (minuteTotal < 45) {
+            // 08:00 ~ 08:40: 早间非工作时段，员工未登录OA，系统仅有后台定时主动拨测探针运行
+            hasRealTraffic = false;
+            hasProbe = true;
+          } else if (minuteTotal >= 255 && minuteTotal <= 300) {
+            // 12:15 ~ 13:00: 午休低谷时段，全员午休无OA真实会话，依赖主动拨测探针维持心跳质量监控
+            hasRealTraffic = false;
+            hasProbe = true;
+          } else if (timeStr === '09:25' || timeStr === '10:35' || timeStr === '14:25') {
+            // 部分偶发无探针轮询时刻：仅有真实用户访问数据
+            hasRealTraffic = true;
+            hasProbe = false;
+          } else {
+            // 其余正常工作时间及故障期 (15:20~15:55)：真实访问与主动拨测同时存在
+            hasRealTraffic = true;
+            hasProbe = true;
+          }
+
+          // 核心联动规则：当两者同时存在时以真实访问信息为主
+          const dataSource = hasRealTraffic ? '真实访问' : (hasProbe ? '主动探测' : '真实访问');
+          const sourceTip = (hasRealTraffic && hasProbe)
+            ? '当前时刻聚合了真实访问与主动探测，同时存在时以真实访问为主'
+            : (hasRealTraffic ? '当前时刻仅采集到真实用户访问数据' : '当前时刻无真实用户访问，由主动探测拨测生成链路数据');
 
           if (minuteTotal >= 440 && minuteTotal <= 475) {
             status = '差';
@@ -342,6 +372,10 @@
             score: score,
             avgTtfb: avgTtfb,
             successRate: successRate,
+            hasRealTraffic: hasRealTraffic,
+            hasProbe: hasProbe,
+            dataSource: dataSource,
+            sourceTip: sourceTip,
             x: Number(x.toFixed(1)),
             y: Number(y.toFixed(1)),
             isPoor: status === '差',
@@ -363,6 +397,10 @@
             score: normalScore,
             avgTtfb: (40 + (idx % 3) * 2) + 'ms',
             successRate: '99.9%',
+            hasRealTraffic: hasRealTraffic,
+            hasProbe: hasProbe,
+            dataSource: dataSource,
+            sourceTip: sourceTip,
             x: Number(x.toFixed(1)),
             y: Number(normalY.toFixed(1)),
             isPoor: false,
@@ -497,8 +535,237 @@
         ...window.dualShellAppStore('应用详情'),
 
         // 时间筛选器
+        // 统一时间筛选器状态与交互 (快捷 + 自定义级联 + 30天跨度)
         dateShortcut: '今天',
-        dateRange: '2026-06-04 00:00:00 ~ 2026-06-04 23:59:59',
+        dateRange: '2026-06-04 00:00:00 至 2026-06-04 23:59:59',
+        dateFilterState: {
+          shortcut: '今天',
+          shortcutDropdownOpen: false,
+          pickerOpen: false,
+          hoverCustom: false,
+          currentYear: 2026,
+          currentMonth: 5,
+          startDate: '2026-06-04',
+          endDate: '2026-06-04',
+          tempStartDate: '2026-06-04',
+          tempEndDate: '2026-06-04',
+          hoverDate: null,
+          startTime: '00:00:00',
+          endTime: '23:59:59',
+          isSelecting: false,
+          rangeText: '2026-06-04 00:00:00 至 2026-06-04 23:59:59'
+        },
+
+        toggleShortcutDropdown() {
+          this.dateFilterState.shortcutDropdownOpen = !this.dateFilterState.shortcutDropdownOpen;
+          if (!this.dateFilterState.shortcutDropdownOpen) {
+            this.dateFilterState.hoverCustom = false;
+          }
+        },
+
+        openDatePickerDirectly() {
+          this.dateFilterState.shortcutDropdownOpen = false;
+          this.dateFilterState.hoverCustom = false;
+          this.dateFilterState.pickerOpen = true;
+          this.initPickerTempDates();
+        },
+
+        closeAllDatePopups() {
+          this.dateFilterState.shortcutDropdownOpen = false;
+          this.dateFilterState.pickerOpen = false;
+          this.dateFilterState.hoverCustom = false;
+          this.dateFilterState.isSelecting = false;
+        },
+
+        selectShortcut(shortcut) {
+          if (shortcut === '自定义') {
+            this.dateFilterState.hoverCustom = true;
+            this.initPickerTempDates();
+            return;
+          }
+          this.dateFilterState.shortcut = shortcut;
+          this.dateFilterState.shortcutDropdownOpen = false;
+          this.dateFilterState.pickerOpen = false;
+          this.dateFilterState.hoverCustom = false;
+
+          const endStr = '2026-06-04';
+          let startStr = '2026-06-04';
+          let sTime = '00:00:00';
+          let eTime = '23:59:59';
+
+          if (shortcut === '今天') {
+            startStr = '2026-06-04';
+          } else if (shortcut === '近24小时') {
+            startStr = '2026-06-03';
+            sTime = '16:00:00';
+            eTime = '16:00:00';
+          } else if (shortcut === '近3天') {
+            startStr = '2026-06-02';
+          } else if (shortcut === '近7天') {
+            startStr = '2026-05-29';
+          } else if (shortcut === '近30天') {
+            startStr = '2026-05-06';
+          }
+
+          this.dateFilterState.startDate = startStr;
+          this.dateFilterState.endDate = endStr;
+          this.dateFilterState.startTime = sTime;
+          this.dateFilterState.endTime = eTime;
+          this.dateFilterState.rangeText = `${startStr} ${sTime} 至 ${endStr} ${eTime}`;
+
+          this.dateShortcut = shortcut;
+          this.dateRange = this.dateFilterState.rangeText;
+        },
+
+        initPickerTempDates() {
+          this.dateFilterState.tempStartDate = this.dateFilterState.startDate;
+          this.dateFilterState.tempEndDate = this.dateFilterState.endDate;
+          this.dateFilterState.isSelecting = false;
+          this.dateFilterState.hoverDate = null;
+          // 自定义选择时默认时间设为 00:00:00 - 23:59:59
+          if (this.dateFilterState.shortcut !== '自定义') {
+            this.dateFilterState.startTime = '00:00:00';
+            this.dateFilterState.endTime = '23:59:59';
+          }
+        },
+
+        prevMonth() {
+          if (this.dateFilterState.currentMonth === 0) {
+            this.dateFilterState.currentMonth = 11;
+            this.dateFilterState.currentYear--;
+          } else {
+            this.dateFilterState.currentMonth--;
+          }
+        },
+
+        nextMonth() {
+          if (this.dateFilterState.currentMonth === 11) {
+            this.dateFilterState.currentMonth = 0;
+            this.dateFilterState.currentYear++;
+          } else {
+            this.dateFilterState.currentMonth++;
+          }
+        },
+
+        getCalendarDays(year, month) {
+          const firstDay = new Date(year, month, 1).getDay();
+          const daysInMonth = new Date(year, month + 1, 0).getDate();
+          const prevMonthDays = new Date(year, month, 0).getDate();
+
+          const days = [];
+          const adjustedFirstDay = firstDay === 0 ? 6 : firstDay - 1;
+          for (let i = adjustedFirstDay - 1; i >= 0; i--) {
+            const d = prevMonthDays - i;
+            const m = month === 0 ? 11 : month - 1;
+            const y = month === 0 ? year - 1 : year;
+            days.push({
+              year: y,
+              month: m,
+              day: d,
+              dateStr: `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`,
+              isCurrentMonth: false
+            });
+          }
+          for (let d = 1; d <= daysInMonth; d++) {
+            days.push({
+              year: year,
+              month: month,
+              day: d,
+              dateStr: `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`,
+              isCurrentMonth: true
+            });
+          }
+          const remaining = 42 - days.length;
+          for (let d = 1; d <= remaining; d++) {
+            const m = month === 11 ? 0 : month + 1;
+            const y = month === 11 ? year + 1 : year;
+            days.push({
+              year: y,
+              month: m,
+              day: d,
+              dateStr: `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`,
+              isCurrentMonth: false
+            });
+          }
+          return days;
+        },
+
+        handleDateClick(dateStr) {
+          if (this.isDateDisabled(dateStr)) return;
+
+          if (!this.dateFilterState.isSelecting) {
+            this.dateFilterState.tempStartDate = dateStr;
+            this.dateFilterState.tempEndDate = null;
+            this.dateFilterState.isSelecting = true;
+          } else {
+            if (dateStr < this.dateFilterState.tempStartDate) {
+              this.dateFilterState.tempEndDate = this.dateFilterState.tempStartDate;
+              this.dateFilterState.tempStartDate = dateStr;
+            } else {
+              this.dateFilterState.tempEndDate = dateStr;
+            }
+            this.dateFilterState.isSelecting = false;
+          }
+        },
+
+        handleDateHover(dateStr) {
+          if (this.dateFilterState.isSelecting) {
+            this.dateFilterState.hoverDate = dateStr;
+          }
+        },
+
+        isDateDisabled(dateStr) {
+          if (!this.dateFilterState.isSelecting || !this.dateFilterState.tempStartDate) {
+            return false;
+          }
+          const start = new Date(this.dateFilterState.tempStartDate).getTime();
+          const cur = new Date(dateStr).getTime();
+          const diffDays = Math.abs(cur - start) / (1000 * 60 * 60 * 24);
+          return diffDays > 30;
+        },
+
+        isDateInRange(dateStr) {
+          const s = this.dateFilterState.tempStartDate;
+          let e = this.dateFilterState.tempEndDate;
+          if (this.dateFilterState.isSelecting && this.dateFilterState.hoverDate) {
+            e = this.dateFilterState.hoverDate;
+          }
+          if (!s || !e) return false;
+          const min = s < e ? s : e;
+          const max = s < e ? e : s;
+          return dateStr >= min && dateStr <= max;
+        },
+
+        isDateStartOrEnd(dateStr) {
+          const s = this.dateFilterState.tempStartDate;
+          let e = this.dateFilterState.tempEndDate;
+          if (this.dateFilterState.isSelecting && this.dateFilterState.hoverDate) {
+            e = this.dateFilterState.hoverDate;
+          }
+          return dateStr === s || dateStr === e;
+        },
+
+        applyCustomDateRange() {
+          const s = this.dateFilterState.tempStartDate || '2026-06-04';
+          const e = this.dateFilterState.tempEndDate || s;
+          const min = s < e ? s : e;
+          const max = s < e ? e : s;
+
+          const sTime = (this.dateFilterState.startTime || '00:00:00').trim();
+          const eTime = (this.dateFilterState.endTime || '23:59:59').trim();
+
+          this.dateFilterState.startDate = min;
+          this.dateFilterState.endDate = max;
+          this.dateFilterState.startTime = sTime;
+          this.dateFilterState.endTime = eTime;
+          this.dateFilterState.shortcut = '自定义';
+          this.dateFilterState.rangeText = `${min} ${sTime} 至 ${max} ${eTime}`;
+
+          this.dateShortcut = '自定义';
+          this.dateRange = this.dateFilterState.rangeText;
+
+          this.closeAllDatePopups();
+        },
 
         // 默认激活的应用
         activeAppId: 'app_oa',
@@ -541,9 +808,14 @@
           const found = STATIC_TIMELINE_MAP[this.selectedGlobalSliceTime] || STATIC_TIMELINE_SLICES[0];
           const isAbnormal = (found && found.status === '差');
           const isFair = (found && found.status === '一般');
+          const dataSource = found?.dataSource || '真实访问';
           return {
             time: this.selectedGlobalSliceTime,
             timeRange: found?.timeRange || '15:15~15:20',
+            dataSource: dataSource,
+            hasRealTraffic: found?.hasRealTraffic ?? true,
+            hasProbe: found?.hasProbe ?? true,
+            sourceTip: found?.sourceTip || (dataSource === '真实访问' ? '当前时刻聚合了真实访问与主动探测，同时存在时以真实访问为主' : '当前时刻无真实用户访问，由主动探测拨测生成链路数据'),
             avgTtfb: found?.avgTtfb || (isAbnormal ? '78ms' : '45ms'),
             dnsDelay: isAbnormal ? '24ms' : (isFair ? '16ms' : '12ms'),
             tcpDelay: isAbnormal ? '186ms' : (isFair ? '45ms' : '18ms'),
@@ -852,11 +1124,32 @@
           this.selectedGlobalSliceTime = time;
           const current = this.currentGlobalSlice;
           const statusText = current.status === '差' ? '故障时段' : (current.status === '一般' ? '波动时段' : '健康时段');
-          this.showToast(`已切换至 ${time} (${statusText}) 质量采样切片`);
+          this.showToast(`已切换至 ${time} (${statusText} | ${current.dataSource}) 采样切片`);
         },
 
         // AI 智能排障 3 句精炼结论 (针对拓扑正下方容器)
         get aiDiagnosisSummary() {
+          const isProbe = (this.currentGlobalSlice.dataSource === '主动探测');
+          if (isProbe) {
+            return [
+              {
+                dim: '主动拨测',
+                dotClass: 'bg-[#7C3AED]',
+                text: '当前时刻处于主动探测时段（无真实用户会话），各 POP 探针与专线拨测指标就绪。'
+              },
+              {
+                dim: '应用后端',
+                dotClass: 'bg-[#12A679]',
+                text: '应用服务心跳健康（HTTP 200 / TTFB 45ms），服务高可用状态持续在线。'
+              },
+              {
+                dim: '巡检定界',
+                dotClass: 'bg-[#12A679]',
+                text: '全网 10 个 POP 与总部连接器专线合成拨测丢包率 0%，骨干链路通畅无拥塞。'
+              }
+            ];
+          }
+
           const status = this.currentGlobalSlice.status;
           if (status === '差') {
             return [
@@ -919,50 +1212,61 @@
         get topoCompositeData() {
           const isAbnormal = (this.currentGlobalSlice.status === '差');
           const isFair = (this.currentGlobalSlice.status === '一般');
+          const isProbe = (this.currentGlobalSlice.dataSource === '主动探测');
 
-          // 1. 用户终端 ➔ POP (28人访问: 差9 / 一般1 / 正常18)
-          const clientPoor = isAbnormal ? 9 : 0;
-          const clientFair = isAbnormal ? 1 : (isFair ? 1 : 0);
-          const clientNormal = isAbnormal ? 18 : (isFair ? 27 : 28);
-          const clientTotal = 28;
+          // 1. 用户终端 ➔ POP (34人访问: 差9 / 一般2 / 正常18；主动探测时段无真实用户访问)
+          const clientPoor = isProbe ? 0 : (isAbnormal ? 9 : 0);
+          const clientFair = isProbe ? 0 : (isAbnormal ? 2 : (isFair ? 2 : 0));
+          const clientNormal = isProbe ? 0 : (isAbnormal ? 18 : (isFair ? 32 : 34));
+          const clientTotal = isProbe ? 0 : 34;
 
-          // 2. 分支防火墙 ➔ POP (6个分支: 差3 / 一般1 / 正常2)
-          const branchPoor = isAbnormal ? 3 : 0;
-          const branchFair = isAbnormal ? 1 : (isFair ? 1 : 0);
-          const branchNormal = isAbnormal ? 2 : (isFair ? 5 : 6);
+          // 2. 分支 ➔ POP (6个分支/分支探针: 差3 / 一般0 / 正常3)
+          const branchPoor = isProbe ? 0 : (isAbnormal ? 3 : 0);
+          const branchFair = isProbe ? 0 : (isAbnormal ? 0 : (isFair ? 1 : 0));
+          const branchNormal = isProbe ? 6 : (isAbnormal ? 3 : (isFair ? 5 : 6));
           const branchTotal = 6;
 
-          // 3. POP 节点集群 (共10个POP: 2异常)
-          const popTotal = 10;
-          const popAbnormal = isAbnormal ? 2 : (isFair ? 1 : 0);
+          // 3. POP 节点集群 (共28个POP: 2异常)
+          const popTotal = 28;
+          const popAbnormal = isProbe ? 0 : (isAbnormal ? 2 : (isFair ? 1 : 0));
           const popNormal = popTotal - popAbnormal;
           const popAbnormalPercent = (popAbnormal / popTotal) * 100;
-          const popCircumference = 2 * Math.PI * 32; // ~201.06
+          const popCircumference = 2 * Math.PI * 38; // ~238.76
           const popStrokeDash = `${(popAbnormal / popTotal) * popCircumference} ${popCircumference}`;
 
-          // 4. POP ➔ 连接器 (总全网流量汇聚 34 个对象: 终端28 + 分支6)
-          const popConnPoor = isAbnormal ? 12 : 0; // 9 + 3 = 12
-          const popConnFair = isAbnormal ? 2 : (isFair ? 2 : 0); // 1 + 1 = 2
-          const popConnNormal = isAbnormal ? 20 : (isFair ? 32 : 34); // 18 + 2 = 20
-          const popConnTotal = 34;
+          // 4. POP ➔ 连接器 (总全网流量汇聚 34 个对象: 差28 / 一般5 / 正常1；主动探测时刻 6 个探针正常)
+          const popConnPoor = isProbe ? 0 : (isAbnormal ? 28 : 0);
+          const popConnFair = isProbe ? 0 : (isAbnormal ? 5 : (isFair ? 3 : 0));
+          const popConnNormal = isProbe ? 6 : (isAbnormal ? 1 : (isFair ? 31 : 34));
+          const popConnTotal = isProbe ? 6 : 34;
 
-          // 5. 连接器 ➔ 应用 (全网汇聚 34 个对象: 后端常态健康)
+          // 5. 连接器 ➔ 应用 (全网汇聚 34 个对象: 后端常态健康；主动探测时刻 6 个探针正常)
           const connAppPoor = 0;
           const connAppFair = 0;
-          const connAppNormal = 34;
-          const connAppTotal = 34;
+          const connAppNormal = isProbe ? 6 : 34;
+          const connAppTotal = isProbe ? 6 : 34;
 
           return {
+            isProbe,
             client: {
               total: clientTotal,
               poor: clientPoor,
               fair: clientFair,
               normal: clientNormal,
-              style: this.calculateLineStyle(clientPoor, clientFair, clientTotal)
+              style: isProbe ? {
+                color: '#CBD5E1',
+                strokeWidth: 1.5,
+                dashed: true,
+                dashArray: '4 4',
+                flowClass: '',
+                opacity: 0.6,
+                level: 'idle',
+                levelText: '无真实访问'
+              } : this.calculateLineStyle(clientPoor, clientFair, clientTotal)
             },
             branch: {
               total: branchTotal,
-              totalUsers: 28,
+              totalUsers: isProbe ? 0 : 34,
               poor: branchPoor,
               fair: branchFair,
               normal: branchNormal,
@@ -981,7 +1285,16 @@
               poor: popConnPoor,
               fair: popConnFair,
               normal: popConnNormal,
-              style: this.calculateLineStyle(popConnPoor, popConnFair, popConnTotal)
+              style: popConnPoor > 0 ? {
+                color: '#F52727',
+                strokeWidth: 2.8,
+                dashed: true,
+                dashArray: '6 4',
+                flowClass: 'topo-line-flow',
+                opacity: 1,
+                level: 'critical',
+                levelText: '核心异常故障段'
+              } : this.calculateLineStyle(popConnPoor, popConnFair, popConnTotal)
             },
             connApp: {
               total: connAppTotal,
@@ -993,59 +1306,39 @@
           };
         },
 
-        // 线条颜色与粗细计算模型:
-        // 1. 正常连线: 1.8px，绿色，实线无动效
-        // 2. 劣化连线: 1.8px，橙色，实线无动效
-        // 3. 差连线: 2.0px，红色，虚线有动效
-        // 4. 最差的线段连线: 3px，红色，虚线，动效
+        // 线条颜色与粗细计算模型 (实线平直连接，清晰区分健康度)
         calculateLineStyle(poorCount, fairCount, totalCount) {
-          if (poorCount >= 10) {
-            // 最差的线段连线: 3px，红色，虚线，动效
-            return {
-              color: '#F52727',
-              strokeWidth: 3.0,
-              dashed: true,
-              dashArray: '6 4',
-              flowClass: 'topo-line-flow',
-              opacity: 1,
-              level: 'critical-high',
-              levelText: '核心故障段'
-            };
-          }
           if (poorCount > 0) {
-            // 差连线: 2.0px，红色，虚线有动效
             return {
               color: '#F52727',
-              strokeWidth: 2.0,
-              dashed: true,
-              dashArray: '5 3',
-              flowClass: 'topo-line-flow',
+              strokeWidth: 1.8,
+              dashed: false,
+              dashArray: 'none',
+              flowClass: '',
               opacity: 1,
               level: 'critical',
               levelText: '异常故障段'
             };
           }
           if (fairCount > 0) {
-            // 劣化连线: 1.8px，橙色，实线无动效
             return {
               color: '#FA8C16',
               strokeWidth: 1.8,
               dashed: false,
               dashArray: 'none',
               flowClass: '',
-              opacity: 0.9,
+              opacity: 1,
               level: 'warning',
               levelText: '局部劣化段'
             };
           }
-          // 正常连线: 1.8px，绿色，实线无动效
           return {
             color: '#12A679',
             strokeWidth: 1.8,
             dashed: false,
             dashArray: 'none',
             flowClass: '',
-            opacity: 0.85,
+            opacity: 1,
             level: 'healthy',
             levelText: '健康通畅段'
           };
@@ -2261,74 +2554,88 @@
             };
           }
 
-          // 2. 终端-POP段 (加密隧道 Overlay 指标: 时延、丢包、抖动、吞吐)
+          // 2. 终端-POP段 (轻量标题与提示)
           if (tag.includes('终端-POP')) {
+            const isProbe = this.currentGlobalSlice.dataSource === '主动探测';
             return {
-              title: '用户终端 ➔ POP段 (加密隧道 Overlay)',
-              isAbnormal: true,
+              title: '用户终端 ➔ POP段',
+              isAbnormal: !isProbe,
               summary: {
-                totalLabel: '访问终端总数',
-                total: '28 人',
-                poor: '9 (32.1%)',
-                fair: '1',
-                normal: '18'
+                totalLabel: isProbe ? '访问终端状态' : '访问终端总数',
+                total: isProbe ? '无真实访问' : '28 人',
+                poor: isProbe ? '0' : '9',
+                fair: isProbe ? '0' : '1',
+                normal: isProbe ? '0' : '18'
               },
-              items: [
-                { label: '平均时延', value: '142 ms', baseline: '< 50 ms', isAbnormal: true },
-                { label: '平均丢包率', value: '3.1%', baseline: '< 0.5%', isAbnormal: true },
-                { label: '平均抖动', value: '40 ms', baseline: '< 5 ms', isAbnormal: true },
-                { label: '平均吞吐', value: '20 Mbps', baseline: '50 Mbps', isAbnormal: true }
-              ],
-              hint: '💡 该段存在 9 人体验差，主要受移动端弱网与边缘抖动影响。'
+              items: [],
+              hint: isProbe
+                ? '当前采样时刻无真实移动端用户访问，由主动探测探针聚合生成。'
+                : '该段存在 9 人体验差，主要受移动端弱网与边缘抖动影响。'
             };
           }
 
-          // 3. 分支-POP段 (加密隧道 Overlay 指标)
+          // 3. 分支-POP段 (轻量标题与提示)
           if (tag.includes('分支-POP')) {
+            const isProbe = this.currentGlobalSlice.dataSource === '主动探测';
             return {
-              title: '分支防火墙 ➔ POP段 (加密隧道 Overlay)',
-              isAbnormal: true,
+              title: '分支 ➔ POP段',
+              isAbnormal: !isProbe,
               summary: {
-                totalLabel: '接入分支总数',
-                total: '6 个分支',
-                poor: '3 (50.0%)',
-                fair: '1',
-                normal: '2'
+                totalLabel: isProbe ? '接入分支探针数' : '接入分支总数',
+                total: isProbe ? '6 个' : '6 个',
+                poor: isProbe ? '0' : '3',
+                fair: isProbe ? '0' : '1',
+                normal: isProbe ? '6' : '2'
               },
-              items: [
-                { label: '平均时延', value: '168 ms', baseline: '< 50 ms', isAbnormal: true },
-                { label: '平均丢包率', value: '3.4%', baseline: '< 0.5%', isAbnormal: true },
-                { label: '平均抖动', value: '45 ms', baseline: '< 5 ms', isAbnormal: true },
-                { label: '平均吞吐', value: '20 Mbps', baseline: '50 Mbps', isAbnormal: true }
-              ],
-              hint: '💡 3 个分支接入异常，集中在香港、马尼拉与广州分支出口线路。'
+              items: [],
+              hint: isProbe
+                ? '6 个分支节点主动探测探针均正常响应，链路通畅。'
+                : '3 个分支接入异常，集中在香港、马尼拉与广州分支出口线路。'
             };
           }
 
-          // 4. POP ➔ 连接器专线段 (加密隧道 Overlay 指标: 最高排查优先级！)
+          // 4. POP ➔ 连接器专线段 (轻量标题与提示)
           if (tag.includes('POP-连接器')) {
+            const isProbe = this.currentGlobalSlice.dataSource === '主动探测';
             return {
-              title: 'POP ➔ 总部01连接器专线 (加密隧道 Overlay)',
-              isAbnormal: true,
-              priorityBadge: '🔥 建议优先排查',
+              title: 'POP ➔ 连接器专线',
+              isAbnormal: !isProbe,
+              priorityBadge: isProbe ? null : '建议优先排查',
               summary: {
-                totalLabel: '全网访问对象总数',
-                total: '34 个 (终端28+分支6汇总)',
-                poor: '12 (35.3%)',
-                fair: '2',
-                normal: '20'
+                totalLabel: isProbe ? '专线探测对象' : '全网访问总数',
+                total: isProbe ? '6 个探针' : '34 个对象',
+                poor: isProbe ? '0' : '12',
+                fair: isProbe ? '0' : '2',
+                normal: isProbe ? '6' : '20'
               },
-              items: [
-                { label: '平均时延', value: '145 ms', baseline: '< 35 ms', isAbnormal: true },
-                { label: '平均丢包率', value: '5.2%', baseline: '< 0.5%', isAbnormal: true },
-                { label: '平均抖动', value: '48 ms', baseline: '< 5 ms', isAbnormal: true },
-                { label: '平均吞吐', value: '120 Mbps', baseline: '500 Mbps', isAbnormal: true }
-              ],
-              hint: '🚨 异常最集中根因段：全网 12 个差对象均汇聚于此专线，建议首先排查骨干线路丢包！'
+              items: [],
+              hint: isProbe
+                ? '主动拨测专线健康度就绪，当前时延平稳无丢包。'
+                : '全网 12 个差对象均汇聚于此专线，建议优先排查骨干线路丢包。'
             };
           }
 
-          // 5. POP 节点 (健康状态、转发时延、丢包、抖动)
+          // 5. 汇聚节点 ➔ 接入 POP 段 (轻量标题与提示)
+          if (tag.includes('POP接入汇聚')) {
+            const isProbe = this.currentGlobalSlice.dataSource === '主动探测';
+            return {
+              title: '接入汇聚 ➔ POP段',
+              isAbnormal: !isProbe,
+              summary: {
+                totalLabel: isProbe ? '探测接入对象' : '全网汇聚对象',
+                total: isProbe ? '6 个探针' : '34 个对象',
+                poor: isProbe ? '0' : '12',
+                fair: isProbe ? '0' : '2',
+                normal: isProbe ? '6' : '20'
+              },
+              items: [],
+              hint: isProbe
+                ? '边缘探针流量汇聚进入 POP 集群，链路通畅。'
+                : '终端与分支汇聚至接入 POP，受香港与马尼拉 POP 节点影响存在局部异常。'
+            };
+          }
+
+          // 6. POP 节点 (POP集群实体节点，保留转发性能)
           if (tag.includes('POP异常') || tag === 'POP') {
             return {
               title: `${pop}`,
@@ -2336,37 +2643,37 @@
               summary: {
                 totalLabel: '全网接入 POP 总数',
                 total: '10 个',
-                poor: '2 (20.0%)',
+                poor: '2',
                 fair: '0',
                 normal: '8'
               },
               items: [
                 { label: '健康状态', value: '异常', isAbnormal: true },
-                { label: '平均转发时延', value: '32 ms', baseline: '< 5 ms', isAbnormal: true },
-                { label: '平均丢包率', value: '2.1%', baseline: '< 0.1%', isAbnormal: true },
-                { label: '平均抖动', value: '22 ms', baseline: '< 3 ms', isAbnormal: true }
+                { label: '转发时延', value: '32 ms', baseline: '< 5 ms', isAbnormal: true },
+                { label: '丢包率', value: '2.1%', baseline: '< 0.1%', isAbnormal: true },
+                { label: '抖动', value: '22 ms', baseline: '< 3 ms', isAbnormal: true }
               ]
             };
           }
 
-          // 6. 连接器 (个体硬件服务对象：无流量聚合框，展示个体指标)
+          // 7. 连接器 (个体硬件服务对象：无流量聚合框，展示个体指标)
           if (tag.includes('连接器') && !tag.includes('连接器-应用')) {
             return {
               title: '总部01连接器',
               timeText: this.selectedGlobalSliceTime || '15:20',
               isAbnormal: false,
               metricHeader: null,
-              summary: null, // 连接器是个体实体，非流量聚合对象，不展示概况框
+              summary: null,
               items: [
                 { label: '健康状态', value: '正常', isAbnormal: false },
                 { label: 'CPU 使用率', value: '24%', baseline: '< 70%', isAbnormal: false },
                 { label: '内存占用', value: '38%', baseline: '< 75%', isAbnormal: false }
               ],
-              hint: '💡 连接器处于健康常态，各项系统负载平稳。'
+              hint: '连接器处于健康常态，各项系统负载平稳。'
             };
           }
 
-          // 7. 应用服务实体卡片 (OA办公系统)
+          // 8. 应用服务实体卡片 (OA办公系统)
           if (tag === 'OA办公系统' || tag === '应用' || tag === '业务系统') {
             return {
               title: 'OA办公系统',
@@ -2381,39 +2688,41 @@
                 { label: '服务可用性', value: '100%', baseline: '> 99.9%', isAbnormal: false },
                 { label: '活跃承载会话', value: '34 人在线', isAbnormal: false }
               ],
-              hint: '💡 服务可用性 100%，初步排除后端系统自身故障。'
+              hint: '服务可用性 100%，初步排除后端系统自身故障。'
             };
           }
 
-          // 8. 连接器-应用段 (时延、丢包、抖动)
+          // 9. 连接器-应用段 (线段：已按要求去除平均指标)
           if (tag.includes('连接器-应用') || tag.includes('应用服务') || tag.includes('应用异常')) {
+            const isProbe = this.currentGlobalSlice.dataSource === '主动探测';
             return {
-              title: '总部01连接器 ➔ OA办公系统段',
+              title: '连接器 ➔ OA系统',
               isAbnormal: false,
               summary: {
-                totalLabel: '访问业务对象总数',
-                total: '34 个',
+                totalLabel: isProbe ? '探测业务对象' : '访问业务对象',
+                total: isProbe ? '6 个' : '34 个',
                 poor: '0',
                 fair: '0',
-                normal: '34'
+                normal: isProbe ? '6' : '34'
               },
-              items: [
-                { label: '平均时延', value: '8 ms', baseline: '< 30 ms', isAbnormal: false },
-                { label: '平均丢包率', value: '0.0%', baseline: '< 0.5%', isAbnormal: false },
-                { label: '平均抖动', value: '1 ms', baseline: '< 5 ms', isAbnormal: false }
-              ]
+              items: [],
+              hint: '内网专线直连，无丢包与抖动，业务访问通畅。'
             };
           }
 
-          // 兜底通用
+          // 兜底通用 (线段悬浮)
           return {
             title: tag,
             isAbnormal: true,
-            items: [
-              { label: '平均时延', value: '145 ms', baseline: '< 40 ms', isAbnormal: true },
-              { label: '平均丢包率', value: '3.8%', baseline: '< 0.5%', isAbnormal: true },
-              { label: '平均抖动', value: '30 ms', baseline: '< 5 ms', isAbnormal: true }
-            ]
+            summary: {
+              totalLabel: '全网访问对象总数',
+              total: '34 个',
+              poor: '12',
+              fair: '2',
+              normal: '20'
+            },
+            items: [],
+            hint: '该链路段存在质量波动，请结合明细排查。'
           };
         },
 
@@ -2501,31 +2810,150 @@
           </div>
 
           <div class="flex items-center gap-2">
-            <!-- 时间筛选器 -->
-            <div
-              class="inline-flex items-center h-8 bg-white border border-[#D3D7DE] rounded-[2px] hover:border-[#1C6EFF] transition-colors text-xs shadow-2xs">
-              <div
-                class="relative bg-[#F7F9FC] h-full px-2.5 flex items-center justify-between border-r border-[#D3D7DE] min-w-[88px] cursor-pointer group">
-                <select x-model="dateShortcut" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full text-xs">
-                  <option value="今天">今天</option>
-                  <option value="近24小时">近24小时</option>
-                  <option value="近3天">近3天</option>
-                  <option value="近7天">近7天</option>
-                </select>
-                <span class="text-[#2F3540] font-normal text-xs" x-text="dateShortcut"></span>
-                <svg class="w-3.5 h-3.5 text-[#A1A7B3] ml-2 group-hover:text-[#1C6EFF]" fill="none"
-                  stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                </svg>
+            <!-- 统一时间筛选器控件 (支持快捷选择 + 自定义 Hover 级联面板 + 点击直接唤出面板) -->
+            <div class="relative flex items-center select-none" @click.outside="closeAllDatePopups()">
+              
+              <!-- 主输入控件外框 -->
+              <div class="inline-flex items-center h-8 bg-white border border-[#D3D7DE] rounded-[2px] hover:border-[#1C6EFF] transition-colors text-xs shadow-2xs">
+                
+                <!-- 1. 左侧快捷选择区 -->
+                <div class="relative bg-[#F7F9FC] hover:bg-[#F1F5F9] h-full px-2.5 flex items-center justify-between border-r border-[#D3D7DE] min-w-[84px] cursor-pointer transition-colors"
+                     @click="toggleShortcutDropdown()">
+                  <span class="text-[#2F3540] font-normal text-xs" x-text="dateFilterState.shortcut"></span>
+                  <svg class="w-3.5 h-3.5 text-[#A1A7B3] ml-2 transition-transform duration-200" 
+                       :class="dateFilterState.shortcutDropdownOpen && 'rotate-180'"
+                       fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                  </svg>
+                </div>
+
+                <!-- 2. 右侧日期范围展示区 (点击直接唤出面板) -->
+                <div class="h-full pl-3 pr-2.5 flex items-center justify-between cursor-pointer whitespace-nowrap hover:bg-[#F7F9FC] transition-colors"
+                     @click="openDatePickerDirectly()">
+                  <span class="font-mono text-xs text-[#2F3540] whitespace-nowrap" x-text="dateFilterState.rangeText"></span>
+                  <svg class="w-3.5 h-3.5 text-[#A1A7B3] ml-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                  </svg>
+                </div>
               </div>
-              <div class="h-full pl-3 pr-2.5 flex items-center justify-between cursor-pointer whitespace-nowrap">
-                <span class="font-mono text-xs text-[#2F3540]" x-text="dateRange"></span>
-                <svg class="w-3.5 h-3.5 text-[#A1A7B3] ml-2 flex-shrink-0" fill="none" stroke="currentColor"
-                  viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                </svg>
+
+              <!-- ========================================== -->
+              <!-- 快捷下拉菜单 (含 hover「自定义」级联右侧面板) -->
+              <!-- ========================================== -->
+              <div x-show="dateFilterState.shortcutDropdownOpen"
+                   x-transition:enter="transition ease-out duration-100"
+                   x-transition:enter-start="opacity-0 scale-95"
+                   x-transition:enter-end="opacity-100 scale-100"
+                   x-transition:leave="transition ease-in duration-75"
+                   x-transition:leave-start="opacity-100 scale-100"
+                   x-transition:leave-end="opacity-0 scale-95"
+                   class="absolute top-9 left-0 z-50 bg-white border border-[#E2E8F0] rounded-[2px] shadow-lg py-1 min-w-[110px] text-xs"
+                   style="display: none;">
+                <template x-for="item in ['今天', '近24小时', '近3天', '近7天', '近30天']" :key="item">
+                  <div @click="selectShortcut(item)"
+                       @mouseenter="dateFilterState.hoverCustom = false"
+                       class="px-3 py-1.5 cursor-pointer flex items-center justify-between transition-colors"
+                       :class="dateFilterState.shortcut === item ? 'bg-[#E6F4FF] text-[#1C6EFF] font-medium' : 'text-[#2F3540] hover:bg-[#F8FAFC]'">
+                    <span x-text="item"></span>
+                    <svg x-show="dateFilterState.shortcut === item" class="w-3.5 h-3.5 text-[#1C6EFF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                  </div>
+                </template>
+
+                <!-- 自定义项：hover 时在右侧级联展开日历面板 -->
+                <div @mouseenter="dateFilterState.hoverCustom = true; initPickerTempDates()"
+                     @click="dateFilterState.hoverCustom = true; initPickerTempDates()"
+                     class="relative px-3 py-1.5 cursor-pointer flex items-center justify-between transition-colors border-t border-[#F1F5F9] mt-0.5"
+                     :class="(dateFilterState.shortcut === '自定义' || dateFilterState.hoverCustom) ? 'bg-[#E6F4FF] text-[#1C6EFF] font-medium' : 'text-[#2F3540] hover:bg-[#F8FAFC]'">
+                  <span>自定义</span>
+                  <svg class="w-3 h-3 text-[#8C8C8C]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                  </svg>
+                </div>
               </div>
+
+              <!-- ========================================== -->
+              <!-- 日期时间范围选择面板 (支持级联与直接唤出) -->
+              <!-- ========================================== -->
+              <div x-show="dateFilterState.pickerOpen || (dateFilterState.shortcutDropdownOpen && dateFilterState.hoverCustom)"
+                   x-transition:enter="transition ease-out duration-150"
+                   x-transition:enter-start="opacity-0 translate-y-1"
+                   x-transition:enter-end="opacity-100 translate-y-0"
+                   x-transition:leave="transition ease-in duration-100"
+                   x-transition:leave-start="opacity-100 translate-y-0"
+                   x-transition:leave-end="opacity-0 translate-y-1"
+                   class="absolute top-9 right-0 z-50 bg-white border border-[#E2E8F0] rounded-[3px] shadow-xl p-3 text-xs w-[320px]"
+                   style="display: none;">
+                
+                <!-- 日历头部导航 -->
+                <div class="flex items-center justify-between pb-2 mb-2 border-b border-[#F1F5F9]">
+                  <button type="button" @click.stop="prevMonth()" class="p-1 hover:bg-[#F1F5F9] rounded text-[#64748B] hover:text-[#1C6EFF] transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                  </button>
+                  <span class="font-medium text-[#1E293B]" x-text="`${dateFilterState.currentYear}年 ${dateFilterState.currentMonth + 1}月`"></span>
+                  <button type="button" @click.stop="nextMonth()" class="p-1 hover:bg-[#F1F5F9] rounded text-[#64748B] hover:text-[#1C6EFF] transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                  </button>
+                </div>
+
+                <!-- 星期表头 -->
+                <div class="grid grid-cols-7 gap-1 text-center text-[11px] text-[#94A3B8] mb-1 font-medium">
+                  <span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span>
+                </div>
+
+                <!-- 日期格子 -->
+                <div class="grid grid-cols-7 gap-y-1 text-center text-xs">
+                  <template x-for="d in getCalendarDays(dateFilterState.currentYear, dateFilterState.currentMonth)" :key="d.dateStr">
+                    <div class="h-7 flex items-center justify-center relative cursor-pointer group"
+                         :class="{
+                           'opacity-30 cursor-not-allowed pointer-events-none': isDateDisabled(d.dateStr),
+                           'text-[#CBD5E1]': !d.isCurrentMonth,
+                           'text-[#1E293B]': d.isCurrentMonth && !isDateStartOrEnd(d.dateStr),
+                           'bg-[#E6F4FF]': isDateInRange(d.dateStr) && !isDateStartOrEnd(d.dateStr)
+                         }"
+                         @click.stop="handleDateClick(d.dateStr)"
+                         @mouseenter="handleDateHover(d.dateStr)">
+                        <!-- 起点/终点高亮背景圆 -->
+                        <span class="w-6 h-6 flex items-center justify-center rounded-full text-xs font-medium transition-colors z-10"
+                              :class="isDateStartOrEnd(d.dateStr) ? 'bg-[#1C6EFF] text-white font-bold shadow-xs' : 'group-hover:bg-[#F1F5F9]'"
+                              x-text="d.day"></span>
+                    </div>
+                  </template>
+                </div>
+
+                <!-- 底部跨度提示与时间设置 (支持编辑修改时间) -->
+                <div class="mt-3 pt-2.5 border-t border-[#F1F5F9] space-y-2.5">
+                  <div class="flex items-center justify-between text-[11px] text-[#5C6270]">
+                    <span class="text-[#64748B] font-medium">时间范围:</span>
+                    <div class="flex items-center gap-1.5 font-mono">
+                      <input type="text" 
+                             x-model="dateFilterState.startTime" 
+                             placeholder="00:00:00"
+                             maxlength="8"
+                             @click.stop
+                             class="w-[68px] h-[22px] px-1 text-center font-mono text-[11px] border border-[#D3D7DE] rounded-[2px] focus:border-[#1C6EFF] focus:outline-none text-[#1E293B] bg-[#F8FAFC] focus:bg-white transition-colors" />
+                      <span class="text-[#94A3B8]">-</span>
+                      <input type="text" 
+                             x-model="dateFilterState.endTime" 
+                             placeholder="23:59:59"
+                             maxlength="8"
+                             @click.stop
+                             class="w-[68px] h-[22px] px-1 text-center font-mono text-[11px] border border-[#D3D7DE] rounded-[2px] focus:border-[#1C6EFF] focus:outline-none text-[#1E293B] bg-[#F8FAFC] focus:bg-white transition-colors" />
+                    </div>
+                  </div>
+
+                  <div class="flex items-center justify-between text-[11px]">
+                    <span class="text-[#94A3B8]">最大跨度 30 天</span>
+                    <div class="flex items-center gap-1.5">
+                      <button type="button" @click.stop="closeAllDatePopups()" class="px-2 py-1 bg-[#F1F5F9] hover:bg-[#E2E8F0] text-[#64748B] rounded-[2px] transition-colors cursor-pointer">取消</button>
+                      <button type="button" @click.stop="applyCustomDateRange()" class="px-2.5 py-1 bg-[#1C6EFF] hover:bg-[#0B57D0] text-white rounded-[2px] font-medium shadow-xs transition-colors cursor-pointer">确定</button>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+
             </div>
 
             <!-- 收起概览默认按钮 -->
@@ -2544,7 +2972,7 @@
         <div class="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
 
           <!-- 1. 应用的基本信息（顶部的整体信息卡片 - 采用均衡排版） -->
-          <div x-show="showAppOverview" x-collapse class="bg-white border border-[#E1E5EB] rounded-[2px] p-4 shadow-xs">
+          <div x-show="showAppOverview" x-collapse class="bg-white border border-[#EAEEF4] rounded-[6px] p-4 shadow-xs">
             <div
               class="grid grid-cols-1 md:grid-cols-12 gap-4 items-center divide-y md:divide-y-0 md:divide-x divide-[#E1E5EB]">
 
@@ -2611,7 +3039,7 @@
 
 
           <!-- 2. 全局访问全貌链路与时间线统一看板容器 (合并在同一个卡片容器内，联动展现) -->
-          <div class="bg-white border border-[#E1E5EB] rounded-[4px] p-4 shadow-xs flex flex-col space-y-4">
+          <div class="bg-white border border-[#EAEEF4] rounded-[6px] p-4 shadow-xs flex flex-col space-y-4">
 
               <!-- ========================================== -->
               <!-- 第一部分: 全网应用访问质量时间线 (三区域趋势图) -->
@@ -2642,8 +3070,8 @@
                   </div>
                 </div>
 
-                <!-- 1.2 三区域趋势图主体容器 -->
-                <div class="bg-[#F8FAFC] p-3 rounded-[2px] relative flex flex-col select-none border border-[#EAEEF4]">
+                <!-- 1.2 三区域趋势图主体容器 (无框轻量圆角浅色背景) -->
+                <div class="bg-[#F8FAFC] p-3 rounded-[6px] relative flex flex-col select-none">
                   
                   <!-- 图表主体容器 (SVG 趋势背景 + HTML 交互散点层 + Y轴文字 + 底轴时间刻度) -->
                   <div class="relative w-full h-[142px]">
@@ -2712,7 +3140,7 @@
                                :class="pt.time === '15:20' ? 'animate-ping opacity-60' : ''"></div>
                         </template>
 
-                        <!-- 实体数据散点 (处于差的点重点突出标记；普通点优雅绿色微点) -->
+                        <!-- 实体数据散点 (仅区分体验质量：差/一般/正常，时间线不做真实访问与主动探测的样式区分) -->
                         <div class="rounded-full transition-all duration-150 pointer-events-none"
                              :class="{
                                'w-2.5 h-2.5 bg-[#F52727] border-[1.5px] border-white shadow-xs ring-1 ring-[#F52727]/40': pt.isPoor,
@@ -2725,7 +3153,7 @@
                       </div>
                     </template>
 
-                    <!-- 5. 悬浮 Tooltip (跟随鼠标 hover 的点定位) -->
+                    <!-- 5. 悬浮 Tooltip (跟随鼠标 hover 的点定位，纯粹展示质量与TTFB指标) -->
                     <template x-if="hoveredTimelinePoint">
                       <div class="absolute -top-11 -translate-x-1/2 bg-[#1E293B] text-white text-[10px] px-2.5 py-1.5 rounded shadow-xl whitespace-nowrap z-30 pointer-events-none transition-all duration-75 border border-white/10 flex flex-col gap-0.5"
                            :style="`left: ${(hoveredTimelinePoint.x / 1000) * 100}%;`">
@@ -2736,7 +3164,7 @@
                                 x-text="hoveredTimelinePoint.status"></span>
                         </div>
                         <div class="flex items-center gap-2 text-[#CBD5E1] text-[10px]">
-                          <span>平均TTFB: <b class="text-white font-outfit" x-text="hoveredTimelinePoint.avgTtfb"></b></span>
+                          <span>TTFB: <b class="text-white font-outfit" x-text="hoveredTimelinePoint.avgTtfb"></b></span>
                           <span>成功率: <b class="text-white font-outfit" x-text="hoveredTimelinePoint.successRate"></b></span>
                         </div>
                       </div>
@@ -2760,8 +3188,8 @@
               <!-- ========================================== -->
               <div class="flex flex-col space-y-3 relative select-none pt-1">
 
-                <!-- 2.1 顶部标题栏 (标题 + 联动时间 + TTFB下拉耗时指标) -->
-                <div class="flex items-center justify-between gap-3 pb-2.5 border-b border-[#F1F5F9] flex-wrap">
+                <!-- 2.1 顶部标题栏 (左侧：标题+联动时间；右上角：时刻数据源标识 + TTFB下拉耗时指标) -->
+                <div class="flex items-center justify-between gap-3 pb-2 flex-wrap">
                   <!-- 左侧：拓扑标题与联动时间 -->
                   <div class="flex items-center gap-2">
                     <div class="w-1 h-3.5 bg-[#1C6EFF] rounded-full shrink-0"></div>
@@ -2770,33 +3198,62 @@
                           x-text="`(联动时间 | ${currentGlobalSlice.time})`"></span>
                   </div>
 
-                  <!-- 右侧：TTFB 及悬浮下拉展开 DNS、TCP、TLS、HTTP 子指标浮层 -->
-                  <div class="relative"
-                       x-data="{ ttfbHoverOpen: false, ttfbTimeout: null }"
-                       @mouseenter="clearTimeout(ttfbTimeout); ttfbHoverOpen = true"
-                       @mouseleave="ttfbTimeout = setTimeout(() => { ttfbHoverOpen = false }, 200)">
-                    <div class="flex items-center gap-1.5 cursor-pointer py-1 px-2.5 rounded-[3px] bg-[#F8FAFC] border border-[#E2E8F0] hover:border-[#BFD5FF] hover:bg-[#F0F7FF] transition-all">
-                      <span class="text-xs text-[#64748B] font-sans">TTFB:</span>
-                      <span class="text-xs font-bold font-mono"
-                            :class="currentGlobalSlice.status === '差' ? 'text-[#D9363E]' : 'text-[#12A679]'"
-                            x-text="currentGlobalSlice.avgTtfb"></span>
-                      <svg class="w-3.5 h-3.5 text-[#94A3B8] transition-transform duration-200"
-                           :class="ttfbHoverOpen ? 'rotate-180 text-[#1C6EFF]' : ''"
-                           fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"></path>
-                      </svg>
+                  <!-- 右侧：时刻数据源信息 (真实访问 VS 主动探测) + TTFB 及悬浮下拉展开子指标 -->
+                  <div class="flex items-center gap-2.5">
+                    <!-- 联动时刻数据来源信息 (轻量弱化展示，12px常规黑色字体，无闪烁) -->
+                    <div class="relative group cursor-pointer">
+                      <div class="flex items-center gap-1.5 py-1 px-2.5 rounded-[3px] bg-[#F8FAFC] border border-[#E2E8F0] hover:border-[#CBD5E1] transition-all text-xs select-none">
+                        <!-- 静态小圆点 (不闪烁) -->
+                        <span class="w-1.5 h-1.5 rounded-full"
+                              :class="currentGlobalSlice.dataSource === '真实访问' ? 'bg-[#1C6EFF]' : 'bg-[#7C3AED]'"></span>
+                        <span class="text-[#64748B] text-xs font-sans font-normal">数据来源:</span>
+                        <span class="text-[#1E293B] text-xs font-sans font-normal" x-text="currentGlobalSlice.dataSource"></span>
+                        <svg class="w-3.5 h-3.5 text-[#94A3B8] group-hover:text-[#64748B] transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <circle cx="12" cy="12" r="9" stroke-width="2"></circle>
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 16h.01M12 8a2 2 0 012 2c0 1-2 1.5-2 2.5"></path>
+                        </svg>
+                      </div>
+
+                      <!-- 悬浮解释卡片 Tooltip -->
+                      <div class="absolute right-0 top-full mt-1.5 hidden group-hover:block z-[9999] bg-[#1E293B] text-white text-xs py-2 px-2.5 rounded-[4px] shadow-xl whitespace-nowrap font-sans border border-white/10 pointer-events-none min-w-[240px]">
+                        <div class="flex items-center justify-between pb-1 border-b border-white/10 gap-2">
+                          <span class="font-normal text-xs text-[#E2E8F0]" x-text="`数据来源：${currentGlobalSlice.dataSource}`"></span>
+                          <span class="text-[10px] font-mono text-[#94A3B8]" x-text="currentGlobalSlice.time"></span>
+                        </div>
+                        <div class="text-[#CBD5E1] text-[11px] mt-1.5 leading-relaxed" x-text="currentGlobalSlice.sourceTip"></div>
+                        <div class="text-[#94A3B8] text-[10px] mt-1 pt-1 border-t border-white/10">
+                          说明：时间线趋势聚合了真实访问和主动探测，同时存在时以真实访问为主。
+                        </div>
+                      </div>
                     </div>
 
-                    <!-- 下拉展示全部子指标信息浮层 (DNS解析、TCP连接、TLS握手、HTTP响应等) -->
-                    <div x-show="ttfbHoverOpen"
-                         x-transition:enter="transition ease-out duration-150"
-                         x-transition:enter-start="opacity-0 translate-y-1 scale-95"
-                         x-transition:enter-end="opacity-100 translate-y-0 scale-100"
-                         x-transition:leave="transition ease-in duration-100"
-                         x-transition:leave-start="opacity-100"
-                         x-transition:leave-end="opacity-0"
-                         class="absolute right-0 top-full mt-1.5 z-[9999] bg-white p-3 rounded-[4px] shadow-2xl border border-[#CBD5E1] text-xs min-w-[240px] select-none"
-                         x-cloak>
+                    <!-- TTFB 及悬浮下拉展开 DNS、TCP、TLS、HTTP 子指标浮层 -->
+                    <div class="relative"
+                         x-data="{ ttfbHoverOpen: false, ttfbTimeout: null }"
+                         @mouseenter="clearTimeout(ttfbTimeout); ttfbHoverOpen = true"
+                         @mouseleave="ttfbTimeout = setTimeout(() => { ttfbHoverOpen = false }, 200)">
+                      <div class="flex items-center gap-1.5 cursor-pointer py-1 px-2.5 rounded-[3px] bg-[#F8FAFC] border border-[#E2E8F0] hover:border-[#BFD5FF] hover:bg-[#F0F7FF] transition-all">
+                        <span class="text-xs text-[#64748B] font-sans">TTFB:</span>
+                        <span class="text-xs font-bold font-mono"
+                              :class="currentGlobalSlice.status === '差' ? 'text-[#D9363E]' : 'text-[#12A679]'"
+                              x-text="currentGlobalSlice.avgTtfb"></span>
+                        <svg class="w-3.5 h-3.5 text-[#94A3B8] transition-transform duration-200"
+                             :class="ttfbHoverOpen ? 'rotate-180 text-[#1C6EFF]' : ''"
+                             fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                      </div>
+
+                      <!-- 下拉展示全部子指标信息浮层 (DNS解析、TCP连接、TLS握手、HTTP响应等) -->
+                      <div x-show="ttfbHoverOpen"
+                           x-transition:enter="transition ease-out duration-150"
+                           x-transition:enter-start="opacity-0 translate-y-1 scale-95"
+                           x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+                           x-transition:leave="transition ease-in duration-100"
+                           x-transition:leave-start="opacity-100"
+                           x-transition:leave-end="opacity-0"
+                           class="absolute right-0 top-full mt-1.5 z-[9999] bg-white p-3 rounded-[4px] shadow-2xl border border-[#CBD5E1] text-xs min-w-[240px] select-none"
+                           x-cloak>
                       <div class="space-y-2 font-sans">
                         <!-- 头部：当前切片范围与TTFB总耗时 -->
                         <div class="flex items-center justify-between pb-1.5 border-b border-[#F1F5F9] text-xs">
@@ -2842,95 +3299,107 @@
                   </div>
                 </div>
 
-                <!-- 2.2 拓扑核心画布 (SVG ViewBox: 0 0 1060 250) -->
-                <div class="topo-container w-full relative overflow-hidden p-0 bg-gradient-to-b from-[#F8FAFC]/60 via-white to-[#F8FAFC]/40 rounded-[2px] border border-[#E9ECF1]">
+                <!-- 2.2 拓扑核心画布 (SVG ViewBox: 0 0 1060 226，采用无框柔和纯色表面，让节点自然浮现) -->
+                <div class="topo-container w-full relative overflow-hidden p-0 bg-[#F8FAFC] rounded-[6px]">
 
-                  <svg class="w-full transition-all duration-300" style="min-width: 1040px; height: 250px;"
-                    viewBox="0 0 1060 250"
+                  <svg class="w-full transition-all duration-300" style="min-width: 980px; height: 226px;"
+                    viewBox="0 0 1060 226"
                     preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
 
                     <defs>
-                      <!-- 箭头定义: 采用 userSpaceOnUse 固定尺寸 (长6px高7px)，箭头大小精致统一，不随线宽失真变大 -->
-                      <marker id="arrow-success" markerUnits="userSpaceOnUse" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
-                        <path d="M 1 1 L 6 3.5 L 1 6" fill="none" stroke="#12A679" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" />
+                      <!-- 精致实心三角形箭头定义 -->
+                      <marker id="arrow-success" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+                        <path d="M 1 1.5 L 7 4 L 1 6.5 Z" fill="#12A679" />
                       </marker>
-                      <marker id="arrow-warning" markerUnits="userSpaceOnUse" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
-                        <path d="M 1 1 L 6 3.5 L 1 6" fill="none" stroke="#FA8C16" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" />
+                      <marker id="arrow-warning" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+                        <path d="M 1 1.5 L 7 4 L 1 6.5 Z" fill="#FA8C16" />
                       </marker>
-                      <marker id="arrow-danger" markerUnits="userSpaceOnUse" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
-                        <path d="M 1 1 L 6 3.5 L 1 6" fill="none" stroke="#F52727" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" />
+                      <marker id="arrow-danger" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+                        <path d="M 1 1.5 L 7 4 L 1 6.5 Z" fill="#F52727" />
+                      </marker>
+                      <!-- 重点突出 POP-连接器 粗线专用大箭头 -->
+                      <marker id="arrow-danger-lg" markerUnits="userSpaceOnUse" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto">
+                        <path d="M 1 1.5 L 8 4.5 L 1 7.5 Z" fill="#F52727" />
                       </marker>
                     </defs>
 
-                    <!-- ====== 1. 连线层 (平直折线，支持悬浮指标与点击联动过滤) ====== -->
+                    <!-- ====== 1. 连线层 (平直折线与汇聚，支持悬浮与点击联动过滤) ====== -->
                     <g class="topo-links">
 
-                      <!-- 1.1 用户终端 ➔ POP 连线 (折线: (176, 58) ➔ (350, 58) ➔ (350, 118) ➔ (418, 118)) -->
+                      <!-- 1.1 用户终端 ➔ POP 汇聚段 (折线: (180, 55) ➔ (330, 55) ➔ (330, 112)) -->
                       <g class="cursor-pointer"
                          @mouseenter="showAnomalyTip($event, '终端-POP段', { pop: '深圳POP' })"
                          @mouseleave="hideAnomalyTip()"
                          @click.stop="filterBySegment('client_pop', '差')">
                          <!-- 悬停判定加宽透明路径 -->
-                         <path d="M 176 58 L 350 58 L 350 118 L 418 118" fill="none" stroke="transparent" stroke-width="20" />
-                         <!-- 实体/虚线折线 -->
-                         <path d="M 176 58 L 350 58 L 350 118 L 418 118" fill="none"
+                         <path d="M 180 55 L 330 55 L 330 112" fill="none" stroke="transparent" stroke-width="20" />
+                         <!-- 实体线 -->
+                         <path d="M 180 55 L 330 55 L 330 112" fill="none"
                                :stroke="topoCompositeData.client.style.color"
                                :stroke-width="topoCompositeData.client.style.strokeWidth"
-                               :stroke-dasharray="topoCompositeData.client.style.dashed ? topoCompositeData.client.style.dashArray : 'none'"
-                               :class="topoCompositeData.client.style.flowClass"
-                               :stroke-opacity="topoCompositeData.client.style.opacity"
-                               :marker-end="topoCompositeData.client.style.level === 'critical-high' || topoCompositeData.client.style.level === 'critical' ? 'url(#arrow-danger)' : (topoCompositeData.client.style.level === 'warning' ? 'url(#arrow-warning)' : 'url(#arrow-success)')" />
+                               :stroke-opacity="topoCompositeData.client.style.opacity" />
                       </g>
 
-                      <!-- 1.2 分支防火墙 ➔ POP 连线 (折线: (176, 178) ➔ (350, 178) ➔ (350, 118) ➔ (418, 118)) -->
+                      <!-- 1.2 分支 ➔ POP 汇聚段 (折线: (180, 169) ➔ (330, 169) ➔ (330, 112)) -->
                       <g class="cursor-pointer"
                          @mouseenter="showAnomalyTip($event, '分支-POP段', { pop: '香港POP' })"
                          @mouseleave="hideAnomalyTip()"
                          @click.stop="filterBySegment('branch_pop', '差')">
                          <!-- 悬停判定加宽透明路径 -->
-                         <path d="M 176 178 L 350 178 L 350 118 L 418 118" fill="none" stroke="transparent" stroke-width="20" />
-                         <!-- 实体/虚线折线 -->
-                         <path d="M 176 178 L 350 178 L 350 118 L 418 118" fill="none"
+                         <path d="M 180 169 L 330 169 L 330 112" fill="none" stroke="transparent" stroke-width="20" />
+                         <!-- 实体线 -->
+                         <path d="M 180 169 L 330 169 L 330 112" fill="none"
                                :stroke="topoCompositeData.branch.style.color"
                                :stroke-width="topoCompositeData.branch.style.strokeWidth"
-                               :stroke-dasharray="topoCompositeData.branch.style.dashed ? topoCompositeData.branch.style.dashArray : 'none'"
-                               :class="topoCompositeData.branch.style.flowClass"
-                               :stroke-opacity="topoCompositeData.branch.style.opacity"
-                               :marker-end="topoCompositeData.branch.style.level === 'critical-high' || topoCompositeData.branch.style.level === 'critical' ? 'url(#arrow-danger)' : (topoCompositeData.branch.style.level === 'warning' ? 'url(#arrow-warning)' : 'url(#arrow-success)')" />
+                               :stroke-opacity="topoCompositeData.branch.style.opacity" />
                       </g>
 
-                      <!-- 1.3 POP ➔ 总部01连接器 专线段 (直线: (502, 118) ➔ (675, 118)) -->
+                      <!-- 1.3 汇聚节点 ➔ 接入 POP 段 (直线: (330, 112) ➔ (398, 112)) -->
+                      <g class="cursor-pointer"
+                         @mouseenter="showAnomalyTip($event, 'POP接入汇聚', { pop: '深圳POP' })"
+                         @mouseleave="hideAnomalyTip()"
+                         @click.stop="filterBySegment('pop_node', '差')">
+                         <path d="M 330 112 L 398 112" fill="none" stroke="transparent" stroke-width="20" />
+                         <path d="M 330 112 L 398 112" fill="none"
+                               :stroke="topoCompositeData.client.poor > 0 || topoCompositeData.branch.poor > 0 ? '#F52727' : '#12A679'"
+                               stroke-width="1.8"
+                               :marker-end="topoCompositeData.client.poor > 0 || topoCompositeData.branch.poor > 0 ? 'url(#arrow-danger)' : 'url(#arrow-success)'" />
+                      </g>
+
+                      <!-- 1.4 POP ➔ 总部连接器23 专线段 (重点突出核心故障段：加粗2.8px + 微光背景 + 动态虚线流动动效) -->
                       <g class="cursor-pointer"
                          @mouseenter="showAnomalyTip($event, 'POP-连接器段', { pop: '深圳POP' })"
                          @mouseleave="hideAnomalyTip()"
                          @click.stop="filterBySegment('pop_conn', '差')">
                          <!-- 悬停判定加宽透明路径 -->
-                         <path d="M 502 118 L 675 118" fill="none" stroke="transparent" stroke-width="20" />
-                         <!-- 实体/虚线线段 -->
-                         <path d="M 502 118 L 675 118" fill="none"
+                         <path d="M 512 112 L 652 112" fill="none" stroke="transparent" stroke-width="20" />
+                         <!-- 异常时底层极柔和微光光晕 (弱化衬底，轻盈通透) -->
+                         <path x-show="topoCompositeData.popConn.poor > 0"
+                               d="M 512 112 L 646 112" fill="none"
+                               stroke="#FEE2E2" stroke-width="4.5" stroke-linecap="round" opacity="0.3" />
+                         <!-- 实体/流动线段 (加粗至 2.8px + 动态虚线流动微动效) -->
+                         <path d="M 512 112 L 648 112" fill="none"
                                :stroke="topoCompositeData.popConn.style.color"
                                :stroke-width="topoCompositeData.popConn.style.strokeWidth"
                                :stroke-dasharray="topoCompositeData.popConn.style.dashed ? topoCompositeData.popConn.style.dashArray : 'none'"
                                :class="topoCompositeData.popConn.style.flowClass"
                                :stroke-opacity="topoCompositeData.popConn.style.opacity"
-                               :marker-end="topoCompositeData.popConn.style.level === 'critical-high' || topoCompositeData.popConn.style.level === 'critical' ? 'url(#arrow-danger)' : (topoCompositeData.popConn.style.level === 'warning' ? 'url(#arrow-warning)' : 'url(#arrow-success)')" />
+                               :marker-end="topoCompositeData.popConn.style.level === 'critical' ? 'url(#arrow-danger-lg)' : 'url(#arrow-success)'" />
                       </g>
 
-                      <!-- 1.4 总部01连接器 ➔ OA办公系统 段 (直线: (835, 118) ➔ (904, 118)) -->
+                      <!-- 1.5 总部连接器23 ➔ OA系统 段 (直线: (822, 112) ➔ (878, 112)) -->
                       <g class="cursor-pointer"
                          @mouseenter="showAnomalyTip($event, '连接器-应用段', {})"
                          @mouseleave="hideAnomalyTip()"
                          @click.stop="filterBySegment('conn_app', '')">
                          <!-- 悬停判定加宽透明路径 -->
-                         <path d="M 835 118 L 904 118" fill="none" stroke="transparent" stroke-width="20" />
-                         <!-- 实体/虚线线段 -->
-                         <path d="M 835 118 L 904 118" fill="none"
+                         <path d="M 822 112 L 878 112" fill="none" stroke="transparent" stroke-width="20" />
+                         <!-- 实体线段 -->
+                         <path d="M 822 112 L 878 112" fill="none"
                                :stroke="topoCompositeData.connApp.style.color"
                                :stroke-width="topoCompositeData.connApp.style.strokeWidth"
-                               :stroke-dasharray="topoCompositeData.connApp.style.dashed ? topoCompositeData.connApp.style.dashArray : 'none'"
-                               :class="topoCompositeData.connApp.style.flowClass"
                                :stroke-opacity="topoCompositeData.connApp.style.opacity"
-                               :marker-end="topoCompositeData.connApp.style.level === 'critical-high' || topoCompositeData.connApp.style.level === 'critical' ? 'url(#arrow-danger)' : (topoCompositeData.connApp.style.level === 'warning' ? 'url(#arrow-warning)' : 'url(#arrow-success)')" />
+                               marker-end="url(#arrow-success)" />
                       </g>
 
                     </g>
@@ -2940,207 +3409,230 @@
                     <g class="topo-nodes">
 
                       <!-- ============================================== -->
-                      <!-- 起点 1: 用户终端卡片 x = 16, y = 32, w = 160, h = 52 (左间距 16px) -->
+                      <!-- 起点 1: 用户终端卡片 x = 12, y = 28, w = 168, h = 54 -->
                       <!-- ============================================== -->
-                      <g class="cursor-pointer" transform="translate(16, 32)"
+                      <g class="cursor-pointer" transform="translate(12, 28)"
                          @mouseenter="openClientGeoPopover($event)"
                          @mouseleave="scheduleCloseClientGeoPopover()"
                          @click.stop="filterBySegment('client_pop', '')">
-                        <rect x="0" y="0" width="160" height="52" rx="4" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1.2"
+                        <rect x="0" y="0" width="168" height="54" rx="4" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.2"
                               class="hover:stroke-[#1C6EFF] transition-colors" />
-                        <!-- 语义化电脑终端图标 (Monitor Display) -->
-                        <g transform="translate(10, 9)" fill="#1C6EFF">
-                          <!-- 显示器外框 -->
-                          <rect x="0" y="0" width="18" height="13" rx="1.5" fill="#1C6EFF" />
-                          <!-- 屏幕内视区 -->
-                          <rect x="1.5" y="1.5" width="15" height="9" rx="0.5" fill="#FFFFFF" />
-                          <!-- 屏幕内代码/应用线条 -->
-                          <rect x="3.5" y="3.5" width="6.5" height="1.2" rx="0.5" fill="#1C6EFF" />
-                          <rect x="3.5" y="6" width="10" height="1" rx="0.5" fill="#93C5FD" />
-                          <rect x="3.5" y="8" width="8" height="1" rx="0.5" fill="#93C5FD" />
+                        <!-- 语义化电脑/用户终端图标 (Blue Display & User) -->
+                        <g transform="translate(12, 12)">
+                          <!-- 终端外框与屏幕 -->
+                          <rect x="0" y="0" width="16" height="12" rx="1.5" fill="#1C6EFF" />
+                          <rect x="1.5" y="1.5" width="13" height="9" rx="0.5" fill="#FFFFFF" />
+                          <!-- 用户人像 -->
+                          <circle cx="5" cy="5" r="1.8" fill="#1C6EFF" />
+                          <path d="M 2.2 9.5 C 2.2 7.8 3.5 7.2 5 7.2 C 6.5 7.2 7.8 7.8 7.8 9.5 Z" fill="#1C6EFF" />
+                          <!-- 右侧信息条 -->
+                          <rect x="9.2" y="4" width="4" height="1.2" rx="0.5" fill="#93C5FD" />
+                          <rect x="9.2" y="6.5" width="3" height="1.2" rx="0.5" fill="#93C5FD" />
                           <!-- 支架与底座 -->
-                          <rect x="7.5" y="13" width="3" height="2" fill="#1C6EFF" />
-                          <rect x="5.5" y="15" width="7" height="1.2" rx="0.5" fill="#1C6EFF" />
+                          <rect x="6.5" y="12" width="3" height="1.8" fill="#1C6EFF" />
+                          <rect x="4.5" y="13.8" width="7" height="1.2" rx="0.5" fill="#1C6EFF" />
                         </g>
-                        <!-- 标题 -->
-                        <text x="34" y="22" font-size="12.5" font-weight="700" fill="#1E293B">用户终端</text>
-                        <!-- 描述 -->
-                        <text x="12" y="40" font-size="10.5" fill="#64748B">移动/远程接入 (28人)</text>
+                        <!-- 标题: 精致 12px font-weight 600, 与图标垂直居中 -->
+                        <text x="36" y="19" dominant-baseline="central" font-size="12" font-weight="600" fill="#1E293B">用户终端</text>
+                        <!-- 描述: 底部副信息 10.5px，随数据来源动态呈现 -->
+                        <text x="12" y="38" dominant-baseline="central" font-size="10.5" fill="#64748B"
+                              x-text="currentGlobalSlice.dataSource === '真实访问' ? '移动/远程接入 （34人）' : '移动/远程接入 （无真实访问）'"></text>
                       </g>
 
                       <!-- ============================================== -->
-                      <!-- 起点 2: 分支防火墙卡片 x = 16, y = 152, w = 160, h = 52 (左间距 16px) -->
+                      <!-- 起点 2: 分支卡片 x = 12, y = 142, w = 168, h = 54 -->
                       <!-- ============================================== -->
-                      <g class="cursor-pointer" transform="translate(16, 152)"
+                      <g class="cursor-pointer" transform="translate(12, 142)"
                          @mouseenter="openBranchGeoPopover($event)"
                          @mouseleave="scheduleCloseBranchGeoPopover()"
                          @click.stop="filterBySegment('branch_pop', '')">
-                        <rect x="0" y="0" width="160" height="52" rx="4" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1.2"
-                              class="hover:stroke-[#7C3AED] transition-colors" />
-                        <!-- 语义化分支防火墙图标 (Security Firewall Shield) -->
-                        <g transform="translate(10, 9)">
-                          <!-- 盾牌底座 -->
-                          <path d="M 9 0 L 18 3.5 L 18 9.5 C 18 13.8 9 17 9 17 C 9 17 0 13.8 0 9.5 L 0 3.5 Z" fill="#7C3AED" />
-                          <!-- 盾牌内防火墙砖石结构线 -->
-                          <line x1="3" y1="6" x2="15" y2="6" stroke="#FFFFFF" stroke-width="0.9" />
-                          <line x1="3" y1="9.5" x2="15" y2="9.5" stroke="#FFFFFF" stroke-width="0.9" />
-                          <line x1="9" y1="3" x2="9" y2="6" stroke="#FFFFFF" stroke-width="0.9" />
-                          <line x1="6" y1="6" x2="6" y2="9.5" stroke="#FFFFFF" stroke-width="0.9" />
-                          <line x1="12" y1="6" x2="12" y2="9.5" stroke="#FFFFFF" stroke-width="0.9" />
-                          <line x1="9" y1="9.5" x2="9" y2="13.5" stroke="#FFFFFF" stroke-width="0.9" />
+                        <rect x="0" y="0" width="168" height="54" rx="4" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.2"
+                              class="hover:stroke-[#0284C7] transition-colors" />
+                        <!-- 语义化分支网关/防火墙图标 (Cyan Switch/Gateway) -->
+                        <g transform="translate(12, 12)">
+                          <rect x="0" y="0" width="16" height="4" rx="1" fill="#0284C7" />
+                          <circle cx="3.5" cy="2" r="0.9" fill="#FFFFFF" />
+                          <rect x="0" y="5.5" width="16" height="4" rx="1" fill="#0EA5E9" />
+                          <circle cx="12.5" cy="7.5" r="0.9" fill="#FFFFFF" />
+                          <rect x="0" y="11" width="16" height="4" rx="1" fill="#38BDF8" />
+                          <circle cx="3.5" cy="13" r="0.9" fill="#FFFFFF" />
                         </g>
-                        <!-- 标题 -->
-                        <text x="34" y="22" font-size="12.5" font-weight="700" fill="#1E293B">分支防火墙</text>
-                        <!-- 描述 -->
-                        <text x="12" y="40" font-size="10.5" fill="#64748B">分支互联机构 (6分支)</text>
+                        <!-- 标题: 精致 12px font-weight 600, 与图标垂直居中 -->
+                        <text x="36" y="19" dominant-baseline="central" font-size="12" font-weight="600" fill="#1E293B">分支</text>
+                        <!-- 描述: 底部副信息 10.5px，随数据来源动态呈现 -->
+                        <text x="12" y="38" dominant-baseline="central" font-size="10.5" fill="#64748B"
+                              x-text="currentGlobalSlice.dataSource === '真实访问' ? '分支防火墙 （6个）' : '分支主动探针 （6个）'"></text>
                       </g>
 
                       <!-- ============================================== -->
-                      <!-- 汇聚 1: 接入 POP (环形占比 Donut 节点) Center(460, 118) (轻量呼吸微光提醒) -->
+                      <!-- 汇聚 1: 接入 POP (环形占比 Donut 节点) Center(455, 112) -->
                       <!-- ============================================== -->
                       <g class="cursor-pointer"
                          @mouseenter="openPopPopover($event)"
                          @mouseleave="scheduleClosePopPopover()"
                          @click.stop="filterBySegment('pop_node', '差')">
 
-                        <!-- 1. 背景淡白底圆 -->
-                        <circle cx="460" cy="118" r="40" fill="#FFFFFF" filter="drop-shadow(0 2px 5px rgba(0,0,0,0.06))" />
+                        <!-- 1. 背景浅粉光晕圆 (异常时浅粉微光) -->
+                        <circle cx="455" cy="112" r="50" :fill="topoCompositeData.pop.abnormal > 0 ? '#FEF2F2' : '#F0FDF4'" />
 
-                        <!-- 2. 环形底轨 (灰色全环) -->
-                        <circle cx="460" cy="118" r="32" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="6.5" />
+                        <!-- 2. 正常部分绿色完整环轨 (绿色为底轨) -->
+                        <circle cx="455" cy="112" r="38" fill="none" stroke="#12A679" stroke-width="7.5" />
 
-                        <!-- 3. 正常部分绿色弧轨 (80%) -->
-                        <circle cx="460" cy="118" r="32" fill="none" stroke="#12A679" stroke-width="6.5"
-                                stroke-dasharray="201.06 201.06" stroke-dashoffset="0" opacity="0.85" />
-
-                        <!-- 4. 异常部分红色弧轨 (2/10 = 20% -> 40.2px) 旋转从顶部12点钟开始 -->
-                        <circle cx="460" cy="118" r="32" fill="none" stroke="#F52727" stroke-width="7"
+                        <!-- 3. 异常部分红色弧轨 (从顶部12点钟顺时针旋转) -->
+                        <circle cx="455" cy="112" r="38" fill="none" stroke="#F52727" stroke-width="7.5"
                                 :stroke-dasharray="topoCompositeData.pop.strokeDash"
                                 stroke-dashoffset="0"
-                                transform="rotate(-90 460 118)" />
+                                transform="rotate(-90 455 112)"
+                                stroke-linecap="round" />
 
-                        <!-- 5. 异常 POP 节点外圈向外脉冲扩散光环 (与时间线异常首点 ping 动效对齐) -->
+                        <!-- 4. 内部点状虚线参考圈 -->
+                        <circle cx="455" cy="112" r="28" fill="#FFFFFF" stroke="#93C5FD" stroke-width="1.2" stroke-dasharray="2.5 2.5" />
+
+                        <!-- 5. 异常 POP 节点外圈向外脉冲扩散光环 -->
                         <g x-show="topoCompositeData.pop.abnormal > 0" class="pointer-events-none">
-                          <circle cx="460" cy="118" r="40" fill="none" stroke="#F52727" stroke-width="1.6" class="topo-pop-pulse-ping" />
+                          <circle cx="455" cy="112" r="50" fill="none" stroke="#F52727" stroke-width="1.5" class="topo-pop-pulse-ping" />
                         </g>
 
-                        <!-- 6. 中心比例文字 (正常显示绿色 0/10，异常显示红色) -->
-                        <text x="460" y="115" text-anchor="middle" font-size="14.5" font-weight="bold">
-                          <tspan :fill="topoCompositeData.pop.abnormal > 0 ? '#F52727' : '#12A679'" x-text="topoCompositeData.pop.abnormal"></tspan><tspan fill="#94A3B8" font-size="11.5">/10</tspan>
+                        <!-- 6. 中心比例文字 (2/28) -->
+                        <text x="455" y="110" text-anchor="middle">
+                          <tspan :fill="topoCompositeData.pop.abnormal > 0 ? '#DC2626' : '#12A679'" font-size="17" font-weight="700" x-text="topoCompositeData.pop.abnormal"></tspan><tspan fill="#334155" font-size="13" font-weight="600">/28</tspan>
                         </text>
                         <!-- 中心说明文字 -->
-                        <text x="460" y="129" text-anchor="middle" font-size="9" fill="#64748B" font-weight="medium">异常/总POP</text>
+                        <text x="455" y="125" text-anchor="middle" font-size="9.5" fill="#64748B" font-weight="500"
+                              x-text="currentGlobalSlice.dataSource === '真实访问' ? '异常/POP总数' : '探针异常/POP总数'"></text>
 
-                        <!-- 下方标题 -->
-                        <text x="460" y="174" text-anchor="middle" font-size="12" font-weight="bold" fill="#1E293B">接入 POP</text>
+                        <!-- 下方标题: 精致 12px font-weight 600 -->
+                        <text x="455" y="174" text-anchor="middle" font-size="12" font-weight="600" fill="#1E293B">接入POP</text>
+
+                        <!-- 存在异常POP Tag -->
+                        <g x-show="topoCompositeData.pop.abnormal > 0" transform="translate(415, 185)">
+                          <rect x="0" y="0" width="80" height="20" rx="3" fill="#FEE2E2" />
+                          <text x="40" y="14" text-anchor="middle" font-size="10.5" font-weight="500" fill="#DC2626">存在异常POP</text>
+                        </g>
                       </g>
 
                       <!-- ============================================== -->
-                      <!-- 汇聚 2: 总部01连接器 x = 675, y = 92, w = 160, h = 52 (个体硬件对象，健康常态) -->
+                      <!-- 汇聚 2: 总部连接器23 x = 654, y = 85, w = 168, h = 54 (浅绿健康卡片) -->
                       <!-- ============================================== -->
-                      <g class="cursor-pointer" transform="translate(675, 92)"
-                         @mouseenter="showAnomalyTip($event, '总部01连接器', {})"
+                      <g class="cursor-pointer" transform="translate(654, 85)"
+                         @mouseenter="showAnomalyTip($event, '总部连接器23', {})"
                          @mouseleave="hideAnomalyTip()"
                          @click.stop="filterBySegment('pop_conn', '差')">
 
-                        <rect x="0" y="0" width="160" height="52" rx="4" 
-                              fill="#FFFFFF" 
-                              stroke="#CBD5E1" 
+                        <rect x="0" y="0" width="168" height="54" rx="4" 
+                              fill="#F0FDF4" 
+                              stroke="#12A679" 
                               stroke-width="1.2"
-                              class="hover:stroke-[#155BD9] transition-colors" />
-                        <!-- 图标 (绿色健康) -->
-                        <g transform="translate(10, 11)">
-                          <rect x="0" y="0" width="16" height="14" rx="1.5" fill="#12A679" />
-                          <circle cx="5" cy="7" r="1.5" fill="#FFFFFF" />
-                          <circle cx="11" cy="7" r="1.5" fill="#FFFFFF" />
+                              class="hover:stroke-[#059669] transition-colors" />
+                        <!-- 图标 (绿色服务器/连接器) -->
+                        <g transform="translate(12, 12)" fill="#12A679">
+                          <rect x="0" y="0" width="15" height="13" rx="1.5" fill="#12A679" />
+                          <rect x="2" y="2" width="11" height="9" rx="0.5" fill="#F0FDF4" />
+                          <rect x="4" y="4" width="2.5" height="4.5" fill="#12A679" />
+                          <rect x="8.5" y="4" width="2.5" height="4.5" fill="#12A679" />
+                          <line x1="15" y1="4.5" x2="17" y2="4.5" stroke="#12A679" stroke-width="1.5" />
+                          <line x1="15" y1="8.5" x2="17" y2="8.5" stroke="#12A679" stroke-width="1.5" />
                         </g>
-                        <!-- 标题 -->
-                        <text x="32" y="22" font-size="12.5" font-weight="700" fill="#1E293B">总部01连接器</text>
-                        <!-- 描述 -->
-                        <text x="12" y="40" font-size="10.5" font-family="monospace" fill="#12A679">10.23.22.23 (健康)</text>
+                        <!-- 标题: 精致 12px font-weight 600, 与图标垂直居中 -->
+                        <text x="36" y="19" dominant-baseline="central" font-size="12" font-weight="600" fill="#1E293B">总部连接器23</text>
+                        <!-- 描述: IP 地址 10.5px -->
+                        <text x="12" y="38" dominant-baseline="central" font-size="10.5" font-family="monospace" fill="#64748B">10.23.33.236</text>
                       </g>
 
                       <!-- ============================================== -->
-                      <!-- 终点: OA办公系统 x = 904, y = 92, w = 140, h = 52 (右间距 16px: 1060 - 1044 = 16) -->
+                      <!-- 终点: OA系统 x = 880, y = 85, w = 168, h = 54 -->
                       <!-- ============================================== -->
-                      <g class="cursor-pointer" transform="translate(904, 92)"
-                         @mouseenter="showAnomalyTip($event, 'OA办公系统', {})"
+                      <g class="cursor-pointer" transform="translate(880, 85)"
+                         @mouseenter="showAnomalyTip($event, 'OA系统', {})"
                          @mouseleave="hideAnomalyTip()"
                          @click.stop="filterBySegment('conn_app', '')">
-                        <rect x="0" y="0" width="140" height="52" rx="4" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1.2"
+                        <rect x="0" y="0" width="168" height="54" rx="4" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1.2"
                               class="hover:stroke-[#1C6EFF] transition-colors" />
-                        <!-- 4 宫格应用图标 -->
-                        <g transform="translate(10, 11)" fill="#1C6EFF">
-                          <rect x="0" y="0" width="6" height="6" rx="1" />
-                          <rect x="8" y="0" width="6" height="6" rx="1" />
-                          <rect x="0" y="8" width="6" height="6" rx="1" />
-                          <rect x="8" y="8" width="6" height="6" rx="1" />
+                        <!-- 4 宫格应用图标 (蓝色) -->
+                        <g transform="translate(12, 12)" fill="#1C6EFF">
+                          <rect x="0" y="0" width="6.5" height="6.5" rx="1" />
+                          <rect x="8.5" y="0" width="6.5" height="6.5" rx="1" />
+                          <rect x="0" y="8.5" width="6.5" height="6.5" rx="1" />
+                          <rect x="8.5" y="8.5" width="6.5" height="6.5" rx="1" />
                         </g>
-                        <!-- 标题 -->
-                        <text x="32" y="22" font-size="12.5" font-weight="700" fill="#1E293B">OA办公系统</text>
-                        <!-- 描述 -->
-                        <text x="12" y="40" font-size="10.5" fill="#64748B">内网核心业务应用</text>
+                        <!-- 标题: 精致 12px font-weight 600, 与图标垂直居中 -->
+                        <text x="36" y="19" dominant-baseline="central" font-size="12" font-weight="600" fill="#1E293B">OA系统</text>
+                        <!-- 描述: URL 地址 10.5px -->
+                        <text x="12" y="38" dominant-baseline="central" font-size="10.5" fill="#64748B">https://200.23.45.12</text>
                       </g>
 
                     </g>
 
 
-                    <!-- ====== 3. 连线上方嵌入的聚合统计指标 (响应式绑定各切片指标) ====== -->
+                    <!-- ====== 3. 连线上方嵌入的聚合统计指标 (无框干净文本排版) ====== -->
                     <g class="topo-chips">
 
-                      <!-- 3.1 用户终端 ➔ POP 连线上方指标 (Line at y=58, Box at y=28) -->
-                      <foreignObject x="185" y="28" width="155" height="24">
+                      <!-- 3.1 用户终端 ➔ POP 连线上方指标 (Line at y=55) -->
+                      <foreignObject x="188" y="30" width="135" height="20">
                         <div xmlns="http://www.w3.org/1999/xhtml" 
-                             class="w-full h-full flex items-center justify-center gap-2 bg-white rounded-[3px] text-[11px] select-none text-[#1E293B] shadow-2xs border border-[#E2E8F0]/50">
-                          <button type="button" @click.stop="filterBySegment('client_pop', '差')"
-                                  class="hover:underline cursor-pointer"
-                                  title="点击过滤：终端-POP段 差体验用户">差 <span class="text-[#D9363E] font-bold" x-text="topoCompositeData.client.poor"></span></button>
-                          <span class="text-slate-300">|</span>
-                          <button type="button" @click.stop="filterBySegment('client_pop', '一般')"
-                                  class="hover:underline cursor-pointer"
-                                  title="点击过滤：终端-POP段 一般体验用户">一般 <span class="text-[#FA8C16] font-bold" x-text="topoCompositeData.client.fair"></span></button>
-                          <span class="text-slate-300">|</span>
-                          <span>正常 <span class="text-[#12A679] font-bold" x-text="topoCompositeData.client.normal"></span></span>
+                             class="w-full h-full flex items-center justify-start gap-1.5 text-[11px] select-none text-[#64748B] font-sans">
+                          <template x-if="currentGlobalSlice.dataSource === '真实访问'">
+                            <div class="flex items-center gap-1.5">
+                              <button type="button" @click.stop="filterBySegment('client_pop', '差')"
+                                      class="hover:underline cursor-pointer"
+                                      title="点击过滤：终端-POP段 差体验用户">差 <span class="text-[#D9363E] font-bold" x-text="topoCompositeData.client.poor"></span></button>
+                              <span class="text-slate-300">|</span>
+                              <button type="button" @click.stop="filterBySegment('client_pop', '一般')"
+                                      class="hover:underline cursor-pointer"
+                                      title="点击过滤：终端-POP段 一般体验用户">一般 <span class="text-[#FA8C16] font-bold" x-text="topoCompositeData.client.fair"></span></button>
+                              <span class="text-slate-300">|</span>
+                              <span>正常 <span class="text-[#12A679] font-bold" x-text="topoCompositeData.client.normal"></span></span>
+                            </div>
+                          </template>
+                          <template x-if="currentGlobalSlice.dataSource === '主动探测'">
+                            <span class="text-[#94A3B8] text-[10.5px] italic">（无真实访问）</span>
+                          </template>
                         </div>
                       </foreignObject>
 
-                      <!-- 3.2 分支防火墙 ➔ POP 连线上方指标 (Line at y=178, Box at y=148) -->
-                      <foreignObject x="185" y="148" width="155" height="24">
+                      <!-- 3.2 分支 ➔ POP 连线上方指标 (Line at y=169) -->
+                      <foreignObject x="188" y="144" width="145" height="20">
                         <div xmlns="http://www.w3.org/1999/xhtml" 
-                             class="w-full h-full flex items-center justify-center gap-2 bg-white rounded-[3px] text-[11px] select-none text-[#1E293B] shadow-2xs border border-[#E2E8F0]/50">
-                          <button type="button" @click.stop="filterBySegment('branch_pop', '差')"
-                                  class="hover:underline cursor-pointer"
-                                  title="点击过滤：分支-POP段 差体验分支">差 <span class="text-[#D9363E] font-bold" x-text="topoCompositeData.branch.poor"></span></button>
-                          <span class="text-slate-300">|</span>
-                          <button type="button" @click.stop="filterBySegment('branch_pop', '一般')"
-                                  class="hover:underline cursor-pointer"
-                                  title="点击过滤：分支-POP段 一般体验分支">一般 <span class="text-[#FA8C16] font-bold" x-text="topoCompositeData.branch.fair"></span></button>
-                          <span class="text-slate-300">|</span>
-                          <span>正常 <span class="text-[#12A679] font-bold" x-text="topoCompositeData.branch.normal"></span></span>
+                             class="w-full h-full flex items-center justify-start gap-1.5 text-[11px] select-none text-[#64748B] font-sans">
+                          <template x-if="currentGlobalSlice.dataSource === '真实访问'">
+                            <div class="flex items-center gap-1.5">
+                              <button type="button" @click.stop="filterBySegment('branch_pop', '差')"
+                                      class="hover:underline cursor-pointer"
+                                      title="点击过滤：分支-POP段 差体验分支">差 <span class="text-[#D9363E] font-bold" x-text="topoCompositeData.branch.poor"></span></button>
+                              <span class="text-slate-300">|</span>
+                              <button type="button" @click.stop="filterBySegment('branch_pop', '一般')"
+                                      class="hover:underline cursor-pointer"
+                                      title="点击过滤：分支-POP段 一般体验分支">一般 <span class="text-[#FA8C16] font-bold" x-text="topoCompositeData.branch.fair"></span></button>
+                              <span class="text-slate-300">|</span>
+                              <span>正常 <span class="text-[#12A679] font-bold" x-text="topoCompositeData.branch.normal"></span></span>
+                            </div>
+                          </template>
+                          <template x-if="currentGlobalSlice.dataSource === '主动探测'">
+                            <span class="text-[#12A679] text-[11px] font-medium font-sans">探针正常 6 <span class="text-[#94A3B8] text-[10px] font-normal">/ 6</span></span>
+                          </template>
                         </div>
                       </foreignObject>
 
-                      <!-- 3.3 POP ➔ 连接器 专线上方指标 (Line at y=118, Box at y=88) -->
-                      <foreignObject x="510" y="88" width="155" height="24">
+                      <!-- 3.3 POP ➔ 连接器 专线上方指标 (Line at y=112) -->
+                      <foreignObject x="520" y="87" width="140" height="20">
                         <div xmlns="http://www.w3.org/1999/xhtml" 
-                             class="w-full h-full flex items-center justify-center gap-2 bg-white rounded-[3px] text-[11px] select-none text-[#1E293B] shadow-2xs border border-[#E2E8F0]/50">
-                          <button type="button" @click.stop="filterBySegment('pop_conn', '差')"
-                                  class="hover:underline cursor-pointer"
-                                  title="点击过滤：POP-连接器专线 差体验对象">差 <span class="text-[#D9363E] font-bold" x-text="topoCompositeData.popConn.poor"></span></button>
-                          <span class="text-slate-300">|</span>
-                          <button type="button" @click.stop="filterBySegment('pop_conn', '一般')"
-                                  class="hover:underline cursor-pointer"
-                                  title="点击过滤：POP-连接器专线 一般体验对象">一般 <span class="text-[#FA8C16] font-bold" x-text="topoCompositeData.popConn.fair"></span></button>
-                          <span class="text-slate-300">|</span>
-                          <span>正常 <span class="text-[#12A679] font-bold" x-text="topoCompositeData.popConn.normal"></span></span>
-                        </div>
-                      </foreignObject>
-
-                      <!-- 3.4 连接器 ➔ 应用段上方指标 (Line at y=118, Box at y=88) -->
-                      <foreignObject x="840" y="88" width="58" height="24">
-                        <div xmlns="http://www.w3.org/1999/xhtml" 
-                             class="w-full h-full flex items-center justify-center bg-white rounded-[3px] text-[11px] select-none text-[#1E293B] shadow-2xs border border-[#E2E8F0]/50">
-                          <span>正常 <span class="text-[#12A679] font-bold" x-text="topoCompositeData.connApp.normal"></span></span>
+                             class="w-full h-full flex items-center justify-start gap-1.5 text-[11px] select-none text-[#64748B] font-sans">
+                          <template x-if="currentGlobalSlice.dataSource === '真实访问'">
+                            <div class="flex items-center gap-1.5">
+                              <button type="button" @click.stop="filterBySegment('pop_conn', '差')"
+                                      class="hover:underline cursor-pointer"
+                                      title="点击过滤：POP-连接器专线 差体验对象">差 <span class="text-[#D9363E] font-bold" x-text="topoCompositeData.popConn.poor"></span></button>
+                              <span class="text-slate-300">|</span>
+                              <button type="button" @click.stop="filterBySegment('pop_conn', '一般')"
+                                      class="hover:underline cursor-pointer"
+                                      title="点击过滤：POP-连接器专线 一般体验对象">一般 <span class="text-[#FA8C16] font-bold" x-text="topoCompositeData.popConn.fair"></span></button>
+                              <span class="text-slate-300">|</span>
+                              <span>正常 <span class="text-[#12A679] font-bold" x-text="topoCompositeData.popConn.normal"></span></span>
+                            </div>
+                          </template>
+                          <template x-if="currentGlobalSlice.dataSource === '主动探测'">
+                            <span class="text-[#12A679] text-[11px] font-medium font-sans">专线探测正常 6 <span class="text-[#94A3B8] text-[10px] font-normal">/ 6</span></span>
+                          </template>
                         </div>
                       </foreignObject>
 
@@ -3155,10 +3647,10 @@
 
 
           <!-- 3. 访问对象明细与主动探测模块（3 Tab: 分支访问情况、用户访问情况、主动探测线路情况） -->
-          <div class="bg-white border border-[#E1E5EB] rounded-[2px] shadow-xs flex flex-col">
+          <div class="bg-white border border-[#EAEEF4] rounded-[6px] shadow-xs flex flex-col">
 
-            <!-- Tab 头部栏 -->
-            <div class="border-b border-[#E1E5EB] px-4 flex items-center justify-between bg-white h-[44px]">
+            <!-- Tab 头部栏 (轻量极简分割线) -->
+            <div class="border-b border-[#F1F5F9] px-4 flex items-center justify-between bg-white h-[44px]">
               <div class="flex items-center gap-2">
                 <button class="tab-btn" :class="activeTab === 'branch' && 'active'" @click="activeTab = 'branch'">
                   分支访问情况
@@ -3818,8 +4310,8 @@
                   </div>
                 </div>
 
-                <!-- ② 线路时段探测切片 (离散切片时间线，参考方案一规范) -->
-                <div class="bg-[#F8FAFC] p-3.5 rounded-[2px] relative flex flex-col border border-[#E1E5EB]">
+                <!-- ② 线路时段探测切片 (离散切片时间线，参考方案一规范，无框轻量) -->
+                <div class="bg-[#F8FAFC] p-3.5 rounded-[6px] relative flex flex-col">
                   
                   <!-- 垂直竖条切片序列 -->
                   <div class="h-11 flex items-center justify-between gap-[2px] px-1 relative">
@@ -3910,30 +4402,30 @@
 
                 </div>
 
-                <!-- 4张探测趋势图 (2x2 网格，移除小标题) -->
+                <!-- 4张探测趋势图 (2x2 网格，轻量边框圆角) -->
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 pt-1">
-                  <div class="border border-[#E1E5EB] rounded-[2px] p-3 bg-white">
+                  <div class="border border-[#EAEEF4] rounded-[4px] p-3 bg-white">
                     <div class="flex items-center justify-between mb-1">
                       <span class="text-xs font-semibold text-[#454C59]">HTTP 错误率趋势图</span>
                     </div>
                     <div id="chart-probe-avail-error" x-ref="chartProbeAvailError" class="w-full"
                       style="height:175px"></div>
                   </div>
-                  <div class="border border-[#E1E5EB] rounded-[2px] p-3 bg-white">
+                  <div class="border border-[#EAEEF4] rounded-[4px] p-3 bg-white">
                     <div class="flex items-center justify-between mb-1">
                       <span class="text-xs font-semibold text-[#454C59]">分段耗时趋势图</span>
                     </div>
                     <div id="chart-probe-seg-time" x-ref="chartProbeSegTime" class="w-full" style="height:175px">
                     </div>
                   </div>
-                  <div class="border border-[#E1E5EB] rounded-[2px] p-3 bg-white">
+                  <div class="border border-[#EAEEF4] rounded-[4px] p-3 bg-white">
                     <div class="flex items-center justify-between mb-1">
                       <span class="text-xs font-semibold text-[#454C59]">网络 RTT 与抖动趋势图</span>
                     </div>
                     <div id="chart-probe-rtt-jitter" x-ref="chartProbeRttJitter" class="w-full" style="height:175px">
                     </div>
                   </div>
-                  <div class="border border-[#E1E5EB] rounded-[2px] p-3 bg-white">
+                  <div class="border border-[#EAEEF4] rounded-[4px] p-3 bg-white">
                     <div class="flex items-center justify-between mb-1">
                       <span class="text-xs font-semibold text-[#454C59]">数据包丢包率趋势图</span>
                     </div>
@@ -3966,91 +4458,92 @@
           <span class="text-xs text-[#1E293B] font-sans font-medium" x-text="toast.message"></span>
         </div>
 
-        <!-- 异常定位/连线悬浮指标精简 Tooltip 浮层 (统一采用纯白高级卡片风格，与全站及POP浮层风格保持一致) -->
+        <!-- 异常定位/连线悬浮指标轻量 Tooltip 浮层 (极简轻量设计，无嵌套卡片，通透扁平排版) -->
         <div x-show="anomalyTip.show" 
-             x-transition:enter="transition ease-out duration-150"
+             x-transition:enter="transition ease-out duration-100"
              x-transition:enter-start="opacity-0 scale-95"
              x-transition:enter-end="opacity-100 scale-100"
-             x-transition:leave="transition ease-in duration-100"
+             x-transition:leave="transition ease-in duration-75"
              x-transition:leave-start="opacity-100"
              x-transition:leave-end="opacity-0"
-             class="fixed z-[9999] pointer-events-none bg-white text-[#1E293B] px-3.5 py-3 rounded-[4px] shadow-2xl border border-[#CBD5E1] text-xs min-w-[270px] max-w-[340px] select-none"
-             :style="`left: ${anomalyTip.x}px; top: ${anomalyTip.y}px; transform: translate(-50%, -100%);`"
+             class="fixed z-[9999] pointer-events-none bg-white text-[#1E293B] px-3 py-2.5 rounded-[4px] shadow-lg border border-[#E2E8F0] text-xs min-w-[220px] max-w-[270px] select-none"
+             :style="`left: ${anomalyTip.x}px; top: ${anomalyTip.y}px; transform: translate(-50%, -100%); margin-top: -6px;`"
              x-cloak>
           <template x-if="anomalyTip.data">
-            <div class="space-y-2.5">
-              <!-- 头部：标题与状态点 + 右上角时间 + 优先级Tag -->
-              <div class="flex items-center justify-between pb-2 border-b border-[#F1F5F9] gap-2">
-                <div class="flex items-center gap-1.5 font-bold text-[#1E293B] text-xs font-sans min-w-0">
-                  <span class="w-2 h-2 rounded-full flex-shrink-0" :class="anomalyTip.data.isAbnormal ? 'bg-[#F52727]' : 'bg-[#12A679]'"></span>
-                  <span class="truncate" x-text="anomalyTip.data.title"></span>
+            <div class="space-y-1.5 font-sans">
+              <!-- 头部：标题与状态点 + 右上角时间与数据源 -->
+              <div class="flex items-center justify-between pb-1.5 border-b border-[#F1F5F9] gap-2">
+                <div class="flex items-center gap-1.5 font-medium text-[#1E293B] text-xs min-w-0">
+                  <span class="w-1.5 h-1.5 rounded-full flex-shrink-0" :class="anomalyTip.data.isAbnormal ? 'bg-[#F52727]' : 'bg-[#12A679]'"></span>
+                  <span class="truncate font-semibold" x-text="anomalyTip.data.title"></span>
                 </div>
-                <div class="flex items-center gap-2 flex-shrink-0">
-                  <template x-if="anomalyTip.data.timeText || selectedGlobalSliceTime">
-                    <span class="font-mono text-xs font-normal text-[#8A92A1]" 
-                          x-text="anomalyTip.data.timeText || selectedGlobalSliceTime"></span>
-                  </template>
+                <div class="flex items-center gap-1 text-[10.5px] text-[#94A3B8] font-mono shrink-0">
+                  <span x-text="currentGlobalSlice.dataSource"></span>
+                  <span>·</span>
+                  <span x-text="anomalyTip.data.timeText || selectedGlobalSliceTime"></span>
                   <template x-if="anomalyTip.data.priorityBadge">
-                    <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#FFF1F0] text-[#D9363E] border border-[#FFA39E]"
+                    <span class="px-1 py-0.2 rounded text-[9.5px] font-medium bg-[#FFF1F0] text-[#D9363E]"
                           x-text="anomalyTip.data.priorityBadge"></span>
                   </template>
                 </div>
               </div>
 
-              <!-- 1. 时间点访问对象与正常/异常分布概况 -->
+              <!-- 1. 访问总数与体验分布概况 (轻量扁平排版，无多余内嵌灰色背景框) -->
               <template x-if="anomalyTip.data.summary">
-                <div class="bg-[#F8FAFC] rounded p-2.5 text-[11px] space-y-1.5 border border-[#E2E8F0] font-sans">
+                <div class="space-y-1 text-xs pt-0.5">
                   <div class="flex items-center justify-between">
-                    <span class="text-[#64748B]" x-text="anomalyTip.data.summary.totalLabel || '访问对象总数:'"></span>
-                    <span class="font-bold text-[#1E293B] font-mono text-xs" x-text="anomalyTip.data.summary.total"></span>
+                    <span class="text-[#64748B]" x-text="anomalyTip.data.summary.totalLabel || '访问对象总数'"></span>
+                    <span class="font-medium text-[#1E293B] font-mono" x-text="anomalyTip.data.summary.total"></span>
                   </div>
-                  <div class="flex items-center justify-between pt-1 border-t border-[#E2E8F0] text-[10.5px]">
-                    <span class="text-[#64748B]">体验分布:</span>
-                    <div class="flex items-center gap-1.5 font-mono">
-                      <span class="text-[#D9363E] font-bold" x-text="'差 ' + anomalyTip.data.summary.poor"></span>
-                      <span class="text-[#CBD5E1]">|</span>
+                  <div class="flex items-center justify-between">
+                    <span class="text-[#64748B]">体验分布</span>
+                    <div class="flex items-center gap-1.5 font-mono text-[11px]">
+                      <span class="text-[#D9363E] font-medium" x-text="'差 ' + anomalyTip.data.summary.poor"></span>
+                      <span class="text-[#CBD5E1]">·</span>
                       <span class="text-[#FA8C16] font-medium" x-text="'一般 ' + anomalyTip.data.summary.fair"></span>
-                      <span class="text-[#CBD5E1]">|</span>
-                      <span class="text-[#12A679]" x-text="'正常 ' + anomalyTip.data.summary.normal"></span>
+                      <span class="text-[#CBD5E1]">·</span>
+                      <span class="text-[#12A679] font-medium" x-text="'正常 ' + anomalyTip.data.summary.normal"></span>
                     </div>
                   </div>
                 </div>
               </template>
 
-              <!-- 2. 相关质量指标列表 (支持动态表头，无表头时不显示多余表头行) -->
-              <div class="space-y-1.5 text-[11px]">
-                <template x-if="anomalyTip.data.metricHeader">
-                  <div class="text-[10px] text-[#64748B] font-sans font-medium flex items-center justify-between pb-1 border-b border-[#F1F5F9]">
-                    <span x-text="anomalyTip.data.metricHeader"></span>
-                    <span class="text-[#94A3B8]" x-text="anomalyTip.data.metricSubHeader || '当前状态'"></span>
-                  </div>
-                </template>
-                <template x-for="(metric, mIdx) in anomalyTip.data.items" :key="mIdx">
-                  <div class="flex items-center justify-between gap-3 pt-0.5">
-                    <span class="font-sans text-[#64748B] text-xs" x-text="metric.label + ':'"></span>
-                    <div class="flex items-center gap-1 flex-shrink-0">
-                      <span class="font-bold font-mono text-xs" 
-                            :class="metric.isAbnormal ? 'text-[#D9363E]' : 'text-[#1E293B]'"
-                            x-text="metric.value"></span>
-                      <template x-if="metric.baseline">
-                        <span class="text-[10px] text-[#94A3B8] font-sans" x-text="'(基线 ' + metric.baseline + ')'"></span>
-                      </template>
+              <!-- 2. 相关质量指标列表 (用于节点实体，如POP节点/连接器/应用，轻量紧凑排列) -->
+              <template x-if="anomalyTip.data.items && anomalyTip.data.items.length > 0">
+                <div class="space-y-1 text-xs pt-0.5 border-t border-[#F8FAFC]">
+                  <template x-if="anomalyTip.data.metricHeader">
+                    <div class="text-[10px] text-[#64748B] flex items-center justify-between pb-0.5 border-b border-[#F1F5F9]">
+                      <span x-text="anomalyTip.data.metricHeader"></span>
+                      <span class="text-[#94A3B8]" x-text="anomalyTip.data.metricSubHeader || '当前状态'"></span>
                     </div>
-                  </div>
-                </template>
-              </div>
+                  </template>
+                  <template x-for="(metric, mIdx) in anomalyTip.data.items" :key="mIdx">
+                    <div class="flex items-center justify-between py-0.5">
+                      <span class="text-[#64748B]" x-text="metric.label"></span>
+                      <div class="flex items-center gap-1">
+                        <span class="font-mono text-xs" 
+                              :class="metric.isAbnormal ? 'text-[#D9363E] font-medium' : 'text-[#1E293B]'"
+                              x-text="metric.value"></span>
+                        <template x-if="metric.baseline">
+                          <span class="text-[10px] text-[#94A3B8]" x-text="'(' + metric.baseline + ')'"></span>
+                        </template>
+                      </div>
+                    </div>
+                  </template>
+                </div>
+              </template>
 
-              <!-- 3. 排查建议提示 (正常为浅灰色框，异常为警示黄色框) -->
+              <!-- 3. 排查建议提示 (轻量弱化文字，去除黄色大底色块) -->
               <template x-if="anomalyTip.data.hint">
-                <div class="rounded p-2 text-[10.5px] leading-relaxed font-sans"
-                     :class="anomalyTip.data.isAbnormal ? 'bg-[#FFFBE6] border border-[#FFE58F] text-[#D48806]' : 'bg-[#F8FAFC] border border-[#E2E8F0] text-[#64748B]'">
+                <div class="pt-1.5 mt-0.5 border-t border-[#F1F5F9] text-[11px] text-[#64748B] leading-relaxed">
                   <span x-text="anomalyTip.data.hint"></span>
                 </div>
               </template>
+            </div>
           </template>
         </div>
 
-        <!-- 接入 POP 列表悬浮浮层 (采用 fixed 顶级层级定位，彻底避免父容器溢出与滚动条) -->
+        <!-- 接入 POP 列表悬浮浮层 (轻量投影与边框) -->
         <div x-show="popPopoverOpen"
              @mouseenter="cancelClosePopPopover()"
              @mouseleave="scheduleClosePopPopover()"
@@ -4060,7 +4553,7 @@
              x-transition:leave="transition ease-in duration-100"
              x-transition:leave-start="opacity-100"
              x-transition:leave-end="opacity-0"
-             class="fixed z-[9999] bg-white p-2.5 rounded-[4px] shadow-2xl border border-[#CBD5E1] text-xs min-w-[270px] max-w-[320px] select-none"
+             class="fixed z-[9999] bg-white p-2.5 rounded-[4px] shadow-lg border border-[#E2E8F0] text-xs min-w-[260px] max-w-[310px] select-none"
              :style="`left: ${popPopoverPos.x}px; top: ${popPopoverPos.y}px; transform: translate(-50%, 0);`"
              x-cloak>
           <!-- 浮层头部 (显示为异常，不加粗) -->

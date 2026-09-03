@@ -240,8 +240,8 @@
   <!-- Logo -->
   <div class="h-[56px] min-h-[56px] px-4 flex items-center justify-between border-b border-white/10 flex-shrink-0 bg-[#272E38]">
     <div class="flex items-center flex-shrink-0">
-      <div class="w-7 h-7 rounded bg-[#1C6EFF] flex items-center justify-center text-white font-bold text-xs shadow-sm">S</div>
-      <span class="ml-2.5 text-sm font-semibold text-white tracking-wide truncate">云安全访问服务 (SASE)</span>
+      <img src="data:image/png;base64,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" class="w-7 h-auto object-contain flex-shrink-0" alt="云安全访问服务" />
+      <span class="ml-2.5 text-sm font-semibold text-white tracking-wide truncate">云安全访问服务</span>
     </div>
   </div>
 
@@ -384,7 +384,7 @@
 
   <div class="sase-footer">
     <div class="w-4 h-4 rounded-full bg-[#1C6EFF] text-white text-[10px] font-semibold flex items-center justify-center flex-shrink-0">A</div>
-    <span class="ml-2 text-xs font-normal text-white truncate">Admin (SASE 云控制台)</span>
+    <span class="ml-2 text-xs font-normal text-white truncate">Admin</span>
   </div>
 </aside>`,
 

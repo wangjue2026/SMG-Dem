@@ -4,3 +4,6 @@
 [submodule "SKillS/skill-competitor-analysis"]
 	path = SKillS/skill-competitor-analysis
 	url = https://github.com/wangjue2026/skill-competitor-analysis.git
+[submodule "SKillS/skill-designer-prism"]
+	path = SKillS/skill-designer-prism
+	url = https://github.com/wangjue2026/skill-designer-prism.git

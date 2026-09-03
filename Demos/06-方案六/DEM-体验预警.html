@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DEM-体验预警 - 访问体验监测</title>
+  <title>DEM-预警事件中心 - 访问体验监测</title>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="../assets/css/css-overrides.css">
   <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/collapse@3.x.x/dist/cdn.min.js"></script>
@@ -23,7 +23,8 @@
   <style>
     /* 极细平滑滚动条 */
     .dem-custom-scroll::-webkit-scrollbar {
-      width: 4px;
+      width: 5px;
+      height: 5px;
     }
     .dem-custom-scroll::-webkit-scrollbar-thumb {
       background: #D9D9D9;
@@ -36,27 +37,281 @@
       scrollbar-width: thin;
       scrollbar-color: #D9D9D9 transparent;
     }
+
+    /* 针对选择框与原生下拉微调 */
+    .dem-select-flat {
+      height: 32px;
+      font-size: 12px;
+      color: #4E5969;
+      background-color: #FFFFFF;
+      border: 1px solid #E5E6EB;
+      border-radius: 3px;
+      padding-left: 10px;
+      padding-right: 26px;
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2386909C'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 8px center;
+      background-size: 12px 12px;
+      cursor: pointer;
+      transition: all 0.15s ease-in-out;
+    }
+    .dem-select-flat:hover, .dem-select-flat:focus {
+      border-color: #165DFF;
+      outline: none;
+    }
+
+    /* 仿原生复选框 */
+    .dem-checkbox {
+      width: 14px;
+      height: 14px;
+      border-radius: 2px;
+      border: 1px solid #C9CDD4;
+      appearance: none;
+      -webkit-appearance: none;
+      outline: none;
+      cursor: pointer;
+      background-color: #FFFFFF;
+      transition: all 0.15s;
+      position: relative;
+    }
+    .dem-checkbox:checked {
+      background-color: #165DFF;
+      border-color: #165DFF;
+    }
+    .dem-checkbox:checked::after {
+      content: '';
+      position: absolute;
+      left: 4px;
+      top: 1px;
+      width: 4px;
+      height: 8px;
+      border: solid white;
+      border-width: 0 2px 2px 0;
+      transform: rotate(45deg);
+    }
+    .dem-checkbox:hover {
+      border-color: #165DFF;
+    }
   </style>
 
   <script>
     function demWarnPageState() {
       return {
         ...window.dualShellAppStore('体验预警'),
-        currentTab: 'alarmList', // 'alarmList' | 'alarmConfig'
-        dateShortcut: '今天',
-        dateRange: '2025-08-01 00:00:00 至 2025-08-01 23:59:59',
-        switchTab(tab) {
-          this.currentTab = tab;
+
+        // 时间快捷筛选状态
+        timeDropdownOpen: false,
+        currentTimeShortcut: '自定义',
+        dateRangeLabel: '开始时间 至 结束时间',
+        isRefreshing: false,
+
+        // 表格筛选条件
+        filterLevel: '',
+        filterStatus: '',
+        filterTargetGroup: '',
+        filterApp: '',
+        searchKeyword: '',
+
+        // 表格选择项
+        selectedIds: [],
+        selectAll: false,
+
+        // 告警详情抽屉
+        drawerOpen: false,
+        activeAlarm: null,
+
+        // 批量修改状态弹窗
+        batchModalOpen: false,
+
+        // 统计数据
+        totalAlarmCount: 27,
+        urgentCount: 8,
+        importantCount: 12,
+        unhandledCount: 17,
+        userAlarmCount: 6,
+        appAlarmCount: 11,
+        branchAlarmCount: 10,
+
+        // 未处理告警快捷列表
+        unhandledAlarms: [
+          { id: 101, title: '英国办事处群体访问体验异常', statusText: '未处理' },
+          { id: 102, title: 'OA 系统访问体验异常', statusText: '未处理' },
+          { id: 103, title: 'ERP 系统访问延时显著升高', statusText: '未处理' }
+        ],
+
+        // 告警详细数据（截图 1:1 精确数据）
+        alarms: [
+          {
+            id: 1,
+            policyName: '关键应用访问体验自动告警',
+            level: '紧急',
+            type: '应用',
+            target: 'ERP 系统',
+            impact: [
+              { label: '用户数', value: '5名' },
+              { label: '分支', value: '2个' }
+            ],
+            info: '根据探测策略"ERP 应用连通性探测"持续探测结果，存在 2 个周期内应用的访问体验为差，产生告警。在告警持续时段内，应用的平均TTFB为46ms，探测结果显示应用的平均TTFB为78ms',
+            durationStart: '自 2026-08-26 20:45 持续中',
+            durationLength: '已持续 186 小时',
+            status: '未处理',
+            diagnosis: 'ERP 应用服务端线程池满，偶发丢包率 4.2%，导致伦敦办与东京办持续劣化。',
+            suggest: '建议协调应用运维团队扩容应用实例并核查数据库长事务。'
+          },
+          {
+            id: 2,
+            policyName: 'VIP 用户访问体验监控',
+            level: '重要',
+            type: '用户',
+            target: '小何',
+            impact: [
+              { label: '应用数', value: '3个' }
+            ],
+            info: '在连续 3 个周期内，用户的访问体验为差。在告警持续时段内，用户访问应用的平均TTFB为168ms',
+            durationStart: '2026-08-26 18:20 ~ 18:50',
+            durationLength: '共持续 30 分钟',
+            status: '未处理',
+            diagnosis: '用户侧 Wi-Fi 信号衰减至 -82dBm，无线重传率高达 28.5%，引发 TTFB 陡增。',
+            suggest: '已引导该 VIP 终端漫游切换至 5G 高信噪比 AP 节点。'
+          },
+          {
+            id: 3,
+            policyName: '全员工访问体验自动告警',
+            level: '重要',
+            type: '分支',
+            target: '泰国办',
+            impact: [
+              { label: '用户数', value: '5名' },
+              { label: '应用数', value: '5个' }
+            ],
+            info: '在所选用户范围内，存在 5 个用户在连续 5 个周期内访问应用的体验为差，占到周期内访问用户数的 30%，产生告警。在告警持续时段内，体验为差的用户访问应用的平均TTFB为78ms',
+            durationStart: '2026-08-26 14:05 ~ 14:35',
+            durationLength: '共持续 30 分钟',
+            status: '已恢复',
+            diagnosis: '曼谷本地 ISP 国际出口出现短暂路由黑洞，恢复后链路延迟归正为 32ms。',
+            suggest: '已自动执行广域网 SD-WAN 备用 MPLS 链路逃生切流。'
+          },
+          {
+            id: 4,
+            policyName: '全部已发布应用访问体验...',
+            level: '重要',
+            type: '应用',
+            target: 'CRM 系统',
+            impact: [
+              { label: '用户数', value: '10名' },
+              { label: '分支', value: '1个' }
+            ],
+            info: '存在 10 个用户在连续 2 个周期内访问应用的体验为差，产生告警。在告警持续时段内，应用的平均TTFB为88ms，访问体验为差的用户的访问应用的TTFB为88ms',
+            durationStart: '2026-08-26 09:30 ~ 10:00',
+            durationLength: '共持续 30 分钟',
+            status: '已恢复',
+            diagnosis: 'CRM 网关 TLS 握手握持延迟突增，后端鉴权 Redis 缓存抖动后恢复。',
+            suggest: '无需人工干预，系统探测评分已回升至 92 分正常水平。'
+          },
+          {
+            id: 5,
+            policyName: '全员工访问体验自动告警',
+            level: '重要',
+            type: '分支',
+            target: '上海总部办',
+            impact: [
+              { label: '用户数', value: '5名' },
+              { label: '应用数', value: '6个' }
+            ],
+            info: '在所选用户范围内，存在 5 个用户在连续 3 个周期内访问应用的体验为差，占到周期内访问用户数的 63%，产生告警。在告警持续时段内，体验为差的用户访问应用的平均TTFB为132ms',
+            durationStart: '自 2026-08-21 07:40 持续中',
+            durationLength: '已持续 319 小时',
+            status: '未处理',
+            diagnosis: '核心机房核心交换机上行链路拥塞，突发大流量备份任务挤占 QoS 体验带宽。',
+            suggest: '建议排查凌晨定时备份策略，将备份任务移至非核心业务时段。'
+          }
+        ],
+
+        // 过滤后的表格记录
+        get filteredAlarms() {
+          return this.alarms.filter(item => {
+            if (this.filterLevel && item.level !== this.filterLevel) return false;
+            if (this.filterStatus && item.status !== this.filterStatus) return false;
+            if (this.filterTargetGroup && !item.target.includes(this.filterTargetGroup)) return false;
+            if (this.filterApp && item.target !== this.filterApp && !item.info.includes(this.filterApp)) return false;
+            if (this.searchKeyword.trim()) {
+              const kw = this.searchKeyword.trim().toLowerCase();
+              const match = item.policyName.toLowerCase().includes(kw) ||
+                            item.target.toLowerCase().includes(kw) ||
+                            item.info.toLowerCase().includes(kw);
+              if (!match) return false;
+            }
+            return true;
+          });
+        },
+
+        // 全选 / 取消全选切换
+        toggleSelectAll() {
+          if (this.selectAll) {
+            this.selectedIds = this.filteredAlarms.map(a => a.id);
+          } else {
+            this.selectedIds = [];
+          }
+        },
+
+        // 单项勾选更新全选态
+        onSelectChange() {
+          const visibleIds = this.filteredAlarms.map(a => a.id);
+          this.selectAll = visibleIds.length > 0 && visibleIds.every(id => this.selectedIds.includes(id));
+        },
+
+        // 时间下拉选择
+        selectTime(shortcut, label) {
+          this.currentTimeShortcut = shortcut;
+          this.dateRangeLabel = label;
+          this.timeDropdownOpen = false;
+        },
+
+        // 刷新操作
+        refreshData() {
+          this.isRefreshing = true;
+          setTimeout(() => {
+            this.isRefreshing = false;
+          }, 500);
+        },
+
+        // 查看详情抽屉
+        openAlarmDrawer(alarm) {
+          this.activeAlarm = alarm;
+          this.drawerOpen = true;
+        },
+        closeAlarmDrawer() {
+          this.drawerOpen = false;
+        },
+
+        // 批量修改状态
+        batchUpdateStatus(targetStatus) {
+          if (!this.selectedIds.length) return;
+          this.alarms.forEach(a => {
+            if (this.selectedIds.includes(a.id)) {
+              a.status = targetStatus;
+            }
+          });
+          this.selectedIds = [];
+          this.selectAll = false;
+          this.batchModalOpen = false;
+        },
+
+        // 快捷筛选：点击“未处理告警”卡片快速过滤未处理列表
+        filterUnhandledOnly() {
+          this.filterStatus = '未处理';
         }
       };
     }
   </script>
 </head>
-<body class="bg-bg-light text-text font-sans overflow-hidden w-screen h-screen">
+<body class="bg-[#F5F7FA] text-[#1D2129] font-sans overflow-hidden w-screen h-screen">
 
   <div id="dem-svgs"></div>
 
-  <!-- 双底座根容器 — activePage 传入 '体验预警' 用于菜单高亮 -->
+  <!-- 双底座根容器 -->
   <div class="flex flex-col w-full h-full" x-data="demWarnPageState()">
     <!-- 底座切换浮层（由 shell.js 注入） -->
     <div id="shell-switcher"></div>
@@ -66,8 +321,8 @@
       <div id="shell-atrust-header"></div>
       <div class="flex-1 flex overflow-hidden">
         <div id="shell-atrust-sider"></div>
-        <div class="flex-1 bg-bg-light flex flex-col overflow-hidden">
-          <div class="flex-1 bg-[#F4F6F9] flex flex-col overflow-hidden" id="atrust-workspace"></div>
+        <div class="flex-1 bg-[#F5F7FA] flex flex-col overflow-hidden">
+          <div class="flex-1 bg-[#F5F7FA] flex flex-col overflow-hidden" id="atrust-workspace"></div>
         </div>
       </div>
     </div>
@@ -75,111 +330,581 @@
     <!-- MODE 2: SASE 线上云底座框架 -->
     <div x-show="shell === 'sase'" class="flex w-full h-full overflow-hidden">
       <div id="shell-sase-sider"></div>
-      <div class="flex-1 bg-bg-light flex flex-col overflow-hidden">
-        <div class="flex-1 bg-[#F4F6F9] flex flex-col overflow-hidden" id="sase-workspace"></div>
+      <div class="flex-1 bg-[#F5F7FA] flex flex-col overflow-hidden">
+        <div class="flex-1 bg-[#F5F7FA] flex flex-col overflow-hidden" id="sase-workspace"></div>
       </div>
     </div>
 
-    <!-- 体验预警 Workspace 模板（同时填充到 aTrust 和 SASE） -->
+    <!-- 体验预警 Workspace 模板（1:1 还原截图） -->
     <template id="page-content-template">
-      <div class="flex flex-col w-full h-full overflow-hidden">
+      <div class="flex flex-col w-full h-full overflow-y-auto dem-custom-scroll p-6 bg-[#F5F7FA]">
         
-        <!-- Tab 式页头（标题：体验预警，Tab1：告警列表，Tab2：告警配置） -->
-        <div class="h-[48px] min-h-[48px] max-h-[48px] bg-white border-b border-[#E2E8F0] px-6 flex items-center justify-between flex-shrink-0 select-none z-20">
-          <!-- 左侧：文本标题 + Tab 选项组 -->
-          <div class="flex items-center h-full">
-            <span class="text-[14px] font-semibold text-[#1E293B]">体验预警</span>
-            <div class="w-[1px] h-[16px] mx-[16px] bg-[#E1E5EB]"></div>
-            <div class="flex items-center h-full gap-6 relative">
-              <!-- Tab 1: 告警列表 -->
-              <div class="relative h-full flex items-center cursor-pointer select-none group" @click="switchTab('alarmList')">
-                <span class="text-[14px] transition-colors" :class="currentTab === 'alarmList' ? 'text-[#1C6EFF] font-semibold' : 'text-[#2F3540] font-normal group-hover:text-[#1C6EFF]'">告警列表</span>
-                <div x-show="currentTab === 'alarmList'" class="absolute bottom-0 left-0 right-0 h-[2px] bg-[#1C6EFF] rounded-t-[2px]"></div>
-              </div>
-              <!-- Tab 2: 告警配置 -->
-              <div class="relative h-full flex items-center cursor-pointer select-none group" @click="switchTab('alarmConfig')">
-                <span class="text-[14px] transition-colors" :class="currentTab === 'alarmConfig' ? 'text-[#1C6EFF] font-semibold' : 'text-[#2F3540] font-normal group-hover:text-[#1C6EFF]'">告警配置</span>
-                <div x-show="currentTab === 'alarmConfig'" class="absolute bottom-0 left-0 right-0 h-[2px] bg-[#1C6EFF] rounded-t-[2px]"></div>
-              </div>
-            </div>
+        <!-- 1. 顶部页头区域 -->
+        <div class="flex items-start justify-between mb-5 flex-shrink-0">
+          <!-- 左侧：主副标题 -->
+          <div>
+            <h1 class="text-[20px] font-bold text-[#1D2129] tracking-tight leading-tight">预警事件中心</h1>
+            <p class="text-[12px] text-[#86909C] mt-1.5 font-normal">集中查看应用、重点用户与群体性访问体验的告警事件，跟踪处置闭环</p>
           </div>
 
-          <!-- 右侧：时间筛选 & 刷新按钮 -->
-          <div class="flex items-center select-none gap-2">
-            <div class="inline-flex items-center h-8 bg-white border border-[#D9D9D9] rounded-[2px] hover:border-[#1890FF] transition-colors text-xs shadow-2xs">
-              <!-- 快捷选择下拉 -->
-              <div class="relative bg-[#FAFAFA] h-full px-2.5 flex items-center justify-between border-r border-[#D9D9D9] min-w-[80px] cursor-pointer group">
-                <select x-model="dateShortcut" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full text-xs">
-                  <option value="今天">今天</option>
-                  <option value="近24小时">近24小时</option>
-                  <option value="近3天">近3天</option>
-                  <option value="近7天">近7天</option>
-                  <option value="近30天">近30天</option>
-                  <option value="自定义">自定义</option>
-                </select>
-                <span class="text-[#262626] font-normal text-xs" x-text="dateShortcut || '今天'"></span>
-                <svg class="w-3.5 h-3.5 text-[#BFBFBF] ml-2 group-hover:text-[#1890FF] transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+          <!-- 右侧：时间范围选择器 + 配置告警策略 + 刷新按钮 -->
+          <div class="flex items-center gap-3 relative select-none">
+            
+            <!-- 日期范围选择器 -->
+            <div class="relative" @click.away="timeDropdownOpen = false">
+              <div 
+                @click="timeDropdownOpen = !timeDropdownOpen"
+                class="h-8 px-3 bg-white border border-[#D9D9D9] hover:border-[#165DFF] rounded-[3px] flex items-center gap-3 cursor-pointer text-[12px] transition-colors shadow-2xs group"
+              >
+                <div class="flex items-center gap-2 text-[#86909C]">
+                  <span class="text-[#86909C]" x-text="dateRangeLabel.split(' 至 ')[0] || '开始时间'">开始时间</span>
+                  <span class="text-[#C9CDD4]">至</span>
+                  <span class="text-[#86909C]" x-text="dateRangeLabel.split(' 至 ')[1] || '结束时间'">结束时间</span>
+                </div>
+                <svg class="w-3.5 h-3.5 text-[#86909C] group-hover:text-[#165DFF] transition-colors flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
                 </svg>
               </div>
 
-              <!-- 日期范围展示 -->
-              <div class="h-full pl-3 pr-2.5 flex items-center justify-between cursor-pointer whitespace-nowrap">
-                <span class="font-mono text-xs text-[#595959] whitespace-nowrap" x-text="dateRange"></span>
-                <svg class="w-3.5 h-3.5 text-[#BFBFBF] flex-shrink-0 ml-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                </svg>
+              <!-- 下拉菜单面板（精准还原截图） -->
+              <div 
+                x-show="timeDropdownOpen"
+                x-transition:enter="transition ease-out duration-100"
+                x-transition:enter-start="opacity-0 transform scale-95"
+                x-transition:enter-end="opacity-100 transform scale-100"
+                x-transition:leave="transition ease-in duration-75"
+                x-transition:leave-start="opacity-100 transform scale-100"
+                x-transition:leave-end="opacity-0 transform scale-95"
+                class="absolute right-0 top-full mt-1 w-44 bg-white border border-[#E5E6EB] rounded-[4px] shadow-lg py-1 z-50 text-[13px] text-[#1D2129]"
+                style="display: none;"
+              >
+                <div 
+                  @click="selectTime('近24小时', '2026-08-26 00:00 至 2026-08-26 23:59')"
+                  class="px-3.5 py-2 cursor-pointer hover:bg-[#F2F3F5] transition-colors"
+                  :class="currentTimeShortcut === '近24小时' ? 'text-[#165DFF] font-medium bg-[#F2F3F5]' : ''"
+                >
+                  近24小时
+                </div>
+                <div 
+                  @click="selectTime('近7天', '2026-08-20 00:00 至 2026-08-26 23:59')"
+                  class="px-3.5 py-2 cursor-pointer hover:bg-[#F2F3F5] transition-colors"
+                  :class="currentTimeShortcut === '近7天' ? 'text-[#165DFF] font-medium bg-[#F2F3F5]' : ''"
+                >
+                  近7天
+                </div>
+                <div 
+                  @click="selectTime('近30天', '2026-07-28 00:00 至 2026-08-26 23:59')"
+                  class="px-3.5 py-2 cursor-pointer hover:bg-[#F2F3F5] transition-colors"
+                  :class="currentTimeShortcut === '近30天' ? 'text-[#165DFF] font-medium bg-[#F2F3F5]' : ''"
+                >
+                  近30天
+                </div>
+                <div 
+                  @click="selectTime('自定义', '开始时间 至 结束时间')"
+                  class="px-3.5 py-2 cursor-pointer hover:bg-[#F2F3F5] transition-colors"
+                  :class="currentTimeShortcut === '自定义' ? 'text-[#165DFF] font-medium bg-[#F2F3F5]' : ''"
+                >
+                  自定义
+                </div>
               </div>
             </div>
 
+            <!-- 配置告警策略按钮 -->
+            <a 
+              href="./DEM-监控配置.html"
+              class="h-8 px-3 bg-white border border-[#D9D9D9] hover:border-[#165DFF] hover:text-[#165DFF] rounded-[3px] flex items-center gap-1.5 text-[12px] text-[#1D2129] transition-colors shadow-2xs cursor-pointer group"
+            >
+              <svg class="w-3.5 h-3.5 text-[#4E5969] group-hover:text-[#165DFF] transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+              </svg>
+              <span>配置告警策略</span>
+            </a>
+
             <!-- 刷新按钮 -->
-            <button class="w-8 h-8 bg-white border border-[#D9D9D9] rounded-[2px] hover:border-[#1890FF] hover:text-[#1890FF] transition-colors text-[#595959] inline-flex items-center justify-center cursor-pointer select-none" title="刷新数据">
-              <svg class="w-4 h-4 text-[#595959] hover:text-[#1890FF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <button 
+              @click="refreshData()"
+              class="w-8 h-8 bg-white border border-[#D9D9D9] hover:border-[#165DFF] hover:text-[#165DFF] rounded-[3px] flex items-center justify-center text-[#4E5969] transition-colors shadow-2xs cursor-pointer group"
+              title="刷新数据"
+            >
+              <svg :class="isRefreshing ? 'animate-spin text-[#165DFF]' : 'group-hover:text-[#165DFF]'" class="w-3.5 h-3.5 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
               </svg>
             </button>
           </div>
         </div>
 
-        <!-- 主内容区域（内容暂未开发） -->
-        <main class="flex-1 bg-bg-light p-4 flex flex-col overflow-hidden">
+        <!-- 2. 概览统计卡片区（左右并排 50%:50%） -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4 flex-shrink-0">
           
-          <!-- Tab 1 内容：告警列表 -->
-          <div x-show="currentTab === 'alarmList'" class="bg-white rounded-container border border-bg-line p-8 shadow-sm flex-1 flex flex-col items-center justify-center text-center">
-            <div class="w-16 h-16 rounded-full bg-blue-50 text-[#1C6EFF] flex items-center justify-center mb-4 ring-8 ring-blue-50/50">
-              <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
-              </svg>
+          <!-- 左卡片：告警总数 + 未处理告警速览 -->
+          <div class="bg-white rounded-lg border border-[#E5E6EB] p-4 shadow-2xs flex items-center justify-between min-h-[148px]">
+            <!-- 左半边：告警总数与指标 -->
+            <div class="flex-1 flex flex-col justify-between h-full pr-6 border-r border-[#F2F3F5]/60">
+              <div class="text-[12px] text-[#86909C]">告警总数</div>
+              <div class="flex items-baseline gap-4 mt-3 mb-1">
+                <span class="text-[38px] font-bold text-[#165DFF] tracking-tight leading-none font-sans" x-text="totalAlarmCount">27</span>
+                <div class="flex flex-col gap-1.5 text-[12px]">
+                  <div class="flex items-center gap-2">
+                    <span class="text-[#86909C]">紧急告警</span>
+                    <span class="font-bold text-[#F53F3F]" x-text="urgentCount">8</span>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <span class="text-[#86909C]">重要告警</span>
+                    <span class="font-bold text-[#FF7D00]" x-text="importantCount">12</span>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div class="flex items-center gap-2">
-              <h2 class="text-lg font-bold text-text-title">体验预警 - 告警列表</h2>
-              <span class="px-2 py-0.5 text-xs bg-blue-50 text-blue-600 rounded border border-blue-100 font-medium">模块容器</span>
+
+            <!-- 右半边：未处理告警列表 -->
+            <div class="flex-1 pl-6 flex flex-col justify-between h-full">
+              <!-- 顶部标题与红粉徽标 -->
+              <div class="flex items-center justify-between cursor-pointer" @click="filterUnhandledOnly()" title="点击筛选未处理告警">
+                <div class="flex items-center gap-1.5">
+                  <span class="w-2 h-2 rounded-full bg-[#F53F3F] inline-block"></span>
+                  <span class="text-[13px] font-semibold text-[#1D2129]">未处理告警</span>
+                </div>
+                <span class="px-1.5 py-0.5 text-[11px] font-bold text-[#F53F3F] bg-[#FFECE8] rounded-[10px]" x-text="unhandledCount">17</span>
+              </div>
+
+              <!-- 3条未处理告警滚动列表展示 -->
+              <div class="mt-2.5 flex flex-col gap-2 relative">
+                <template x-for="item in unhandledAlarms" :key="item.id">
+                  <div class="flex items-center justify-between text-[12px] group cursor-pointer hover:bg-[#F9FAFB] py-0.5 px-1 rounded transition-colors" @click="filterUnhandledOnly()">
+                    <span class="text-[#4E5969] truncate max-w-[210px] group-hover:text-[#165DFF] transition-colors" x-text="item.title"></span>
+                    <span class="text-[#F53F3F] flex-shrink-0 font-normal" x-text="item.statusText">未处理</span>
+                  </div>
+                </template>
+                <!-- 视觉模拟滚动滑块 -->
+                <div class="absolute right-[-8px] top-1 bottom-1 w-[3px] bg-[#E5E6EB] rounded-full opacity-60"></div>
+              </div>
             </div>
-            <p class="text-xs text-text-mute mt-2 max-w-md leading-relaxed">实时汇总全网终端、分支及应用体验劣化的预警告警事件。功能暂未开发，敬请期待。</p>
           </div>
 
-          <!-- Tab 2 内容：告警配置 -->
-          <div x-show="currentTab === 'alarmConfig'" class="bg-white rounded-container border border-bg-line p-8 shadow-sm flex-1 flex flex-col items-center justify-center text-center" x-cloak>
-            <div class="w-16 h-16 rounded-full bg-blue-50 text-[#1C6EFF] flex items-center justify-center mb-4 ring-8 ring-blue-50/50">
-              <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-              </svg>
+          <!-- 右卡片：告警对象分布 -->
+          <div class="bg-white rounded-lg border border-[#E5E6EB] p-4 shadow-2xs flex flex-col justify-between min-h-[148px]">
+            <div class="text-[12px] text-[#86909C]">告警对象分布</div>
+            
+            <!-- 3个子卡片并排 -->
+            <div class="grid grid-cols-3 gap-3 mt-3">
+              <!-- 用户告警 -->
+              <div class="relative bg-white border border-[#E5E6EB] rounded-md p-3.5 overflow-hidden flex flex-col justify-between shadow-2xs border-t-[3px] border-t-[#165DFF]">
+                <div class="text-[12px] text-[#4E5969] relative z-10">用户告警</div>
+                <div class="text-[28px] font-bold text-[#165DFF] mt-2 relative z-10 leading-none" x-text="userAlarmCount">6</div>
+                <!-- 右下角半圆光晕装饰 -->
+                <div class="absolute -right-5 -bottom-5 w-20 h-20 rounded-full bg-[#E8F3FF] pointer-events-none opacity-85"></div>
+              </div>
+
+              <!-- 应用告警 -->
+              <div class="relative bg-white border border-[#E5E6EB] rounded-md p-3.5 overflow-hidden flex flex-col justify-between shadow-2xs border-t-[3px] border-t-[#00B42A]">
+                <div class="text-[12px] text-[#4E5969] relative z-10">应用告警</div>
+                <div class="text-[28px] font-bold text-[#00B42A] mt-2 relative z-10 leading-none" x-text="appAlarmCount">11</div>
+                <!-- 右下角半圆光晕装饰 -->
+                <div class="absolute -right-5 -bottom-5 w-20 h-20 rounded-full bg-[#E8FFEA] pointer-events-none opacity-85"></div>
+              </div>
+
+              <!-- 分支告警 -->
+              <div class="relative bg-white border border-[#E5E6EB] rounded-md p-3.5 overflow-hidden flex flex-col justify-between shadow-2xs border-t-[3px] border-t-[#722ED1]">
+                <div class="text-[12px] text-[#4E5969] relative z-10">分支告警</div>
+                <div class="text-[28px] font-bold text-[#722ED1] mt-2 relative z-10 leading-none" x-text="branchAlarmCount">10</div>
+                <!-- 右下角半圆光晕装饰 -->
+                <div class="absolute -right-5 -bottom-5 w-20 h-20 rounded-full bg-[#F5E8FF] pointer-events-none opacity-85"></div>
+              </div>
             </div>
-            <div class="flex items-center gap-2">
-              <h2 class="text-lg font-bold text-text-title">体验预警 - 告警配置</h2>
-              <span class="px-2 py-0.5 text-xs bg-blue-50 text-blue-600 rounded border border-blue-100 font-medium">模块容器</span>
+          </div>
+        </div>
+
+        <!-- 3. 表格与筛选卡片区 -->
+        <div class="bg-white rounded-lg border border-[#E5E6EB] shadow-2xs flex-1 flex flex-col overflow-hidden min-h-[460px]">
+          
+          <!-- 顶部操作与筛选栏 -->
+          <div class="px-5 py-3 border-b border-[#F2F3F5] flex items-center justify-between gap-3 flex-wrap select-none">
+            <!-- 左侧：批量修改告警状态按钮 -->
+            <div class="relative">
+              <button 
+                type="button"
+                @click="if (selectedIds.length) batchModalOpen = !batchModalOpen"
+                :disabled="!selectedIds.length"
+                :class="selectedIds.length ? 'bg-[#165DFF] text-white hover:bg-[#0E42D2] cursor-pointer shadow-2xs' : 'bg-[#F2F3F5] text-[#C9CDD4] cursor-not-allowed border border-transparent'"
+                class="h-8 px-3 rounded-[3px] text-[12px] font-normal transition-all flex items-center gap-1.5"
+              >
+                <span>批量修改告警状态</span>
+                <span x-show="selectedIds.length" class="text-[11px] bg-white/20 px-1 rounded" x-text="'(' + selectedIds.length + ')'"></span>
+              </button>
+
+              <!-- 批量修改状态微型气泡下拉 -->
+              <div 
+                x-show="batchModalOpen" 
+                @click.away="batchModalOpen = false"
+                class="absolute left-0 top-full mt-1.5 w-40 bg-white border border-[#E5E6EB] rounded-[4px] shadow-lg py-1.5 z-40 text-[12px]"
+                style="display: none;"
+              >
+                <div class="px-3 py-1 text-[11px] text-[#86909C] border-b border-[#F2F3F5]">标记选中项为：</div>
+                <div @click="batchUpdateStatus('已恢复')" class="px-3 py-1.5 hover:bg-[#F2F3F5] text-[#00B42A] cursor-pointer flex items-center gap-1.5">
+                  <span class="w-1.5 h-1.5 rounded-full bg-[#00B42A]"></span>
+                  <span>已恢复</span>
+                </div>
+                <div @click="batchUpdateStatus('已忽略')" class="px-3 py-1.5 hover:bg-[#F2F3F5] text-[#86909C] cursor-pointer flex items-center gap-1.5">
+                  <span class="w-1.5 h-1.5 rounded-full bg-[#86909C]"></span>
+                  <span>已忽略</span>
+                </div>
+                <div @click="batchUpdateStatus('未处理')" class="px-3 py-1.5 hover:bg-[#F2F3F5] text-[#F53F3F] cursor-pointer flex items-center gap-1.5">
+                  <span class="w-1.5 h-1.5 rounded-full bg-[#F53F3F]"></span>
+                  <span>未处理</span>
+                </div>
+              </div>
             </div>
-            <p class="text-xs text-text-mute mt-2 max-w-md leading-relaxed">设置体验异常预警规则、触发阈值及通知对象。功能暂未开发，敬请期待。</p>
+
+            <!-- 右侧：下拉筛选与搜索框 -->
+            <div class="flex items-center gap-3 flex-wrap">
+              <!-- 选择告警等级 -->
+              <select x-model="filterLevel" class="dem-select-flat">
+                <option value="">选择告警等级</option>
+                <option value="紧急">紧急</option>
+                <option value="重要">重要</option>
+              </select>
+
+              <!-- 选择告警状态 -->
+              <select x-model="filterStatus" class="dem-select-flat">
+                <option value="">选择告警状态</option>
+                <option value="未处理">未处理</option>
+                <option value="已恢复">已恢复</option>
+              </select>
+
+              <!-- 选择用户或组 -->
+              <select x-model="filterTargetGroup" class="dem-select-flat">
+                <option value="">选择用户或组</option>
+                <option value="小何">小何</option>
+                <option value="英国办">英国办</option>
+                <option value="泰国办">泰国办</option>
+                <option value="上海总部办">上海总部办</option>
+              </select>
+
+              <!-- 选择应用 -->
+              <select x-model="filterApp" class="dem-select-flat">
+                <option value="">选择应用</option>
+                <option value="ERP 系统">ERP 系统</option>
+                <option value="CRM 系统">CRM 系统</option>
+                <option value="OA 系统">OA 系统</option>
+              </select>
+
+              <!-- 搜索框 -->
+              <div class="relative w-[240px]">
+                <span class="absolute inset-y-0 left-0 flex items-center pl-2.5 pointer-events-none text-[#86909C]">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                  </svg>
+                </span>
+                <input 
+                  type="text" 
+                  x-model="searchKeyword"
+                  placeholder="搜索标题、事件内容或诊断..." 
+                  class="w-full h-8 pl-8 pr-3 text-[12px] bg-white border border-[#E5E6EB] rounded-[3px] placeholder-[#86909C] text-[#1D2129] focus:outline-none focus:border-[#165DFF] transition-colors"
+                />
+              </div>
+            </div>
           </div>
 
-        </main>
+          <!-- 告警数据表格（10 列） -->
+          <div class="flex-1 overflow-x-auto dem-custom-scroll">
+            <table class="w-full text-left border-collapse min-w-[1240px]">
+              <!-- 表头 -->
+              <thead>
+                <tr class="border-b border-[#F2F3F5] text-[12px] text-[#86909C] bg-white">
+                  <th class="py-3 px-4 w-[40px] font-medium text-center whitespace-nowrap">
+                    <input 
+                      type="checkbox" 
+                      class="dem-checkbox" 
+                      x-model="selectAll"
+                      @change="toggleSelectAll()"
+                    />
+                  </th>
+                  <th class="py-3 px-3 font-medium w-[200px] whitespace-nowrap">策略名称</th>
+                  <th class="py-3 px-3 font-medium w-[85px] whitespace-nowrap">告警等级</th>
+                  <th class="py-3 px-3 font-medium w-[75px] whitespace-nowrap">告警类型</th>
+                  <th class="py-3 px-3 font-medium w-[110px] whitespace-nowrap">告警对象</th>
+                  <th class="py-3 px-3 font-medium w-[110px] whitespace-nowrap">影响范围</th>
+                  <th class="py-3 px-4 font-medium flex-1 whitespace-nowrap">告警信息</th>
+                  <th class="py-3 px-4 font-medium w-[215px] whitespace-nowrap">持续时间</th>
+                  <th class="py-3 px-3 font-medium w-[90px] whitespace-nowrap">告警状态</th>
+                  <th class="py-3 px-4 font-medium w-[85px] text-right whitespace-nowrap">告警详情</th>
+                </tr>
+              </thead>
+
+              <!-- 表格体 -->
+              <tbody class="divide-y divide-[#F2F3F5] text-[12px]">
+                <template x-for="item in filteredAlarms" :key="item.id">
+                  <tr class="hover:bg-[#F9FAFB] transition-colors group">
+                    <!-- 1. 复选框 -->
+                    <td class="py-4 px-4 text-center whitespace-nowrap">
+                      <input 
+                        type="checkbox" 
+                        class="dem-checkbox"
+                        :value="item.id"
+                        x-model="selectedIds"
+                        @change="onSelectChange()"
+                      />
+                    </td>
+
+                    <!-- 2. 策略名称 -->
+                    <td class="py-4 px-3 text-[#1D2129] font-normal leading-snug">
+                      <span x-text="item.policyName"></span>
+                    </td>
+
+                    <!-- 3. 告警等级 -->
+                    <td class="py-4 px-3 whitespace-nowrap">
+                      <template x-if="item.level === '紧急'">
+                        <span class="inline-flex items-center px-1.5 py-0.5 rounded-[2px] text-[12px] bg-[#FFECE8] text-[#F53F3F] font-normal">紧急</span>
+                      </template>
+                      <template x-if="item.level === '重要'">
+                        <span class="inline-flex items-center px-1.5 py-0.5 rounded-[2px] text-[12px] bg-[#FFF7E8] text-[#FF7D00] font-normal">重要</span>
+                      </template>
+                    </td>
+
+                    <!-- 4. 告警类型 -->
+                    <td class="py-4 px-3 text-[#4E5969] whitespace-nowrap" x-text="item.type"></td>
+
+                    <!-- 5. 告警对象 -->
+                    <td class="py-4 px-3 font-bold text-[#1D2129] whitespace-nowrap" x-text="item.target"></td>
+
+                    <!-- 6. 影响范围 -->
+                    <td class="py-4 px-3 text-[#1D2129] whitespace-nowrap">
+                      <div class="flex flex-col gap-1 leading-tight">
+                        <template x-for="imp in item.impact" :key="imp.label">
+                          <div>
+                            <span class="text-[#86909C]" x-text="imp.label"></span> 
+                            <span class="font-bold text-[#1D2129] ml-1" x-text="imp.value"></span>
+                          </div>
+                        </template>
+                      </div>
+                    </td>
+
+                    <!-- 7. 告警信息 -->
+                    <td class="py-4 px-4 text-[#4E5969] leading-relaxed max-w-[480px]">
+                      <p x-text="item.info" class="text-[12px]"></p>
+                    </td>
+
+                    <!-- 8. 持续时间 -->
+                    <td class="py-4 px-4 text-[#4E5969] whitespace-nowrap">
+                      <div class="flex flex-col gap-1 leading-tight">
+                        <div class="text-[#4E5969] whitespace-nowrap" x-text="item.durationStart"></div>
+                        <div class="text-[#86909C] whitespace-nowrap" x-text="item.durationLength"></div>
+                      </div>
+                    </td>
+
+                    <!-- 9. 告警状态 -->
+                    <td class="py-4 px-3 whitespace-nowrap">
+                      <template x-if="item.status === '未处理'">
+                        <div class="flex items-center gap-1.5 text-[12px] text-[#F53F3F]">
+                          <span class="w-1.5 h-1.5 rounded-full bg-[#F53F3F] inline-block"></span>
+                          <span>未处理</span>
+                        </div>
+                      </template>
+                      <template x-if="item.status === '已恢复'">
+                        <div class="flex items-center gap-1.5 text-[12px] text-[#00B42A]">
+                          <span class="w-1.5 h-1.5 rounded-full bg-[#00B42A] inline-block"></span>
+                          <span>已恢复</span>
+                        </div>
+                      </template>
+                      <template x-if="item.status === '已忽略'">
+                        <div class="flex items-center gap-1.5 text-[12px] text-[#86909C]">
+                          <span class="w-1.5 h-1.5 rounded-full bg-[#86909C] inline-block"></span>
+                          <span>已忽略</span>
+                        </div>
+                      </template>
+                    </td>
+
+                    <!-- 10. 告警详情（操作） -->
+                    <td class="py-4 px-4 text-right whitespace-nowrap">
+                      <a 
+                        href="javascript:void(0)" 
+                        @click="openAlarmDrawer(item)" 
+                        class="text-[#165DFF] hover:underline text-[12px] cursor-pointer"
+                      >
+                        查看详情
+                      </a>
+                    </td>
+                  </tr>
+                </template>
+
+                <!-- 无数据缺省态 -->
+                <tr x-show="filteredAlarms.length === 0">
+                  <td colspan="10" class="py-12 text-center text-[#86909C] text-[13px]">
+                    <div class="flex flex-col items-center justify-center gap-2">
+                      <svg class="w-8 h-8 text-[#C9CDD4]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                      </svg>
+                      <span>暂未检索到匹配的告警事件</span>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- 4. 全景告警排障详情抽屉 (Drawer) -->
+        <div 
+          x-show="drawerOpen" 
+          class="fixed inset-0 z-50 overflow-hidden" 
+          style="display: none;"
+        >
+          <!-- 背景遮罩 -->
+          <div 
+            x-show="drawerOpen"
+            x-transition:enter="ease-out duration-200"
+            x-transition:enter-start="opacity-0"
+            x-transition:enter-end="opacity-100"
+            x-transition:leave="ease-in duration-150"
+            x-transition:leave-start="opacity-100"
+            x-transition:leave-end="opacity-0"
+            class="absolute inset-0 bg-black/30 backdrop-blur-2xs transition-opacity" 
+            @click="closeAlarmDrawer()"
+          ></div>
+
+          <!-- 抽屉主体 -->
+          <div class="fixed inset-y-0 right-0 max-w-full flex pl-10">
+            <div 
+              x-show="drawerOpen"
+              x-transition:enter="transform transition ease-in-out duration-250"
+              x-transition:enter-start="translate-x-full"
+              x-transition:enter-end="translate-x-0"
+              x-transition:leave="transform transition ease-in-out duration-200"
+              x-transition:leave-start="translate-x-0"
+              x-transition:leave-end="translate-x-full"
+              class="w-screen max-w-md md:max-w-lg bg-white shadow-2xl flex flex-col"
+            >
+              <!-- 抽屉头部 -->
+              <div class="px-6 py-4 border-b border-[#E5E6EB] flex items-center justify-between bg-[#F7F8FA]">
+                <div class="flex items-center gap-2.5">
+                  <template x-if="activeAlarm?.level === '紧急'">
+                    <span class="px-2 py-0.5 text-[12px] bg-[#FFECE8] text-[#F53F3F] font-bold rounded">紧急</span>
+                  </template>
+                  <template x-if="activeAlarm?.level === '重要'">
+                    <span class="px-2 py-0.5 text-[12px] bg-[#FFF7E8] text-[#FF7D00] font-bold rounded">重要</span>
+                  </template>
+                  <h3 class="text-[15px] font-bold text-[#1D2129] truncate" x-text="activeAlarm?.policyName">告警事件详情</h3>
+                </div>
+                <button @click="closeAlarmDrawer()" class="text-[#86909C] hover:text-[#1D2129] p-1 transition-colors">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                  </svg>
+                </button>
+              </div>
+
+              <!-- 抽屉内容 -->
+              <div class="flex-1 overflow-y-auto p-6 space-y-5 dem-custom-scroll text-[13px]">
+                
+                <!-- 状态与持续时长卡片 -->
+                <div class="bg-[#F8FAFC] border border-[#E2E8F0] rounded-lg p-4 flex items-center justify-between">
+                  <div>
+                    <div class="text-[12px] text-[#86909C]">当前处置状态</div>
+                    <div class="mt-1 flex items-center gap-1.5 font-bold text-[14px]" :class="activeAlarm?.status === '已恢复' ? 'text-[#00B42A]' : 'text-[#F53F3F]'">
+                      <span class="w-2 h-2 rounded-full inline-block" :class="activeAlarm?.status === '已恢复' ? 'bg-[#00B42A]' : 'bg-[#F53F3F]'"></span>
+                      <span x-text="activeAlarm?.status"></span>
+                    </div>
+                  </div>
+                  <div class="text-right">
+                    <div class="text-[12px] text-[#86909C]">影响持续时长</div>
+                    <div class="mt-1 font-mono font-bold text-[#1D2129]" x-text="activeAlarm?.durationLength"></div>
+                  </div>
+                </div>
+
+                <!-- 核心事件描述 -->
+                <div>
+                  <h4 class="text-[13px] font-bold text-[#1D2129] mb-2 flex items-center gap-2">
+                    <span class="w-1 h-3.5 bg-[#165DFF] rounded-full inline-block"></span>
+                    <span>告警触发详情</span>
+                  </h4>
+                  <div class="bg-[#FAFAFA] border border-[#E5E6EB] p-3 rounded text-[#4E5969] leading-relaxed text-[12px]" x-text="activeAlarm?.info"></div>
+                </div>
+
+                <!-- 基础属性表格 -->
+                <div>
+                  <h4 class="text-[13px] font-bold text-[#1D2129] mb-2 flex items-center gap-2">
+                    <span class="w-1 h-3.5 bg-[#165DFF] rounded-full inline-block"></span>
+                    <span>异常实体与拓扑对象</span>
+                  </h4>
+                  <div class="border border-[#E5E6EB] rounded divide-y divide-[#F2F3F5] text-[12px]">
+                    <div class="flex px-3 py-2">
+                      <span class="w-24 text-[#86909C]">告警类型</span>
+                      <span class="text-[#1D2129] font-medium" x-text="activeAlarm?.type"></span>
+                    </div>
+                    <div class="flex px-3 py-2">
+                      <span class="w-24 text-[#86909C]">告警对象</span>
+                      <span class="text-[#1D2129] font-bold" x-text="activeAlarm?.target"></span>
+                    </div>
+                    <div class="flex px-3 py-2">
+                      <span class="w-24 text-[#86909C]">波及受影响面</span>
+                      <div class="flex gap-4">
+                        <template x-for="imp in activeAlarm?.impact" :key="imp.label">
+                          <span>
+                            <span class="text-[#86909C]" x-text="imp.label + '：'"></span>
+                            <span class="font-bold text-[#1D2129]" x-text="imp.value"></span>
+                          </span>
+                        </template>
+                      </div>
+                    </div>
+                    <div class="flex px-3 py-2">
+                      <span class="w-24 text-[#86909C]">初次触发时间</span>
+                      <span class="text-[#4E5969]" x-text="activeAlarm?.durationStart"></span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 智能根因分析 -->
+                <div>
+                  <h4 class="text-[13px] font-bold text-[#1D2129] mb-2 flex items-center gap-2">
+                    <span class="w-1 h-3.5 bg-[#722ED1] rounded-full inline-block"></span>
+                    <span>AI 智能根因与排障定位</span>
+                  </h4>
+                  <div class="bg-[#F9F7FF] border border-[#E8DDFE] p-3.5 rounded text-[12px] space-y-2">
+                    <div class="text-[#4B1E8A] font-medium" x-text="activeAlarm?.diagnosis"></div>
+                    <div class="text-[#722ED1] text-[11px] pt-1 border-t border-[#E8DDFE]/60 flex items-center gap-1.5">
+                      <svg class="w-3.5 h-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
+                      </svg>
+                      <span x-text="activeAlarm?.suggest"></span>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+
+              <!-- 抽屉底部操作条 -->
+              <div class="p-4 border-t border-[#E5E6EB] bg-[#F7F8FA] flex items-center justify-between">
+                <div class="flex gap-2">
+                  <button 
+                    @click="activeAlarm.status = '已恢复'; closeAlarmDrawer()" 
+                    class="px-3 py-1.5 text-[12px] bg-white border border-[#D9D9D9] hover:border-[#00B42A] hover:text-[#00B42A] text-[#4E5969] rounded transition-colors"
+                  >
+                    标记为已恢复
+                  </button>
+                  <button 
+                    @click="activeAlarm.status = '已忽略'; closeAlarmDrawer()" 
+                    class="px-3 py-1.5 text-[12px] bg-white border border-[#D9D9D9] hover:border-[#86909C] hover:text-[#1D2129] text-[#4E5969] rounded transition-colors"
+                  >
+                    忽略此告警
+                  </button>
+                </div>
+                <button 
+                  @click="closeAlarmDrawer()" 
+                  class="px-4 py-1.5 text-[12px] bg-[#165DFF] hover:bg-[#0E42D2] text-white rounded font-medium transition-colors shadow-2xs"
+                >
+                  确定
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
       </div>
     </template>
   </div>
 
   <!-- 双底座公共 Shell 逻辑 -->
-  <script src="./_shell/shell.js"></script>
+  <script src="./_shell/shell.js?v=sase_logo_v2"></script>
   <script>
     (function injectPageTemplate() {
       const tpl = document.getElementById('page-content-template');

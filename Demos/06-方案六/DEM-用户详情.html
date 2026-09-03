@@ -117,9 +117,237 @@
           return name.charAt(0);
         },
 
-        // 时间筛选器
+        // 统一时间筛选器状态与交互 (快捷 + 自定义级联 + 30天跨度)
         dateShortcut: '今天',
-        dateRange: '2026-06-04 00:00:00 ~ 2026-06-04 23:59:59',
+        dateRange: '2026-06-04 00:00:00 至 2026-06-04 23:59:59',
+        dateFilterState: {
+          shortcut: '今天',
+          shortcutDropdownOpen: false,
+          pickerOpen: false,
+          hoverCustom: false,
+          currentYear: 2026,
+          currentMonth: 5,
+          startDate: '2026-06-04',
+          endDate: '2026-06-04',
+          tempStartDate: '2026-06-04',
+          tempEndDate: '2026-06-04',
+          hoverDate: null,
+          startTime: '00:00:00',
+          endTime: '23:59:59',
+          isSelecting: false,
+          rangeText: '2026-06-04 00:00:00 至 2026-06-04 23:59:59'
+        },
+
+        toggleShortcutDropdown() {
+          this.dateFilterState.shortcutDropdownOpen = !this.dateFilterState.shortcutDropdownOpen;
+          if (!this.dateFilterState.shortcutDropdownOpen) {
+            this.dateFilterState.hoverCustom = false;
+          }
+        },
+
+        openDatePickerDirectly() {
+          this.dateFilterState.shortcutDropdownOpen = false;
+          this.dateFilterState.hoverCustom = false;
+          this.dateFilterState.pickerOpen = true;
+          this.initPickerTempDates();
+        },
+
+        closeAllDatePopups() {
+          this.dateFilterState.shortcutDropdownOpen = false;
+          this.dateFilterState.pickerOpen = false;
+          this.dateFilterState.hoverCustom = false;
+          this.dateFilterState.isSelecting = false;
+        },
+
+        selectShortcut(shortcut) {
+          if (shortcut === '自定义') {
+            this.dateFilterState.hoverCustom = true;
+            this.initPickerTempDates();
+            return;
+          }
+          this.dateFilterState.shortcut = shortcut;
+          this.dateFilterState.shortcutDropdownOpen = false;
+          this.dateFilterState.pickerOpen = false;
+          this.dateFilterState.hoverCustom = false;
+
+          const endStr = '2026-06-04';
+          let startStr = '2026-06-04';
+          let sTime = '00:00:00';
+          let eTime = '23:59:59';
+
+          if (shortcut === '今天') {
+            startStr = '2026-06-04';
+          } else if (shortcut === '近24小时') {
+            startStr = '2026-06-03';
+            sTime = '16:00:00';
+            eTime = '16:00:00';
+          } else if (shortcut === '近3天') {
+            startStr = '2026-06-02';
+          } else if (shortcut === '近7天') {
+            startStr = '2026-05-29';
+          } else if (shortcut === '近30天') {
+            startStr = '2026-05-06';
+          }
+
+          this.dateFilterState.startDate = startStr;
+          this.dateFilterState.endDate = endStr;
+          this.dateFilterState.startTime = sTime;
+          this.dateFilterState.endTime = eTime;
+          this.dateFilterState.rangeText = `${startStr} ${sTime} 至 ${endStr} ${eTime}`;
+
+          this.dateShortcut = shortcut;
+          this.dateRange = this.dateFilterState.rangeText;
+        },
+
+        initPickerTempDates() {
+          this.dateFilterState.tempStartDate = this.dateFilterState.startDate;
+          this.dateFilterState.tempEndDate = this.dateFilterState.endDate;
+          this.dateFilterState.isSelecting = false;
+          this.dateFilterState.hoverDate = null;
+          // 自定义选择时默认时间设为 00:00:00 - 23:59:59
+          if (this.dateFilterState.shortcut !== '自定义') {
+            this.dateFilterState.startTime = '00:00:00';
+            this.dateFilterState.endTime = '23:59:59';
+          }
+        },
+
+        prevMonth() {
+          if (this.dateFilterState.currentMonth === 0) {
+            this.dateFilterState.currentMonth = 11;
+            this.dateFilterState.currentYear--;
+          } else {
+            this.dateFilterState.currentMonth--;
+          }
+        },
+
+        nextMonth() {
+          if (this.dateFilterState.currentMonth === 11) {
+            this.dateFilterState.currentMonth = 0;
+            this.dateFilterState.currentYear++;
+          } else {
+            this.dateFilterState.currentMonth++;
+          }
+        },
+
+        getCalendarDays(year, month) {
+          const firstDay = new Date(year, month, 1).getDay();
+          const daysInMonth = new Date(year, month + 1, 0).getDate();
+          const prevMonthDays = new Date(year, month, 0).getDate();
+
+          const days = [];
+          const adjustedFirstDay = firstDay === 0 ? 6 : firstDay - 1;
+          for (let i = adjustedFirstDay - 1; i >= 0; i--) {
+            const d = prevMonthDays - i;
+            const m = month === 0 ? 11 : month - 1;
+            const y = month === 0 ? year - 1 : year;
+            days.push({
+              year: y,
+              month: m,
+              day: d,
+              dateStr: `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`,
+              isCurrentMonth: false
+            });
+          }
+          for (let d = 1; d <= daysInMonth; d++) {
+            days.push({
+              year: year,
+              month: month,
+              day: d,
+              dateStr: `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`,
+              isCurrentMonth: true
+            });
+          }
+          const remaining = 42 - days.length;
+          for (let d = 1; d <= remaining; d++) {
+            const m = month === 11 ? 0 : month + 1;
+            const y = month === 11 ? year + 1 : year;
+            days.push({
+              year: y,
+              month: m,
+              day: d,
+              dateStr: `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`,
+              isCurrentMonth: false
+            });
+          }
+          return days;
+        },
+
+        handleDateClick(dateStr) {
+          if (this.isDateDisabled(dateStr)) return;
+
+          if (!this.dateFilterState.isSelecting) {
+            this.dateFilterState.tempStartDate = dateStr;
+            this.dateFilterState.tempEndDate = null;
+            this.dateFilterState.isSelecting = true;
+          } else {
+            if (dateStr < this.dateFilterState.tempStartDate) {
+              this.dateFilterState.tempEndDate = this.dateFilterState.tempStartDate;
+              this.dateFilterState.tempStartDate = dateStr;
+            } else {
+              this.dateFilterState.tempEndDate = dateStr;
+            }
+            this.dateFilterState.isSelecting = false;
+          }
+        },
+
+        handleDateHover(dateStr) {
+          if (this.dateFilterState.isSelecting) {
+            this.dateFilterState.hoverDate = dateStr;
+          }
+        },
+
+        isDateDisabled(dateStr) {
+          if (!this.dateFilterState.isSelecting || !this.dateFilterState.tempStartDate) {
+            return false;
+          }
+          const start = new Date(this.dateFilterState.tempStartDate).getTime();
+          const cur = new Date(dateStr).getTime();
+          const diffDays = Math.abs(cur - start) / (1000 * 60 * 60 * 24);
+          return diffDays > 30;
+        },
+
+        isDateInRange(dateStr) {
+          const s = this.dateFilterState.tempStartDate;
+          let e = this.dateFilterState.tempEndDate;
+          if (this.dateFilterState.isSelecting && this.dateFilterState.hoverDate) {
+            e = this.dateFilterState.hoverDate;
+          }
+          if (!s || !e) return false;
+          const min = s < e ? s : e;
+          const max = s < e ? e : s;
+          return dateStr >= min && dateStr <= max;
+        },
+
+        isDateStartOrEnd(dateStr) {
+          const s = this.dateFilterState.tempStartDate;
+          let e = this.dateFilterState.tempEndDate;
+          if (this.dateFilterState.isSelecting && this.dateFilterState.hoverDate) {
+            e = this.dateFilterState.hoverDate;
+          }
+          return dateStr === s || dateStr === e;
+        },
+
+        applyCustomDateRange() {
+          const s = this.dateFilterState.tempStartDate || '2026-06-04';
+          const e = this.dateFilterState.tempEndDate || s;
+          const min = s < e ? s : e;
+          const max = s < e ? e : s;
+
+          const sTime = (this.dateFilterState.startTime || '00:00:00').trim();
+          const eTime = (this.dateFilterState.endTime || '23:59:59').trim();
+
+          this.dateFilterState.startDate = min;
+          this.dateFilterState.endDate = max;
+          this.dateFilterState.startTime = sTime;
+          this.dateFilterState.endTime = eTime;
+          this.dateFilterState.shortcut = '自定义';
+          this.dateFilterState.rangeText = `${min} ${sTime} 至 ${max} ${eTime}`;
+
+          this.dateShortcut = '自定义';
+          this.dateRange = this.dateFilterState.rangeText;
+
+          this.closeAllDatePopups();
+        },
 
         // 详情类型 ('用户' | '分支' | '应用')
         queryType: '用户',
@@ -2788,26 +3016,150 @@
           </div>
 
           <div class="flex items-center gap-2 select-none">
-            <div class="inline-flex items-center h-8 bg-white border border-[#D3D7DE] rounded-[2px] hover:border-[#1C6EFF] transition-colors text-xs shadow-xs">
-              <div class="relative bg-[#F7F9FC] h-full px-2.5 flex items-center justify-between border-r border-[#D3D7DE] min-w-[88px] cursor-pointer group">
-                <select x-model="dateShortcut" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full text-xs">
-                  <option value="今天" selected>今天</option>
-                  <option value="近24小时">近24小时</option>
-                  <option value="近3天">近3天</option>
-                  <option value="近7天">近7天</option>
-                </select>
-                <span class="text-[#2F3540] font-normal text-xs" x-text="dateShortcut"></span>
-                <svg class="w-3.5 h-3.5 text-[#A1A7B3] ml-2 group-hover:text-[#1C6EFF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                </svg>
+            <!-- 统一时间筛选器控件 (支持快捷选择 + 自定义 Hover 级联面板 + 点击直接唤出面板) -->
+            <div class="relative flex items-center select-none" @click.outside="closeAllDatePopups()">
+              
+              <!-- 主输入控件外框 -->
+              <div class="inline-flex items-center h-8 bg-white border border-[#D3D7DE] rounded-[2px] hover:border-[#1C6EFF] transition-colors text-xs shadow-xs">
+                
+                <!-- 1. 左侧快捷选择区 -->
+                <div class="relative bg-[#F7F9FC] hover:bg-[#F1F5F9] h-full px-2.5 flex items-center justify-between border-r border-[#D3D7DE] min-w-[84px] cursor-pointer transition-colors"
+                     @click="toggleShortcutDropdown()">
+                  <span class="text-[#2F3540] font-normal text-xs" x-text="dateFilterState.shortcut"></span>
+                  <svg class="w-3.5 h-3.5 text-[#A1A7B3] ml-2 transition-transform duration-200" 
+                       :class="dateFilterState.shortcutDropdownOpen && 'rotate-180'"
+                       fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                  </svg>
+                </div>
+
+                <!-- 2. 右侧日期范围展示区 (点击直接唤出面板) -->
+                <div class="h-full pl-3 pr-2.5 flex items-center justify-between cursor-pointer whitespace-nowrap hover:bg-[#F7F9FC] transition-colors"
+                     @click="openDatePickerDirectly()">
+                  <span class="font-mono text-xs text-[#2F3540] whitespace-nowrap" x-text="dateFilterState.rangeText"></span>
+                  <svg class="w-3.5 h-3.5 text-[#A1A7B3] flex-shrink-0 ml-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                  </svg>
+                </div>
               </div>
 
-              <div class="h-full pl-3 pr-2 flex items-center justify-between cursor-pointer whitespace-nowrap">
-                <span class="font-mono text-xs text-[#2F3540] whitespace-nowrap" x-text="dateRange"></span>
-                <svg class="w-3.5 h-3.5 text-[#A1A7B3] flex-shrink-0 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                </svg>
+              <!-- ========================================== -->
+              <!-- 快捷下拉菜单 (含 hover「自定义」级联右侧面板) -->
+              <!-- ========================================== -->
+              <div x-show="dateFilterState.shortcutDropdownOpen"
+                   x-transition:enter="transition ease-out duration-100"
+                   x-transition:enter-start="opacity-0 scale-95"
+                   x-transition:enter-end="opacity-100 scale-100"
+                   x-transition:leave="transition ease-in duration-75"
+                   x-transition:leave-start="opacity-100 scale-100"
+                   x-transition:leave-end="opacity-0 scale-95"
+                   class="absolute top-9 left-0 z-50 bg-white border border-[#E2E8F0] rounded-[2px] shadow-lg py-1 min-w-[110px] text-xs"
+                   style="display: none;">
+                <template x-for="item in ['今天', '近24小时', '近3天', '近7天', '近30天']" :key="item">
+                  <div @click="selectShortcut(item)"
+                       @mouseenter="dateFilterState.hoverCustom = false"
+                       class="px-3 py-1.5 cursor-pointer flex items-center justify-between transition-colors"
+                       :class="dateFilterState.shortcut === item ? 'bg-[#E6F4FF] text-[#1C6EFF] font-medium' : 'text-[#2F3540] hover:bg-[#F8FAFC]'">
+                    <span x-text="item"></span>
+                    <svg x-show="dateFilterState.shortcut === item" class="w-3.5 h-3.5 text-[#1C6EFF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                  </div>
+                </template>
+
+                <!-- 自定义项：hover 时在右侧级联展开日历面板 -->
+                <div @mouseenter="dateFilterState.hoverCustom = true; initPickerTempDates()"
+                     @click="dateFilterState.hoverCustom = true; initPickerTempDates()"
+                     class="relative px-3 py-1.5 cursor-pointer flex items-center justify-between transition-colors border-t border-[#F1F5F9] mt-0.5"
+                     :class="(dateFilterState.shortcut === '自定义' || dateFilterState.hoverCustom) ? 'bg-[#E6F4FF] text-[#1C6EFF] font-medium' : 'text-[#2F3540] hover:bg-[#F8FAFC]'">
+                  <span>自定义</span>
+                  <svg class="w-3 h-3 text-[#8C8C8C]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                  </svg>
+                </div>
               </div>
+
+              <!-- ========================================== -->
+              <!-- 日期时间范围选择面板 (支持级联与直接唤出) -->
+              <!-- ========================================== -->
+              <div x-show="dateFilterState.pickerOpen || (dateFilterState.shortcutDropdownOpen && dateFilterState.hoverCustom)"
+                   x-transition:enter="transition ease-out duration-150"
+                   x-transition:enter-start="opacity-0 translate-y-1"
+                   x-transition:enter-end="opacity-100 translate-y-0"
+                   x-transition:leave="transition ease-in duration-100"
+                   x-transition:leave-start="opacity-100 translate-y-0"
+                   x-transition:leave-end="opacity-0 translate-y-1"
+                   class="absolute top-9 right-0 z-50 bg-white border border-[#E2E8F0] rounded-[3px] shadow-xl p-3 text-xs w-[320px]"
+                   style="display: none;">
+                
+                <!-- 日历头部导航 -->
+                <div class="flex items-center justify-between pb-2 mb-2 border-b border-[#F1F5F9]">
+                  <button type="button" @click.stop="prevMonth()" class="p-1 hover:bg-[#F1F5F9] rounded text-[#64748B] hover:text-[#1C6EFF] transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                  </button>
+                  <span class="font-medium text-[#1E293B]" x-text="`${dateFilterState.currentYear}年 ${dateFilterState.currentMonth + 1}月`"></span>
+                  <button type="button" @click.stop="nextMonth()" class="p-1 hover:bg-[#F1F5F9] rounded text-[#64748B] hover:text-[#1C6EFF] transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                  </button>
+                </div>
+
+                <!-- 星期表头 -->
+                <div class="grid grid-cols-7 gap-1 text-center text-[11px] text-[#94A3B8] mb-1 font-medium">
+                  <span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span>
+                </div>
+
+                <!-- 日期格子 -->
+                <div class="grid grid-cols-7 gap-y-1 text-center text-xs">
+                  <template x-for="d in getCalendarDays(dateFilterState.currentYear, dateFilterState.currentMonth)" :key="d.dateStr">
+                    <div class="h-7 flex items-center justify-center relative cursor-pointer group"
+                         :class="{
+                           'opacity-30 cursor-not-allowed pointer-events-none': isDateDisabled(d.dateStr),
+                           'text-[#CBD5E1]': !d.isCurrentMonth,
+                           'text-[#1E293B]': d.isCurrentMonth && !isDateStartOrEnd(d.dateStr),
+                           'bg-[#E6F4FF]': isDateInRange(d.dateStr) && !isDateStartOrEnd(d.dateStr)
+                         }"
+                         @click.stop="handleDateClick(d.dateStr)"
+                         @mouseenter="handleDateHover(d.dateStr)">
+                        <!-- 起点/终点高亮背景圆 -->
+                        <span class="w-6 h-6 flex items-center justify-center rounded-full text-xs font-medium transition-colors z-10"
+                              :class="isDateStartOrEnd(d.dateStr) ? 'bg-[#1C6EFF] text-white font-bold shadow-xs' : 'group-hover:bg-[#F1F5F9]'"
+                              x-text="d.day"></span>
+                    </div>
+                  </template>
+                </div>
+
+                <!-- 底部跨度提示与时间设置 (支持编辑修改时间) -->
+                <div class="mt-3 pt-2.5 border-t border-[#F1F5F9] space-y-2.5">
+                  <div class="flex items-center justify-between text-[11px] text-[#5C6270]">
+                    <span class="text-[#64748B] font-medium">时间范围:</span>
+                    <div class="flex items-center gap-1.5 font-mono">
+                      <input type="text" 
+                             x-model="dateFilterState.startTime" 
+                             placeholder="00:00:00"
+                             maxlength="8"
+                             @click.stop
+                             class="w-[68px] h-[22px] px-1 text-center font-mono text-[11px] border border-[#D3D7DE] rounded-[2px] focus:border-[#1C6EFF] focus:outline-none text-[#1E293B] bg-[#F8FAFC] focus:bg-white transition-colors" />
+                      <span class="text-[#94A3B8]">-</span>
+                      <input type="text" 
+                             x-model="dateFilterState.endTime" 
+                             placeholder="23:59:59"
+                             maxlength="8"
+                             @click.stop
+                             class="w-[68px] h-[22px] px-1 text-center font-mono text-[11px] border border-[#D3D7DE] rounded-[2px] focus:border-[#1C6EFF] focus:outline-none text-[#1E293B] bg-[#F8FAFC] focus:bg-white transition-colors" />
+                    </div>
+                  </div>
+
+                  <div class="flex items-center justify-between text-[11px]">
+                    <span class="text-[#94A3B8]">最大跨度 30 天</span>
+                    <div class="flex items-center gap-1.5">
+                      <button type="button" @click.stop="closeAllDatePopups()" class="px-2 py-1 bg-[#F1F5F9] hover:bg-[#E2E8F0] text-[#64748B] rounded-[2px] transition-colors cursor-pointer">取消</button>
+                      <button type="button" @click.stop="applyCustomDateRange()" class="px-2.5 py-1 bg-[#1C6EFF] hover:bg-[#0B57D0] text-white rounded-[2px] font-medium shadow-xs transition-colors cursor-pointer">确定</button>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+
             </div>
 
             <!-- 收起概览按钮 (参照应用详情样式与间距) -->
@@ -3511,12 +3863,21 @@
 
                             
                             <!-- ==========================================
-                                 1. 终端节点 (node_terminal) - 精简展示 CPU、内存、Wi-Fi信号 (3卡片)
+                                 1. 终端节点 (node_terminal) - 客户端状态、CPU、内存、Wi-Fi信号 (4卡片)
                                  ========================================== -->
                             <template x-if="item.id === 'node_terminal'">
                               <div class="space-y-3">
-                                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                                  <!-- CPU利用率 -->
+                                <div class="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+                                  <!-- ① 客户端状态 (置于首位) -->
+                                  <div class="bg-white p-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
+                                    <span class="text-[11px] text-[#6F7785]">客户端状态</span>
+                                    <div class="mt-1 flex items-baseline gap-1.5">
+                                      <span class="text-base font-bold text-[#12A679]">在线</span>
+                                    </div>
+                                    <span class="text-[10px] text-[#64748B]">零信任客户端已登录 · 隧道已开启</span>
+                                  </div>
+
+                                  <!-- ② CPU利用率 -->
                                   <div class="bg-white p-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
                                     <span class="text-[11px] text-[#6F7785]">CPU利用率</span>
                                     <div class="mt-1 flex items-baseline gap-1">
@@ -3525,7 +3886,7 @@
                                     <span class="text-[10px]" :class="(isWifiAbnormal(item) || item.status !== '异常') ? 'text-[#64748B]' : 'text-[#F52727]'" x-text="(isWifiAbnormal(item) || item.status !== '异常') ? '正常 (< 70%)' : '高负荷排队 (基线 < 70%)'"></span>
                                   </div>
 
-                                  <!-- 内存利用率 -->
+                                  <!-- ③ 内存利用率 -->
                                   <div class="bg-white p-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
                                     <span class="text-[11px] text-[#6F7785]">内存利用率</span>
                                     <div class="mt-1 flex items-baseline gap-1">
@@ -3534,7 +3895,7 @@
                                     <span class="text-[10px]" :class="(isWifiAbnormal(item) || item.status !== '异常') ? 'text-[#64748B]' : 'text-[#FA721B]'" x-text="(isWifiAbnormal(item) || item.status !== '异常') ? '基线标准 < 60%' : '内存偏高 (基线 < 60%)'"></span>
                                   </div>
 
-                                  <!-- Wi-Fi 信号 (RSSI) -->
+                                  <!-- ④ Wi-Fi 信号 (RSSI) -->
                                   <div class="bg-white p-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
                                     <div class="flex items-center justify-between text-[11px]">
                                       <span class="text-[#6F7785]">Wi-Fi 信号 (RSSI)</span>
