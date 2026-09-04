@@ -374,9 +374,28 @@
         // 表格筛选条件 (默认空，对应“全部xx”)
         filterLevel: '',
         filterStatus: '',
-        filterTargetGroup: '',
-        filterApp: '',
+        filterAlarmType: '', // 告警类型筛选：'应用' | '用户' | '分支'
+        filterTarget: '',    // 告警对象筛选：预置文案为“全部筛选对象”
+        targetDropdownOpen: false,
+        targetSearchQuery: '',
         searchKeyword: '',
+
+        // 告警对象备选列表 (分类聚合支持搜索)
+        targetOptions: [
+          { group: '应用', items: ['OA系统', 'ERP系统', 'CRM系统'] },
+          { group: '用户', items: ['45232(何总)', '李总监(33120)'] },
+          { group: '分支', items: ['泰国办', '上海办事处', '成都办事处', '北京研发中心', '深圳总部'] }
+        ],
+        get filteredTargetGroups() {
+          const q = this.targetSearchQuery.trim().toLowerCase();
+          if (!q) return this.targetOptions;
+          return this.targetOptions
+            .map(grp => {
+              const matchedItems = grp.items.filter(name => name.toLowerCase().includes(q));
+              return { group: grp.group, items: matchedItems };
+            })
+            .filter(grp => grp.items.length > 0);
+        },
 
         // 表格选择项
         selectedIds: [],
@@ -406,17 +425,17 @@
         alarms: [
           {
             id: 1,
-            alarmType: '关键应用访问体验差',
+            alarmType: '应用访问体验差',
             policyName: '关键应用访问体验监控策略',
             level: '紧急', // 改为紧急
             type: '应用',
             target: 'OA系统',
-            impactUsersCount: '8',
+            impactUsersCount: '12',
             impactSecondLabel: '分支',
             impactSecondCount: '3',
             infoBullets: [
-              '连续 2 周期内应用访问体验评级为差 (8人)',
-              '网关 SSL 握手延迟突增至 138ms，平均 TTFB 82ms'
+              '在 5 分钟内，关键应用访问体验状态判定为差',
+              '访问该应用的用户数达 12 个（高于限制 10 个），涉及分支数 3 个（高于限制 2 个）'
             ],
             timeRangeDisplay: '2026-08-26 15:10 ~ 现在',
             durationText: '已持续 191 小时',
@@ -427,8 +446,8 @@
           },
           {
             id: 2,
-            alarmType: 'VIP用户访问体验差',
-            policyName: '高管与VIP用户体验保障策略',
+            alarmType: '用户访问体验差',
+            policyName: '关键应用访问体验监控策略',
             level: '紧急', // 何总等级为紧急
             type: '用户',
             target: '45232(何总)',
@@ -436,8 +455,8 @@
             impactSecondLabel: '应用',
             impactSecondCount: '4',
             infoBullets: [
-              '连续 3 周期用户访问体验评级为差',
-              'TTFB 达 182ms，Wi-Fi 信号弱至 -84dBm，空口重传 31.2%'
+              '在 5 分钟内，移动办公用户访问关键应用的体验状态持续为差',
+              '访问 OA系统、ERP系统等 4 个关键业务应用体验均判定为差'
             ],
             timeRangeDisplay: '2026-08-26 21:15 ~ 现在',
             durationText: '已持续 185 小时',
@@ -449,7 +468,7 @@
           {
             id: 3,
             alarmType: '分支访问体验差',
-            policyName: '海外分支连通性与体验监控',
+            policyName: '关键应用访问体验监控策略',
             level: '重要',
             type: '分支',
             target: '泰国办',
@@ -457,8 +476,8 @@
             impactSecondLabel: '应用',
             impactSecondCount: '5',
             infoBullets: [
-              '连续 5 周期内 30% 访问用户体验为差 (5人)',
-              '曼谷出口路由短暂黑洞，平均 TTFB 达 78ms'
+              '在 5 分钟内，该分支办公访问关键业务应用的体验状态判定为差',
+              '分支内有 10% 用户访问关键应用体验为差，共波及 5 名用户'
             ],
             timeRangeDisplay: '2026-08-26 14:05 ~ 14:35',
             durationText: '共持续 30 分钟',
@@ -469,17 +488,17 @@
           },
           {
             id: 4,
-            alarmType: '关键应用访问体验差',
-            policyName: '核心业务ERP全生命周期体验监测',
+            alarmType: '应用访问体验差',
+            policyName: '关键应用访问体验监控策略',
             level: '紧急',
             type: '应用',
             target: 'ERP系统',
-            impactUsersCount: '5',
+            impactUsersCount: '16',
             impactSecondLabel: '分支',
             impactSecondCount: '2',
             infoBullets: [
-              '连续 2 周期 ERP 应用访问体验评级为差',
-              'TTFB 从 46ms 升至 78ms (+69%)，丢包率 4.2%'
+              '在 5 分钟内，关键业务应用访问体验状态判定为差',
+              '访问该应用的用户数达 16 个（高于限制 10 个），波及 2 个分支'
             ],
             timeRangeDisplay: '2026-08-26 20:45 ~ 现在',
             durationText: '已持续 186 小时',
@@ -491,7 +510,7 @@
           {
             id: 5,
             alarmType: '分支访问体验差',
-            policyName: '全员工访问体验自动告警',
+            policyName: '关键应用访问体验监控策略',
             level: '重要',
             type: '分支',
             target: '上海办事处',
@@ -499,8 +518,8 @@
             impactSecondLabel: '应用',
             impactSecondCount: '6',
             infoBullets: [
-              '连续 3 周期内 63% 访问用户体验为差 (5人)',
-              '核心交换机上行链路拥塞，平均 TTFB 达 132ms (+120%)'
+              '在 5 分钟内，应用整体状态尚未变差，该分支办公访问体验已先劣化',
+              '分支内访问关键业务应用的差体验用户比例达 10%（5 名用户）'
             ],
             timeRangeDisplay: '2026-08-21 07:40 ~ 现在',
             durationText: '已持续 319 小时',
@@ -512,7 +531,7 @@
           {
             id: 6,
             alarmType: '分支访问体验差',
-            policyName: '全员工访问体验自动告警',
+            policyName: '关键应用访问体验监控策略',
             level: '重要',
             type: '分支',
             target: '成都办事处',
@@ -520,8 +539,8 @@
             impactSecondLabel: '应用',
             impactSecondCount: '3',
             infoBullets: [
-              '连续 2 周期内 40% 访问用户体验为差 (4人)',
-              '本地宽带 DNS 递归解析时延升至 210ms'
+              '在 5 分钟内，该分支办公访问关键业务应用的体验状态判定为差',
+              '分支内访问关键应用的差体验用户比例达 10%（涉及 3 个关键应用）'
             ],
             timeRangeDisplay: '2026-08-25 11:20 ~ 12:50',
             durationText: '共持续 90 分钟',
@@ -532,17 +551,17 @@
           },
           {
             id: 7,
-            alarmType: '关键应用访问体验差',
-            policyName: '核心CRM客户系统体验监控',
+            alarmType: '应用访问体验差',
+            policyName: '关键应用访问体验监控策略',
             level: '重要',
             type: '应用',
             target: 'CRM系统',
-            impactUsersCount: '6',
+            impactUsersCount: '0',
             impactSecondLabel: '分支',
-            impactSecondCount: '4',
+            impactSecondCount: '2',
             infoBullets: [
-              '连续 2 周期 CRM 页面平均加载时延超过 2.4s',
-              'API 接口网关偶发 HTTP 504 超时，影响售前与客服团队'
+              '在 5 分钟内，应用无真实用户访问，探针探测访问体验状态持续判定为差',
+              '基于探针拨测场景提前预警，涉及 2 个分支办公接入'
             ],
             timeRangeDisplay: '2026-08-26 16:30 ~ 现在',
             durationText: '已持续 190 小时',
@@ -553,8 +572,8 @@
           },
           {
             id: 8,
-            alarmType: 'VIP用户访问体验差',
-            policyName: '高管与VIP用户体验保障策略',
+            alarmType: '用户访问体验差',
+            policyName: '关键应用访问体验监控策略',
             level: '重要',
             type: '用户',
             target: '李总监(33120)',
@@ -562,8 +581,8 @@
             impactSecondLabel: '应用',
             impactSecondCount: '3',
             infoBullets: [
-              '音视频会议频繁卡顿，丢包率峰值达 8.5%',
-              '终端本地 CPU 占用率达 98%，内存压力偏高'
+              '在 5 分钟内，移动办公用户访问关键业务应用体验状态持续判定为差',
+              '连续访问 CRM系统、ERP系统等 3 个关键内网应用体验状态均为差'
             ],
             timeRangeDisplay: '2026-08-25 09:15 ~ 10:45',
             durationText: '共持续 90 分钟',
@@ -575,7 +594,7 @@
           {
             id: 9,
             alarmType: '分支访问体验差',
-            policyName: '全国骨干分支智能连通性监测',
+            policyName: '关键应用访问体验监控策略',
             level: '紧急',
             type: '分支',
             target: '北京研发中心',
@@ -583,8 +602,8 @@
             impactSecondLabel: '应用',
             impactSecondCount: '8',
             infoBullets: [
-              '连续 3 周期骨干专线丢包率 > 5.2% (12人受影响)',
-              'Git 仓库拉取与 CI/CD 构建流水线出现明显超时'
+              '在 5 分钟内，该分支办公访问关键业务应用的体验状态判定为差',
+              '分支内差体验用户数达 12 个（高于限制 10 个），波及 8 个关键应用'
             ],
             timeRangeDisplay: '2026-08-26 19:00 ~ 现在',
             durationText: '已持续 188 小时',
@@ -596,7 +615,7 @@
           {
             id: 10,
             alarmType: '分支访问体验差',
-            policyName: '全员工访问体验自动告警',
+            policyName: '关键应用访问体验监控策略',
             level: '重要',
             type: '分支',
             target: '深圳总部',
@@ -604,8 +623,8 @@
             impactSecondLabel: '应用',
             impactSecondCount: '2',
             infoBullets: [
-              '4号楼无线 AP 偶发射频信道冲突，漫游重连率 14%',
-              '部分移动办公终端认证延迟 > 800ms'
+              '在 5 分钟内，该分支办公访问关键业务应用的体验状态判定为差',
+              '分支内访问该关键应用的差体验用户比例达 10%（涉及 2 个应用）'
             ],
             timeRangeDisplay: '2026-08-24 14:20 ~ 16:00',
             durationText: '共持续 100 分钟',
@@ -663,8 +682,12 @@
             .filter(item => {
               if (this.filterLevel && item.level !== this.filterLevel) return false;
               if (this.filterStatus && item.status !== this.filterStatus) return false;
-              if (this.filterTargetGroup && !item.target.includes(this.filterTargetGroup)) return false;
-              if (this.filterApp && item.target !== this.filterApp && !item.alarmType.includes(this.filterApp)) return false;
+              if (this.filterAlarmType && item.type !== this.filterAlarmType && !item.alarmType.includes(this.filterAlarmType)) return false;
+              if (this.filterTarget) {
+                const isTargetMatch = item.target === this.filterTarget;
+                const isBulletMatch = item.infoBullets.some(b => b.includes(this.filterTarget));
+                if (!isTargetMatch && !isBulletMatch) return false;
+              }
               if (this.searchKeyword.trim()) {
                 const kw = this.searchKeyword.trim().toLowerCase();
                 const match = item.alarmType.toLowerCase().includes(kw) ||
@@ -756,13 +779,7 @@
           this.currentPage = 1;
         },
         filterByType(type) {
-          if (type === '用户') {
-            this.filterTargetGroup = this.filterTargetGroup ? '' : '45232(何总)';
-          } else if (type === '应用') {
-            this.filterApp = this.filterApp ? '' : 'ERP系统';
-          } else if (type === '分支') {
-            this.filterTargetGroup = this.filterTargetGroup ? '' : '上海办事处';
-          }
+          this.filterAlarmType = this.filterAlarmType === type ? '' : type;
           this.currentPage = 1;
         },
 
@@ -1330,10 +1347,11 @@
                 <!-- 用户告警 -->
                 <div 
                   @click="filterByType('用户')"
-                  class="bg-[#FAFAFA] hover:bg-[#F2F3F5] border border-[#E5E6EB] rounded-[2px] p-2.5 flex flex-col justify-between cursor-pointer transition-colors border-t-2 border-t-[#1C6EFF] group"
+                  :class="filterAlarmType === '用户' ? 'bg-[#F0F5FF] border-[#1C6EFF] ring-1 ring-[#1C6EFF]' : 'bg-[#FAFAFA] hover:bg-[#F2F3F5] border-[#E5E6EB]'"
+                  class="border rounded-[2px] p-2.5 flex flex-col justify-between cursor-pointer transition-all border-t-2 border-t-[#1C6EFF] group"
                 >
                   <div class="flex items-center justify-between text-[11px] text-[#4E5969]">
-                    <span class="group-hover:text-[#1C6EFF] transition-colors">用户告警</span>
+                    <span :class="filterAlarmType === '用户' ? 'text-[#1C6EFF] font-medium' : 'group-hover:text-[#1C6EFF]'" class="transition-colors">用户访问体验差</span>
                     <svg class="w-3.5 h-3.5 text-[#1C6EFF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
                     </svg>
@@ -1347,10 +1365,11 @@
                 <!-- 应用告警 -->
                 <div 
                   @click="filterByType('应用')"
-                  class="bg-[#FAFAFA] hover:bg-[#F2F3F5] border border-[#E5E6EB] rounded-[2px] p-2.5 flex flex-col justify-between cursor-pointer transition-colors border-t-2 border-t-[#00B42A] group"
+                  :class="filterAlarmType === '应用' ? 'bg-[#F0FFF4] border-[#00B42A] ring-1 ring-[#00B42A]' : 'bg-[#FAFAFA] hover:bg-[#F2F3F5] border-[#E5E6EB]'"
+                  class="border rounded-[2px] p-2.5 flex flex-col justify-between cursor-pointer transition-all border-t-2 border-t-[#00B42A] group"
                 >
                   <div class="flex items-center justify-between text-[11px] text-[#4E5969]">
-                    <span class="group-hover:text-[#00B42A] transition-colors">应用告警</span>
+                    <span :class="filterAlarmType === '应用' ? 'text-[#00B42A] font-medium' : 'group-hover:text-[#00B42A]'" class="transition-colors">应用访问体验差</span>
                     <svg class="w-3.5 h-3.5 text-[#00B42A]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
                     </svg>
@@ -1364,10 +1383,11 @@
                 <!-- 分支告警 -->
                 <div 
                   @click="filterByType('分支')"
-                  class="bg-[#FAFAFA] hover:bg-[#F2F3F5] border border-[#E5E6EB] rounded-[2px] p-2.5 flex flex-col justify-between cursor-pointer transition-colors border-t-2 border-t-[#722ED1] group"
+                  :class="filterAlarmType === '分支' ? 'bg-[#F9F0FF] border-[#722ED1] ring-1 ring-[#722ED1]' : 'bg-[#FAFAFA] hover:bg-[#F2F3F5] border-[#E5E6EB]'"
+                  class="border rounded-[2px] p-2.5 flex flex-col justify-between cursor-pointer transition-all border-t-2 border-t-[#722ED1] group"
                 >
                   <div class="flex items-center justify-between text-[11px] text-[#4E5969]">
-                    <span class="group-hover:text-[#722ED1] transition-colors">分支告警</span>
+                    <span :class="filterAlarmType === '分支' ? 'text-[#722ED1] font-medium' : 'group-hover:text-[#722ED1]'" class="transition-colors">分支访问体验差</span>
                     <svg class="w-3.5 h-3.5 text-[#722ED1]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
                     </svg>
@@ -1477,27 +1497,23 @@
                 </button>
               </div>
 
-              <!-- 3. 选择用户或组 -->
+              <!-- 3. 选择告警类型 (单选：应用、用户、分支) -->
               <div class="dem-select-wrapper group">
                 <select 
-                  x-model="filterTargetGroup" 
+                  x-model="filterAlarmType" 
                   @change="currentPage = 1"
                   class="dem-select-fixed" 
-                  :class="!filterTargetGroup ? 'text-[#8A92A1]' : 'text-[#2F3540]'"
+                  :class="!filterAlarmType ? 'text-[#8A92A1]' : 'text-[#2F3540]'"
                 >
-                  <option value="" class="text-[#8A92A1]">全部用户或组</option>
-                  <option value="45232(何总)" class="text-[#2F3540]">45232(何总)</option>
-                  <option value="李总监(33120)" class="text-[#2F3540]">李总监(33120)</option>
-                  <option value="泰国办" class="text-[#2F3540]">泰国办</option>
-                  <option value="上海办事处" class="text-[#2F3540]">上海办事处</option>
-                  <option value="成都办事处" class="text-[#2F3540]">成都办事处</option>
-                  <option value="北京研发中心" class="text-[#2F3540]">北京研发中心</option>
-                  <option value="深圳总部" class="text-[#2F3540]">深圳总部</option>
+                  <option value="" class="text-[#8A92A1]">全部告警类型</option>
+                  <option value="应用" class="text-[#2F3540]">应用</option>
+                  <option value="用户" class="text-[#2F3540]">用户</option>
+                  <option value="分支" class="text-[#2F3540]">分支</option>
                 </select>
                 <button 
                   type="button" 
-                  x-show="filterTargetGroup" 
-                  @click.stop.prevent="filterTargetGroup = ''; currentPage = 1" 
+                  x-show="filterAlarmType" 
+                  @click.stop.prevent="filterAlarmType = ''; currentPage = 1" 
                   class="dem-clear-btn has-value" 
                   title="清除选择"
                 >
@@ -1507,23 +1523,23 @@
                 </button>
               </div>
 
-              <!-- 4. 选择关联应用 -->
-              <div class="dem-select-wrapper group">
-                <select 
-                  x-model="filterApp" 
-                  @change="currentPage = 1"
-                  class="dem-select-fixed" 
-                  :class="!filterApp ? 'text-[#8A92A1]' : 'text-[#2F3540]'"
+              <!-- 4. 选择告警对象 (合并用户与应用，预置文案“全部筛选对象”，点击下拉后支持搜索) -->
+              <div class="dem-select-wrapper group" @click.outside="targetDropdownOpen = false">
+                <!-- 触发展示框 (规范 136px，高度 32px，与其它下拉完全对齐) -->
+                <div 
+                  @click="targetDropdownOpen = !targetDropdownOpen; if (targetDropdownOpen) $nextTick(() => $refs.targetSearchInput?.focus())"
+                  class="dem-select-fixed flex items-center justify-between cursor-pointer select-none"
+                  :class="targetDropdownOpen ? 'border-[#1C6EFF]' : ''"
+                  :title="filterTarget || '全部筛选对象'"
                 >
-                  <option value="" class="text-[#8A92A1]">全部关联应用</option>
-                  <option value="OA系统" class="text-[#2F3540]">OA系统</option>
-                  <option value="ERP系统" class="text-[#2F3540]">ERP系统</option>
-                  <option value="CRM系统" class="text-[#2F3540]">CRM系统</option>
-                </select>
+                  <span class="truncate pr-2" :class="!filterTarget ? 'text-[#8A92A1]' : 'text-[#2F3540]'" x-text="filterTarget || '全部筛选对象'"></span>
+                </div>
+                
+                <!-- 清空按钮 -->
                 <button 
                   type="button" 
-                  x-show="filterApp" 
-                  @click.stop.prevent="filterApp = ''; currentPage = 1" 
+                  x-show="filterTarget" 
+                  @click.stop.prevent="filterTarget = ''; targetSearchQuery = ''; currentPage = 1" 
                   class="dem-clear-btn has-value" 
                   title="清除选择"
                 >
@@ -1531,6 +1547,81 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
                   </svg>
                 </button>
+
+                <!-- 搜索下拉面板 -->
+                <div 
+                  x-show="targetDropdownOpen"
+                  x-transition:enter="transition ease-out duration-100"
+                  x-transition:enter-start="opacity-0 scale-95"
+                  x-transition:enter-end="opacity-100 scale-100"
+                  x-transition:leave="transition ease-in duration-75"
+                  x-transition:leave-start="opacity-100 scale-100"
+                  x-transition:leave-end="opacity-0 scale-95"
+                  class="absolute left-0 top-full mt-1 w-[210px] bg-white border border-[#D3D7DE] rounded-[2px] shadow-lg py-1 z-50 text-[12px]"
+                  style="display: none;"
+                  @click.stop
+                >
+                  <!-- 顶部搜索输入框 -->
+                  <div class="px-2 py-1.5 border-b border-[#F0F2F5]">
+                    <div class="relative">
+                      <span class="absolute inset-y-0 left-0 flex items-center pl-2 pointer-events-none text-[#86909C]">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                        </svg>
+                      </span>
+                      <input 
+                        type="text" 
+                        x-ref="targetSearchInput"
+                        x-model="targetSearchQuery"
+                        placeholder="搜索对象名称..."
+                        class="w-full h-7 pl-7 pr-2 text-[12px] bg-[#F8FAFC] border border-[#E5E6EB] rounded-[2px] placeholder-[#86909C] text-[#1D2129] focus:outline-none focus:border-[#1C6EFF] focus:bg-white transition-colors"
+                      />
+                    </div>
+                  </div>
+
+                  <!-- 选项列表 -->
+                  <div class="max-h-[220px] overflow-y-auto dem-custom-scroll py-1">
+                    <!-- 全部筛选对象 -->
+                    <div 
+                      @click="filterTarget = ''; targetDropdownOpen = false; targetSearchQuery = ''; currentPage = 1"
+                      class="px-3 py-1.5 cursor-pointer flex items-center justify-between transition-colors hover:bg-[#F2F3F5]"
+                      :class="!filterTarget ? 'text-[#1C6EFF] font-medium bg-[#F0F5FF]' : 'text-[#2F3540]'"
+                    >
+                      <span>全部筛选对象</span>
+                      <svg x-show="!filterTarget" class="w-3.5 h-3.5 text-[#1C6EFF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                      </svg>
+                    </div>
+
+                    <!-- 分组选项 -->
+                    <template x-for="grp in filteredTargetGroups" :key="grp.group">
+                      <div>
+                        <!-- 分组小标题 -->
+                        <div class="px-3 pt-2 pb-1 text-[11px] font-medium text-[#86909C] bg-[#FAFAFA] flex items-center gap-1 border-t border-[#F0F2F5] first:border-t-0 mt-1 first:mt-0">
+                          <span x-text="grp.group"></span>
+                        </div>
+                        <!-- 分组内选项 -->
+                        <template x-for="name in grp.items" :key="name">
+                          <div 
+                            @click="filterTarget = name; targetDropdownOpen = false; targetSearchQuery = ''; currentPage = 1"
+                            class="px-3 py-1.5 cursor-pointer flex items-center justify-between transition-colors hover:bg-[#F2F3F5]"
+                            :class="filterTarget === name ? 'text-[#1C6EFF] font-medium bg-[#F0F5FF]' : 'text-[#2F3540]'"
+                          >
+                            <span class="truncate" x-text="name"></span>
+                            <svg x-show="filterTarget === name" class="w-3.5 h-3.5 text-[#1C6EFF] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                          </div>
+                        </template>
+                      </div>
+                    </template>
+
+                    <!-- 无搜索结果提示 -->
+                    <div x-show="filteredTargetGroups.length === 0" class="py-4 text-center text-[12px] text-[#86909C]">
+                      无匹配对象
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <!-- 搜索框 -->
