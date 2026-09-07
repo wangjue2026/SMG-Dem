@@ -15,6 +15,7 @@
      1. 路由映射（修改导航菜单时同步更新这里）
      ────────────────────────────────────────────── */
   window.DEM_ROUTES_V2 = {
+    '数字体验管理': './DEM-首页.html',
     '访问体验监测': './DEM-首页.html',
     '体验监控':   './DEM-首页.html',
     '体验预警':   './DEM-体验预警.html',
@@ -186,13 +187,13 @@
       <span>设备状态</span>
     </div>
 
-    <!-- 访问体验监测（可展开） -->
+    <!-- 数字体验管理（可展开） -->
     <div>
       <div class="at-menu-l2 active" @click="toggleAtrustL2('dem')">
         <svg class="at-menu-l2-icon" stroke="url(#icon-grad)" fill="none" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
         </svg>
-        <span class="font-semibold text-white">访问体验监测</span>
+        <span class="font-semibold text-white">数字体验管理</span>
         <svg class="ml-auto mr-4 w-4 h-4 opacity-60 transition-transform duration-200" :class="atrustExpandedL2 === 'dem' ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
         </svg>
@@ -236,7 +237,7 @@
   </div>
 </aside>`,
 
-    /* SASE 左树导航（在 组网 SDWAN 下方增加 访问体验监测，子菜单与线下一致） */
+    /* SASE 左树导航（在 组网 SDWAN 下方增加 数字体验管理，子菜单与线下一致） */
     SASE_SIDER_HTML: `<aside class="sase-sider flex flex-col flex-shrink-0 select-none justify-between overflow-hidden">
   <!-- Logo -->
   <div class="h-[56px] min-h-[56px] px-4 flex items-center justify-between border-b border-white/10 flex-shrink-0 bg-[#272E38]">
@@ -308,11 +309,11 @@
       </div>
     </div>
 
-    <!-- 访问体验监测（在 组网 SDWAN 下方，子菜单与线下一致） -->
+    <!-- 数字体验管理（在 组网 SDWAN 下方，子菜单与线下一致） -->
     <div>
       <div class="sase-menu-l1 parent-active" @click="toggleSaseL1('dem-monitoring')">
         <svg class="sase-menu-l1-icon text-[#1C6EFF]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
-        <span class="font-semibold text-white">访问体验监测</span>
+        <span class="font-semibold text-white">数字体验管理</span>
         <svg class="ml-auto w-3.5 h-3.5 opacity-60 transition-transform duration-200" :class="isSaseExpanded('dem-monitoring') ? 'rotate-90' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
         </svg>
