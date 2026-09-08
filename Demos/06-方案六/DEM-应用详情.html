@@ -276,7 +276,7 @@
     }
     .topo-link-item.is-anomaly:hover path.topo-line-entity {
       stroke: #DC2626 !important;
-      stroke-width: 2.4px !important;
+      stroke-width: 3px !important;
       stroke-opacity: 1 !important;
       filter: none !important;
     }
@@ -292,7 +292,7 @@
     }
     .topo-link-item.is-anomaly.is-selected path.topo-line-entity {
       stroke: #DC2626 !important;
-      stroke-width: 2.4px !important;
+      stroke-width: 3px !important;
       stroke-opacity: 1 !important;
       filter: none !important;
     }
@@ -3681,28 +3681,28 @@
                         <circle cx="186" cy="215" r="2" fill="#94A3B8" />
                       </g>
 
-                      <!-- ==================== Track 1: 零信任&GA访问 (异常专线链路，统一1.6px) ==================== -->
-                      <!-- 1.1 Track 1 终端 ➔ 接入POP段 (Y=40，平滑S弯从起点主干分叉至第2列X=313，统一1.6px) -->
+                      <!-- ==================== Track 1: 零信任&GA访问 (异常专线链路，统一2px红色警示线) ==================== -->
+                      <!-- 1.1 Track 1 终端 ➔ 接入POP段 (Y=40，平滑S弯从起点主干分叉至第2列X=313，2px) -->
                       <g class="topo-link-item is-anomaly cursor-pointer topo-track-group"
                          :class="{ 'is-selected': userFilterSegment === 'track1_client_pop', 'topo-track-fade': !isSceneMatching('track1') }"
                          @mouseenter="showAnomalyTip($event, 'track1_client_pop', { pop: '移动接入POP' })"
                          @mouseleave="hideAnomalyTip()"
                          @click.stop="filterBySegment('track1_client_pop', '差')">
                         <path d="M 186 73 C 196 73, 198 40, 208 40 L 313 40" fill="none" stroke="transparent" stroke-width="20" />
-                        <path d="M 186 73 C 196 73, 198 40, 208 40 L 305 40" fill="none" stroke="#F52727" stroke-width="1.6" stroke-dasharray="4 3" class="topo-line-flow topo-line-entity" marker-end="url(#arrow-danger)" />
+                        <path d="M 186 73 C 196 73, 198 40, 208 40 L 305 40" fill="none" stroke="#F52727" stroke-width="2" stroke-dasharray="4 3" class="topo-line-flow topo-line-entity" marker-end="url(#arrow-danger)" />
                         <!-- 起点线段辅助灰色信息: xx人 -->
                         <text x="250" y="32" text-anchor="middle" font-size="10.5" fill="#94A3B8" class="font-sans select-none pointer-events-none"
                               x-text="topoCompositeData.isProbe ? '探针' : (topoCompositeData.track1.total + '人')">24人</text>
                       </g>
 
-                      <!-- 1.2 Track 1 接入POP ➔ 代理网关 专线段 (POP右侧X=459 ➔ 网关左侧X=601，统一1.6px虚线) -->
+                      <!-- 1.2 Track 1 接入POP ➔ 代理网关 专线段 (POP右侧X=459 ➔ 网关左侧X=601，2px虚线) -->
                       <g class="topo-link-item is-anomaly cursor-pointer topo-track-group"
                          :class="{ 'is-selected': userFilterSegment === 'track1_pop_gw', 'topo-track-fade': !isSceneMatching('track1') }"
                          @mouseenter="showAnomalyTip($event, 'track1_pop_gw', { pop: '移动接入POP' })"
                          @mouseleave="hideAnomalyTip()"
                          @click.stop="filterBySegment('track1_pop_gw', '差')">
                         <path d="M 459 40 L 601 40" fill="none" stroke="transparent" stroke-width="20" />
-                        <path d="M 459 40 L 593 40" fill="none" stroke="#F52727" stroke-width="1.6" stroke-dasharray="4 3" class="topo-line-flow topo-line-entity" marker-end="url(#arrow-danger)" />
+                        <path d="M 459 40 L 593 40" fill="none" stroke="#F52727" stroke-width="2" stroke-dasharray="4 3" class="topo-line-flow topo-line-entity" marker-end="url(#arrow-danger)" />
                       </g>
 
                       <!-- ==================== Track 2: 零信任访问 / 公网直连 (弱化健康直连线，统一1.6px，直通第3列网关X=601) ==================== -->
@@ -3719,28 +3719,28 @@
                               x-text="topoCompositeData.isProbe ? '直连' : (topoCompositeData.track2.total + '人')">10人</text>
                       </g>
 
-                      <!-- ==================== Track 3: 分支组网&GA访问 (异常专线链路，统一1.6px) ==================== -->
-                      <!-- 3.1 Track 3 分支 ➔ 接入POP段 (Y=182，平滑S弯从起点主干分叉至第2列X=313，统一1.6px) -->
+                      <!-- ==================== Track 3: 分支组网&GA访问 (异常专线链路，统一2px红色警示线) ==================== -->
+                      <!-- 3.1 Track 3 分支 ➔ 接入POP段 (Y=182，平滑S弯从起点主干分叉至第2列X=313，2px) -->
                       <g class="topo-link-item is-anomaly cursor-pointer topo-track-group"
                          :class="{ 'is-selected': userFilterSegment === 'track3_branch_pop', 'topo-track-fade': !isSceneMatching('track3') }"
                          @mouseenter="showAnomalyTip($event, 'track3_branch_pop', { pop: '分支接入POP' })"
                          @mouseleave="hideAnomalyTip()"
                          @click.stop="filterBySegment('track3_branch_pop', '差')">
                         <path d="M 186 215 C 196 215, 198 182, 208 182 L 313 182" fill="none" stroke="transparent" stroke-width="20" />
-                        <path d="M 186 215 C 196 215, 198 182, 208 182 L 305 182" fill="none" stroke="#F52727" stroke-width="1.6" stroke-dasharray="4 3" class="topo-line-flow topo-line-entity" marker-end="url(#arrow-danger)" />
+                        <path d="M 186 215 C 196 215, 198 182, 208 182 L 305 182" fill="none" stroke="#F52727" stroke-width="2" stroke-dasharray="4 3" class="topo-line-flow topo-line-entity" marker-end="url(#arrow-danger)" />
                         <!-- 起点线段辅助灰色信息: xx分支 -->
                         <text x="250" y="174" text-anchor="middle" font-size="10.5" fill="#94A3B8" class="font-sans select-none pointer-events-none"
                               x-text="topoCompositeData.track3.total + '个分支'">3个分支</text>
                       </g>
 
-                      <!-- 3.2 Track 3 接入POP ➔ AF网关 专线段 (POP右侧X=459 ➔ AF网关左侧X=601，统一1.6px虚线) -->
+                      <!-- 3.2 Track 3 接入POP ➔ AF网关 专线段 (POP右侧X=459 ➔ AF网关左侧X=601，2px虚线) -->
                       <g class="topo-link-item is-anomaly cursor-pointer topo-track-group"
                          :class="{ 'is-selected': userFilterSegment === 'track3_pop_gw', 'topo-track-fade': !isSceneMatching('track3') }"
                          @mouseenter="showAnomalyTip($event, 'track3_pop_gw', { pop: '分支接入POP' })"
                          @mouseleave="hideAnomalyTip()"
                          @click.stop="filterBySegment('track3_pop_gw', '差')">
                         <path d="M 459 182 L 601 182" fill="none" stroke="transparent" stroke-width="20" />
-                        <path d="M 459 182 L 593 182" fill="none" stroke="#F52727" stroke-width="1.6" stroke-dasharray="4 3" class="topo-line-flow topo-line-entity" marker-end="url(#arrow-danger)" />
+                        <path d="M 459 182 L 593 182" fill="none" stroke="#F52727" stroke-width="2" stroke-dasharray="4 3" class="topo-line-flow topo-line-entity" marker-end="url(#arrow-danger)" />
                       </g>
 
                       <!-- ==================== Track 4: 分支组网访问 / IPsec直连 (弱化健康直连线，统一1.6px，直通第3列AF网关X=601) ==================== -->
