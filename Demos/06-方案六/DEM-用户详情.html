@@ -106,7 +106,10 @@
         fairApps: 3,
         poorApps: 2,
         userTerminal: 'MacBook Pro (何总专用)',
+        userTerminals: ['MacBook Pro (何总专用)'],
+        activeTerminalId: null,
         userPop: '北京POP',
+        userPops: [],
 
         // 顶部概览卡片展开/收起状态 (与应用详情一致)
         showUserOverview: true,
@@ -728,12 +731,96 @@
           return this.currentSlice?.topology?.app?.ip || '10.10.1.1';
         },
 
+        // 多终端与拓扑终端视点辅助方法
+        getUserTerminalsList() {
+          if (Array.isArray(this.userTerminals) && this.userTerminals.length > 0) {
+            return this.userTerminals.map(t => {
+              if (typeof t === 'string') {
+                const isMob = t.toLowerCase().includes('phone') || t.toLowerCase().includes('ios') || t.toLowerCase().includes('android') || t.includes('移动') || t.includes('手机');
+                return { name: t, type: isMob ? 'mobile' : 'desktop', network: '' };
+              }
+              return t;
+            });
+          }
+          return [{ name: this.userTerminal || 'ThinkPad T14', type: 'desktop', network: '' }];
+        },
+
+        // 返回当前用户的接入 POP 列表 (支持多 POP)
+        getUserPopsList() {
+          if (Array.isArray(this.userPops) && this.userPops.length > 0) {
+            return this.userPops.map(p => {
+              if (typeof p === 'string') return { name: p, terminal: '' };
+              return p;
+            });
+          }
+          return [{ name: this.userPop || '北京POP', terminal: '' }];
+        },
+
+        getCurrentSliceTerminals() {
+          return this.currentSlice?.topology?.terminals || [];
+        },
+
+        hasMultipleTerminalsInCurrentSlice() {
+          return this.getCurrentSliceTerminals().length > 1;
+        },
+
+        getActiveTerminalId() {
+          if (this.activeTerminalId) return this.activeTerminalId;
+          const terms = this.getCurrentSliceTerminals();
+          if (terms && terms.length > 0) {
+            const abn = terms.find(t => t.status === '异常' || t.status === '差');
+            return abn ? abn.id : terms[0].id;
+          }
+          return null;
+        },
+
+        getActiveTerminal() {
+          const terms = this.getCurrentSliceTerminals();
+          if (!terms || terms.length === 0) return null;
+          const activeId = this.getActiveTerminalId();
+          return terms.find(t => t.id === activeId) || terms[0];
+        },
+
+        getCurrentClient() {
+          const activeTerm = this.getActiveTerminal();
+          if (activeTerm && activeTerm.client) return activeTerm.client;
+          return this.currentSlice?.topology?.client || { name: this.userTerminal || '终端', status: '正常' };
+        },
+
+        getCurrentSegment1() {
+          const activeTerm = this.getActiveTerminal();
+          if (activeTerm && activeTerm.segment1) return activeTerm.segment1;
+          return this.currentSlice?.topology?.segment1 || { delay: '12ms', loss: '0.0%', status: '正常' };
+        },
+
+        switchActiveTerminal(termId) {
+          this.activeTerminalId = termId;
+          this.autoExpandAbnormalItems();
+        },
+
+        // 判断指定终端在当前切片中是否异常 (综合自身节点、状态及第一段链路指标)
+        isTerminalAbnormal(term) {
+          if (!term) return false;
+          return term.status === '差' || term.status === '异常'
+              || term.client?.status === '异常' || term.client?.status === '差'
+              || term.segment1?.status === '异常' || term.segment1?.status === '差';
+        },
+
+        // 获取终端状态文案 (异常 / 正常)
+        getTerminalStatusText(term) {
+          return this.isTerminalAbnormal(term) ? '异常' : '正常';
+        },
+
         // 获取终端统一显示名称 (确保顶部概览卡片与拓扑图节点及Tooltip完全一致)
         getTerminalDisplayName() {
           if (this.queryType === '分支') {
             return this.currentSlice?.topology?.client?.name || this.branchAfName || '分支AF';
           }
-          return this.userTerminal || this.currentSlice?.topology?.client?.name || 'ThinkPad T14 (研发专用)';
+          const activeTerm = this.getActiveTerminal();
+          if (activeTerm) {
+            return activeTerm.displayName || activeTerm.name;
+          }
+          return this.currentSlice?.topology?.client?.name || this.userTerminal || 'ThinkPad T14 (研发专用)';
         },
 
         // 分支 POP 展开卡片中使用的城市名与指标取值函数
@@ -1407,6 +1494,8 @@
 
                 if (paramName?.includes('何总') || paramEmpId === '45232' || paramEmpId === '4343' || paramEmpId === '45343' || nameOnly?.includes('何总')) {
                   this.loadHeZongScriptData(fullUserName, deptText);
+                } else if (paramName?.includes('郝星伍') || paramEmpId === '14810' || nameOnly?.includes('郝星伍')) {
+                  this.loadHaoXingWuScriptData(fullUserName, deptText, '14810', paramPop || 'POP (香港)');
                 } else if (paramName?.toLowerCase().includes('maria')) {
                   this.loadDigiPlusMariaScriptData();
                 } else {
@@ -1480,6 +1569,18 @@
                   const dept = selectedItem?.sub || selectedItem?.dept || '深信服科技 / 总裁办 / 总经办';
                   this.loadHeZongScriptData(name, dept);
                   applyHeaderStats(selectedItem);
+                  loadedCustom = true;
+                } else if (valLower.includes('14810') || nameLower.includes('郝星伍') || valLower.includes('haoxingwu') || valLower.includes('usr_d1')) {
+                  // 特殊处理：14810（郝星伍）双终端并发访问与本地跨网丢包排障剧本
+                  this.queryType = '用户';
+                  const name = selectedItem?.label || `${queryValue}`;
+                  const dept = selectedItem?.sub || selectedItem?.dept || '/本地用户/安全BG/零信任';
+                  applyHeaderStats(selectedItem);
+                  this.loadHaoXingWuScriptData(name, dept, '14810', selectedItem?.pop || 'POP (香港)');
+                  applyHeaderStats(selectedItem);
+                  if (selectedItem?.terminals && selectedItem.terminals.length > 0) {
+                    this.userTerminals = selectedItem.terminals;
+                  }
                   loadedCustom = true;
                 } else if (valLower.includes('maria') || nameLower.includes('maria')) {
                   // 特殊处理： Maria 用户对应 DigiPlus 完整剧本，保留全数据
@@ -2292,6 +2393,7 @@
           this.userId = 'usr_hezong';
           this.userTerminal = 'MacBook Pro (何总专用)';
           this.userPop = '北京POP';
+          this.userPops = [];
           this.overallExperience = '差';
           this.totalApps = 16;
           this.poorApps = 3;
@@ -2657,6 +2759,369 @@
           this.initPinnedApps();
         },
 
+        // 加载完整的【14810（郝星伍）双终端并发访问与本地跨网丢包】排障剧本 Mock 数据
+        loadHaoXingWuScriptData(userDisplayName, userDept, paramEmpId, paramPop) {
+          const empId = paramEmpId || '14810';
+          let nameOnly = '郝星伍';
+          if (userDisplayName) {
+            nameOnly = userDisplayName.replace(/^[0-9]+[（(]/, '').replace(/[）)]$/, '').trim();
+          }
+          const fullUserName = userDisplayName || `${empId}（${nameOnly}）`;
+          const deptText = userDept || '/本地用户/安全BG/零信任';
+          const targetPop = paramPop || 'POP (香港)';
+
+          this.queryType = '用户';
+          this.userName = fullUserName;
+          this.userDept = deptText;
+          this.userId = 'usr_d1';
+          this.userPop = targetPop;
+          // 郝星伍双终端各自接入不同 POP
+          this.userPops = [
+            { name: 'POP (香港)', terminal: 'WIN-DESK-88--WIN-YZ (台式机)' },
+            { name: 'POP (上海)', terminal: 'iPhone 15 Pro (手机)' }
+          ];
+          this.overallExperience = '差';
+          this.totalApps = 9;
+          this.poorApps = 1;
+          this.fairApps = 0;
+          this.normalApps = 8;
+
+          // 用户拥有的双终端清单 (用于顶部概览及悬浮列表)
+          this.userTerminals = [
+            { name: 'WIN-DESK-88--WIN-YZ', displayName: 'WIN-DESK-88--WIN-YZ (台式机)', type: 'desktop', network: '电信宽带 (202.108.22.5)' },
+            { name: 'iPhone 15 Pro', displayName: 'iPhone 15 Pro (手机)', type: 'mobile', network: '中国移动5G (117.136.24.89)' }
+          ];
+          this.userTerminal = 'WIN-DESK-88--WIN-YZ';
+          this.activeTerminalId = 'term_desk';
+
+          this.rawAppList = [
+            {
+              id: 'app_salesforce',
+              name: 'Salesforce',
+              domain: 'https://sangfor.my.salesforce.com',
+              experience: '差',
+              tag: 'SaaS应用',
+              summary: `${nameOnly}通过【${targetPop}】访问 Salesforce 响应极慢（真实访问 TTFB 1,380ms，台式机本地公网段丢包 4.8%）。排查确认异常收敛于 WIN-DESK-88 台式机经长沙电信接入香港POP的跨网传输链路。对照证据：同一时刻其【iPhone 15 Pro】通过移动 5G 访问同一 Salesforce 系统通畅流畅（TTFB 42ms，0 丢包），且 Salesforce 服务端健康，确认为台式机本地宽带问题。`,
+              abnormalExplain: `WIN-DESK-88 台式机电信宽带跨网接入香港 POP 发生集中丢包 (4.8%) 与高时延 (240ms)，导致 Salesforce 访问卡慢；同刻手机访问正常。`,
+              aiSummary: {
+                summaryHtml: `用户本次访问 <span class="font-bold text-[#2F3540]">Salesforce</span> 体验差（真实访问 TTFB 1,380ms / 基线 120ms），排查确认异常收敛于<span class="text-[#F52727] font-bold">“WIN-DESK-88 台式机 ➔ ${targetPop}接入段”</span>（宽带丢包 4.8%、RTT 240ms、抖动 32ms）。对照发现同账号在同一时刻使用的 <b class="text-[#12A679]">iPhone 15 Pro (5G移动网络)</b> 访问体验优（TTFB 42ms，零丢包），证明后端 SaaS 与 POP 平台健康，建议排查办公台式机的宽带网络。`,
+                problemLocation: {
+                  tag: '本地台式机宽带跨网异常',
+                  abnormalPoint: `WIN-DESK-88 台式机 ➔ ${targetPop}接入段 (电信跨网段)`,
+                  abnormalFeature: '台式机接入段丢包率 4.8%，RTT 时延 240ms。同一用户手机端 5G 访问正常 (35ms / 0丢包)，排除后端 SaaS 服务端故障。'
+                },
+                impactScope: {
+                  users: `${nameOnly} (工号 14810)`,
+                  branches: '长沙研发中心',
+                  apps: 'Salesforce (SaaS应用)'
+                },
+                advice: {
+                  stakeholders: '用户终端 & 本地网络管理员',
+                  actions: '1. 建议郝星伍在台式机上切换至备用内网专线或移动热点应急访问；2. 联系长沙本地电信网络团队排查跨省出境路由抖动。'
+                }
+              },
+              slices: [
+                {
+                  id: 'slice_1',
+                  name: '切片1 (14:00)',
+                  time: '14:00',
+                  minute: 400,
+                  range: '13:55~14:00',
+                  successRate: '91.2%',
+                  status: '异常',
+                  sampleIdx: 88,
+                  analysis: {
+                    rootCause: `异常收敛于<span class="text-[#F52727] font-medium">【WIN-DESK-88 台式机本地公网接入段】</span>。长沙电信宽带跨网至香港POP发生集中丢包 (4.8%) 与高延时 (240ms)。对照证据：同一时刻该用户的【iPhone 15 Pro】走 5G 访问同一 Salesforce 系统通畅正常 (RTT 35ms, 零丢包)，证明应用与专线健康，问题在于本地台式机网络。`,
+                    feature: '台式机端侧丢包 4.8%（基线 <0.5%）、抖动 32ms、本地 RTT 240ms。同刻手机 5G 接入（RTT 35ms，0丢包）与 Salesforce 服务端（TTFB 42ms）均健康。',
+                    advice: '责任归属【台式机本地网络接入】。建议用户切换台式机网络或使用手机临时应急处理业务。'
+                  },
+                  topology: {
+                    // 双终端并发数据
+                    terminals: [
+                      {
+                        id: 'term_desk',
+                        name: 'WIN-DESK-88--WIN-YZ',
+                        displayName: 'WIN-DESK-88--WIN-YZ (台式机)',
+                        type: 'desktop',
+                        sub: '办公台式机 (电信宽带)',
+                        status: '差',
+                        network: '电信宽带 (202.108.22.5)',
+                        client: { name: 'WIN-DESK-88--WIN-YZ', sub: '台式机 (宽带丢包)', status: '异常', targetId: 'node_terminal' },
+                        segment1: { name: '终端-POP段', delay: '240ms', loss: '4.8%', jitter: '32ms', status: '异常', targetId: 'seg_client_pop' },
+                        segmentDetails: [
+                          {
+                            id: 'seg_client_pop',
+                            name: '终端-POP段 (台式机)',
+                            status: '异常',
+                            summary: 'WIN-DESK-88 台式机经长沙电信公网接入香港POP，由于跨网传输丢包达 4.8%，RTT 240ms，导致 Salesforce 访问卡慢。',
+                            metrics: [
+                              { label: '本地网络延时 (RTT)', value: '240 ms', baseline: '< 60 ms', isAbnormal: true },
+                              { label: '丢包率', value: '4.8%', baseline: '< 0.5%', isAbnormal: true },
+                              { label: '网络抖动', value: '32 ms', baseline: '< 15 ms', isAbnormal: true }
+                            ],
+                            hopTraces: [
+                              { hop: 1, ip: '192.168.1.1', tag: '本地网关', tagType: 'default', asn: '局域网网关', loc: '长沙工位', rtt: '2ms', diffRtt: '-', loss: '0.0%', diffLoss: '-', jitter: '1ms', diffJitter: '-', status: '正常' },
+                              { hop: 2, ip: '202.108.22.1', tag: '电信城域网', tagType: 'default', asn: '湖南电信', loc: '长沙', rtt: '18ms', diffRtt: '+16ms', loss: '0.1%', diffLoss: '0%', jitter: '2ms', diffJitter: '+1ms', status: '正常' },
+                              { hop: 3, ip: '202.97.45.18', tag: '省际骨干', tagType: 'default', asn: 'ChinaNet 骨干网', loc: '广州', rtt: '68ms', diffRtt: '+50ms', loss: '1.2%', diffLoss: '+1.1%', jitter: '12ms', diffJitter: '+10ms', status: '异常' },
+                              { hop: 4, ip: '203.88.32.1', tag: 'POP香港接入点', tagType: 'default', asn: 'SASE ' + targetPop, loc: '香港', rtt: '240ms', diffRtt: '+172ms', loss: '4.8%', diffLoss: '+3.6%', jitter: '32ms', diffJitter: '+20ms', status: '异常' }
+                            ],
+                            hopConclusion: '出口进入跨网路由段发生集中丢包 (+3.6%) 与高延时 (+172ms)。'
+                          }
+                        ],
+                        nodeDetails: [
+                          {
+                            id: 'node_terminal',
+                            name: 'WIN-DESK-88--WIN-YZ',
+                            status: '异常',
+                            summary: '台式机系统负载平稳 (CPU 22%, 内存 45%)，但有线网卡发送队列出现跨网延迟积压。',
+                            metrics: [
+                              { label: '设备名称', value: 'WIN-DESK-88--WIN-YZ' },
+                              { label: '设备类型', value: '联想启天工作站 (台式机)' },
+                              { label: '操作系统', value: 'Windows 11 企业版 64位' },
+                              { label: '接入方式', value: '本地有线网卡 (长沙电信宽带)' }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        id: 'term_mobile',
+                        name: 'iPhone 15 Pro',
+                        displayName: 'iPhone 15 Pro (手机)',
+                        type: 'mobile',
+                        sub: '移动终端 (5G蜂窝)',
+                        status: '正常',
+                        network: '中国移动5G (117.136.24.89)',
+                        client: { name: 'iPhone 15 Pro', sub: '移动终端 (5G通畅)', status: '正常', targetId: 'node_terminal' },
+                        segment1: { name: '终端-POP段', delay: '35ms', loss: '0.0%', jitter: '2ms', status: '正常', targetId: 'seg_client_pop' },
+                        segmentDetails: [
+                          {
+                            id: 'seg_client_pop',
+                            name: '终端-POP段 (手机)',
+                            status: '正常',
+                            summary: 'iPhone 15 Pro 通过中国移动 5G 接入香港POP高速通畅，RTT 35ms，丢包 0.0%，抖动 2ms。',
+                            metrics: [
+                              { label: '移动 5G 延时 (RTT)', value: '35 ms', baseline: '< 60 ms', isAbnormal: false },
+                              { label: '丢包率', value: '0.0%', baseline: '< 0.5%', isAbnormal: false },
+                              { label: '网络抖动', value: '2 ms', baseline: '< 15 ms', isAbnormal: false }
+                            ],
+                            hopTraces: [
+                              { hop: 1, ip: '10.12.0.1', tag: '5G基站', tagType: 'default', asn: '移动基站核心网', loc: '长沙', rtt: '8ms', diffRtt: '-', loss: '0.0%', diffLoss: '-', jitter: '1ms', diffJitter: '-', status: '正常' },
+                              { hop: 2, ip: '120.196.12.1', tag: 'CMNET骨干', tagType: 'default', asn: '中国移动骨干', loc: '广州', rtt: '18ms', diffRtt: '+10ms', loss: '0.0%', diffLoss: '0%', jitter: '1ms', diffJitter: '0ms', status: '正常' },
+                              { hop: 3, ip: '203.88.32.1', tag: 'POP香港接入点', tagType: 'default', asn: 'SASE ' + targetPop, loc: '香港', rtt: '35ms', diffRtt: '+17ms', loss: '0.0%', diffLoss: '0%', jitter: '2ms', diffJitter: '+1ms', status: '正常' }
+                            ],
+                            hopConclusion: '手机移动 5G 直达香港POP接入段质量优异，零丢包。'
+                          }
+                        ],
+                        nodeDetails: [
+                          {
+                            id: 'node_terminal',
+                            name: 'iPhone 15 Pro (手机)',
+                            status: '正常',
+                            summary: '移动终端网络与系统运行健康，未发生丢包与连接重试。',
+                            metrics: [
+                              { label: '设备型号', value: 'Apple iPhone 15 Pro' },
+                              { label: '操作系统', value: 'iOS 17.5.1' },
+                              { label: '网络制式', value: '中国移动 5G SA' },
+                              { label: '移动 IP', value: '117.136.24.89' }
+                            ]
+                          }
+                        ]
+                      }
+                    ],
+                    // 单终端默认退化结构
+                    client: { name: 'WIN-DESK-88--WIN-YZ', sub: '台式机 (宽带丢包)', status: '异常', targetId: 'node_terminal' },
+                    segment1: { name: '终端-POP段', delay: '240ms', loss: '4.8%', jitter: '32ms', status: '异常', targetId: 'seg_client_pop' },
+                    pop: { name: targetPop, sub: 'POP (正常)', status: '正常', targetId: 'node_pop' },
+                    segment2: { name: 'POP-专线段', delay: '18ms', loss: '0.0%', jitter: '1ms', status: '正常', targetId: 'seg_pop_gw' },
+                    gw: { name: '香港专线网关', sub: '连接器 (正常)', status: '正常', targetId: 'node_connector' },
+                    segment3: { name: '专线-应用段', delay: '12ms', loss: '0.0%', jitter: '1ms', status: '正常', targetId: 'seg_gw_app' },
+                    app: { name: 'Salesforce', sub: 'SaaS应用', status: '正常', targetId: 'node_app' }
+                  },
+                  segmentDetails: [
+                    {
+                      id: 'seg_client_pop',
+                      name: '终端-POP段',
+                      status: '异常',
+                      summary: 'WIN-DESK-88 台式机经长沙电信公网接入香港POP，由于跨网传输丢包达 4.8%，RTT 240ms，导致 Salesforce 访问卡慢。',
+                      metrics: [
+                        { label: '本地网络延时 (RTT)', value: '240 ms', baseline: '< 60 ms', isAbnormal: true },
+                        { label: '丢包率', value: '4.8%', baseline: '< 0.5%', isAbnormal: true },
+                        { label: '网络抖动', value: '32 ms', baseline: '< 15 ms', isAbnormal: true }
+                      ]
+                    },
+                    {
+                      id: 'seg_pop_gw',
+                      name: 'POP-连接器段',
+                      status: '正常',
+                      summary: 'POP至香港专线网关高速互联，RTT 18ms，零丢包。',
+                      metrics: [
+                        { label: '专线延时 (RTT)', value: '18 ms', baseline: '< 40 ms', isAbnormal: false },
+                        { label: '丢包率', value: '0.0%', baseline: '< 0.5%', isAbnormal: false }
+                      ]
+                    },
+                    {
+                      id: 'seg_gw_app',
+                      name: '连接器-应用段',
+                      status: '正常',
+                      summary: '连接器至 Salesforce 云端节点正常响应。',
+                      metrics: [
+                        { label: '往返时延', value: '12 ms', baseline: '< 30 ms', isAbnormal: false },
+                        { label: '丢包率', value: '0.0%', baseline: '< 0.5%', isAbnormal: false }
+                      ]
+                    }
+                  ],
+                  nodeDetails: [
+                    {
+                      id: 'node_terminal',
+                      name: 'WIN-DESK-88--WIN-YZ',
+                      status: '异常',
+                      summary: '台式机系统负载平稳 (CPU 22%, 内存 45%)，但有线网卡发送队列出现跨网延迟积压。',
+                      metrics: [
+                        { label: '设备名称', value: 'WIN-DESK-88--WIN-YZ' },
+                        { label: '设备类型', value: '联想启天工作站 (台式机)' },
+                        { label: '操作系统', value: 'Windows 11 企业版 64位' },
+                        { label: '接入方式', value: '本地有线网卡 (长沙电信宽带)' }
+                      ]
+                    },
+                    {
+                      id: 'node_pop',
+                      name: targetPop,
+                      status: '正常',
+                      summary: 'POP节点服务健康，CPU 32%，内存 46%，转发正常。',
+                      metrics: [
+                        { label: 'POP名称', value: targetPop },
+                        { label: '集群状态', value: '健康' }
+                      ]
+                    },
+                    {
+                      id: 'node_connector',
+                      name: '香港专线网关',
+                      status: '正常',
+                      summary: '网关转发性能平稳，会话数正常。',
+                      metrics: [
+                        { label: '连接器名称', value: '香港专线网关' }
+                      ]
+                    },
+                    {
+                      id: 'node_app',
+                      name: 'Salesforce',
+                      status: '正常',
+                      summary: 'Salesforce 服务端处理正常，HTTP 200。',
+                      metrics: [
+                        { label: '应用名称', value: 'Salesforce' },
+                        { label: '响应状态', value: 'HTTP 200 OK' }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              id: 'app_wecom',
+              name: '企业微信',
+              domain: 'https://work.weixin.qq.com',
+              experience: '正常',
+              tag: '移动协同',
+              summary: '企业微信移动端消息与音视频收发通畅，端到端 RTT 28ms，零丢包。',
+              abnormalExplain: '无异常',
+              slices: [
+                {
+                  id: 'slice_wecom_1',
+                  name: '切片1 (14:00)',
+                  time: '14:00',
+                  minute: 400,
+                  range: '13:55~14:00',
+                  successRate: '100%',
+                  status: '正常',
+                  sampleIdx: 88,
+                  analysis: {
+                    rootCause: '企业微信移动端运行正常，网络通信平稳。',
+                    feature: '手机移动 5G 接入，RTT 28ms，0 丢包。',
+                    advice: '正常状态，无需处理。'
+                  },
+                  topology: {
+                    // 单终端独占场景！无 terminals 数组，仅单终端
+                    client: { name: 'iPhone 15 Pro', sub: '移动终端 (5G网络)', status: '正常', targetId: 'node_terminal' },
+                    segment1: { name: '终端-POP段', delay: '28ms', loss: '0.0%', jitter: '1ms', status: '正常', targetId: 'seg_client_pop' },
+                    pop: { name: targetPop, sub: 'POP (正常)', status: '正常', targetId: 'node_pop' },
+                    segment2: { name: 'POP-专线段', delay: '12ms', loss: '0.0%', jitter: '1ms', status: '正常', targetId: 'seg_pop_gw' },
+                    gw: { name: '香港专线网关', sub: '连接器 (正常)', status: '正常', targetId: 'node_connector' },
+                    segment3: { name: '专线-应用段', delay: '10ms', loss: '0.0%', jitter: '0ms', status: '正常', targetId: 'seg_gw_app' },
+                    app: { name: '企业微信', sub: '协同办公', status: '正常', targetId: 'node_app' }
+                  },
+                  segmentDetails: [
+                    { id: 'seg_client_pop', name: '终端-POP段', status: '正常', summary: '移动 5G 信号优良，RTT 28ms，零丢包。', metrics: [{ label: '5G时延', value: '28ms' }] },
+                    { id: 'seg_pop_gw', name: 'POP-连接器段', status: '正常', summary: '骨干链路通畅。', metrics: [{ label: '时延', value: '12ms' }] },
+                    { id: 'seg_gw_app', name: '连接器-应用段', status: '正常', summary: '微信接口服务正常。', metrics: [{ label: '时延', value: '10ms' }] }
+                  ],
+                  nodeDetails: [
+                    { id: 'node_terminal', name: 'iPhone 15 Pro', status: '正常', summary: '移动端运行流畅。', metrics: [{ label: '设备名称', value: 'iPhone 15 Pro' }] },
+                    { id: 'node_pop', name: targetPop, status: '正常', summary: 'POP正常。', metrics: [{ label: '名称', value: targetPop }] },
+                    { id: 'node_connector', name: '香港专线网关', status: '正常', summary: '连接器正常。', metrics: [{ label: '名称', value: '香港专线网关' }] },
+                    { id: 'node_app', name: '企业微信', status: '正常', summary: '服务正常。', metrics: [{ label: '名称', value: '企业微信' }] }
+                  ]
+                }
+              ]
+            },
+            {
+              id: 'app_wiki',
+              name: '业务知识库',
+              domain: 'https://wiki.sangfor.corp',
+              experience: '正常',
+              tag: '运营支持',
+              summary: '内部知识库由台式机内网直连访问，响应迅速，TTFB 35ms。',
+              abnormalExplain: '无异常',
+              slices: [
+                {
+                  id: 'slice_wiki_1',
+                  name: '切片1 (14:00)',
+                  time: '14:00',
+                  minute: 400,
+                  range: '13:55~14:00',
+                  successRate: '100%',
+                  status: '正常',
+                  sampleIdx: 88,
+                  analysis: {
+                    rootCause: '业务知识库访问正常。',
+                    feature: '台式机局域网直通，RTT 15ms，0 丢包。',
+                    advice: '正常状态，无需处理。'
+                  },
+                  topology: {
+                    // 单终端独占场景！仅台式机访问
+                    client: { name: 'WIN-DESK-88--WIN-YZ', sub: '办公台式机 (局域网)', status: '正常', targetId: 'node_terminal' },
+                    segment1: { name: '终端-POP段', delay: '15ms', loss: '0.0%', jitter: '1ms', status: '正常', targetId: 'seg_client_pop' },
+                    pop: { name: targetPop, sub: 'POP (正常)', status: '正常', targetId: 'node_pop' },
+                    segment2: { name: 'POP-专线段', delay: '12ms', loss: '0.0%', jitter: '0ms', status: '正常', targetId: 'seg_pop_gw' },
+                    gw: { name: '总部连接器', sub: '连接器 (正常)', status: '正常', targetId: 'node_connector' },
+                    segment3: { name: '连接器-应用段', delay: '8ms', loss: '0.0%', jitter: '0ms', status: '正常', targetId: 'seg_gw_app' },
+                    app: { name: '业务知识库', sub: '运营支持', status: '正常', targetId: 'node_app' }
+                  },
+                  segmentDetails: [
+                    { id: 'seg_client_pop', name: '终端-POP段', status: '正常', summary: '局域网访问正常。', metrics: [{ label: '时延', value: '15ms' }] },
+                    { id: 'seg_pop_gw', name: 'POP-连接器段', status: '正常', summary: '骨干链路通畅。', metrics: [{ label: '时延', value: '12ms' }] },
+                    { id: 'seg_gw_app', name: '连接器-应用段', status: '正常', summary: 'Wiki服务正常。', metrics: [{ label: '时延', value: '8ms' }] }
+                  ],
+                  nodeDetails: [
+                    { id: 'node_terminal', name: 'WIN-DESK-88--WIN-YZ', status: '正常', summary: '台式机运行正常。', metrics: [{ label: '设备名称', value: 'WIN-DESK-88--WIN-YZ' }] },
+                    { id: 'node_pop', name: targetPop, status: '正常', summary: 'POP正常。', metrics: [{ label: '名称', value: targetPop }] },
+                    { id: 'node_connector', name: '总部连接器', status: '正常', summary: '连接器正常。', metrics: [{ label: '名称', value: '总部连接器' }] },
+                    { id: 'node_app', name: '业务知识库', status: '正常', summary: '知识库服务正常。', metrics: [{ label: '名称', value: '业务知识库' }] }
+                  ]
+                }
+              ]
+            },
+            { id: 'app_jira', name: 'Jira任务管理', domain: 'https://jira.sangfor.corp', experience: '正常', tag: '项目研发', summary: '项目任务流转正常。', abnormalExplain: '无异常', slices: [] },
+            { id: 'app_oa', name: 'OA审批平台', domain: 'https://oa.sangfor.corp', experience: '正常', tag: '协同办公', summary: '审批流程加载正常。', abnormalExplain: '无异常', slices: [] },
+            { id: 'app_mail', name: '腾讯企业邮', domain: 'https://exmail.qq.com', experience: '正常', tag: '企业邮箱', summary: '邮件收发正常。', abnormalExplain: '无异常', slices: [] },
+            { id: 'app_gitlab', name: '代码管理平台', domain: 'https://gitlab.sangfor.corp', experience: '正常', tag: '版本控制', summary: 'Git提交与代码拉取正常。', abnormalExplain: '无异常', slices: [] },
+            { id: 'app_grafana', name: '监控看板', domain: 'https://grafana.sangfor.corp', experience: '正常', tag: '运维监控', summary: '监控图表刷新平稳。', abnormalExplain: '无异常', slices: [] },
+            { id: 'app_confluence', name: '团队文档', domain: 'https://wiki.atlassian.corp', experience: '正常', tag: '知识管理', summary: '文档协作加载流畅。', abnormalExplain: '无异常', slices: [] }
+          ];
+
+          this.activeAppId = 'app_salesforce';
+          this.initPinnedApps();
+        },
+
         // 加载完整的【OA系统访问卡慢 (POP骨干专线丢包故障)】排障剧本 Mock 数据
         loadLiuYangOaScriptData(userDisplayName, userDept, paramEmpId, paramPop) {
           const isChenChen = (userDisplayName?.includes('陈晨') || paramEmpId === '2024118');
@@ -2680,6 +3145,7 @@
           this.userId = isChenChen ? 'usr_chenchen' : (isPeng ? 'usr_peng' : (isZhang ? 'usr_zhang' : (isMaria ? 'usr_maria' : 'usr_liuyang')));
           this.userTerminal = (isChenChen || isPeng) ? 'MacBook Pro 14 (外派专用)' : (isMaria ? 'Dell Latitude (海外专用)' : 'ThinkPad T14 (研发专用)');
           this.userPop = targetPop;
+          this.userPops = [];
           this.overallExperience = '差';
           this.totalApps = isChenChen ? 14 : (isPeng ? 15 : (isMaria ? 14 : 18));
           this.poorApps = isChenChen ? 5 : (isPeng ? 6 : (isMaria ? 4 : 8));
@@ -3043,11 +3509,31 @@
             'node_final_app': 9
           };
 
+          const activeTerm = this.getActiveTerminal ? this.getActiveTerminal() : null;
+          let segDetails = slice.segmentDetails || [];
+          let nodeDetails = slice.nodeDetails || [];
+
+          // 如果激活了特定终端，优先使用该终端专属的端侧段明细与节点明细
+          if (activeTerm) {
+            if (activeTerm.segmentDetails && activeTerm.segmentDetails.length > 0) {
+              segDetails = [
+                ...activeTerm.segmentDetails,
+                ...segDetails.filter(s => s.id !== 'seg_client_pop')
+              ];
+            }
+            if (activeTerm.nodeDetails && activeTerm.nodeDetails.length > 0) {
+              nodeDetails = [
+                ...activeTerm.nodeDetails,
+                ...nodeDetails.filter(n => n.id !== 'node_terminal')
+              ];
+            }
+          }
+
           const list = [];
-          (slice.segmentDetails || []).forEach(seg => {
+          segDetails.forEach(seg => {
             list.push({ ...seg, itemType: 'segment', order: itemOrderMap[seg.id] || 99 });
           });
-          (slice.nodeDetails || []).forEach(node => {
+          nodeDetails.forEach(node => {
             list.push({ ...node, itemType: 'node', order: itemOrderMap[node.id] || 99 });
           });
 
@@ -3575,24 +4061,105 @@
               <div class="flex flex-col justify-center shrink-0">
                 <div class="text-xs text-[#8A92A1] mb-1 whitespace-nowrap" x-text="queryType === '分支' ? '接入AF / POP' : '接入终端 / POP'"></div>
                 <div class="flex items-center gap-2 text-xs">
-                  <span class="font-medium text-[#2F3540] whitespace-nowrap flex items-center gap-1">
-                    <!-- 分支场景：网关/盾牌图标 -->
-                    <template x-if="queryType === '分支'">
+                  
+                  <!-- 分支场景：展示分支AF -->
+                  <template x-if="queryType === '分支'">
+                    <span class="font-medium text-[#2F3540] whitespace-nowrap flex items-center gap-1">
                       <svg class="w-3.5 h-3.5 text-[#8A92A1]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
                       </svg>
-                    </template>
-                    <!-- 用户场景：笔记本图标 -->
-                    <template x-if="queryType !== '分支'">
-                      <svg class="w-3.5 h-3.5 text-[#8A92A1]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
-                      </svg>
-                    </template>
-                    <!-- 分支：AF名称+IP；用户：终端名 -->
-                    <span x-text="queryType === '分支' ? ((currentSlice?.topology?.client?.name || '分支AF') + (getBranchAfIp() ? ' · ' + getBranchAfIp() : '')) : (userTerminal || 'MacBook Pro')"></span>
-                  </span>
+                      <span x-text="(currentSlice?.topology?.client?.name || '分支AF') + (getBranchAfIp() ? ' · ' + getBranchAfIp() : '')"></span>
+                    </span>
+                  </template>
+
+                  <!-- 个人用户场景：支持单终端与多终端(+N及悬浮展开，无在线状态) -->
+                  <template x-if="queryType !== '分支'">
+                    <div class="relative group flex items-center gap-1.5 select-none">
+                      <div class="font-medium text-[#2F3540] whitespace-nowrap flex items-center gap-1">
+                        <template x-if="getUserTerminalsList()[0]?.type === 'mobile'">
+                          <svg class="w-3.5 h-3.5 text-[#8A92A1]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                          </svg>
+                        </template>
+                        <template x-if="getUserTerminalsList()[0]?.type !== 'mobile'">
+                          <svg class="w-3.5 h-3.5 text-[#8A92A1]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                          </svg>
+                        </template>
+                        <span class="max-w-[130px] truncate" x-text="getUserTerminalsList()[0]?.name || userTerminal || 'MacBook Pro'"></span>
+                      </div>
+
+                      <!-- 超过 1 台终端时展示 +N 徽标 -->
+                      <template x-if="getUserTerminalsList().length > 1">
+                        <span class="px-1.5 py-0.2 text-[10px] font-bold rounded bg-[#EFF6FF] text-[#1C6EFF] border border-[#BFDBFE] cursor-pointer"
+                              x-text="'+' + (getUserTerminalsList().length - 1)"></span>
+                      </template>
+
+                      <!-- 悬浮 Tooltip 展开全部终端 (注：在线状态不用给出) -->
+                      <template x-if="getUserTerminalsList().length > 1">
+                        <div class="absolute top-full left-0 mt-1 hidden group-hover:block z-50 pointer-events-none">
+                          <div class="bg-white border border-[#E2E8F0] rounded-[4px] shadow-lg p-2.5 min-w-[220px] text-left">
+                            <div class="text-[11px] font-semibold text-[#2F3540] mb-2 flex items-center justify-between border-b border-[#F1F5F9] pb-1.5">
+                              <span>接入终端列表</span>
+                              <span class="text-[10px] text-[#94A3B8] font-normal" x-text="'共 ' + getUserTerminalsList().length + ' 台'"></span>
+                            </div>
+                            <div class="space-y-1.5">
+                              <template x-for="(t, idx) in getUserTerminalsList()" :key="idx">
+                                <div class="flex items-center justify-between text-xs py-1 px-1.5 rounded bg-[#F8FAFC]">
+                                  <div class="flex items-center gap-1.5 truncate mr-2">
+                                    <template x-if="t.type === 'mobile'">
+                                      <svg class="w-3.5 h-3.5 text-[#64748B] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                                    </template>
+                                    <template x-if="t.type !== 'mobile'">
+                                      <svg class="w-3.5 h-3.5 text-[#64748B] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                                    </template>
+                                    <span class="font-medium text-[#2F3540] truncate" x-text="t.name"></span>
+                                  </div>
+                                  <span class="text-[10px] text-[#94A3B8] whitespace-nowrap" x-text="t.network || ''"></span>
+                                </div>
+                              </template>
+                            </div>
+                          </div>
+                        </div>
+                      </template>
+                    </div>
+                  </template>
+
                   <span class="text-[#D3D7DE]">|</span>
-                  <span class="px-2 py-0.5 text-[11px] rounded bg-[#F1F5F9] text-[#475569] font-medium whitespace-nowrap" x-text="userPop || '北京POP'"></span>
+                  <!-- 接入POP：支持多POP展示（首个POP + +N徽标 + 悬浮展开，与接入终端效果一致） -->
+                  <div class="relative group flex items-center gap-1.5 select-none">
+                    <!-- 首个 POP 标签 -->
+                    <span class="px-2 py-0.5 text-[11px] rounded bg-[#F1F5F9] text-[#475569] font-medium whitespace-nowrap" x-text="getUserPopsList()[0]?.name || userPop || '北京POP'"></span>
+
+                    <!-- 超过 1 个 POP 时展示 +N 徽标 -->
+                    <template x-if="getUserPopsList().length > 1">
+                      <span class="px-1.5 py-0.2 text-[10px] font-bold rounded bg-[#EFF6FF] text-[#1C6EFF] border border-[#BFDBFE] cursor-pointer"
+                            x-text="'+' + (getUserPopsList().length - 1)"></span>
+                    </template>
+
+                    <!-- 悬浮 Tooltip 展开全部 POP 列表 -->
+                    <template x-if="getUserPopsList().length > 1">
+                      <div class="absolute top-full left-0 mt-1 hidden group-hover:block z-50 pointer-events-none">
+                        <div class="bg-white border border-[#E2E8F0] rounded-[4px] shadow-lg p-2.5 min-w-[200px] text-left">
+                          <div class="text-[11px] font-semibold text-[#2F3540] mb-2 flex items-center justify-between border-b border-[#F1F5F9] pb-1.5">
+                            <span>接入POP列表</span>
+                            <span class="text-[10px] text-[#94A3B8] font-normal" x-text="'共 ' + getUserPopsList().length + ' 个'"></span>
+                          </div>
+                          <div class="space-y-1.5">
+                            <template x-for="(p, idx) in getUserPopsList()" :key="idx">
+                              <div class="flex items-center justify-between text-xs py-1 px-1.5 rounded bg-[#F8FAFC]">
+                                <div class="flex items-center gap-1.5 truncate mr-2">
+                                  <svg class="w-3 h-3 text-[#64748B] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064"></path></svg>
+                                  <span class="font-medium text-[#2F3540] truncate" x-text="p.name"></span>
+                                </div>
+                                <span class="text-[10px] text-[#94A3B8] whitespace-nowrap" x-text="p.terminal || ''"></span>
+                              </div>
+                            </template>
+                          </div>
+                        </div>
+                      </div>
+                    </template>
+                  </div>
                 </div>
               </div>
 
@@ -4092,22 +4659,66 @@
                   </div>
 
                   <!-- 拓扑图表 -->
-                  <div class="bg-[#F8FAFC] p-5 rounded-[2px] border border-[#EAEEF4] flex items-center justify-around relative overflow-visible">
+                  <div class="bg-[#F8FAFC] rounded-[2px] border border-[#EAEEF4] flex flex-col relative overflow-visible">
+
+                    <!-- 多终端切换胶囊栏 (仅当当前切片有多终端访问时展示) -->
+                    <template x-if="hasMultipleTerminalsInCurrentSlice()">
+                      <div class="px-4 py-2 bg-[#F1F5F9]/70 border-b border-[#EAEEF4] flex flex-wrap items-center justify-between gap-2">
+                        <div class="inline-flex items-center p-0.5 rounded bg-[#E2E8F0] gap-1">
+                          <template x-for="term in getCurrentSliceTerminals()" :key="term.id">
+                            <button type="button"
+                                    @click="switchActiveTerminal(term.id)"
+                                    class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs transition-all duration-150 cursor-pointer select-none"
+                                    :class="getActiveTerminalId() === term.id 
+                                      ? 'bg-white text-[#1C6EFF] shadow-xs font-semibold' 
+                                      : 'text-[#475569] hover:text-[#1E293B] hover:bg-white/50'">
+                              <!-- 终端图标: 手机或电脑 -->
+                              <template x-if="term.type === 'mobile'">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                                </svg>
+                              </template>
+                              <template x-if="term.type !== 'mobile'">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2-2v10a2 2 0 002 2z"/>
+                                </svg>
+                              </template>
+                              <span x-text="term.name"></span>
+                            </button>
+                          </template>
+                        </div>
+                        <span class="text-[11px] text-[#94A3B8]">当前时段双端并发访问，切换可查看各端链路与指标</span>
+                      </div>
+                    </template>
+
+                    <!-- 拓扑图主体 -->
+                    <div class="p-5 flex items-center justify-around relative overflow-visible">
                     
                     <!-- 节点 1: 终端 / 起点分支AF -->
                     <div class="flex flex-col items-center text-center topo-clickable z-10 group relative"
                          @click="clickTopologyItem('node', 'node_terminal')">
                       <div class="w-11 h-11 rounded-full bg-white border-2 flex items-center justify-center shadow-xs group-hover:border-[#1C6EFF] transition-colors"
-                           :class="(currentSlice.topology?.client?.status === '异常' || currentSlice.topology?.client?.status === '差') ? 'border-[#F52727]' : 'border-[#12A679]'">
+                           :class="(getCurrentClient()?.status === '异常' || getCurrentClient()?.status === '差') ? 'border-[#F52727]' : 'border-[#12A679]'">
                         <template x-if="queryType === '分支'">
-                          <svg class="w-5 h-5" :class="(currentSlice.topology?.client?.status === '异常' || currentSlice.topology?.client?.status === '差') ? 'text-[#F52727]' : 'text-[#12A679]'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <svg class="w-5 h-5" :class="(getCurrentClient()?.status === '异常' || getCurrentClient()?.status === '差') ? 'text-[#F52727]' : 'text-[#12A679]'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
                           </svg>
                         </template>
                         <template x-if="queryType !== '分支'">
-                          <svg class="w-5 h-5" :class="(currentSlice.topology?.client?.status === '异常' || currentSlice.topology?.client?.status === '差') ? 'text-[#F52727]' : 'text-[#12A679]'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2-2v10a2 2 0 002 2z"></path>
-                          </svg>
+                          <div>
+                            <!-- 手机图标 -->
+                            <template x-if="getActiveTerminal()?.type === 'mobile'">
+                              <svg class="w-5 h-5" :class="(getCurrentClient()?.status === '异常' || getCurrentClient()?.status === '差') ? 'text-[#F52727]' : 'text-[#12A679]'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                              </svg>
+                            </template>
+                            <!-- 电脑图标 -->
+                            <template x-if="getActiveTerminal()?.type !== 'mobile'">
+                              <svg class="w-5 h-5" :class="(getCurrentClient()?.status === '异常' || getCurrentClient()?.status === '差') ? 'text-[#F52727]' : 'text-[#12A679]'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2-2v10a2 2 0 002 2z"></path>
+                              </svg>
+                            </template>
+                          </div>
                         </template>
                       </div>
 
@@ -4117,15 +4728,15 @@
                           <!-- 分支场景：展示分支AF具体的名称 (含IP) 及状态 -->
                           <template x-if="queryType === '分支'">
                             <div class="flex items-center gap-2 text-[11px]">
-                              <span class="font-medium text-white" x-text="(currentSlice.topology?.client?.name || branchAfName || '分支AF') + (getBranchAfIp() ? ' (' + getBranchAfIp() + ')' : '')"></span>
-                              <span class="font-medium" :class="(currentSlice.topology?.client?.status === '异常' || currentSlice.topology?.client?.status === '差') ? 'text-[#FF7875]' : 'text-[#52C41A]'" x-text="(currentSlice.topology?.client?.status === '异常' || currentSlice.topology?.client?.status === '差') ? '异常' : '正常'"></span>
+                              <span class="font-medium text-white" x-text="(getCurrentClient()?.name || branchAfName || '分支AF') + (getBranchAfIp() ? ' (' + getBranchAfIp() + ')' : '')"></span>
+                              <span class="font-medium" :class="(getCurrentClient()?.status === '异常' || getCurrentClient()?.status === '差') ? 'text-[#FF7875]' : 'text-[#52C41A]'" x-text="(getCurrentClient()?.status === '异常' || getCurrentClient()?.status === '差') ? '异常' : '正常'"></span>
                             </div>
                           </template>
-                          <!-- 个人用户场景：展示具体的终端名称和状态 -->
+                          <!-- 个人用户场景：展示具体的终端名称和状态 (单终端或当前选中的终端) -->
                           <template x-if="queryType !== '分支'">
                             <div class="flex items-center gap-2 text-[11px]">
                               <span class="font-medium text-white" x-text="getTerminalDisplayName()"></span>
-                              <span class="font-medium" :class="(currentSlice.topology?.client?.status === '异常' || currentSlice.topology?.client?.status === '差') ? 'text-[#FF7875]' : 'text-[#52C41A]'" x-text="(currentSlice.topology?.client?.status === '异常' || currentSlice.topology?.client?.status === '差') ? '异常' : '正常'"></span>
+                              <span class="font-medium" :class="(getCurrentClient()?.status === '异常' || getCurrentClient()?.status === '差') ? 'text-[#FF7875]' : 'text-[#52C41A]'" x-text="(getCurrentClient()?.status === '异常' || getCurrentClient()?.status === '差') ? '异常' : '正常'"></span>
                             </div>
                           </template>
                         </div>
@@ -4138,33 +4749,33 @@
 
                     <!-- 链路段 1: 终端 ➔ POP -->
                     <div class="flex-1 mx-3 flex flex-col items-center justify-center topo-clickable group relative"
-                         @click="clickTopologyItem('segment', currentSlice.topology?.segment1?.targetId || 'seg_client_pop')">
+                         @click="clickTopologyItem('segment', getCurrentSegment1()?.targetId || 'seg_client_pop')">
                       <!-- 状态图标 (打钩 / 打叉) + 右侧指标信息 -->
                       <div class="flex items-center gap-1.5 mb-1.5">
                         <div class="w-5 h-5 rounded-full flex items-center justify-center text-xs shadow-2xs transition-transform group-hover:scale-110 shrink-0"
-                             :class="currentSlice.topology?.segment1?.status === '异常' ? 'bg-[#FFF1F0] text-[#F52727] border border-[#FFA39E]' : 'bg-[#E6F8F2] text-[#12A679] border border-[#B7EB8F]'">
-                          <template x-if="currentSlice.topology?.segment1?.status === '异常'">
+                             :class="getCurrentSegment1()?.status === '异常' ? 'bg-[#FFF1F0] text-[#F52727] border border-[#FFA39E]' : 'bg-[#E6F8F2] text-[#12A679] border border-[#B7EB8F]'">
+                          <template x-if="getCurrentSegment1()?.status === '异常'">
                             <svg class="w-2.5 h-2.5 text-[#F52727]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg>
                           </template>
-                          <template x-if="currentSlice.topology?.segment1?.status !== '异常'">
+                          <template x-if="getCurrentSegment1()?.status !== '异常'">
                             <svg class="w-3 h-3 text-[#12A679]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M5 13l4 4L19 7"></path></svg>
                           </template>
                         </div>
                         <!-- 异常时在打叉图标右侧展示 RTT、丢包指标信息 -->
-                        <template x-if="currentSlice.topology?.segment1?.status === '异常'">
+                        <template x-if="getCurrentSegment1()?.status === '异常'">
                           <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-[#FFF1F0] border border-[#FFA39E]/60 text-[10px] font-mono text-[#F52727] whitespace-nowrap shadow-2xs">
-                            <span>RTT <b x-text="currentSlice.topology?.segment1?.delay || '188ms'"></b></span>
+                            <span>RTT <b x-text="getCurrentSegment1()?.delay || '188ms'"></b></span>
                             <span class="text-[#FFA39E]">|</span>
-                            <span>丢包 <b x-text="currentSlice.topology?.segment1?.loss || '4.2%'"></b></span>
+                            <span>丢包 <b x-text="getCurrentSegment1()?.loss || '4.2%'"></b></span>
                           </span>
                         </template>
                       </div>
                       <!-- 连线 + 箭头 -->
                       <div class="w-full flex items-center relative">
                         <div class="w-full h-[2px] rounded-full"
-                             :class="currentSlice.topology?.segment1?.status === '异常' ? 'bg-[#F52727]' : 'bg-[#12A679]'"></div>
+                             :class="getCurrentSegment1()?.status === '异常' ? 'bg-[#F52727]' : 'bg-[#12A679]'"></div>
                         <svg class="w-2.5 h-2.5 absolute right-0 -mr-0.5 shrink-0"
-                             :class="currentSlice.topology?.segment1?.status === '异常' ? 'text-[#F52727]' : 'text-[#12A679]'"
+                             :class="getCurrentSegment1()?.status === '异常' ? 'text-[#F52727]' : 'text-[#12A679]'"
                              viewBox="0 0 6 8" fill="currentColor">
                           <polygon points="0,0 6,4 0,8" />
                         </svg>
@@ -4400,6 +5011,7 @@
                       </div>
                     </template>
 
+                    </div>
                   </div>
 
                   <!-- 统一链路明细手风琴列表 (严格按点-段-点物理链路顺序，异常项优先展开) -->
@@ -4790,18 +5402,13 @@
                             </template>
 
                             <!-- ==========================================
-                                 3. POP 节点 (node_pop) - POP健康状态 + 本次处理状态 (小标题外置)
+                                 3. POP 节点 (node_pop) - POP健康状态 + 本次处理状态
                                  ========================================== -->
                             <template x-if="item.id === 'node_pop'">
                               <div>
                                 <!-- ① 分支场景专属：上下车点聚合对比布局 -->
                                 <template x-if="queryType === '分支' || item.isBranchPop">
-                                  <div class="space-y-1.5 max-w-sm">
-                                    <!-- ① POP健康性 (小标题外置) -->
-                                    <div class="flex items-center gap-1.5 h-[18px]">
-                                      <span class="w-1 h-3.5 bg-[#1C6EFF] rounded-full"></span>
-                                      <span class="text-xs font-medium text-[#2F3540]">POP健康性</span>
-                                    </div>
+                                  <div class="max-w-sm">
                                     <div class="bg-white p-3 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
                                       <span class="text-[11px] text-[#6F7785]">健康状态</span>
                                       <div class="mt-2 grid grid-cols-2 relative">
@@ -4832,12 +5439,7 @@
 
                                 <!-- ② 个人用户场景：单POP健康度 -->
                                 <template x-if="queryType !== '分支' && !item.isBranchPop">
-                                  <div class="space-y-1.5 max-w-xs">
-                                    <!-- ① POP健康性 (小标题外置) -->
-                                    <div class="flex items-center gap-1.5 h-[18px]">
-                                      <span class="w-1 h-3.5 bg-[#1C6EFF] rounded-full"></span>
-                                      <span class="text-xs font-medium text-[#2F3540]">POP健康性</span>
-                                    </div>
+                                  <div class="max-w-xs">
                                     <div class="bg-white p-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
                                       <span class="text-[11px] text-[#6F7785]">POP健康状态</span>
                                       <div class="mt-1 flex items-baseline gap-1.5">
