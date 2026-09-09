@@ -919,7 +919,8 @@
               }
             }));
           } catch(e) {}
-          window.location.href = `./DEM-应用详情.html?appId=${app.id || 'app_oa'}`;
+          const targetId = (app.id === 'app_002' || app.id === 'app_erp' || (app.appName && app.appName.includes('ERP'))) ? 'app_erp' : (app.id || 'app_oa');
+          window.location.href = `./DEM-应用详情.html?appId=${targetId}`;
         },
 
         sendAiMessage(text) {

@@ -1179,6 +1179,26 @@
 
         // AI 智能排障 3 句精炼结论 (针对拓扑正下方容器)
         get aiDiagnosisSummary() {
+          if (this.activeAppId === 'app_erp') {
+            return [
+              {
+                dim: '基础设施',
+                dotClass: 'bg-[#12A679]',
+                text: '代理网关与总部组网网关健康度 100%，内网互联链路通畅无拥塞。'
+              },
+              {
+                dim: '应用后端',
+                dotClass: 'bg-[#12A679]',
+                text: '企业 ERP 系统响应正常（HTTP 200 / TTFB 42ms），已排除后端服务及数据库异常。'
+              },
+              {
+                dim: '受损定界',
+                dotClass: 'bg-[#F52727] animate-pulse',
+                text: '定界在「用户终端 ➔ 代理网关段」（丢包 2.8% / 28人受损），公网互联网侧传输劣化为核心故障。'
+              }
+            ];
+          }
+
           const isProbe = (this.currentGlobalSlice.dataSource === '主动探测');
           if (isProbe) {
             return [
@@ -1476,21 +1496,37 @@
           this.userFilterSegment = segmentKey;
           this.focusedTarget = { type: 'segment', key: segmentKey, expType };
 
-          // Track 1 (移动 ZTNA)
-          if (segmentKey === 'track1_client_pop' || segmentKey === 'client_pop') {
+          // ERP 系统分段
+          if (segmentKey === 'erp_client_gw') {
+            this.activeTab = 'user';
+            this.userFilterExp = expType || '差';
+            this.userFilterAnomalies = expType === '差' ? ['用户终端-代理网关段'] : [];
+            this.userPage = 1;
+          } else if (segmentKey === 'erp_branch_gw') {
+            this.activeTab = 'branch';
+            this.branchFilterExp = expType || '正常';
+            this.branchFilterAnomalies = [];
+            this.branchPage = 1;
+          } else if (segmentKey === 'erp_gw_app') {
+            this.userFilterExp = expType || '';
+            this.userFilterAnomalies = [];
+            this.branchFilterExp = expType || '';
+            this.branchFilterAnomalies = [];
+          } else if (segmentKey === 'track1_client_pop' || segmentKey === 'client_pop') {
+            // Track 1 (移动 ZTNA)
             this.activeTab = 'user';
             this.userFilterExp = expType || '';
-            this.userFilterAnomalies = expType === '差' ? ['终端-POP段异常'] : [];
+            this.userFilterAnomalies = expType === '差' ? ['终端-POP段'] : [];
             this.userPage = 1;
           } else if (segmentKey === 'track1_pop_gw' || segmentKey === 'pop_conn') {
             this.activeTab = 'user';
             this.userFilterExp = expType || '';
-            this.userFilterAnomalies = expType === '差' ? ['POP-连接器段异常'] : [];
+            this.userFilterAnomalies = expType === '差' ? ['POP-连接器段'] : [];
             this.userPage = 1;
           } else if (segmentKey === 'track1_pop' || segmentKey === 'pop_node') {
             this.activeTab = 'user';
             this.userFilterExp = expType || '';
-            this.userFilterAnomalies = expType === '差' ? ['POP异常'] : [];
+            this.userFilterAnomalies = expType === '差' ? ['POP'] : [];
             this.userPage = 1;
           } else if (segmentKey === 'track2_direct') {
             // Track 2 (移动 aTrust 直连)
@@ -1502,17 +1538,17 @@
             // Track 3 (分支 AF 组网 GA加速)
             this.activeTab = 'branch';
             this.branchFilterExp = expType || '';
-            this.branchFilterAnomalies = expType === '差' ? ['分支-POP段异常'] : [];
+            this.branchFilterAnomalies = expType === '差' ? ['分支-POP段'] : [];
             this.branchPage = 1;
           } else if (segmentKey === 'track3_pop_gw') {
             this.activeTab = 'branch';
             this.branchFilterExp = expType || '';
-            this.branchFilterAnomalies = expType === '差' ? ['POP-连接器段异常'] : [];
+            this.branchFilterAnomalies = expType === '差' ? ['POP-连接器段'] : [];
             this.branchPage = 1;
           } else if (segmentKey === 'track3_pop') {
             this.activeTab = 'branch';
             this.branchFilterExp = expType || '';
-            this.branchFilterAnomalies = expType === '差' ? ['POP异常'] : [];
+            this.branchFilterAnomalies = expType === '差' ? ['POP'] : [];
             this.branchPage = 1;
           } else if (segmentKey === 'track4_direct') {
             // Track 4 (分支 AF 组网 IPsec直连)
@@ -1520,7 +1556,7 @@
             this.branchFilterExp = '正常';
             this.branchFilterAnomalies = [];
             this.branchPage = 1;
-          } else if (segmentKey === 'conn_app' || segmentKey === 'gw_app' || (typeof segmentKey === 'string' && (segmentKey.startsWith('gw') || segmentKey.startsWith('bus')) && segmentKey.endsWith('_app'))) {
+          } else if (segmentKey === 'conn_app' || segmentKey === 'gw_app' || segmentKey === 'erp_gw_app' || (typeof segmentKey === 'string' && (segmentKey.startsWith('gw') || segmentKey.startsWith('bus') || segmentKey.startsWith('erp_gw')) && segmentKey.endsWith('_app'))) {
             this.userFilterExp = expType || '';
             this.userFilterAnomalies = [];
             this.branchFilterExp = expType || '';
@@ -1529,6 +1565,11 @@
 
           // 记录选中联动信息展示在下方联动卡片中
           const titleMap = {
+            'erp_client_gw': '零信任访问 · 用户终端 ➔ 代理网关段',
+            'erp_branch_gw': '分支组网访问 · 分支 ➔ 组网网关专线段',
+            'erp_gw_app': '网关群 ➔ 企业内部 ERP 系统段',
+            'erp_gw1_app': '代理网关(10.23.33.4) ➔ 企业内部 ERP',
+            'erp_gw2_app': '组网网关(200.34.2.112) ➔ 企业内部 ERP',
             'track1_client_pop': '移动 ZTNA · 终端 ➔ 接入POP段',
             'track1_pop_gw': '移动 ZTNA · POP ➔ 代理网关加速段',
             'track1_pop': '移动 ZTNA · 接入POP集群节点',
@@ -1550,18 +1591,23 @@
             'bus_app': '网关群 ➔ OA系统汇聚段'
           };
           const anomalyMap = {
-            'track1_client_pop': '终端-POP段异常',
-            'track1_pop_gw': 'POP-连接器段异常',
-            'track1_pop': 'POP异常',
+            'erp_client_gw': '用户终端-代理网关段',
+            'erp_branch_gw': '全部正常',
+            'erp_gw_app': '全部正常',
+            'erp_gw1_app': '全部',
+            'erp_gw2_app': '全部',
+            'track1_client_pop': '终端-POP段',
+            'track1_pop_gw': 'POP-连接器段',
+            'track1_pop': 'POP',
             'track2_direct': '全部正常',
-            'track3_branch_pop': '分支-POP段异常',
-            'track3_pop_gw': 'POP-连接器段异常',
-            'track3_pop': 'POP异常',
+            'track3_branch_pop': '分支-POP段',
+            'track3_pop_gw': 'POP-连接器段',
+            'track3_pop': 'POP',
             'track4_direct': '全部正常',
-            'client_pop': '终端-POP段异常',
-            'branch_pop': '分支-POP段异常',
-            'pop_conn': 'POP-连接器段异常',
-            'pop_node': 'POP异常',
+            'client_pop': '终端-POP段',
+            'branch_pop': '分支-POP段',
+            'pop_conn': 'POP-连接器段',
+            'pop_node': 'POP',
             'conn_app': '全部',
             'gw_app': '全部',
             'gw1_app': '全部',
@@ -1575,10 +1621,10 @@
             title: `【${titleMap[segmentKey] || '全网访问链路'}】联动筛选`,
             conditions: [
               { label: '体验状态', value: expType || '全部' },
-              { label: '异常定位', value: expType === '差' ? (anomalyMap[segmentKey] || '全部') : (expType === '一般' ? '一般体验' : '全部') }
+              { label: '问题链路/节点', value: expType === '差' ? (anomalyMap[segmentKey] || '全部') : (expType === '一般' ? '一般体验' : '全部') }
             ],
             guideText: expType === '差' 
-              ? '已自动联动切换并过滤下方存在该段异常定位的明细记录。可直接在下方列表中查看受影响对象，点击「详情 >」即可查看单用户/分支的完整诊断证据链。'
+              ? '已自动联动切换并过滤下方存在该问题链路/节点的明细记录。可直接在下方列表中查看受影响对象，点击「详情 >」即可查看单用户/分支的完整诊断证据链。'
               : (expType === '一般' ? '已自动联动过滤一般体验对象，可按需排查边缘轻微抖动情况。' : '已自动切换对应明细列表，可按需查看正常体验的详细分布。')
           };
 
@@ -1635,6 +1681,10 @@
             this.filterBySegment('track3_pop_gw', '差');
           } else if (sceneKey === 'track4') {
             this.filterBySegment('track4_direct', '正常');
+          } else if (sceneKey === 'track_ztna') {
+            this.filterBySegment('erp_client_gw', '差');
+          } else if (sceneKey === 'track_branch') {
+            this.filterBySegment('erp_branch_gw', '正常');
           }
         },
 
@@ -1733,33 +1783,34 @@
             appName: '企业内部 ERP',
             appAddress: 'https://erp.internal.net',
             appType: '内网应用',
-            overallStatus: '正常',
-            damagedRatioText: '体验受损访问对象占比11.9%',
-            branchesCount: 12,
-            usersCount: 210,
+            overallStatus: '差',
+            damagedRatioText: '体验受损访问对象占比9.5%',
+            branchesCount: 6,
+            usersCount: 290,
             objectExperience: {
-              normal: 185,
-              normalRatio: '88.1%',
-              fair: 15,
-              fairRatio: '7.1%',
-              poor: 10,
-              poorRatio: '4.8%'
+              normal: 268,
+              normalRatio: '90.5%',
+              fair: 0,
+              fairRatio: '0.0%',
+              poor: 28,
+              poorRatio: '9.5%'
             },
             metrics: {
-              validCount: '12,300 次',
-              availability: '99.2%',
-              httpErrorRate: '0.35%',
-              packetLossRate: '0.1%',
-              avgTtfb: '45 ms',
+              validCount: '24,680 次',
+              availability: '88.6%',
+              httpErrorRate: '0.42%',
+              packetLossRate: '2.8%',
+              avgTtfb: '390 ms',
               errorBreakdown: [
-                { code: '500', desc: 'Internal Server Error', count: 3, ratio: '60.0%' },
-                { code: '404', desc: 'Not Found', count: 2, ratio: '40.0%' }
+                { code: '504', desc: 'Gateway Timeout', count: 18, ratio: '64.3%' },
+                { code: '499', desc: 'Client Closed Request', count: 7, ratio: '25.0%' },
+                { code: '502', desc: 'Bad Gateway', count: 3, ratio: '10.7%' }
               ]
             },
             topCommonFeatures: [
-              { rankText: 'TOP1', type: 'dept', label: '同总部财务部', ratio: '60%', count: '6人/1分支', keyword: '财务', filterKey: 'dept', filterVal: '财务部' },
-              { rankText: 'TOP2', type: 'region', label: '同成都地区', ratio: '40%', count: '4人/2分支', keyword: '成都', filterKey: 'loc', filterVal: '中国 成都' },
-              { rankText: 'TOP3', type: 'connector', label: '同西南01连接器', ratio: '30%', count: '3人/2分支', keyword: '成都', filterKey: 'pop', filterVal: '成都POP' }
+              { rankText: 'TOP1', type: 'connector', label: '同代理网关接入', ratio: '100%', count: '28人受损', keyword: '代理网关', filterKey: 'pop', filterVal: '代理网关' },
+              { rankText: 'TOP2', type: 'dept', label: '同财务中心', ratio: '64.3%', count: '18人', keyword: '财务', filterKey: 'dept', filterVal: '财务' },
+              { rankText: 'TOP3', type: 'region', label: '同广东深圳地区', ratio: '57.1%', count: '16人', keyword: '深圳', filterKey: 'isp', filterVal: '深圳' }
             ]
           }
         },
@@ -1887,20 +1938,33 @@
         branchPage: 1,
         branchPageSize: 10,
 
-        // 分支列表数据 (共 6 个分支: 3差 / 1一般 / 2正常)
-        branchList: [
-          // 异常分支 (3个)
-          { name: '香港办事处', type: 'NGAF', group: '海外大区', location: '中国 香港', exp: '差', isp: '香港 PCCW', pop: '香港POP', affectedUsers: 2, anomalies: ['POP异常', 'POP-连接器段异常'], normalCount: 410, fairCount: 110, poorCount: 160 },
-          { name: '马尼拉办公室', type: 'NGAF', group: '海外大区', location: '菲律宾 马尼拉', exp: '差', isp: '菲律宾 PLDT', pop: '香港POP', affectedUsers: 4, anomalies: ['POP异常', '分支-POP段异常'], normalCount: 320, fairCount: 140, poorCount: 180 },
-          { name: '广州研发中心', type: 'NGAF', group: '华南大区', location: '中国 广州', exp: '差', isp: '广东电信', pop: '香港POP', affectedUsers: 5, anomalies: ['POP异常', 'POP-连接器段异常'], normalCount: 1820, fairCount: 150, poorCount: 65 },
+        // 分支列表数据 (分为 OA 与 ERP)
+        oaBranchList: [
+          // 异常分支 (3个) - 去掉异常二字
+          { name: '香港办事处', type: 'NGAF', group: '海外大区', location: '中国 香港', exp: '差', isp: '香港 PCCW', pop: '香港POP', affectedUsers: 2, anomalies: ['POP', 'POP-连接器段'], normalCount: 410, fairCount: 110, poorCount: 160 },
+          { name: '马尼拉办公室', type: 'NGAF', group: '海外大区', location: '菲律宾 马尼拉', exp: '差', isp: '菲律宾 PLDT', pop: '香港POP', affectedUsers: 4, anomalies: ['POP', '分支-POP段'], normalCount: 320, fairCount: 140, poorCount: 180 },
+          { name: '广州研发中心', type: 'NGAF', group: '华南大区', location: '中国 广州', exp: '差', isp: '广东电信', pop: '香港POP', affectedUsers: 5, anomalies: ['POP', 'POP-连接器段'], normalCount: 1820, fairCount: 150, poorCount: 65 },
 
-          // 一般体验分支 (1个)
-          { name: '北京研发中心', type: 'NGAF', group: '华北大区', location: '中国 北京', exp: '一般', isp: '北京联通', pop: '北京POP', affectedUsers: 1, anomalies: ['连接器异常'], normalCount: 1800, fairCount: 320, poorCount: 25 },
+          // 一般体验分支 (1个) - 去掉异常二字
+          { name: '北京研发中心', type: 'NGAF', group: '华北大区', location: '中国 北京', exp: '一般', isp: '北京联通', pop: '北京POP', affectedUsers: 1, anomalies: ['连接器'], normalCount: 1800, fairCount: 320, poorCount: 25 },
 
           // 正常分支 (2个)
           { name: '上海总部大楼', type: 'NGAF', group: '华东大区', location: '中国 上海', exp: '正常', isp: '上海电信', pop: '上海POP', affectedUsers: 0, anomalies: [], normalCount: 8520, fairCount: 20, poorCount: 0 },
           { name: '成都西南研发基地', type: 'NGAF', group: '西南大区', location: '中国 成都', exp: '正常', isp: '四川电信', pop: '成都POP', affectedUsers: 0, anomalies: [], normalCount: 1820, fairCount: 5, poorCount: 0 }
         ],
+
+        erpBranchList: [
+          { name: '上海总部大楼', type: '组网网关', group: '华东大区', location: '中国 上海', exp: '正常', isp: '上海电信', pop: '上海网关', affectedUsers: 0, anomalies: [], normalCount: 8520, fairCount: 0, poorCount: 0 },
+          { name: '成都研发基地', type: '组网网关', group: '西南大区', location: '中国 成都', exp: '正常', isp: '四川电信', pop: '成都网关', affectedUsers: 0, anomalies: [], normalCount: 1820, fairCount: 0, poorCount: 0 },
+          { name: '北京分公司', type: '组网网关', group: '华北大区', location: '中国 北京', exp: '正常', isp: '北京联通', pop: '北京网关', affectedUsers: 0, anomalies: [], normalCount: 1800, fairCount: 0, poorCount: 0 },
+          { name: '广州办事处', type: '组网网关', group: '华南大区', location: '中国 广州', exp: '正常', isp: '广东电信', pop: '广州网关', affectedUsers: 0, anomalies: [], normalCount: 1450, fairCount: 0, poorCount: 0 },
+          { name: '武汉运营中心', type: '组网网关', group: '华中大区', location: '中国 武汉', exp: '正常', isp: '湖北电信', pop: '武汉网关', affectedUsers: 0, anomalies: [], normalCount: 1200, fairCount: 0, poorCount: 0 },
+          { name: '西安办事处', type: '组网网关', group: '西北大区', location: '中国 西安', exp: '正常', isp: '陕西电信', pop: '西安网关', affectedUsers: 0, anomalies: [], normalCount: 960, fairCount: 0, poorCount: 0 }
+        ],
+
+        get branchList() {
+          return this.activeAppId === 'app_erp' ? this.erpBranchList : this.oaBranchList;
+        },
 
         get filteredBranchList() {
           const expWeight = { '差': 3, '一般': 2, '正常': 1 };
@@ -1959,21 +2023,21 @@
         userPage: 1,
         userPageSize: 10,
 
-        // 用户列表数据 (共 28 位用户: 9差 / 1一般 / 18正常)
-        userList: [
-          // ① 体验差用户 (9人，全部受到接入 POP 异常波及)
-          { empId: '88012', name: '彭经理', dept: '海外业务部 / 香港办事处', exp: '差', isp: '香港 PCCW', pop: '香港POP', anomalies: ['POP异常', 'POP-连接器段异常'], totalApps: 15, normalCount: 7, fairCount: 2, poorCount: 6 },
-          { empId: '88015', name: '张工', dept: '海外业务部 / 香港办事处', exp: '差', isp: '香港 PCCW', pop: '香港POP', anomalies: ['POP异常', 'POP-连接器段异常'], totalApps: 13, normalCount: 6, fairCount: 2, poorCount: 5 },
-          { empId: '88028', name: 'Maria', dept: '海外业务部 / 马尼拉办事处', exp: '差', isp: '菲律宾 PLDT', pop: '马尼拉POP', anomalies: ['POP异常', 'POP-连接器段异常'], totalApps: 14, normalCount: 8, fairCount: 2, poorCount: 4 },
-          { empId: '2024019', name: '陈工', dept: '研发中心 / 广州研发部', exp: '差', isp: '广东广州 电信', pop: '深圳POP', anomalies: ['POP异常', 'POP-连接器段异常'], totalApps: 17, normalCount: 12, fairCount: 3, poorCount: 2 },
-          { empId: '2024106', name: '刘洋', dept: '深信服科技 / 研发中心 / DEM产品部', exp: '差', isp: '广东深圳 电信', pop: '深圳POP', anomalies: ['POP异常', 'POP-连接器段异常'], totalApps: 18, normalCount: 9, fairCount: 1, poorCount: 8 },
-          { empId: '2024118', name: '陈晨', dept: '深信服科技 / 研发中心 / DEM产品部', exp: '差', isp: '广东深圳 电信', pop: '深圳POP', anomalies: ['POP异常', 'POP-连接器段异常'], totalApps: 14, normalCount: 7, fairCount: 2, poorCount: 5 },
-          { empId: '2024122', name: '周华', dept: '深信服科技 / 运营中心 / 华南组', exp: '差', isp: '广东广州 电信', pop: '深圳POP', anomalies: ['POP异常', 'POP-连接器段异常'], totalApps: 16, normalCount: 11, fairCount: 2, poorCount: 3 },
-          { empId: '2024135', name: '黄明', dept: '深信服科技 / 客户服务部 / 华南支持', exp: '差', isp: '广东广州 电信', pop: '深圳POP', anomalies: ['POP异常', 'POP-连接器段异常'], totalApps: 14, normalCount: 8, fairCount: 3, poorCount: 3 },
-          { empId: '2024088', name: '李四', dept: '深信服科技 / 销售中心 / 西南大区', exp: '差', isp: '四川电信', pop: '深圳POP', anomalies: ['POP异常', '终端-POP段异常'], totalApps: 15, normalCount: 10, fairCount: 2, poorCount: 3 },
+        // OA 用户列表数据 (共 28 位用户: 9差 / 1一般 / 18正常) - 去掉异常二字
+        oaUserList: [
+          // ① 体验差用户 (9人)
+          { empId: '88012', name: '彭经理', dept: '海外业务部 / 香港办事处', exp: '差', isp: '香港 PCCW', pop: '香港POP', anomalies: ['POP', 'POP-连接器段'], totalApps: 15, normalCount: 7, fairCount: 2, poorCount: 6 },
+          { empId: '88015', name: '张工', dept: '海外业务部 / 香港办事处', exp: '差', isp: '香港 PCCW', pop: '香港POP', anomalies: ['POP', 'POP-连接器段'], totalApps: 13, normalCount: 6, fairCount: 2, poorCount: 5 },
+          { empId: '88028', name: 'Maria', dept: '海外业务部 / 马尼拉办事处', exp: '差', isp: '菲律宾 PLDT', pop: '马尼拉POP', anomalies: ['POP', 'POP-连接器段'], totalApps: 14, normalCount: 8, fairCount: 2, poorCount: 4 },
+          { empId: '2024019', name: '陈工', dept: '研发中心 / 广州研发部', exp: '差', isp: '广东广州 电信', pop: '深圳POP', anomalies: ['POP', 'POP-连接器段'], totalApps: 17, normalCount: 12, fairCount: 3, poorCount: 2 },
+          { empId: '2024106', name: '刘洋', dept: '深信服科技 / 研发中心 / DEM产品部', exp: '差', isp: '广东深圳 电信', pop: '深圳POP', anomalies: ['POP', 'POP-连接器段'], totalApps: 18, normalCount: 9, fairCount: 1, poorCount: 8 },
+          { empId: '2024118', name: '陈晨', dept: '深信服科技 / 研发中心 / DEM产品部', exp: '差', isp: '广东深圳 电信', pop: '深圳POP', anomalies: ['POP', 'POP-连接器段'], totalApps: 14, normalCount: 7, fairCount: 2, poorCount: 5 },
+          { empId: '2024122', name: '周华', dept: '深信服科技 / 运营中心 / 华南组', exp: '差', isp: '广东广州 电信', pop: '深圳POP', anomalies: ['POP', 'POP-连接器段'], totalApps: 16, normalCount: 11, fairCount: 2, poorCount: 3 },
+          { empId: '2024135', name: '黄明', dept: '深信服科技 / 客户服务部 / 华南支持', exp: '差', isp: '广东广州 电信', pop: '深圳POP', anomalies: ['POP', 'POP-连接器段'], totalApps: 14, normalCount: 8, fairCount: 3, poorCount: 3 },
+          { empId: '2024088', name: '李四', dept: '深信服科技 / 销售中心 / 西南大区', exp: '差', isp: '四川电信', pop: '深圳POP', anomalies: ['POP', '终端-POP段'], totalApps: 15, normalCount: 10, fairCount: 2, poorCount: 3 },
 
           // ② 体验一般用户 (1人)
-          { empId: '2024155', name: '赵六', dept: '深信服科技 / 运营中心 / 华北大区', exp: '一般', isp: '北京联通', pop: '北京POP', anomalies: ['连接器异常'], totalApps: 22, normalCount: 18, fairCount: 3, poorCount: 1 },
+          { empId: '2024155', name: '赵六', dept: '深信服科技 / 运营中心 / 华北大区', exp: '一般', isp: '北京联通', pop: '北京POP', anomalies: ['连接器'], totalApps: 22, normalCount: 18, fairCount: 3, poorCount: 1 },
 
           // ③ 体验正常用户 (18人)
           { empId: '2024178', name: '周杰', dept: '深信服科技 / 技术支持部 / 华东组', exp: '正常', isp: '上海电信', pop: '上海POP', totalApps: 28, normalCount: 28, fairCount: 0, poorCount: 0 },
@@ -1995,6 +2059,57 @@
           { empId: '2024305', name: '孔廿一', dept: '深信服科技 / 财务部 / 税务组', exp: '正常', isp: '四川电信', pop: '成都POP', totalApps: 33, normalCount: 33, fairCount: 0, poorCount: 0 },
           { empId: '45232', name: '何总', dept: '深信服科技 / 总裁办 / 总经办', exp: '正常', isp: '广东深圳 电信', pop: '深圳POP', totalApps: 42, normalCount: 42, fairCount: 0, poorCount: 0 }
         ],
+
+        // ERP 用户列表数据 (28位差体验用户 · 集中在用户终端-代理网关段 + 12位正常用户)
+        erpUserList: [
+          // ① 体验差用户 (28人，故障全在 用户终端-代理网关段)
+          { empId: '2024001', name: '钱海', dept: '深信服科技 / 财务中心 / 资金结算部', exp: '差', isp: '广东深圳 电信', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 16, normalCount: 11, fairCount: 1, poorCount: 4 },
+          { empId: '2024002', name: '孙敏', dept: '深信服科技 / 财务中心 / 资金结算部', exp: '差', isp: '广东深圳 电信', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 15, normalCount: 10, fairCount: 2, poorCount: 3 },
+          { empId: '2024003', name: '周磊', dept: '深信服科技 / 财务中心 / 成本会计部', exp: '差', isp: '广东深圳 电信', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 18, normalCount: 12, fairCount: 2, poorCount: 4 },
+          { empId: '2024004', name: '吴薇', dept: '深信服科技 / 财务中心 / 成本会计部', exp: '差', isp: '广东广州 电信', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 14, normalCount: 9, fairCount: 1, poorCount: 4 },
+          { empId: '2024005', name: '郑翔', dept: '深信服科技 / 运营管理部 / 计划调度处', exp: '差', isp: '广东深圳 电信', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 19, normalCount: 13, fairCount: 2, poorCount: 4 },
+          { empId: '2024006', name: '王丽', dept: '深信服科技 / 供应链管理中心 / 采购部', exp: '差', isp: '广东深圳 移动', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 20, normalCount: 14, fairCount: 2, poorCount: 4 },
+          { empId: '2024007', name: '冯超', dept: '深信服科技 / 供应链管理中心 / 仓储物流部', exp: '差', isp: '广东广州 电信', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 16, normalCount: 10, fairCount: 3, poorCount: 3 },
+          { empId: '2024008', name: '陈峰', dept: '深信服科技 / 销售中心 / 华南订单部', exp: '差', isp: '广东深圳 电信', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 22, normalCount: 16, fairCount: 2, poorCount: 4 },
+          { empId: '2024009', name: '褚刚', dept: '深信服科技 / 销售中心 / 华东订单部', exp: '差', isp: '上海电信', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 17, normalCount: 12, fairCount: 1, poorCount: 4 },
+          { empId: '2024010', name: '卫兵', dept: '深信服科技 / 销售中心 / 华北订单部', exp: '差', isp: '北京联通', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 18, normalCount: 13, fairCount: 1, poorCount: 4 },
+          { empId: '2024011', name: '蒋波', dept: '深信服科技 / 制造事业部 / 生产企划科', exp: '差', isp: '广东深圳 电信', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 15, normalCount: 10, fairCount: 2, poorCount: 3 },
+          { empId: '2024012', name: '沈婷', dept: '深信服科技 / 财务中心 / 税务管理部', exp: '差', isp: '广东深圳 电信', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 14, normalCount: 9, fairCount: 2, poorCount: 3 },
+          { empId: '2024013', name: '韩雪', dept: '深信服科技 / 财务中心 / 税务管理部', exp: '差', isp: '广东广州 移动', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 16, normalCount: 11, fairCount: 2, poorCount: 3 },
+          { empId: '2024014', name: '杨勇', dept: '深信服科技 / 供应链管理中心 / 供应商认证处', exp: '差', isp: '广东深圳 电信', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 17, normalCount: 12, fairCount: 2, poorCount: 3 },
+          { empId: '2024015', name: '朱鹏', dept: '深信服科技 / 销售中心 / 渠道对账组', exp: '差', isp: '四川成都 电信', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 15, normalCount: 10, fairCount: 2, poorCount: 3 },
+          { empId: '2024016', name: '秦岚', dept: '深信服科技 / 销售中心 / 渠道对账组', exp: '差', isp: '广东深圳 电信', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 19, normalCount: 14, fairCount: 1, poorCount: 4 },
+          { empId: '2024017', name: '尤佳', dept: '深信服科技 / 财务中心 / 资产核算科', exp: '差', isp: '广东深圳 电信', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 13, normalCount: 8, fairCount: 2, poorCount: 3 },
+          { empId: '2024018', name: '许宏', dept: '深信服科技 / 制造事业部 / 物料控制科', exp: '差', isp: '广东深圳 联通', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 18, normalCount: 13, fairCount: 2, poorCount: 3 },
+          { empId: '2024019', name: '何斌', dept: '深信服科技 / 制造事业部 / 质量检验处', exp: '差', isp: '广东广州 电信', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 16, normalCount: 11, fairCount: 2, poorCount: 3 },
+          { empId: '2024020', name: '吕强', dept: '深信服科技 / 运营管理部 / 经营分析室', exp: '差', isp: '北京联通', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 21, normalCount: 16, fairCount: 2, poorCount: 3 },
+          { empId: '2024021', name: '施霞', dept: '深信服科技 / 财务中心 / 预算控制部', exp: '差', isp: '上海电信', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 14, normalCount: 9, fairCount: 2, poorCount: 3 },
+          { empId: '2024022', name: '张健', dept: '深信服科技 / 供应链管理中心 / 进出口关务组', exp: '差', isp: '广东深圳 电信', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 17, normalCount: 12, fairCount: 2, poorCount: 3 },
+          { empId: '2024023', name: '孔明', dept: '深信服科技 / 销售中心 / 客户合同处', exp: '差', isp: '广东广州 电信', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 20, normalCount: 15, fairCount: 2, poorCount: 3 },
+          { empId: '2024024', name: '曹斌', dept: '深信服科技 / 制造事业部 / 工艺工程科', exp: '差', isp: '广东深圳 电信', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 16, normalCount: 11, fairCount: 2, poorCount: 3 },
+          { empId: '2024025', name: '严谨', dept: '深信服科技 / 内部审计部 / 财经审计组', exp: '差', isp: '北京电信', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 15, normalCount: 10, fairCount: 2, poorCount: 3 },
+          { empId: '2024026', name: '华芳', dept: '深信服科技 / 财务中心 / 报销审核处', exp: '差', isp: '广东深圳 电信', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 18, normalCount: 13, fairCount: 2, poorCount: 3 },
+          { empId: '2024027', name: '金玉', dept: '深信服科技 / 供应链管理中心 / 采购商务科', exp: '差', isp: '广东深圳 移动', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 14, normalCount: 9, fairCount: 2, poorCount: 3 },
+          { empId: '2024028', name: '魏明', dept: '深信服科技 / 销售中心 / 商务支持部', exp: '差', isp: '四川成都 电信', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 19, normalCount: 14, fairCount: 2, poorCount: 3 },
+
+          // ② 正常体验用户代表 (12人)
+          { empId: '2024029', name: '赵俊', dept: '深信服科技 / 技术研发部 / 核心架构组', exp: '正常', isp: '上海电信', pop: '代理网关', totalApps: 32, normalCount: 32, fairCount: 0, poorCount: 0 },
+          { empId: '2024030', name: '钱亮', dept: '深信服科技 / 运维中心 / 基础平台组', exp: '正常', isp: '广东深圳 电信', pop: '代理网关', totalApps: 35, normalCount: 35, fairCount: 0, poorCount: 0 },
+          { empId: '2024031', name: '孙琪', dept: '深信服科技 / 人力资源部 / 薪酬福利组', exp: '正常', isp: '北京联通', pop: '代理网关', totalApps: 28, normalCount: 28, fairCount: 0, poorCount: 0 },
+          { empId: '2024032', name: '李强', dept: '深信服科技 / 行政管理中心 / 总务科', exp: '正常', isp: '四川成都 电信', pop: '代理网关', totalApps: 26, normalCount: 26, fairCount: 0, poorCount: 0 },
+          { empId: '2024033', name: '周成', dept: '深信服科技 / 法务合规部 / 商业合规组', exp: '正常', isp: '广东深圳 电信', pop: '代理网关', totalApps: 30, normalCount: 30, fairCount: 0, poorCount: 0 },
+          { empId: '2024034', name: '吴峰', dept: '深信服科技 / 战略市场部 / 行业拓展组', exp: '正常', isp: '上海电信', pop: '代理网关', totalApps: 29, normalCount: 29, fairCount: 0, poorCount: 0 },
+          { empId: '2024035', name: '郑洁', dept: '深信服科技 / 数字化推进室 / 项目管理处', exp: '正常', isp: '广东深圳 电信', pop: '代理网关', totalApps: 34, normalCount: 34, fairCount: 0, poorCount: 0 },
+          { empId: '2024036', name: '王坤', dept: '深信服科技 / 智能制造研究院 / 工控软件部', exp: '正常', isp: '广东广州 电信', pop: '代理网关', totalApps: 31, normalCount: 31, fairCount: 0, poorCount: 0 },
+          { empId: '2024037', name: '冯宇', dept: '深信服科技 / 客户服务中心 / 备件支持科', exp: '正常', isp: '湖北武汉 电信', pop: '代理网关', totalApps: 27, normalCount: 27, fairCount: 0, poorCount: 0 },
+          { empId: '2024038', name: '陈晶', dept: '深信服科技 / 总裁办 / 业务督办组', exp: '正常', isp: '北京电信', pop: '代理网关', totalApps: 33, normalCount: 33, fairCount: 0, poorCount: 0 },
+          { empId: '2024039', name: '褚浩', dept: '深信服科技 / 审计监察部 / 内部控制处', exp: '正常', isp: '陕西西安 电信', pop: '代理网关', totalApps: 28, normalCount: 28, fairCount: 0, poorCount: 0 },
+          { empId: '2024040', name: '卫琳', dept: '深信服科技 / 财务中心 / 财务共享中心', exp: '正常', isp: '广东深圳 电信', pop: '代理网关', totalApps: 36, normalCount: 36, fairCount: 0, poorCount: 0 }
+        ],
+
+        get userList() {
+          return this.activeAppId === 'app_erp' ? this.erpUserList : this.oaUserList;
+        },
 
         get filteredUserList() {
           const expWeight = { '差': 3, '一般': 2, '正常': 1 };
@@ -2330,6 +2445,20 @@
         selectApp(appId) {
           this.activeAppId = appId;
           this.clearFeatureFilter();
+          this.activeSceneTab = 'all';
+          this.userFilterSegment = null;
+          this.selectedTopoItem = null;
+          this.focusedTarget = null;
+          this.branchFilterExp = '';
+          this.branchFilterAnomalies = [];
+          this.branchFilterLoc = '';
+          this.branchFilterPop = '';
+          this.userFilterExp = '';
+          this.userFilterAnomalies = [];
+          this.userFilterIsp = '';
+          this.userFilterPop = '';
+          this.branchPage = 1;
+          this.userPage = 1;
           this.$nextTick(() => {
             if (this.activeTab === 'probe') {
               this.renderProbeLineCharts();
@@ -2734,116 +2863,175 @@
           const isProbe = (this.currentGlobalSlice.dataSource === '主动探测');
           const isAbnormal = (this.currentGlobalSlice.status === '差');
 
+          // ==================== ERP 拓扑线段 Hover 指标 ====================
+          if (tag === 'erp_client_gw') {
+            return {
+              title: '用户终端 ➔ 代理网关段',
+              isAbnormal: true,
+              priorityBadge: '建议优先排查',
+              summary: {
+                poor: '28',
+                fair: '0',
+                normal: '262'
+              },
+              items: []
+            };
+          }
+
+          if (tag === 'erp_branch_gw') {
+            return {
+              title: '分支 ➔ 组网网关段',
+              isAbnormal: false,
+              summary: {
+                poor: '0',
+                fair: '0',
+                normal: '6'
+              },
+              items: []
+            };
+          }
+
+          if (tag === 'erp_gw_app') {
+            return {
+              title: '网关 ➔ ERP系统段',
+              isAbnormal: false,
+              summary: {
+                poor: '0',
+                fair: '0',
+                normal: '296'
+              },
+              items: []
+            };
+          }
+
+          // ERP 代理网关节点
+          if (tag === 'erp_gw_proxy') {
+            return {
+              title: '代理网关 (零信任网关)',
+              isAbnormal: false,
+              items: [
+                { label: '设备IP', value: '10.23.33.4', isAbnormal: false },
+                { label: 'CPU使用率', value: '24%', isAbnormal: false },
+                { label: '内存利用率', value: '42%', isAbnormal: false },
+                { label: '当前连接数', value: '1,420', isAbnormal: false }
+              ]
+            };
+          }
+
+          // ERP 组网网关节点
+          if (tag === 'erp_gw_branch') {
+            return {
+              title: '组网网关 (分支专线网关)',
+              isAbnormal: false,
+              items: [
+                { label: '设备IP', value: '200.34.2.112', isAbnormal: false },
+                { label: 'CPU使用率', value: '18%', isAbnormal: false },
+                { label: '专线带宽利用率', value: '31%', isAbnormal: false },
+                { label: 'IPsec隧道状态', value: '全部UP (6/6)', isAbnormal: false }
+              ]
+            };
+          }
+
+          // ERP 应用节点
+          if (tag === 'erp_app' || (this.activeAppId === 'app_erp' && (tag === 'OA系统' || tag === 'OA办公系统' || tag === '应用' || tag === '业务系统'))) {
+            return {
+              title: '企业内部 ERP 系统',
+              timeText: this.selectedGlobalSliceTime || '15:20',
+              isAbnormal: false,
+              items: [
+                { label: '服务状态', value: '正常 (HTTP 200 OK)', isAbnormal: false },
+                { label: '首包响应耗时(TTFB)', value: '42 ms', isAbnormal: false },
+                { label: 'HTTP 错误率', value: '0.0%', isAbnormal: false },
+                { label: '服务可用性', value: '100%', isAbnormal: false },
+                { label: '承载流量总数', value: '296 访问对象', isAbnormal: false }
+              ]
+            };
+          }
+
           // ==================== 1. 线段 Hover 指标 ====================
           // Track 1 接入段 (移动 ➔ POP)
           if (tag === 'track1_client_pop') {
             return {
-              title: '移动 ZTNA · 终端 ➔ POP接入段',
+              title: '终端 ➔ POP接入段',
               isAbnormal: isAbnormal && !isProbe,
               summary: {
-                totalLabel: '接入终端总数',
-                total: isProbe ? '无真实用户' : '24 人',
                 poor: isProbe ? '0' : '9',
                 fair: isProbe ? '0' : '2',
                 normal: isProbe ? '0' : '13'
               },
-              items: [],
-              hint: isProbe
-                ? '主动探测时段无真实移动用户访问，探针拨测就绪。'
-                : '移动端至接入 POP 段，受边缘无线弱网影响，存在 9 人体验较差。'
+              items: []
             };
           }
 
           // Track 1 POP ➔ 网关段
           if (tag === 'track1_pop_gw') {
             return {
-              title: '移动 ZTNA · POP ➔ 代理网关段',
+              title: 'POP ➔ 代理网关段',
               isAbnormal: isAbnormal && !isProbe,
               priorityBadge: isProbe ? null : '建议优先排查',
               summary: {
-                totalLabel: '承载流量对象',
-                total: isProbe ? '6 个探针' : '24 人',
                 poor: isProbe ? '0' : '9',
                 fair: isProbe ? '0' : '2',
                 normal: isProbe ? '6' : '13'
               },
-              items: [],
-              hint: isProbe
-                ? '云骨干拨测时延平稳，无丢包与抖动。'
-                : 'SASE 云骨干网段，深圳POP与香港POP出口拥塞，建议优先排查骨干网专线丢包。'
+              items: []
             };
           }
 
           // Track 2 直连段 (移动 aTrust 直连)
           if (tag === 'track2_direct') {
             return {
-              title: '移动 aTrust · 公网直连段',
+              title: '终端 ➔ 代理网关直连段',
               isAbnormal: false,
               summary: {
-                totalLabel: '直连终端总数',
-                total: isProbe ? '无真实用户' : '10 人',
                 poor: '0',
                 fair: '0',
                 normal: isProbe ? '0' : '10'
               },
-              items: [],
-              hint: '公网直接接入企业本地 DMZ 部署的 aTrust 代理网关，网络平稳通畅。'
+              items: []
             };
           }
 
           // Track 3 接入段 (分支 ➔ POP)
           if (tag === 'track3_branch_pop') {
             return {
-              title: '分支 AF 组网 · 分支 ➔ POP接入段',
+              title: '分支 ➔ POP接入段',
               isAbnormal: isAbnormal && !isProbe,
               summary: {
-                totalLabel: '组网分支总数',
-                total: '3 个分支',
                 poor: isProbe ? '0' : '2',
                 fair: isProbe ? '0' : '0',
                 normal: isProbe ? '3' : '1'
               },
-              items: [],
-              hint: isProbe
-                ? '分支探针响应正常，链路通畅。'
-                : '香港分支与马尼拉分支出口线路出现边缘丢包，接入体验较差。'
+              items: []
             };
           }
 
           // Track 3 POP ➔ AF网关段
           if (tag === 'track3_pop_gw') {
             return {
-              title: '分支 AF 组网 · POP ➔ AF网关专线段',
+              title: 'POP ➔ AF网关专线段',
               isAbnormal: isAbnormal && !isProbe,
               priorityBadge: isProbe ? null : '专线异常',
               summary: {
-                totalLabel: '专线隧道总数',
-                total: '3 条专线',
                 poor: isProbe ? '0' : '2',
                 fair: '0',
                 normal: isProbe ? '3' : '1'
               },
-              items: [],
-              hint: isProbe
-                ? '专线拨测指标就绪，时延无异常。'
-                : 'POP 汇聚至总部 AF网关的专线隧道发生抖动，导致 2 个分支组网体验下降。'
+              items: []
             };
           }
 
           // Track 4 直连段 (分支 ➔ AF网关 IPsec直连)
           if (tag === 'track4_direct') {
             return {
-              title: '分支 AF 组网 · IPsec VPN直连段',
+              title: '分支 ➔ AF网关直连段',
               isAbnormal: false,
               summary: {
-                totalLabel: '直连分支总数',
-                total: '3 个分支',
                 poor: '0',
                 fair: '0',
                 normal: '3'
               },
-              items: [],
-              hint: '分支与总部传统 IPsec VPN 直连链路健康，无丢包与延迟波动。'
+              items: []
             };
           }
 
@@ -2854,14 +3042,11 @@
               title: partName,
               isAbnormal: false,
               summary: {
-                totalLabel: '全网业务对象',
-                total: isProbe ? '6 个' : '34 个',
                 poor: '0',
                 fair: '0',
                 normal: isProbe ? '6' : '34'
               },
-              items: [],
-              hint: '内网千兆专网互联，时延 < 2ms，后端服务响应完全正常。'
+              items: []
             };
           }
 
@@ -2874,8 +3059,7 @@
               items: [
                 { label: 'POP节点总数', value: '12 个', isAbnormal: false },
                 { label: '异常POP数', value: isAbnormal && !isProbe ? '2 个 (深圳POP、香港POP)' : '0 个', isAbnormal: isAbnormal && !isProbe }
-              ],
-              hint: isAbnormal && !isProbe ? '深圳POP时延偏高，香港POP出口丢包，已触发预警。' : '各移动接入POP运转正常。'
+              ]
             };
           }
 
@@ -2887,8 +3071,7 @@
               items: [
                 { label: 'POP节点总数', value: '8 个', isAbnormal: false },
                 { label: '异常POP数', value: isAbnormal && !isProbe ? '2 个 (香港POP、马尼拉POP)' : '0 个', isAbnormal: isAbnormal && !isProbe }
-              ],
-              hint: isAbnormal && !isProbe ? '香港与马尼拉接入POP负载偏高，存在瞬时丢包。' : '各分支组网POP运转通畅。'
+              ]
             };
           }
 
@@ -2902,8 +3085,7 @@
                 { label: '网关 IP', value: '10.23.33.4', isAbnormal: false },
                 { label: 'CPU / 内存', value: '28% / 42%', isAbnormal: false },
                 { label: '健康状态', value: '健康 (流量正常转发)', isAbnormal: false }
-              ],
-              hint: '网关节点自身负载平稳，各项性能指标健康。'
+              ]
             };
           }
 
@@ -2917,8 +3099,7 @@
                 { label: '网关 IP', value: '10.23.33.8', isAbnormal: false },
                 { label: 'CPU / 内存', value: '18% / 36%', isAbnormal: false },
                 { label: '健康状态', value: '健康 (无排障告警)', isAbnormal: false }
-              ],
-              hint: '公网直连专用代理网关，服务平稳运行中。'
+              ]
             };
           }
 
@@ -2932,8 +3113,7 @@
                 { label: '网关 IP', value: '200.34.2.112', isAbnormal: false },
                 { label: '当前吞吐', value: '45.8 Mbps', isAbnormal: false },
                 { label: '健康状态', value: '健康', isAbnormal: false }
-              ],
-              hint: '总部组网网关接收来自 SASE 骨干网流量，设备处理正常。'
+              ]
             };
           }
 
@@ -2947,8 +3127,7 @@
                 { label: '网关 IP', value: '200.34.2.115', isAbnormal: false },
                 { label: '当前吞吐', value: '28.2 Mbps', isAbnormal: false },
                 { label: '健康状态', value: '健康', isAbnormal: false }
-              ],
-              hint: '边界防火墙直连接收分支 IPsec 隧道，运行健康。'
+              ]
             };
           }
 
@@ -3002,8 +3181,7 @@
                 { label: 'HTTP 错误率', value: '0.0%', isAbnormal: false },
                 { label: '服务可用性', value: '100%', isAbnormal: false },
                 { label: '当前聚合在线会话', value: '34 人在线', isAbnormal: false }
-              ],
-              hint: '应用服务层完全健康，初步排除后端主机与数据库故障。'
+              ]
             };
           }
 
@@ -3012,14 +3190,11 @@
             title: tag,
             isAbnormal: true,
             summary: {
-              totalLabel: '访问对象总数',
-              total: '34 个',
               poor: '11',
               fair: '2',
               normal: '21'
             },
-            items: [],
-            hint: '该链路段存在质量波动，请结合明细排查。'
+            items: []
           };
         },
 
@@ -3032,6 +3207,7 @@
 
           const urlParams = new URLSearchParams(window.location.search);
           let qAppId = urlParams.get('appId');
+          if (qAppId === 'app_002') qAppId = 'app_erp';
           const qApp = urlParams.get('app') || urlParams.get('appName');
           if (!qAppId && qApp) {
             if (qApp.includes('OA')) qAppId = 'app_oa';
@@ -3593,53 +3769,87 @@
                       <span>全网访问情况</span>
                     </button>
 
-                    <!-- 2. 零信任&GA访问 -->
-                    <button type="button"
-                            class="px-2.5 py-1 text-xs rounded-[3px] transition-all duration-150 flex items-center gap-1 cursor-pointer"
-                            :class="activeSceneTab === 'track1' 
-                              ? 'bg-white text-[#1E293B] font-medium shadow-xs border border-[#CBD5E1]' 
-                              : 'bg-[#F1F5F9] text-[#64748B] hover:bg-[#E2E8F0] hover:text-[#1E293B] border border-transparent'"
-                            @click="selectSceneTab('track1')"
-                            @mouseenter="hoveredSceneTab = 'track1'"
-                            @mouseleave="hoveredSceneTab = null">
-                      <span>零信任&amp;GA访问</span>
-                    </button>
+                    <!-- OA 专属的4条路径Scene Tabs -->
+                    <template x-if="activeAppId !== 'app_erp'">
+                      <div class="flex items-center gap-2">
+                        <!-- 2. 零信任&GA访问 -->
+                        <button type="button"
+                                class="px-2.5 py-1 text-xs rounded-[3px] transition-all duration-150 flex items-center gap-1 cursor-pointer"
+                                :class="activeSceneTab === 'track1' 
+                                  ? 'bg-white text-[#1E293B] font-medium shadow-xs border border-[#CBD5E1]' 
+                                  : 'bg-[#F1F5F9] text-[#64748B] hover:bg-[#E2E8F0] hover:text-[#1E293B] border border-transparent'"
+                                @click="selectSceneTab('track1')"
+                                @mouseenter="hoveredSceneTab = 'track1'"
+                                @mouseleave="hoveredSceneTab = null">
+                          <span>零信任&amp;GA访问</span>
+                        </button>
 
-                    <!-- 3. 零信任访问 -->
-                    <button type="button"
-                            class="px-2.5 py-1 text-xs rounded-[3px] transition-all duration-150 flex items-center gap-1 cursor-pointer"
-                            :class="activeSceneTab === 'track2' 
-                              ? 'bg-white text-[#1E293B] font-medium shadow-xs border border-[#CBD5E1]' 
-                              : 'bg-[#F1F5F9] text-[#64748B] hover:bg-[#E2E8F0] hover:text-[#1E293B] border border-transparent'"
-                            @click="selectSceneTab('track2')"
-                            @mouseenter="hoveredSceneTab = 'track2'"
-                            @mouseleave="hoveredSceneTab = null">
-                      <span>零信任访问</span>
-                    </button>
+                        <!-- 3. 零信任访问 -->
+                        <button type="button"
+                                class="px-2.5 py-1 text-xs rounded-[3px] transition-all duration-150 flex items-center gap-1 cursor-pointer"
+                                :class="activeSceneTab === 'track2' 
+                                  ? 'bg-white text-[#1E293B] font-medium shadow-xs border border-[#CBD5E1]' 
+                                  : 'bg-[#F1F5F9] text-[#64748B] hover:bg-[#E2E8F0] hover:text-[#1E293B] border border-transparent'"
+                                @click="selectSceneTab('track2')"
+                                @mouseenter="hoveredSceneTab = 'track2'"
+                                @mouseleave="hoveredSceneTab = null">
+                          <span>零信任访问</span>
+                        </button>
 
-                    <!-- 4. 分支组网&GA访问 -->
-                    <button type="button"
-                            class="px-2.5 py-1 text-xs rounded-[3px] transition-all duration-150 flex items-center gap-1 cursor-pointer"
-                            :class="activeSceneTab === 'track3' 
-                              ? 'bg-white text-[#1E293B] font-medium shadow-xs border border-[#CBD5E1]' 
-                              : 'bg-[#F1F5F9] text-[#64748B] hover:bg-[#E2E8F0] hover:text-[#1E293B] border border-transparent'"
-                            @click="selectSceneTab('track3')"
-                            @mouseenter="hoveredSceneTab = 'track3'"
-                            @mouseleave="hoveredSceneTab = null">
-                      <span>分支组网&amp;GA访问</span>
-                    </button>
+                        <!-- 4. 分支组网&GA访问 -->
+                        <button type="button"
+                                class="px-2.5 py-1 text-xs rounded-[3px] transition-all duration-150 flex items-center gap-1 cursor-pointer"
+                                :class="activeSceneTab === 'track3' 
+                                  ? 'bg-white text-[#1E293B] font-medium shadow-xs border border-[#CBD5E1]' 
+                                  : 'bg-[#F1F5F9] text-[#64748B] hover:bg-[#E2E8F0] hover:text-[#1E293B] border border-transparent'"
+                                @click="selectSceneTab('track3')"
+                                @mouseenter="hoveredSceneTab = 'track3'"
+                                @mouseleave="hoveredSceneTab = null">
+                          <span>分支组网&amp;GA访问</span>
+                        </button>
 
-                    <!-- 5. 分支组网访问 -->
-                    <button type="button"
-                            class="px-2.5 py-1 text-xs rounded-[3px] transition-all duration-150 flex items-center gap-1 cursor-pointer"
-                            :class="activeSceneTab === 'track4' 
-                              ? 'bg-white text-[#1E293B] font-medium shadow-xs border border-[#CBD5E1]' 
-                              : 'bg-[#F1F5F9] text-[#64748B] hover:bg-[#E2E8F0] hover:text-[#1E293B] border border-transparent'"
-                            @click="selectSceneTab('track4')"
-                            @mouseenter="hoveredSceneTab = 'track4'"
-                            @mouseleave="hoveredSceneTab = null">
-                      <span>分支组网访问</span>
-                    </button>
+                        <!-- 5. 分支组网访问 -->
+                        <button type="button"
+                                class="px-2.5 py-1 text-xs rounded-[3px] transition-all duration-150 flex items-center gap-1 cursor-pointer"
+                                :class="activeSceneTab === 'track4' 
+                                  ? 'bg-white text-[#1E293B] font-medium shadow-xs border border-[#CBD5E1]' 
+                                  : 'bg-[#F1F5F9] text-[#64748B] hover:bg-[#E2E8F0] hover:text-[#1E293B] border border-transparent'"
+                                @click="selectSceneTab('track4')"
+                                @mouseenter="hoveredSceneTab = 'track4'"
+                                @mouseleave="hoveredSceneTab = null">
+                          <span>分支组网访问</span>
+                        </button>
+                      </div>
+                    </template>
+
+                    <!-- ERP 专属的2条路径Scene Tabs: 只有零信任访问和分支组网访问两条线 -->
+                    <template x-if="activeAppId === 'app_erp'">
+                      <div class="flex items-center gap-2">
+                        <!-- 零信任访问 -->
+                        <button type="button"
+                                class="px-2.5 py-1 text-xs rounded-[3px] transition-all duration-150 flex items-center gap-1 cursor-pointer"
+                                :class="activeSceneTab === 'track_ztna' 
+                                  ? 'bg-white text-[#1E293B] font-medium shadow-xs border border-[#CBD5E1]' 
+                                  : 'bg-[#F1F5F9] text-[#64748B] hover:bg-[#E2E8F0] hover:text-[#1E293B] border border-transparent'"
+                                @click="selectSceneTab('track_ztna')"
+                                @mouseenter="hoveredSceneTab = 'track_ztna'"
+                                @mouseleave="hoveredSceneTab = null">
+                          <span>零信任访问</span>
+                        </button>
+
+                        <!-- 分支组网访问 -->
+                        <button type="button"
+                                class="px-2.5 py-1 text-xs rounded-[3px] transition-all duration-150 flex items-center gap-1 cursor-pointer"
+                                :class="activeSceneTab === 'track_branch' 
+                                  ? 'bg-white text-[#1E293B] font-medium shadow-xs border border-[#CBD5E1]' 
+                                  : 'bg-[#F1F5F9] text-[#64748B] hover:bg-[#E2E8F0] hover:text-[#1E293B] border border-transparent'"
+                                @click="selectSceneTab('track_branch')"
+                                @mouseenter="hoveredSceneTab = 'track_branch'"
+                                @mouseleave="hoveredSceneTab = null">
+                          <span>分支组网访问</span>
+                        </button>
+                      </div>
+                    </template>
                   </div>
 
                   <svg class="w-full transition-all duration-300" style="min-width: 980px; height: 286px;"
@@ -3663,6 +3873,9 @@
                         <path d="M 1 1.2 L 6 3.5 L 1 5.8 Z" fill="#1C6EFF" />
                       </marker>
                     </defs>
+
+                    <!-- ==================== A. OA系统全局拓扑画布 ==================== -->
+                    <g x-show="activeAppId !== 'app_erp'">
 
                     <!-- ====== 1. 连线层 (4列等宽分布架构、全部采用1.6px基准线宽、统一箭头) ====== -->
                     <g class="topo-links">
@@ -3776,7 +3989,7 @@
                       <!-- 5.1 连线 1 交互热区: 代理网关(云端 10.23.33.4) ➔ OA系统 -->
                       <g class="topo-link-item cursor-pointer topo-track-group"
                          :class="{ 'is-selected': userFilterSegment === 'gw1_app', 'topo-track-fade': !isSceneMatching('track1') }"
-                         @mouseenter="hoveredGwAppSegment = 'gw1'; showAnomalyTip($event, 'gw_app', { name: '代理网关(10.23.33.4) ➔ OA系统' })"
+                         @mouseenter="hoveredGwAppSegment = 'gw1'; showAnomalyTip($event, 'gw_app', { name: '代理网关(10.23.33.4) ➔ OA系统段' })"
                          @mouseleave="hoveredGwAppSegment = null; hideAnomalyTip()"
                          @click.stop="filterBySegment('gw1_app', '')">
                         <!-- 热区: 网关1水平段 + 母线上半专属段 -->
@@ -3786,7 +3999,7 @@
                       <!-- 5.2 连线 2 交互热区: 代理网关(直连 10.23.33.8) ➔ OA系统 -->
                       <g class="topo-link-item cursor-pointer topo-track-group"
                          :class="{ 'is-selected': userFilterSegment === 'gw2_app', 'topo-track-fade': !isSceneMatching('track2') }"
-                         @mouseenter="hoveredGwAppSegment = 'gw2'; showAnomalyTip($event, 'gw_app', { name: '代理网关(10.23.33.8) ➔ OA系统' })"
+                         @mouseenter="hoveredGwAppSegment = 'gw2'; showAnomalyTip($event, 'gw_app', { name: '代理网关(10.23.33.8) ➔ OA系统段' })"
                          @mouseleave="hoveredGwAppSegment = null; hideAnomalyTip()"
                          @click.stop="filterBySegment('gw2_app', '')">
                         <!-- 热区: 网关2水平段 + 母线对应段 -->
@@ -3796,7 +4009,7 @@
                       <!-- 5.3 连线 3 交互热区: AF网关(SD-WAN 200.34.2.112) ➔ OA系统 -->
                       <g class="topo-link-item cursor-pointer topo-track-group"
                          :class="{ 'is-selected': userFilterSegment === 'gw3_app', 'topo-track-fade': !isSceneMatching('track3') }"
-                         @mouseenter="hoveredGwAppSegment = 'gw3'; showAnomalyTip($event, 'gw_app', { name: 'AF网关(200.34.2.112) ➔ OA系统' })"
+                         @mouseenter="hoveredGwAppSegment = 'gw3'; showAnomalyTip($event, 'gw_app', { name: 'AF网关(200.34.2.112) ➔ OA系统段' })"
                          @mouseleave="hoveredGwAppSegment = null; hideAnomalyTip()"
                          @click.stop="filterBySegment('gw3_app', '')">
                         <!-- 热区: 网关3水平段 + 母线对应段 -->
@@ -3806,7 +4019,7 @@
                       <!-- 5.4 连线 4 交互热区: AF网关(IPsec 200.34.2.115) ➔ OA系统 -->
                       <g class="topo-link-item cursor-pointer topo-track-group"
                          :class="{ 'is-selected': userFilterSegment === 'gw4_app', 'topo-track-fade': !isSceneMatching('track4') }"
-                         @mouseenter="hoveredGwAppSegment = 'gw4'; showAnomalyTip($event, 'gw_app', { name: 'AF网关(200.34.2.115) ➔ OA系统' })"
+                         @mouseenter="hoveredGwAppSegment = 'gw4'; showAnomalyTip($event, 'gw_app', { name: 'AF网关(200.34.2.115) ➔ OA系统段' })"
                          @mouseleave="hideAnomalyTip()"
                          @click.stop="filterBySegment('gw4_app', '')">
                         <!-- 热区: 网关4水平段 + 母线下半专属段 -->
@@ -3816,7 +4029,7 @@
                       <!-- 5.5 汇聚主干交互热区: 网关群 ➔ OA系统主干段 (X=818 ➔ X=889) -->
                       <g class="topo-link-item cursor-pointer"
                          :class="{ 'is-selected': userFilterSegment === 'conn_app' }"
-                         @mouseenter="hoveredGwAppSegment = 'bus'; showAnomalyTip($event, 'gw_app', { name: '网关群 ➔ OA办公系统汇聚主干' })"
+                         @mouseenter="hoveredGwAppSegment = 'bus'; showAnomalyTip($event, 'gw_app', { name: '网关群 ➔ OA系统主干段' })"
                          @mouseleave="hoveredGwAppSegment = null; hideAnomalyTip()"
                          @click.stop="filterBySegment('conn_app', '')">
                         <path d="M 818 144 L 889 144" fill="none" stroke="transparent" stroke-width="20" />
@@ -4055,6 +4268,225 @@
                       </g>
 
                     </g>
+                    </g>
+
+                    <!-- =================================================================== -->
+                    <!-- B. ERP系统全局拓扑画布 (3等分等宽分布架构: 终端/分支 ➔ 网关 ➔ ERP系统，间距严格均等为286px) -->
+                    <!-- =================================================================== -->
+                    <g x-show="activeAppId === 'app_erp'" :style="activeAppId === 'app_erp' ? '' : 'display:none;'">
+                      
+                      <!-- ====== 1. 连线层 (3等分架构，基准线宽1.6px、统一箭头与交互逻辑) ====== -->
+                      <g class="topo-links">
+                        
+                        <!-- 起点统一出发主干干线 (用户终端 & 分支，线宽1.6px) -->
+                        <!-- 用户终端统一出发主干 (X=171, Y=73 ➔ X=186, Y=73) -->
+                        <g class="topo-stem-link pointer-events-none topo-track-group"
+                           :class="{ 'topo-track-fade': !isSceneMatching('track_ztna') }">
+                          <path d="M 171 73 L 186 73" fill="none" stroke="#CBD5E1" stroke-width="1.6" />
+                          <circle cx="186" cy="73" r="2" fill="#94A3B8" />
+                        </g>
+                        <!-- 分支统一出发主干 (X=171, Y=215 ➔ X=186, Y=215) -->
+                        <g class="topo-stem-link pointer-events-none topo-track-group"
+                           :class="{ 'topo-track-fade': !isSceneMatching('track_branch') }">
+                          <path d="M 171 215 L 186 215" fill="none" stroke="#CBD5E1" stroke-width="1.6" />
+                          <circle cx="186" cy="215" r="2" fill="#94A3B8" />
+                        </g>
+
+                        <!-- Track 1: 零信任访问 (用户终端 ➔ 代理网关段 X=186 ➔ X=457) —— 核心故障段，红色2px动态虚线流光 -->
+                        <g class="topo-link-item is-anomaly cursor-pointer topo-track-group"
+                           :class="{ 'is-selected': userFilterSegment === 'erp_client_gw', 'topo-track-fade': !isSceneMatching('track_ztna') }"
+                           @mouseenter="showAnomalyTip($event, 'erp_client_gw', { name: '用户终端 ➔ 代理网关段' })"
+                           @mouseleave="hideAnomalyTip()"
+                           @click.stop="filterBySegment('erp_client_gw', '差')">
+                          <path d="M 186 73 L 457 73" fill="none" stroke="transparent" stroke-width="20" />
+                          <path d="M 186 73 L 449 73" fill="none" stroke="#F52727" stroke-width="2" stroke-dasharray="4 3" class="topo-line-flow topo-line-entity" marker-end="url(#arrow-danger)" />
+                          <!-- 起点线段辅助灰色信息: 290人 (28人受损)，居中对齐中点X=318 -->
+                          <text x="318" y="65" text-anchor="middle" font-size="10.5" fill="#94A3B8" class="font-sans select-none pointer-events-none">290人 (28人受损)</text>
+                        </g>
+
+                        <!-- Track 2: 分支组网访问 (分支机构 ➔ 组网网关段 X=186 ➔ X=457) —— 健康专线链路，统一1.6px常规灰色实线 -->
+                        <g class="topo-link-item cursor-pointer topo-track-group"
+                           :class="{ 'is-selected': userFilterSegment === 'erp_branch_gw', 'topo-track-fade': !isSceneMatching('track_branch') }"
+                           @mouseenter="showAnomalyTip($event, 'erp_branch_gw', { name: '分支机构 ➔ 组网网关段' })"
+                           @mouseleave="hideAnomalyTip()"
+                           @click.stop="filterBySegment('erp_branch_gw', '')">
+                          <path d="M 186 215 L 457 215" fill="none" stroke="transparent" stroke-width="20" />
+                          <path d="M 186 215 L 451 215" fill="none" stroke="#CBD5E1" stroke-width="1.6" class="topo-line-entity" marker-end="url(#arrow-muted)" />
+                          <!-- 起点线段辅助灰色信息: 6个分支，居中对齐中点X=318 -->
+                          <text x="318" y="207" text-anchor="middle" font-size="10.5" fill="#94A3B8" class="font-sans select-none pointer-events-none">6个分支</text>
+                        </g>
+
+                        <!-- ====== 3. 网关 ➔ ERP系统 (端到端汇聚母线架构，居中对称母线位于X=746) ====== -->
+                        <!-- 3.0 静态总线拓扑基准底线 (统一1.6px常规灰色底线) -->
+                        <g class="topo-gw-bus-base pointer-events-none">
+                          <!-- 2条网关出线水平段 (网关右侧X=603 ➔ 母线X=746，统一1.6px) -->
+                          <path d="M 603 73 L 746 73" fill="none" stroke="#CBD5E1" stroke-width="1.6" class="topo-track-group" :class="{ 'topo-track-fade': !isSceneMatching('track_ztna') }" />
+                          <path d="M 603 215 L 746 215" fill="none" stroke="#CBD5E1" stroke-width="1.6" class="topo-track-group" :class="{ 'topo-track-fade': !isSceneMatching('track_branch') }" />
+                          <!-- 垂直汇聚母线 (X=746，统一1.6px) -->
+                          <path d="M 746 73 L 746 215" fill="none" stroke="#CBD5E1" stroke-width="1.6" />
+                          <!-- 汇聚主干线接入应用 (X=746 ➔ X=883，统一1.6px) -->
+                          <path d="M 746 144 L 883 144" fill="none" stroke="#CBD5E1" stroke-width="1.6" marker-end="url(#arrow-muted)" />
+                          <!-- 汇聚中心实心锚点 -->
+                          <circle cx="746" cy="144" r="2.5" fill="#94A3B8" />
+                        </g>
+
+                        <!-- 3.1 连线 1 交互热区: 代理网关(10.23.33.4) ➔ ERP系统 -->
+                        <g class="topo-link-item cursor-pointer topo-track-group"
+                           :class="{ 'is-selected': userFilterSegment === 'erp_gw1_app', 'topo-track-fade': !isSceneMatching('track_ztna') }"
+                           @mouseenter="hoveredGwAppSegment = 'erp_gw1'; showAnomalyTip($event, 'erp_gw_app', { name: '代理网关(10.23.33.4) ➔ ERP系统段' })"
+                           @mouseleave="hoveredGwAppSegment = null; hideAnomalyTip()"
+                           @click.stop="filterBySegment('erp_gw1_app', '')">
+                          <path d="M 603 73 L 746 73 L 746 108" fill="none" stroke="transparent" stroke-width="20" />
+                        </g>
+
+                        <!-- 3.2 连线 2 交互热区: 组网网关(200.34.2.112) ➔ ERP系统 -->
+                        <g class="topo-link-item cursor-pointer topo-track-group"
+                           :class="{ 'is-selected': userFilterSegment === 'erp_gw2_app', 'topo-track-fade': !isSceneMatching('track_branch') }"
+                           @mouseenter="hoveredGwAppSegment = 'erp_gw2'; showAnomalyTip($event, 'erp_gw_app', { name: '组网网关(200.34.2.112) ➔ ERP系统段' })"
+                           @mouseleave="hoveredGwAppSegment = null; hideAnomalyTip()"
+                           @click.stop="filterBySegment('erp_gw2_app', '')">
+                          <path d="M 603 215 L 746 215 L 746 180" fill="none" stroke="transparent" stroke-width="20" />
+                        </g>
+
+                        <!-- 3.3 汇聚主干交互热区: 网关群 ➔ ERP系统主干段 (X=746 ➔ X=889) -->
+                        <g class="topo-link-item cursor-pointer"
+                           :class="{ 'is-selected': userFilterSegment === 'conn_app' || userFilterSegment === 'erp_gw_app' }"
+                           @mouseenter="hoveredGwAppSegment = 'erp_bus'; showAnomalyTip($event, 'erp_gw_app', { name: '网关群 ➔ ERP系统主干段' })"
+                           @mouseleave="hoveredGwAppSegment = null; hideAnomalyTip()"
+                           @click.stop="filterBySegment('erp_gw_app', '')">
+                          <path d="M 746 144 L 889 144" fill="none" stroke="transparent" stroke-width="20" />
+                        </g>
+
+                        <!-- ====== 3.4 动态完整连线高亮呈现层 (悬浮/选中/场景激活时高亮对应完整连线，线宽2.4px，与OA逻辑一致) ====== -->
+                        <g class="topo-gw-active-layer pointer-events-none">
+                          <!-- 连线 1 完整高亮: 代理网关 ➔ 母线 ➔ ERP系统 -->
+                          <path x-show="hoveredGwAppSegment === 'erp_gw1' || userFilterSegment === 'erp_gw1_app' || ((hoveredSceneTab === 'track_ztna' || activeSceneTab === 'track_ztna') && activeSceneTab !== 'all')"
+                                d="M 603 73 L 746 73 L 746 144 L 883 144"
+                                fill="none" stroke="#1C6EFF" stroke-width="2.4" marker-end="url(#arrow-primary)"
+                                style="filter: none !important;" class="topo-smooth" x-cloak />
+
+                          <!-- 连线 2 完整高亮: 组网网关 ➔ 母线 ➔ ERP系统 -->
+                          <path x-show="hoveredGwAppSegment === 'erp_gw2' || userFilterSegment === 'erp_gw2_app' || ((hoveredSceneTab === 'track_branch' || activeSceneTab === 'track_branch') && activeSceneTab !== 'all')"
+                                d="M 603 215 L 746 215 L 746 144 L 883 144"
+                                fill="none" stroke="#1C6EFF" stroke-width="2.4" marker-end="url(#arrow-primary)"
+                                style="filter: none !important;" class="topo-smooth" x-cloak />
+
+                          <!-- 汇聚主干悬浮/选中时高亮全部2条连线 -->
+                          <g x-show="hoveredGwAppSegment === 'erp_bus' || userFilterSegment === 'conn_app' || userFilterSegment === 'erp_gw_app'" x-cloak>
+                            <path d="M 603 73 L 746 73 L 746 144 L 883 144" fill="none" stroke="#1C6EFF" stroke-width="2.4" marker-end="url(#arrow-primary)" style="filter: none !important;" />
+                            <path d="M 603 215 L 746 215 L 746 144 L 883 144" fill="none" stroke="#1C6EFF" stroke-width="2.4" marker-end="url(#arrow-primary)" style="filter: none !important;" />
+                          </g>
+
+                          <!-- 高亮时的母线中心锚点 -->
+                          <circle x-show="hoveredGwAppSegment || (userFilterSegment && (userFilterSegment.includes('gw') || userFilterSegment === 'conn_app'))" cx="746" cy="144" r="3.5" fill="#1C6EFF" x-cloak />
+                        </g>
+
+                      </g>
+
+                      <!-- ====== 2. 节点卡片层 (3等分严格分布: 第1列X=25, 第2列X=457, 第3列X=889，间距均等286px) ====== -->
+                      <g class="topo-nodes">
+                        
+                        <!-- ==================== 列 1 (起点): 用户终端卡片 (X=25, Y=46, 宽度146px, 高度54px) ==================== -->
+                        <g class="cursor-pointer topo-track-group" transform="translate(25, 46)"
+                           :class="{ 'topo-track-fade': !isSceneMatching('track_ztna') }"
+                           @mouseenter="openClientGeoPopover($event)"
+                           @mouseleave="scheduleCloseClientGeoPopover()"
+                           @click.stop="filterBySegment('erp_client_gw', '')">
+                          <rect x="0" y="0" width="146" height="54" rx="4" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.2"
+                                class="hover:stroke-[#1C6EFF] transition-colors" />
+                          <!-- 用户终端图标 (同OA规范) -->
+                          <g transform="translate(12, 14)">
+                            <rect x="0" y="0" width="16" height="12" rx="1.5" fill="#1C6EFF" />
+                            <rect x="1.5" y="1.5" width="13" height="9" rx="0.5" fill="#FFFFFF" />
+                            <circle cx="5" cy="5" r="1.8" fill="#1C6EFF" />
+                            <path d="M 2.2 9.5 C 2.2 7.8 3.5 7.2 5 7.2 C 6.5 7.2 7.8 7.8 7.8 9.5 Z" fill="#1C6EFF" />
+                            <rect x="9.2" y="4" width="4" height="1.2" rx="0.5" fill="#93C5FD" />
+                            <rect x="9.2" y="6.5" width="3" height="1.2" rx="0.5" fill="#93C5FD" />
+                            <rect x="6.5" y="12" width="3" height="1.8" fill="#1C6EFF" />
+                            <rect x="4.5" y="13.8" width="7" height="1.2" rx="0.5" fill="#1C6EFF" />
+                          </g>
+                          <text x="36" y="21" dominant-baseline="central" font-size="12" font-weight="600" fill="#1E293B">用户终端</text>
+                          <text x="12" y="39" dominant-baseline="central" font-size="10.5" fill="#64748B">290人在线 · 移动办公</text>
+                        </g>
+
+                        <!-- ==================== 列 1 (起点): 分支卡片 (X=25, Y=188, 宽度146px, 高度54px) ==================== -->
+                        <g class="cursor-pointer topo-track-group" transform="translate(25, 188)"
+                           :class="{ 'topo-track-fade': !isSceneMatching('track_branch') }"
+                           @mouseenter="openBranchGeoPopover($event)"
+                           @mouseleave="scheduleCloseBranchGeoPopover()"
+                           @click.stop="filterBySegment('erp_branch_gw', '')">
+                          <rect x="0" y="0" width="146" height="54" rx="4" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.2"
+                                class="hover:stroke-[#0284C7] transition-colors" />
+                          <!-- 分支网关图标 (同OA规范) -->
+                          <g transform="translate(12, 14)">
+                            <rect x="0" y="0" width="16" height="4" rx="1" fill="#0284C7" />
+                            <circle cx="3.5" cy="2" r="0.9" fill="#FFFFFF" />
+                            <rect x="0" y="5.5" width="16" height="4" rx="1" fill="#0EA5E9" />
+                            <circle cx="12.5" cy="7.5" r="0.9" fill="#FFFFFF" />
+                            <rect x="0" y="11" width="16" height="4" rx="1" fill="#38BDF8" />
+                            <circle cx="3.5" cy="13" r="0.9" fill="#FFFFFF" />
+                          </g>
+                          <text x="36" y="21" dominant-baseline="central" font-size="12" font-weight="600" fill="#1E293B">分支</text>
+                          <text x="12" y="39" dominant-baseline="central" font-size="10.5" fill="#64748B">6个分支 · 组网接入</text>
+                        </g>
+
+                        <!-- ==================== 列 2 (网关): 代理网关 (X=457, Y=46, 宽度146px, 高度54px，等宽分布) ==================== -->
+                        <g class="cursor-pointer topo-track-group" transform="translate(457, 46)"
+                           :class="{ 'topo-track-fade': !isSceneMatching('track_ztna') }"
+                           @mouseenter="showAnomalyTip($event, 'erp_gw_proxy', {})"
+                           @mouseleave="hideAnomalyTip()"
+                           @click.stop="filterBySegment('erp_client_gw', '差')">
+                          <rect x="0" y="0" width="146" height="54" rx="4" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.2"
+                                class="hover:stroke-[#1C6EFF] transition-colors" />
+                          <!-- 图标 (中性健康色) -->
+                          <g transform="translate(10, 16)" fill="#64748B">
+                            <rect x="0" y="0" width="15" height="13" rx="1.5" fill="#64748B" />
+                            <rect x="2" y="2" width="11" height="9" rx="0.5" fill="#F8FAFC" />
+                            <rect x="4" y="4" width="2.5" height="4.5" fill="#64748B" />
+                            <rect x="8.5" y="4" width="2.5" height="4.5" fill="#64748B" />
+                          </g>
+                          <text x="32" y="22" font-size="11" font-weight="600" fill="#1E293B">代理网关</text>
+                          <text x="32" y="37" font-size="10" font-family="monospace" fill="#64748B">10.23.33.4</text>
+                        </g>
+
+                        <!-- ==================== 列 2 (网关): 组网网关 (X=457, Y=188, 宽度146px, 高度54px，等宽分布) ==================== -->
+                        <g class="cursor-pointer topo-track-group" transform="translate(457, 188)"
+                           :class="{ 'topo-track-fade': !isSceneMatching('track_branch') }"
+                           @mouseenter="showAnomalyTip($event, 'erp_gw_branch', {})"
+                           @mouseleave="hideAnomalyTip()"
+                           @click.stop="filterBySegment('erp_branch_gw', '')">
+                          <rect x="0" y="0" width="146" height="54" rx="4" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.2"
+                                class="hover:stroke-[#0284C7] transition-colors" />
+                          <!-- 图标 -->
+                          <g transform="translate(10, 16)" fill="#64748B">
+                            <rect x="0" y="0" width="15" height="4" rx="1" fill="#64748B" />
+                            <rect x="0" y="5.5" width="15" height="4" rx="1" fill="#94A3B8" />
+                            <rect x="0" y="11" width="15" height="4" rx="1" fill="#CBD5E1" />
+                          </g>
+                          <text x="32" y="22" font-size="11" font-weight="600" fill="#1E293B">组网网关</text>
+                          <text x="32" y="37" font-size="10" font-family="monospace" fill="#64748B">200.34.2.112</text>
+                        </g>
+
+                        <!-- ==================== 列 3 (应用): 企业内部 ERP (X=889, Y=117, 宽度146px, 高度54px) ==================== -->
+                        <g class="cursor-pointer" transform="translate(889, 117)"
+                           @mouseenter="showAnomalyTip($event, 'erp_app', {})"
+                           @mouseleave="hideAnomalyTip()"
+                           @click.stop="filterBySegment('erp_gw_app', '')">
+                          <rect x="0" y="0" width="146" height="54" rx="4" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1.2"
+                                class="hover:stroke-[#1C6EFF] transition-colors" />
+                          <!-- 4 宫格应用图标 (蓝色) -->
+                          <g transform="translate(12, 14)" fill="#1C6EFF">
+                            <rect x="0" y="0" width="6" height="6" rx="1" />
+                            <rect x="8" y="0" width="6" height="6" rx="1" />
+                            <rect x="0" y="8" width="6" height="6" rx="1" />
+                            <rect x="8" y="8" width="6" height="6" rx="1" />
+                          </g>
+                          <text x="34" y="21" dominant-baseline="central" font-size="12" font-weight="600" fill="#1E293B">企业内部 ERP</text>
+                          <text x="12" y="39" dominant-baseline="central" font-size="10" font-family="monospace" fill="#64748B">https://10.23.0.88</text>
+                        </g>
+
+                      </g>
+                    </g>
 
                   </svg>
                 </div>
@@ -4161,13 +4593,13 @@
                       </button>
                     </div>
 
-                    <!-- 4. 异常定位 (多选下拉筛选，统一单选清除规范) -->
+                    <!-- 4. 问题链路/节点 (多选下拉筛选，统一单选清除规范) -->
                     <div class="relative inline-flex items-center group w-40" x-data="{ open: false }" @click.outside="open = false">
                       <div @click="open = !open" 
                            class="h-8 w-full px-2.5 bg-white border border-[#D3D7DE] rounded-[2px] hover:border-[#1C6EFF] transition-colors flex items-center justify-between cursor-pointer select-none text-xs">
                         <!-- 未选状态 -->
                         <template x-if="branchFilterAnomalies.length === 0">
-                          <span class="text-[#8A92A1] font-normal truncate">全部异常</span>
+                          <span class="text-[#8A92A1] font-normal truncate">全部链路/节点</span>
                         </template>
                         <!-- 单选状态 -->
                         <template x-if="branchFilterAnomalies.length === 1">
@@ -4215,7 +4647,7 @@
                       <div x-show="open" 
                            x-cloak 
                            class="absolute left-0 top-full mt-1 w-52 max-h-[240px] overflow-y-auto bg-white border border-[#E1E5EB] shadow-lg rounded-[2px] py-1 z-50 text-xs text-[#2F3540] custom-scrollbar">
-                        <template x-for="opt in ['分支-POP段异常', 'POP-连接器段异常', 'POP异常', '连接器异常']" :key="opt">
+                        <template x-for="opt in (activeAppId === 'app_erp' ? ['组网专线段', '组网网关'] : ['分支-POP段', 'POP-连接器段', 'POP', '连接器'])" :key="opt">
                           <label class="flex items-center gap-2 px-3 py-1.5 hover:bg-[#F4F6F9] cursor-pointer select-none">
                             <input type="checkbox" :value="opt" x-model="branchFilterAnomalies" @change="branchPage = 1" class="rounded border-gray-300 text-[#1C6EFF] focus:ring-0 w-3.5 h-3.5">
                             <span x-text="opt"></span>
@@ -4253,7 +4685,7 @@
                         <th>IP 归属地</th>
                         <th>主要接入 POP</th>
                         <th class="num-col">受影响用户数</th>
-                        <th>异常定位</th>
+                        <th>问题链路/节点</th>
                         <th class="text-center w-16">操作</th>
                       </tr>
                     </thead>
@@ -4282,7 +4714,7 @@
                               <div class="flex flex-wrap items-center gap-1.5">
                                 <template x-for="(tag, tIdx) in item.anomalies" :key="tIdx">
                                   <span class="inline-flex items-center px-2 py-0.5 text-[11px] font-medium rounded-[2px] whitespace-nowrap select-none"
-                                    :class="item.exp === '差' ? 'bg-[#D9363E]/10 text-[#D9363E] border border-[#D9363E]/20' : 'bg-[#FA721B]/10 text-[#FA721B] border border-[#FA721B]/20'"
+                                    :class="item.exp === '差' ? 'bg-[#D9363E]/10 text-[#D9363E]' : 'bg-[#FA721B]/10 text-[#FA721B]'"
                                     x-text="tag"></span>
                                 </template>
                               </div>
@@ -4408,13 +4840,13 @@
                       </button>
                     </div>
 
-                    <!-- 4. 异常定位 (多选下拉筛选，统一单选清除规范) -->
+                    <!-- 4. 问题链路/节点 (多选下拉筛选，统一单选清除规范) -->
                     <div class="relative inline-flex items-center group w-40" x-data="{ open: false }" @click.outside="open = false">
                       <div @click="open = !open" 
                            class="h-8 w-full px-2.5 bg-white border border-[#D3D7DE] rounded-[2px] hover:border-[#1C6EFF] transition-colors flex items-center justify-between cursor-pointer select-none text-xs">
                         <!-- 未选状态 -->
                         <template x-if="userFilterAnomalies.length === 0">
-                          <span class="text-[#8A92A1] font-normal truncate">全部异常</span>
+                          <span class="text-[#8A92A1] font-normal truncate">全部链路/节点</span>
                         </template>
                         <!-- 单选状态 -->
                         <template x-if="userFilterAnomalies.length === 1">
@@ -4462,7 +4894,7 @@
                       <div x-show="open" 
                            x-cloak 
                            class="absolute left-0 top-full mt-1 w-52 max-h-[240px] overflow-y-auto bg-white border border-[#E1E5EB] shadow-lg rounded-[2px] py-1 z-50 text-xs text-[#2F3540] custom-scrollbar">
-                        <template x-for="opt in ['终端-POP段异常', 'POP-连接器段异常', 'POP异常', '连接器异常']" :key="opt">
+                        <template x-for="opt in (activeAppId === 'app_erp' ? ['用户终端-代理网关段'] : ['终端-POP段', 'POP-连接器段', 'POP', '连接器'])" :key="opt">
                           <label class="flex items-center gap-2 px-3 py-1.5 hover:bg-[#F4F6F9] cursor-pointer select-none">
                             <input type="checkbox" :value="opt" x-model="userFilterAnomalies" @change="userPage = 1" class="rounded border-gray-300 text-[#1C6EFF] focus:ring-0 w-3.5 h-3.5">
                             <span x-text="opt"></span>
@@ -4497,7 +4929,7 @@
                         <th>访问体验</th>
                         <th>IP 归属地</th>
                         <th>接入 POP</th>
-                        <th>异常定位</th>
+                        <th>问题链路/节点</th>
                         <th class="text-center w-16">操作</th>
                       </tr>
                     </thead>
@@ -4522,7 +4954,7 @@
                               <div class="flex flex-wrap items-center gap-1.5">
                                 <template x-for="(tag, tIdx) in item.anomalies" :key="tIdx">
                                   <span class="inline-flex items-center px-2 py-0.5 text-[11px] font-medium rounded-[2px] whitespace-nowrap select-none"
-                                    :class="item.exp === '差' ? 'bg-[#D9363E]/10 text-[#D9363E] border border-[#D9363E]/20' : 'bg-[#FA721B]/10 text-[#FA721B] border border-[#FA721B]/20'"
+                                    :class="item.exp === '差' ? 'bg-[#D9363E]/10 text-[#D9363E]' : 'bg-[#FA721B]/10 text-[#FA721B]'"
                                     x-text="tag"></span>
                                 </template>
                               </div>
@@ -4604,35 +5036,26 @@
              x-transition:leave="transition ease-in duration-75"
              x-transition:leave-start="opacity-100"
              x-transition:leave-end="opacity-0"
-             class="fixed z-[9999] pointer-events-none bg-white text-[#1E293B] px-3 py-2.5 rounded-[4px] shadow-lg border border-[#E2E8F0] text-xs min-w-[220px] max-w-[270px] select-none"
+             class="fixed z-[9999] pointer-events-none bg-white text-[#1E293B] px-3 py-2.5 rounded-[4px] shadow-lg border border-[#E2E8F0] text-xs min-w-[220px] max-w-[280px] select-none"
              :style="`left: ${anomalyTip.x}px; top: ${anomalyTip.y}px; transform: translate(-50%, -100%); margin-top: -6px;`"
              x-cloak>
           <template x-if="anomalyTip.data">
             <div class="space-y-1.5 font-sans">
-              <!-- 头部：标题与状态点 + 右上角时间与数据源 -->
+              <!-- 头部：标题与状态点 + 右上角优先级标签 (时间移至最下方) -->
               <div class="flex items-center justify-between pb-1.5 border-b border-[#F1F5F9] gap-2">
                 <div class="flex items-center gap-1.5 font-medium text-[#1E293B] text-xs min-w-0">
                   <span class="w-1.5 h-1.5 rounded-full flex-shrink-0" :class="anomalyTip.data.isAbnormal ? 'bg-[#F52727]' : 'bg-[#12A679]'"></span>
                   <span class="truncate font-semibold" x-text="anomalyTip.data.title"></span>
                 </div>
-                <div class="flex items-center gap-1 text-[10.5px] text-[#94A3B8] font-mono shrink-0">
-                  <span x-text="currentGlobalSlice.dataSource"></span>
-                  <span>·</span>
-                  <span x-text="anomalyTip.data.timeText || selectedGlobalSliceTime"></span>
-                  <template x-if="anomalyTip.data.priorityBadge">
-                    <span class="px-1 py-0.2 rounded text-[9.5px] font-medium bg-[#FFF1F0] text-[#D9363E]"
-                          x-text="anomalyTip.data.priorityBadge"></span>
-                  </template>
-                </div>
+                <template x-if="anomalyTip.data.priorityBadge">
+                  <span class="px-1.5 py-0.5 rounded text-[9.5px] font-medium bg-[#FFF1F0] text-[#D9363E] shrink-0"
+                        x-text="anomalyTip.data.priorityBadge"></span>
+                </template>
               </div>
 
-              <!-- 1. 访问总数与体验分布概况 (轻量扁平排版，无多余内嵌灰色背景框) -->
+              <!-- 1. 分段体验分布概况 (去除总数描述，仅保留分段体验情况) -->
               <template x-if="anomalyTip.data.summary">
                 <div class="space-y-1 text-xs pt-0.5">
-                  <div class="flex items-center justify-between">
-                    <span class="text-[#64748B]" x-text="anomalyTip.data.summary.totalLabel || '访问对象总数'"></span>
-                    <span class="font-medium text-[#1E293B] font-mono" x-text="anomalyTip.data.summary.total"></span>
-                  </div>
                   <div class="flex items-center justify-between">
                     <span class="text-[#64748B]">分段体验情况</span>
                     <div class="flex items-center gap-1.5 font-mono text-[11px]">
@@ -4671,12 +5094,13 @@
                 </div>
               </template>
 
-              <!-- 3. 排查建议提示 (轻量弱化文字，去除黄色大底色块) -->
-              <template x-if="anomalyTip.data.hint">
-                <div class="pt-1.5 mt-0.5 border-t border-[#F1F5F9] text-[11px] text-[#64748B] leading-relaxed">
-                  <span x-text="anomalyTip.data.hint"></span>
-                </div>
-              </template>
+
+              <!-- 4. 底部：真实访问时间与数据源 (放在最下方) -->
+              <div class="pt-1.5 mt-0.5 border-t border-[#F1F5F9] flex items-center gap-1 text-[10.5px] text-[#94A3B8] font-mono">
+                <span x-text="currentGlobalSlice.dataSource || '真实访问'"></span>
+                <span>·</span>
+                <span x-text="anomalyTip.data.timeText || selectedGlobalSliceTime"></span>
+              </div>
             </div>
           </template>
         </div>
