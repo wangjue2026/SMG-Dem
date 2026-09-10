@@ -1187,9 +1187,9 @@
                 text: '代理网关与总部组网网关健康度 100%，内网互联链路通畅无拥塞。'
               },
               {
-                dim: '应用后端',
+                dim: '主动探测',
                 dotClass: 'bg-[#12A679]',
-                text: '企业 ERP 系统响应正常（HTTP 200 / TTFB 42ms），已排除后端服务及数据库异常。'
+                text: '多源探针（6分支/4 POP/5客户端）主动探测平均TTFB 32ms，已排除后端服务及数据库异常。'
               },
               {
                 dim: '受损定界',
@@ -1695,6 +1695,46 @@
           return current === trackKey;
         },
 
+        // 下拉选择框展示文案 (默认: 全部访问路径)
+        get currentSceneSelectLabel() {
+          const currentAppTracks = this.activeAppId === 'app_erp' 
+            ? ['track_ztna', 'track_branch'] 
+            : ['track1', 'track2', 'track3', 'track4'];
+          const selectedCount = currentAppTracks.filter(k => this.visibleTracks.includes(k)).length;
+          if (selectedCount === currentAppTracks.length) {
+            return '全部访问路径';
+          } else if (selectedCount === 0) {
+            return '未选择链路';
+          } else {
+            return `已选 ${selectedCount}/${currentAppTracks.length} 条链路`;
+          }
+        },
+
+        // 判断链路在拓扑中是否可见 (取消勾选则隐藏)
+        isSceneVisible(trackKey) {
+          return this.visibleTracks.includes(trackKey);
+        },
+
+        // 切换场景链路的显隐状态
+        toggleSceneTrack(trackKey) {
+          const idx = this.visibleTracks.indexOf(trackKey);
+          if (idx > -1) {
+            this.visibleTracks.splice(idx, 1);
+          } else {
+            this.visibleTracks.push(trackKey);
+          }
+        },
+
+        // 全选恢复所有场景链路
+        selectAllSceneTracks() {
+          const currentAppTracks = this.activeAppId === 'app_erp' 
+            ? ['track_ztna', 'track_branch'] 
+            : ['track1', 'track2', 'track3', 'track4'];
+          currentAppTracks.forEach(k => {
+            if (!this.visibleTracks.includes(k)) this.visibleTracks.push(k);
+          });
+        },
+
         // 应用数据字典
         appsData: {
           app_oa: {
@@ -1787,6 +1827,26 @@
             damagedRatioText: '体验受损访问对象占比9.5%',
             branchesCount: 6,
             usersCount: 290,
+            probeInfo: {
+              enabled: true,
+              isTarget: true,
+              targetName: '企业核心关键靶机',
+              policy: '7×24小时持续探测 (频率 30s/次)',
+              targetAddress: 'https://10.23.0.88',
+              avgTtfb: '32ms',
+              dnsDelay: '2ms',
+              tcpDelay: '11ms',
+              tlsDelay: '10ms',
+              httpDelay: '9ms',
+              probersSummary: '多源探测目标 (6个分支 + 4个POP + 5个客户端探针)',
+              proberCount: 15,
+              probers: [
+                { type: '分支机构探针', count: '6个分支', avgTtfb: '35ms', desc: '北京、上海、深圳等6个分支机构探针', status: '正常' },
+                { type: '边缘 POP 探针', count: '4个节点', avgTtfb: '28ms', desc: '香港、新加坡、广州、东京4个POP接入点', status: '正常' },
+                { type: '客户终端探针', count: '5台终端', avgTtfb: '34ms', desc: '财务与运维核心终端常驻探针', status: '正常' }
+              ],
+              desc: '该应用被全网多个探针作为目标持续探测，此处展示的数据为当前时刻各探测源的综合平均值。'
+            },
             objectExperience: {
               normal: 268,
               normalRatio: '90.5%',
@@ -2011,6 +2071,18 @@
         hoveredGwAppSegment: null,
         activeSceneTab: 'all',
         hoveredSceneTab: null,
+        sceneDropdownOpen: false,
+        visibleTracks: ['track1', 'track2', 'track3', 'track4', 'track_ztna', 'track_branch'],
+        oaSceneOptions: [
+          { key: 'track1', name: '零信任&GA访问', isAbnormal: true },
+          { key: 'track2', name: '零信任访问', isAbnormal: false },
+          { key: 'track3', name: '分支组网&GA访问', isAbnormal: true },
+          { key: 'track4', name: '分支组网访问', isAbnormal: false }
+        ],
+        erpSceneOptions: [
+          { key: 'track_ztna', name: '零信任访问', isAbnormal: true },
+          { key: 'track_branch', name: '分支组网访问', isAbnormal: false }
+        ],
 
         // 用户访问表格搜索与筛选
         userSearchQuery: '',
@@ -3466,6 +3538,7 @@
                     <h1 class="text-sm font-bold text-[#2F3540] truncate" x-text="currentApp.appName"></h1>
                     <span class="px-2 py-0.5 text-[11px] rounded bg-[#E6F4FF] text-[#1C6EFF] font-medium shrink-0"
                       x-text="currentApp.appType"></span>
+
                   </div>
                   <div class="text-xs text-[#8A92A1] font-mono truncate" x-text="currentApp.appAddress"></div>
                 </div>
@@ -3677,8 +3750,106 @@
                           x-text="`(联动时间 | ${currentGlobalSlice.time})`"></span>
                   </div>
 
-                  <!-- 右侧：真实访问TTFB 及悬浮下拉展开子指标 -->
+                  <!-- 右侧：主动探测TTFB (针对ERP等关键靶机多源探测目标) 与真实访问TTFB 悬浮指标 -->
                   <div class="flex items-center gap-2.5">
+
+                    <!-- 主动探测TTFB: 关键靶机 7x24h 多源探针综合平均值 (分支/POP/客户探针端) -->
+                    <template x-if="activeAppId === 'app_erp' || (currentApp.probeInfo && currentApp.probeInfo.enabled)">
+                      <div class="relative"
+                           x-data="{ probeTtfbHoverOpen: false, probeTimeout: null }"
+                           @mouseenter="clearTimeout(probeTimeout); probeTtfbHoverOpen = true"
+                           @mouseleave="probeTimeout = setTimeout(() => { probeTtfbHoverOpen = false }, 200)">
+                        <div class="flex items-center gap-1.5 cursor-pointer py-1 px-2.5 rounded-[3px] bg-[#F8FAFC] border border-[#E2E8F0] hover:border-[#BFD5FF] hover:bg-[#F0F7FF] transition-all">
+                          <span class="w-1.5 h-1.5 rounded-full bg-[#12A679]"></span>
+                          <span class="text-xs text-[#64748B] font-sans">主动探测TTFB:</span>
+                          <span class="text-xs font-bold font-mono text-[#12A679]"
+                                x-text="(currentApp.probeInfo && currentApp.probeInfo.avgTtfb) || '32ms'">32ms</span>
+                          <svg class="w-3.5 h-3.5 text-[#94A3B8] transition-transform duration-200"
+                               :class="probeTtfbHoverOpen ? 'rotate-180 text-[#1C6EFF]' : ''"
+                               fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"></path>
+                          </svg>
+                        </div>
+
+                        <!-- 下拉/悬浮展示多源主动探测详情浮层 -->
+                        <div x-show="probeTtfbHoverOpen"
+                             x-transition:enter="transition ease-out duration-150"
+                             x-transition:enter-start="opacity-0 translate-y-1 scale-95"
+                             x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+                             x-transition:leave="transition ease-in duration-100"
+                             x-transition:leave-start="opacity-100"
+                             x-transition:leave-end="opacity-0"
+                             class="absolute right-0 top-full mt-1.5 z-[9999] bg-white p-3.5 rounded-[4px] shadow-2xl border border-[#CBD5E1] text-xs min-w-[320px] max-w-[350px] select-none"
+                             x-cloak>
+                          <div class="space-y-2.5 font-sans">
+                            <!-- 头部：标题与当前探测时刻 -->
+                            <div class="flex items-center justify-between pb-1.5 border-b border-[#F1F5F9] text-xs">
+                              <div class="flex items-center gap-1.5 font-semibold text-[#1E293B]">
+                                <span class="w-1.5 h-1.5 rounded-full bg-[#12A679]"></span>
+                                <span>主动探测 TTFB（综合平均值）</span>
+                              </div>
+                              <span class="px-1.5 py-0.5 rounded text-[10.5px] font-mono text-[#64748B] bg-[#F1F5F9] border border-[#E2E8F0]"
+                                    x-text="'探测时刻 ' + (currentGlobalSlice.time || '15:20')"></span>
+                            </div>
+
+                            <!-- 说明：应用为多探针持续探测目标，呈现综合平均值 -->
+                            <div class="bg-[#F8FAFC] rounded-[3px] p-2 border border-[#E2E8F0] text-[11.5px] text-[#475569] leading-relaxed">
+                              该应用被全网多个探针作为目标持续探测，此处展示的数据为当前时刻各探测源的<span class="text-[#12A679] font-semibold">综合平均值</span>。
+                            </div>
+
+                            <!-- 各探测源均值列表 -->
+                            <div class="space-y-1 text-xs">
+                              <div class="text-[11px] font-medium text-[#64748B] flex items-center justify-between pb-0.5">
+                                <span>探测源分布 (共 15 个探针节点)</span>
+                                <span class="text-[#94A3B8]">平均 TTFB</span>
+                              </div>
+                              <div class="flex items-center justify-between py-1 px-1.5 rounded bg-[#F8FAFC]/60 hover:bg-[#F1F5F9] transition-colors">
+                                <span class="text-[#334155]">🏢 分支机构探针 (6 个分支)</span>
+                                <span class="font-mono text-[#12A679] font-semibold">35ms</span>
+                              </div>
+                              <div class="flex items-center justify-between py-1 px-1.5 rounded bg-[#F8FAFC]/60 hover:bg-[#F1F5F9] transition-colors">
+                                <span class="text-[#334155]">🌐 边缘 POP 探针 (4 个接入点)</span>
+                                <span class="font-mono text-[#12A679] font-semibold">28ms</span>
+                              </div>
+                              <div class="flex items-center justify-between py-1 px-1.5 rounded bg-[#F8FAFC]/60 hover:bg-[#F1F5F9] transition-colors">
+                                <span class="text-[#334155]">💻 客户终端探针 (5 台常驻探针)</span>
+                                <span class="font-mono text-[#12A679] font-semibold">34ms</span>
+                              </div>
+                            </div>
+
+                            <!-- 耗时子指标 (平均值拆解) -->
+                            <div class="pt-1.5 border-t border-[#F1F5F9] space-y-1 text-xs">
+                              <div class="text-[11px] font-medium text-[#64748B]">探测耗时解构 (平均值)</div>
+                              <div class="grid grid-cols-4 gap-1.5 pt-0.5 text-center">
+                                <div class="bg-[#F8FAFC] py-1 px-1 rounded border border-[#E2E8F0]/70">
+                                  <div class="text-[10px] text-[#94A3B8]">DNS</div>
+                                  <div class="font-mono text-[11px] text-[#1E293B] font-medium">2ms</div>
+                                </div>
+                                <div class="bg-[#F8FAFC] py-1 px-1 rounded border border-[#E2E8F0]/70">
+                                  <div class="text-[10px] text-[#94A3B8]">TCP</div>
+                                  <div class="font-mono text-[11px] text-[#1E293B] font-medium">11ms</div>
+                                </div>
+                                <div class="bg-[#F8FAFC] py-1 px-1 rounded border border-[#E2E8F0]/70">
+                                  <div class="text-[10px] text-[#94A3B8]">TLS</div>
+                                  <div class="font-mono text-[11px] text-[#1E293B] font-medium">10ms</div>
+                                </div>
+                                <div class="bg-[#F8FAFC] py-1 px-1 rounded border border-[#E2E8F0]/70">
+                                  <div class="text-[10px] text-[#94A3B8]">HTTP</div>
+                                  <div class="font-mono text-[11px] text-[#1E293B] font-medium">9ms</div>
+                                </div>
+                              </div>
+                            </div>
+
+                            <!-- 底部探测策略 -->
+                            <div class="pt-1 border-t border-[#F1F5F9] flex items-center justify-between text-[10px] text-[#94A3B8] font-mono">
+                              <span>探测频率: 30s/次</span>
+                              <span>目标: https://10.23.0.88</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </template>
+
                     <!-- 真实访问TTFB 及悬浮下拉展开 DNS、TCP、TLS、HTTP 子指标浮层 -->
                     <div class="relative"
                          x-data="{ ttfbHoverOpen: false, ttfbTimeout: null }"
@@ -3754,102 +3925,99 @@
                 <!-- 2.2 拓扑核心画布 (4条完全独立分离路径架构，总线汇聚单根干线入应用) -->
                 <div class="topo-container w-full relative overflow-hidden p-0 bg-[#F8FAFC] rounded-[6px]">
 
-                  <!-- ====== 拓扑场景切换标签栏 (灰色微型药丸标签，一行整齐排开，低调内敛) ====== -->
-                  <div class="px-5 pt-3 pb-0.5 flex items-center flex-wrap gap-2 select-none z-10 relative border-b border-[#EEF2F6]">
-                    
-                    <!-- 1. 全网访问情况 -->
-                    <button type="button"
-                            class="px-2.5 py-1 text-xs rounded-[3px] transition-all duration-150 flex items-center gap-1 cursor-pointer"
-                            :class="activeSceneTab === 'all' 
-                              ? 'bg-white text-[#1E293B] font-medium shadow-xs border border-[#CBD5E1]' 
-                              : 'bg-[#F1F5F9] text-[#64748B] hover:bg-[#E2E8F0] hover:text-[#1E293B] border border-transparent'"
-                            @click="selectSceneTab('all')"
-                            @mouseenter="hoveredSceneTab = 'all'"
-                            @mouseleave="hoveredSceneTab = null">
-                      <span>全网访问情况</span>
-                    </button>
+                  <!-- ====== 拓扑场景切换轻量下拉选择器 (默认选择全部访问路径，移入展开多选列表与悬浮联动) ====== -->
+                  <div class="px-5 py-2 flex items-center justify-between select-none z-20 relative border-b border-[#EEF2F6]">
+                    <div class="relative"
+                         @mouseenter="sceneDropdownOpen = true"
+                         @mouseleave="sceneDropdownOpen = false">
+                      
+                      <!-- 轻量触发选择按钮: 正常字重、柔和微描边、极轻投影 -->
+                      <button type="button"
+                              @click="sceneDropdownOpen = !sceneDropdownOpen"
+                              class="h-7 px-2.5 text-xs text-[#475569] font-normal bg-white hover:bg-[#F8FAFC] rounded-[3px] border border-[#E2E8F0]/80 transition-colors flex items-center gap-1.5 cursor-pointer shadow-[0_1px_2px_rgba(0,0,0,0.02)] focus:outline-none">
+                        <span class="w-1.5 h-1.5 rounded-full bg-[#1C6EFF]"></span>
+                        <span x-text="currentSceneSelectLabel">全部访问路径</span>
+                        <svg class="w-3 h-3 text-[#94A3B8] transition-transform duration-200"
+                             :class="{ 'rotate-180': sceneDropdownOpen }"
+                             fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
 
-                    <!-- OA 专属的4条路径Scene Tabs -->
-                    <template x-if="activeAppId !== 'app_erp'">
-                      <div class="flex items-center gap-2">
-                        <!-- 2. 零信任&GA访问 -->
-                        <button type="button"
-                                class="px-2.5 py-1 text-xs rounded-[3px] transition-all duration-150 flex items-center gap-1 cursor-pointer"
-                                :class="activeSceneTab === 'track1' 
-                                  ? 'bg-white text-[#1E293B] font-medium shadow-xs border border-[#CBD5E1]' 
-                                  : 'bg-[#F1F5F9] text-[#64748B] hover:bg-[#E2E8F0] hover:text-[#1E293B] border border-transparent'"
-                                @click="selectSceneTab('track1')"
-                                @mouseenter="hoveredSceneTab = 'track1'"
-                                @mouseleave="hoveredSceneTab = null">
-                          <span>零信任&amp;GA访问</span>
-                        </button>
+                      <!-- 下拉菜单浮层: 鼠标移入展示，带轻柔阴影与极细描边 -->
+                      <div x-show="sceneDropdownOpen"
+                           x-transition:enter="transition ease-out duration-100"
+                           x-transition:enter-start="opacity-0 translate-y-1 scale-98"
+                           x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+                           x-transition:leave="transition ease-in duration-75"
+                           x-transition:leave-start="opacity-100 translate-y-0"
+                           x-transition:leave-end="opacity-0 translate-y-1"
+                           class="absolute top-full left-0 mt-1 min-w-[200px] bg-white rounded-[4px] shadow-[0_4px_16px_rgba(0,0,0,0.08)] border border-[#E2E8F0] py-1.5 z-40 text-xs font-normal select-none"
+                           x-cloak>
+                        
+                        <!-- 全选/标题快捷操作栏 -->
+                        <div class="px-2.5 py-1 text-[11px] text-[#94A3B8] border-b border-[#F1F5F9] flex items-center justify-between mb-1">
+                          <span>访问场景链路</span>
+                          <button type="button" 
+                                  class="text-[#1C6EFF] hover:underline cursor-pointer"
+                                  @click.stop="selectAllSceneTracks()">恢复全选</button>
+                        </div>
 
-                        <!-- 3. 零信任访问 -->
-                        <button type="button"
-                                class="px-2.5 py-1 text-xs rounded-[3px] transition-all duration-150 flex items-center gap-1 cursor-pointer"
-                                :class="activeSceneTab === 'track2' 
-                                  ? 'bg-white text-[#1E293B] font-medium shadow-xs border border-[#CBD5E1]' 
-                                  : 'bg-[#F1F5F9] text-[#64748B] hover:bg-[#E2E8F0] hover:text-[#1E293B] border border-transparent'"
-                                @click="selectSceneTab('track2')"
-                                @mouseenter="hoveredSceneTab = 'track2'"
-                                @mouseleave="hoveredSceneTab = null">
-                          <span>零信任访问</span>
-                        </button>
+                        <!-- OA 场景选项列表 -->
+                        <template x-if="activeAppId !== 'app_erp'">
+                          <div class="space-y-0.5">
+                            <template x-for="item in oaSceneOptions" :key="item.key">
+                              <label class="flex items-center gap-2 px-2.5 py-1.5 text-xs text-[#334155] font-normal hover:bg-[#F8FAFC] cursor-pointer transition-colors"
+                                     @mouseenter="hoveredSceneTab = item.key"
+                                     @mouseleave="hoveredSceneTab = null">
+                                <input type="checkbox"
+                                       :checked="visibleTracks.includes(item.key)"
+                                       @change="toggleSceneTrack(item.key)"
+                                       class="w-3.5 h-3.5 rounded-[2px] border-[#CBD5E1] text-[#1C6EFF] focus:ring-0 cursor-pointer accent-[#1C6EFF]" />
+                                <span class="truncate" x-text="item.name"></span>
+                                <template x-if="item.isAbnormal">
+                                  <span class="w-1.5 h-1.5 rounded-full bg-[#F52727] ml-auto shrink-0" title="该链路存在受损"></span>
+                                </template>
+                              </label>
+                            </template>
+                          </div>
+                        </template>
 
-                        <!-- 4. 分支组网&GA访问 -->
-                        <button type="button"
-                                class="px-2.5 py-1 text-xs rounded-[3px] transition-all duration-150 flex items-center gap-1 cursor-pointer"
-                                :class="activeSceneTab === 'track3' 
-                                  ? 'bg-white text-[#1E293B] font-medium shadow-xs border border-[#CBD5E1]' 
-                                  : 'bg-[#F1F5F9] text-[#64748B] hover:bg-[#E2E8F0] hover:text-[#1E293B] border border-transparent'"
-                                @click="selectSceneTab('track3')"
-                                @mouseenter="hoveredSceneTab = 'track3'"
-                                @mouseleave="hoveredSceneTab = null">
-                          <span>分支组网&amp;GA访问</span>
-                        </button>
-
-                        <!-- 5. 分支组网访问 -->
-                        <button type="button"
-                                class="px-2.5 py-1 text-xs rounded-[3px] transition-all duration-150 flex items-center gap-1 cursor-pointer"
-                                :class="activeSceneTab === 'track4' 
-                                  ? 'bg-white text-[#1E293B] font-medium shadow-xs border border-[#CBD5E1]' 
-                                  : 'bg-[#F1F5F9] text-[#64748B] hover:bg-[#E2E8F0] hover:text-[#1E293B] border border-transparent'"
-                                @click="selectSceneTab('track4')"
-                                @mouseenter="hoveredSceneTab = 'track4'"
-                                @mouseleave="hoveredSceneTab = null">
-                          <span>分支组网访问</span>
-                        </button>
+                        <!-- ERP 场景选项列表 -->
+                        <template x-if="activeAppId === 'app_erp'">
+                          <div class="space-y-0.5">
+                            <template x-for="item in erpSceneOptions" :key="item.key">
+                              <label class="flex items-center gap-2 px-2.5 py-1.5 text-xs text-[#334155] font-normal hover:bg-[#F8FAFC] cursor-pointer transition-colors"
+                                     @mouseenter="hoveredSceneTab = item.key"
+                                     @mouseleave="hoveredSceneTab = null">
+                                <input type="checkbox"
+                                       :checked="visibleTracks.includes(item.key)"
+                                       @change="toggleSceneTrack(item.key)"
+                                       class="w-3.5 h-3.5 rounded-[2px] border-[#CBD5E1] text-[#1C6EFF] focus:ring-0 cursor-pointer accent-[#1C6EFF]" />
+                                <span class="truncate" x-text="item.name"></span>
+                                <template x-if="item.isAbnormal">
+                                  <span class="w-1.5 h-1.5 rounded-full bg-[#F52727] ml-auto shrink-0" title="该链路存在受损"></span>
+                                </template>
+                              </label>
+                            </template>
+                          </div>
+                        </template>
                       </div>
-                    </template>
+                    </div>
 
-                    <!-- ERP 专属的2条路径Scene Tabs: 只有零信任访问和分支组网访问两条线 -->
-                    <template x-if="activeAppId === 'app_erp'">
-                      <div class="flex items-center gap-2">
-                        <!-- 零信任访问 -->
-                        <button type="button"
-                                class="px-2.5 py-1 text-xs rounded-[3px] transition-all duration-150 flex items-center gap-1 cursor-pointer"
-                                :class="activeSceneTab === 'track_ztna' 
-                                  ? 'bg-white text-[#1E293B] font-medium shadow-xs border border-[#CBD5E1]' 
-                                  : 'bg-[#F1F5F9] text-[#64748B] hover:bg-[#E2E8F0] hover:text-[#1E293B] border border-transparent'"
-                                @click="selectSceneTab('track_ztna')"
-                                @mouseenter="hoveredSceneTab = 'track_ztna'"
-                                @mouseleave="hoveredSceneTab = null">
-                          <span>零信任访问</span>
+                    <!-- 右侧重置与拓扑交互提示 -->
+                    <div class="flex items-center gap-2 text-[11px] text-[#94A3B8]">
+                      <template x-if="userFilterSegment || (activeAppId !== 'app_erp' ? visibleTracks.filter(k => oaSceneOptions.some(o => o.key === k)).length < 4 : visibleTracks.filter(k => erpSceneOptions.some(o => o.key === k)).length < 2)">
+                        <button type="button" 
+                                @click="clearTopoFocus(); selectAllSceneTracks();"
+                                class="hover:text-[#1C6EFF] text-[#64748B] flex items-center gap-1 cursor-pointer transition-colors">
+                          <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                          </svg>
+                          <span>重置链路过滤</span>
                         </button>
-
-                        <!-- 分支组网访问 -->
-                        <button type="button"
-                                class="px-2.5 py-1 text-xs rounded-[3px] transition-all duration-150 flex items-center gap-1 cursor-pointer"
-                                :class="activeSceneTab === 'track_branch' 
-                                  ? 'bg-white text-[#1E293B] font-medium shadow-xs border border-[#CBD5E1]' 
-                                  : 'bg-[#F1F5F9] text-[#64748B] hover:bg-[#E2E8F0] hover:text-[#1E293B] border border-transparent'"
-                                @click="selectSceneTab('track_branch')"
-                                @mouseenter="hoveredSceneTab = 'track_branch'"
-                                @mouseleave="hoveredSceneTab = null">
-                          <span>分支组网访问</span>
-                        </button>
-                      </div>
-                    </template>
+                      </template>
+                    </div>
                   </div>
 
                   <svg class="w-full transition-all duration-300" style="min-width: 980px; height: 286px;"
@@ -3883,12 +4051,14 @@
                       <!-- ====== 起点统一出发主干干线 (用户终端 & 分支，统一出发再分叉，线宽1.6px) ====== -->
                       <!-- 用户终端统一出发主干 (X=171, Y=73 ➔ X=186, Y=73) -->
                       <g class="topo-stem-link pointer-events-none topo-track-group"
+                         x-show="isSceneVisible('track1') || isSceneVisible('track2')"
                          :class="{ 'topo-track-fade': !isSceneMatching('track1') && !isSceneMatching('track2') }">
                         <path d="M 171 73 L 186 73" fill="none" stroke="#CBD5E1" stroke-width="1.6" />
                         <circle cx="186" cy="73" r="2" fill="#94A3B8" />
                       </g>
                       <!-- 分支统一出发主干 (X=171, Y=215 ➔ X=186, Y=215) -->
                       <g class="topo-stem-link pointer-events-none topo-track-group"
+                         x-show="isSceneVisible('track3') || isSceneVisible('track4')"
                          :class="{ 'topo-track-fade': !isSceneMatching('track3') && !isSceneMatching('track4') }">
                         <path d="M 171 215 L 186 215" fill="none" stroke="#CBD5E1" stroke-width="1.6" />
                         <circle cx="186" cy="215" r="2" fill="#94A3B8" />
@@ -3897,6 +4067,7 @@
                       <!-- ==================== Track 1: 零信任&GA访问 (异常专线链路，统一2px红色警示线) ==================== -->
                       <!-- 1.1 Track 1 终端 ➔ 接入POP段 (Y=40，平滑S弯从起点主干分叉至第2列X=313，2px) -->
                       <g class="topo-link-item is-anomaly cursor-pointer topo-track-group"
+                         x-show="isSceneVisible('track1')"
                          :class="{ 'is-selected': userFilterSegment === 'track1_client_pop', 'topo-track-fade': !isSceneMatching('track1') }"
                          @mouseenter="showAnomalyTip($event, 'track1_client_pop', { pop: '移动接入POP' })"
                          @mouseleave="hideAnomalyTip()"
@@ -3910,6 +4081,7 @@
 
                       <!-- 1.2 Track 1 接入POP ➔ 代理网关 专线段 (POP右侧X=459 ➔ 网关左侧X=601，2px虚线) -->
                       <g class="topo-link-item is-anomaly cursor-pointer topo-track-group"
+                         x-show="isSceneVisible('track1')"
                          :class="{ 'is-selected': userFilterSegment === 'track1_pop_gw', 'topo-track-fade': !isSceneMatching('track1') }"
                          @mouseenter="showAnomalyTip($event, 'track1_pop_gw', { pop: '移动接入POP' })"
                          @mouseleave="hideAnomalyTip()"
@@ -3921,6 +4093,7 @@
                       <!-- ==================== Track 2: 零信任访问 / 公网直连 (弱化健康直连线，统一1.6px，直通第3列网关X=601) ==================== -->
                       <!-- 2.1 Track 2 终端 ➔ 代理网关 (Y=106，贯穿至X=601) -->
                       <g class="topo-link-item cursor-pointer topo-track-group"
+                         x-show="isSceneVisible('track2')"
                          :class="{ 'is-selected': userFilterSegment === 'track2_direct', 'topo-track-fade': !isSceneMatching('track2') }"
                          @mouseenter="showAnomalyTip($event, 'track2_direct', {})"
                          @mouseleave="hideAnomalyTip()"
@@ -3935,6 +4108,7 @@
                       <!-- ==================== Track 3: 分支组网&GA访问 (异常专线链路，统一2px红色警示线) ==================== -->
                       <!-- 3.1 Track 3 分支 ➔ 接入POP段 (Y=182，平滑S弯从起点主干分叉至第2列X=313，2px) -->
                       <g class="topo-link-item is-anomaly cursor-pointer topo-track-group"
+                         x-show="isSceneVisible('track3')"
                          :class="{ 'is-selected': userFilterSegment === 'track3_branch_pop', 'topo-track-fade': !isSceneMatching('track3') }"
                          @mouseenter="showAnomalyTip($event, 'track3_branch_pop', { pop: '分支接入POP' })"
                          @mouseleave="hideAnomalyTip()"
@@ -3948,6 +4122,7 @@
 
                       <!-- 3.2 Track 3 接入POP ➔ AF网关 专线段 (POP右侧X=459 ➔ AF网关左侧X=601，2px虚线) -->
                       <g class="topo-link-item is-anomaly cursor-pointer topo-track-group"
+                         x-show="isSceneVisible('track3')"
                          :class="{ 'is-selected': userFilterSegment === 'track3_pop_gw', 'topo-track-fade': !isSceneMatching('track3') }"
                          @mouseenter="showAnomalyTip($event, 'track3_pop_gw', { pop: '分支接入POP' })"
                          @mouseleave="hideAnomalyTip()"
@@ -3959,6 +4134,7 @@
                       <!-- ==================== Track 4: 分支组网访问 / IPsec直连 (弱化健康直连线，统一1.6px，直通第3列AF网关X=601) ==================== -->
                       <!-- 4.1 Track 4 分支 ➔ AF网关 (Y=248，贯穿至X=601) -->
                       <g class="topo-link-item cursor-pointer topo-track-group"
+                         x-show="isSceneVisible('track4')"
                          :class="{ 'is-selected': userFilterSegment === 'track4_direct', 'topo-track-fade': !isSceneMatching('track4') }"
                          @mouseenter="showAnomalyTip($event, 'track4_direct', {})"
                          @mouseleave="hideAnomalyTip()"
@@ -3974,20 +4150,21 @@
                       <!-- 5.0 静态总线拓扑基准底线 (统一1.6px常规灰色底线，保障整体总线结构稳定清晰) -->
                       <g class="topo-gw-bus-base pointer-events-none">
                         <!-- 4条网关出线水平段 (统一1.6px) -->
-                        <path d="M 747 40 L 818 40" fill="none" stroke="#CBD5E1" stroke-width="1.6" class="topo-track-group" :class="{ 'topo-track-fade': !isSceneMatching('track1') }" />
-                        <path d="M 747 106 L 818 106" fill="none" stroke="#CBD5E1" stroke-width="1.6" class="topo-track-group" :class="{ 'topo-track-fade': !isSceneMatching('track2') }" />
-                        <path d="M 747 182 L 818 182" fill="none" stroke="#CBD5E1" stroke-width="1.6" class="topo-track-group" :class="{ 'topo-track-fade': !isSceneMatching('track3') }" />
-                        <path d="M 747 248 L 818 248" fill="none" stroke="#CBD5E1" stroke-width="1.6" class="topo-track-group" :class="{ 'topo-track-fade': !isSceneMatching('track4') }" />
+                        <path x-show="isSceneVisible('track1')" d="M 747 40 L 818 40" fill="none" stroke="#CBD5E1" stroke-width="1.6" class="topo-track-group" :class="{ 'topo-track-fade': !isSceneMatching('track1') }" />
+                        <path x-show="isSceneVisible('track2')" d="M 747 106 L 818 106" fill="none" stroke="#CBD5E1" stroke-width="1.6" class="topo-track-group" :class="{ 'topo-track-fade': !isSceneMatching('track2') }" />
+                        <path x-show="isSceneVisible('track3')" d="M 747 182 L 818 182" fill="none" stroke="#CBD5E1" stroke-width="1.6" class="topo-track-group" :class="{ 'topo-track-fade': !isSceneMatching('track3') }" />
+                        <path x-show="isSceneVisible('track4')" d="M 747 248 L 818 248" fill="none" stroke="#CBD5E1" stroke-width="1.6" class="topo-track-group" :class="{ 'topo-track-fade': !isSceneMatching('track4') }" />
                         <!-- 垂直汇聚母线 (统一1.6px) -->
-                        <path d="M 818 40 L 818 248" fill="none" stroke="#CBD5E1" stroke-width="1.6" />
+                        <path x-show="isSceneVisible('track1') || isSceneVisible('track2') || isSceneVisible('track3') || isSceneVisible('track4')" d="M 818 40 L 818 248" fill="none" stroke="#CBD5E1" stroke-width="1.6" />
                         <!-- 汇聚主干线接入应用 (X=818 ➔ X=883，统一1.6px) -->
-                        <path d="M 818 144 L 883 144" fill="none" stroke="#CBD5E1" stroke-width="1.6" marker-end="url(#arrow-muted)" />
+                        <path x-show="isSceneVisible('track1') || isSceneVisible('track2') || isSceneVisible('track3') || isSceneVisible('track4')" d="M 818 144 L 883 144" fill="none" stroke="#CBD5E1" stroke-width="1.6" marker-end="url(#arrow-muted)" />
                         <!-- 汇聚中心实心锚点 -->
-                        <circle cx="818" cy="144" r="2.5" fill="#94A3B8" />
+                        <circle x-show="isSceneVisible('track1') || isSceneVisible('track2') || isSceneVisible('track3') || isSceneVisible('track4')" cx="818" cy="144" r="2.5" fill="#94A3B8" />
                       </g>
 
                       <!-- 5.1 连线 1 交互热区: 代理网关(云端 10.23.33.4) ➔ OA系统 -->
                       <g class="topo-link-item cursor-pointer topo-track-group"
+                         x-show="isSceneVisible('track1')"
                          :class="{ 'is-selected': userFilterSegment === 'gw1_app', 'topo-track-fade': !isSceneMatching('track1') }"
                          @mouseenter="hoveredGwAppSegment = 'gw1'; showAnomalyTip($event, 'gw_app', { name: '代理网关(10.23.33.4) ➔ OA系统段' })"
                          @mouseleave="hoveredGwAppSegment = null; hideAnomalyTip()"
@@ -3998,6 +4175,7 @@
 
                       <!-- 5.2 连线 2 交互热区: 代理网关(直连 10.23.33.8) ➔ OA系统 -->
                       <g class="topo-link-item cursor-pointer topo-track-group"
+                         x-show="isSceneVisible('track2')"
                          :class="{ 'is-selected': userFilterSegment === 'gw2_app', 'topo-track-fade': !isSceneMatching('track2') }"
                          @mouseenter="hoveredGwAppSegment = 'gw2'; showAnomalyTip($event, 'gw_app', { name: '代理网关(10.23.33.8) ➔ OA系统段' })"
                          @mouseleave="hoveredGwAppSegment = null; hideAnomalyTip()"
@@ -4008,6 +4186,7 @@
 
                       <!-- 5.3 连线 3 交互热区: AF网关(SD-WAN 200.34.2.112) ➔ OA系统 -->
                       <g class="topo-link-item cursor-pointer topo-track-group"
+                         x-show="isSceneVisible('track3')"
                          :class="{ 'is-selected': userFilterSegment === 'gw3_app', 'topo-track-fade': !isSceneMatching('track3') }"
                          @mouseenter="hoveredGwAppSegment = 'gw3'; showAnomalyTip($event, 'gw_app', { name: 'AF网关(200.34.2.112) ➔ OA系统段' })"
                          @mouseleave="hoveredGwAppSegment = null; hideAnomalyTip()"
@@ -4018,6 +4197,7 @@
 
                       <!-- 5.4 连线 4 交互热区: AF网关(IPsec 200.34.2.115) ➔ OA系统 -->
                       <g class="topo-link-item cursor-pointer topo-track-group"
+                         x-show="isSceneVisible('track4')"
                          :class="{ 'is-selected': userFilterSegment === 'gw4_app', 'topo-track-fade': !isSceneMatching('track4') }"
                          @mouseenter="hoveredGwAppSegment = 'gw4'; showAnomalyTip($event, 'gw_app', { name: 'AF网关(200.34.2.115) ➔ OA系统段' })"
                          @mouseleave="hideAnomalyTip()"
@@ -4125,6 +4305,7 @@
 
                       <!-- ==================== 列 2 (POP): 接入POP (X=313, 宽度146px, 高度52px) ==================== -->
                       <g class="cursor-pointer topo-track-group" transform="translate(313, 14)"
+                         x-show="isSceneVisible('track1')"
                          :class="{ 'topo-track-fade': !isSceneMatching('track1') }"
                          @mouseenter="showAnomalyTip($event, 'pop_mobile', { pop: '移动接入POP' })"
                          @mouseleave="hideAnomalyTip()"
@@ -4151,6 +4332,7 @@
 
                       <!-- ==================== 列 2 (POP): 接入POP (X=313, 宽度146px, 高度52px) ==================== -->
                       <g class="cursor-pointer topo-track-group" transform="translate(313, 156)"
+                         x-show="isSceneVisible('track3')"
                          :class="{ 'topo-track-fade': !isSceneMatching('track3') }"
                          @mouseenter="showAnomalyTip($event, 'pop_branch', { pop: '分支接入POP' })"
                          @mouseleave="hideAnomalyTip()"
@@ -4177,6 +4359,7 @@
 
                       <!-- ==================== 列 3 (网关): 代理网关 (X=601, 宽度146px, 高度52px，与应用等宽) ==================== -->
                       <g class="cursor-pointer topo-track-group" transform="translate(601, 14)"
+                         x-show="isSceneVisible('track1')"
                          :class="{ 'topo-track-fade': !isSceneMatching('track1') }"
                          @mouseenter="showAnomalyTip($event, 'gw_proxy_cloud', {})"
                          @mouseleave="hideAnomalyTip()"
@@ -4196,6 +4379,7 @@
 
                       <!-- ==================== 列 3 (网关): 代理网关 (X=601, 宽度146px, 高度52px) ==================== -->
                       <g class="cursor-pointer topo-track-group" transform="translate(601, 80)"
+                         x-show="isSceneVisible('track2')"
                          :class="{ 'topo-track-fade': !isSceneMatching('track2') }"
                          @mouseenter="showAnomalyTip($event, 'gw_proxy_direct', {})"
                          @mouseleave="hideAnomalyTip()"
@@ -4215,6 +4399,7 @@
 
                       <!-- ==================== 列 3 (网关): AF网关 (X=601, 宽度146px, 高度52px，与应用等宽) ==================== -->
                       <g class="cursor-pointer topo-track-group" transform="translate(601, 156)"
+                         x-show="isSceneVisible('track3')"
                          :class="{ 'topo-track-fade': !isSceneMatching('track3') }"
                          @mouseenter="showAnomalyTip($event, 'gw_af_sdwan', {})"
                          @mouseleave="hideAnomalyTip()"
@@ -4233,6 +4418,7 @@
 
                       <!-- ==================== 列 3 (网关): AF网关 (X=601, 宽度146px, 高度52px) ==================== -->
                       <g class="cursor-pointer topo-track-group" transform="translate(601, 222)"
+                         x-show="isSceneVisible('track4')"
                          :class="{ 'topo-track-fade': !isSceneMatching('track4') }"
                          @mouseenter="showAnomalyTip($event, 'gw_af_ipsec', {})"
                          @mouseleave="hideAnomalyTip()"
@@ -4281,12 +4467,14 @@
                         <!-- 起点统一出发主干干线 (用户终端 & 分支，线宽1.6px) -->
                         <!-- 用户终端统一出发主干 (X=171, Y=73 ➔ X=186, Y=73) -->
                         <g class="topo-stem-link pointer-events-none topo-track-group"
+                           x-show="isSceneVisible('track_ztna')"
                            :class="{ 'topo-track-fade': !isSceneMatching('track_ztna') }">
                           <path d="M 171 73 L 186 73" fill="none" stroke="#CBD5E1" stroke-width="1.6" />
                           <circle cx="186" cy="73" r="2" fill="#94A3B8" />
                         </g>
                         <!-- 分支统一出发主干 (X=171, Y=215 ➔ X=186, Y=215) -->
                         <g class="topo-stem-link pointer-events-none topo-track-group"
+                           x-show="isSceneVisible('track_branch')"
                            :class="{ 'topo-track-fade': !isSceneMatching('track_branch') }">
                           <path d="M 171 215 L 186 215" fill="none" stroke="#CBD5E1" stroke-width="1.6" />
                           <circle cx="186" cy="215" r="2" fill="#94A3B8" />
@@ -4294,6 +4482,7 @@
 
                         <!-- Track 1: 零信任访问 (用户终端 ➔ 代理网关段 X=186 ➔ X=457) —— 核心故障段，红色2px动态虚线流光 -->
                         <g class="topo-link-item is-anomaly cursor-pointer topo-track-group"
+                           x-show="isSceneVisible('track_ztna')"
                            :class="{ 'is-selected': userFilterSegment === 'erp_client_gw', 'topo-track-fade': !isSceneMatching('track_ztna') }"
                            @mouseenter="showAnomalyTip($event, 'erp_client_gw', { name: '用户终端 ➔ 代理网关段' })"
                            @mouseleave="hideAnomalyTip()"
@@ -4306,6 +4495,7 @@
 
                         <!-- Track 2: 分支组网访问 (分支机构 ➔ 组网网关段 X=186 ➔ X=457) —— 健康专线链路，统一1.6px常规灰色实线 -->
                         <g class="topo-link-item cursor-pointer topo-track-group"
+                           x-show="isSceneVisible('track_branch')"
                            :class="{ 'is-selected': userFilterSegment === 'erp_branch_gw', 'topo-track-fade': !isSceneMatching('track_branch') }"
                            @mouseenter="showAnomalyTip($event, 'erp_branch_gw', { name: '分支机构 ➔ 组网网关段' })"
                            @mouseleave="hideAnomalyTip()"
@@ -4320,18 +4510,19 @@
                         <!-- 3.0 静态总线拓扑基准底线 (统一1.6px常规灰色底线) -->
                         <g class="topo-gw-bus-base pointer-events-none">
                           <!-- 2条网关出线水平段 (网关右侧X=603 ➔ 母线X=746，统一1.6px) -->
-                          <path d="M 603 73 L 746 73" fill="none" stroke="#CBD5E1" stroke-width="1.6" class="topo-track-group" :class="{ 'topo-track-fade': !isSceneMatching('track_ztna') }" />
-                          <path d="M 603 215 L 746 215" fill="none" stroke="#CBD5E1" stroke-width="1.6" class="topo-track-group" :class="{ 'topo-track-fade': !isSceneMatching('track_branch') }" />
+                          <path x-show="isSceneVisible('track_ztna')" d="M 603 73 L 746 73" fill="none" stroke="#CBD5E1" stroke-width="1.6" class="topo-track-group" :class="{ 'topo-track-fade': !isSceneMatching('track_ztna') }" />
+                          <path x-show="isSceneVisible('track_branch')" d="M 603 215 L 746 215" fill="none" stroke="#CBD5E1" stroke-width="1.6" class="topo-track-group" :class="{ 'topo-track-fade': !isSceneMatching('track_branch') }" />
                           <!-- 垂直汇聚母线 (X=746，统一1.6px) -->
-                          <path d="M 746 73 L 746 215" fill="none" stroke="#CBD5E1" stroke-width="1.6" />
+                          <path x-show="isSceneVisible('track_ztna') || isSceneVisible('track_branch')" d="M 746 73 L 746 215" fill="none" stroke="#CBD5E1" stroke-width="1.6" />
                           <!-- 汇聚主干线接入应用 (X=746 ➔ X=883，统一1.6px) -->
-                          <path d="M 746 144 L 883 144" fill="none" stroke="#CBD5E1" stroke-width="1.6" marker-end="url(#arrow-muted)" />
+                          <path x-show="isSceneVisible('track_ztna') || isSceneVisible('track_branch')" d="M 746 144 L 883 144" fill="none" stroke="#CBD5E1" stroke-width="1.6" marker-end="url(#arrow-muted)" />
                           <!-- 汇聚中心实心锚点 -->
-                          <circle cx="746" cy="144" r="2.5" fill="#94A3B8" />
+                          <circle x-show="isSceneVisible('track_ztna') || isSceneVisible('track_branch')" cx="746" cy="144" r="2.5" fill="#94A3B8" />
                         </g>
 
                         <!-- 3.1 连线 1 交互热区: 代理网关(10.23.33.4) ➔ ERP系统 -->
                         <g class="topo-link-item cursor-pointer topo-track-group"
+                           x-show="isSceneVisible('track_ztna')"
                            :class="{ 'is-selected': userFilterSegment === 'erp_gw1_app', 'topo-track-fade': !isSceneMatching('track_ztna') }"
                            @mouseenter="hoveredGwAppSegment = 'erp_gw1'; showAnomalyTip($event, 'erp_gw_app', { name: '代理网关(10.23.33.4) ➔ ERP系统段' })"
                            @mouseleave="hoveredGwAppSegment = null; hideAnomalyTip()"
@@ -4341,6 +4532,7 @@
 
                         <!-- 3.2 连线 2 交互热区: 组网网关(200.34.2.112) ➔ ERP系统 -->
                         <g class="topo-link-item cursor-pointer topo-track-group"
+                           x-show="isSceneVisible('track_branch')"
                            :class="{ 'is-selected': userFilterSegment === 'erp_gw2_app', 'topo-track-fade': !isSceneMatching('track_branch') }"
                            @mouseenter="hoveredGwAppSegment = 'erp_gw2'; showAnomalyTip($event, 'erp_gw_app', { name: '组网网关(200.34.2.112) ➔ ERP系统段' })"
                            @mouseleave="hoveredGwAppSegment = null; hideAnomalyTip()"
@@ -4432,6 +4624,7 @@
 
                         <!-- ==================== 列 2 (网关): 代理网关 (X=457, Y=46, 宽度146px, 高度54px，等宽分布) ==================== -->
                         <g class="cursor-pointer topo-track-group" transform="translate(457, 46)"
+                           x-show="isSceneVisible('track_ztna')"
                            :class="{ 'topo-track-fade': !isSceneMatching('track_ztna') }"
                            @mouseenter="showAnomalyTip($event, 'erp_gw_proxy', {})"
                            @mouseleave="hideAnomalyTip()"
@@ -4451,6 +4644,7 @@
 
                         <!-- ==================== 列 2 (网关): 组网网关 (X=457, Y=188, 宽度146px, 高度54px，等宽分布) ==================== -->
                         <g class="cursor-pointer topo-track-group" transform="translate(457, 188)"
+                           x-show="isSceneVisible('track_branch')"
                            :class="{ 'topo-track-fade': !isSceneMatching('track_branch') }"
                            @mouseenter="showAnomalyTip($event, 'erp_gw_branch', {})"
                            @mouseleave="hideAnomalyTip()"
@@ -5036,34 +5230,44 @@
              x-transition:leave="transition ease-in duration-75"
              x-transition:leave-start="opacity-100"
              x-transition:leave-end="opacity-0"
-             class="fixed z-[9999] pointer-events-none bg-white text-[#1E293B] px-3 py-2.5 rounded-[4px] shadow-lg border border-[#E2E8F0] text-xs min-w-[220px] max-w-[280px] select-none"
+             class="fixed z-[9999] pointer-events-none bg-white text-[#1E293B] px-3.5 py-2.5 rounded-[4px] shadow-lg border border-[#E2E8F0] text-xs min-w-[240px] max-w-[300px] select-none"
              :style="`left: ${anomalyTip.x}px; top: ${anomalyTip.y}px; transform: translate(-50%, -100%); margin-top: -6px;`"
              x-cloak>
           <template x-if="anomalyTip.data">
-            <div class="space-y-1.5 font-sans">
-              <!-- 头部：标题与状态点 + 右上角优先级标签 (时间移至最下方) -->
+            <div class="space-y-2 font-sans">
+              <!-- 头部：标题与状态点 + 右上角优先级标签与时间 -->
               <div class="flex items-center justify-between pb-1.5 border-b border-[#F1F5F9] gap-2">
                 <div class="flex items-center gap-1.5 font-medium text-[#1E293B] text-xs min-w-0">
                   <span class="w-1.5 h-1.5 rounded-full flex-shrink-0" :class="anomalyTip.data.isAbnormal ? 'bg-[#F52727]' : 'bg-[#12A679]'"></span>
                   <span class="truncate font-semibold" x-text="anomalyTip.data.title"></span>
                 </div>
-                <template x-if="anomalyTip.data.priorityBadge">
-                  <span class="px-1.5 py-0.5 rounded text-[9.5px] font-medium bg-[#FFF1F0] text-[#D9363E] shrink-0"
-                        x-text="anomalyTip.data.priorityBadge"></span>
-                </template>
+                <div class="flex items-center gap-1.5 shrink-0">
+                  <template x-if="anomalyTip.data.priorityBadge">
+                    <span class="px-1.5 py-0.5 rounded text-[9.5px] font-medium bg-[#FFF1F0] text-[#D9363E]"
+                          x-text="anomalyTip.data.priorityBadge"></span>
+                  </template>
+                  <span class="text-[10.5px] text-[#94A3B8] font-mono" x-text="anomalyTip.data.timeText || selectedGlobalSliceTime || '15:20'"></span>
+                </div>
               </div>
 
-              <!-- 1. 分段体验分布概况 (去除总数描述，仅保留分段体验情况) -->
+              <!-- 1. 分段体验分布概况 (分层独立展示，带呼吸感与微胶囊卡片) -->
               <template x-if="anomalyTip.data.summary">
-                <div class="space-y-1 text-xs pt-0.5">
-                  <div class="flex items-center justify-between">
-                    <span class="text-[#64748B]">分段体验情况</span>
-                    <div class="flex items-center gap-1.5 font-mono text-[11px]">
-                      <span class="text-[#D9363E] font-medium" x-text="'差 ' + anomalyTip.data.summary.poor"></span>
-                      <span class="text-[#CBD5E1]">·</span>
-                      <span class="text-[#FA8C16] font-medium" x-text="'一般 ' + anomalyTip.data.summary.fair"></span>
-                      <span class="text-[#CBD5E1]">·</span>
-                      <span class="text-[#12A679] font-medium" x-text="'正常 ' + anomalyTip.data.summary.normal"></span>
+                <div class="py-0.5 space-y-1.5">
+                  <div class="flex items-center justify-between text-[11px] text-[#64748B] font-medium">
+                    <span>体验分布情况</span>
+                  </div>
+                  <div class="grid grid-cols-3 gap-1.5">
+                    <div class="flex items-center justify-between px-2 py-1 rounded bg-[#FFF1F0] border border-[#FFCCC7]/50 text-[11px]">
+                      <span class="text-[#CF1322]">差</span>
+                      <span class="font-mono font-semibold text-[#CF1322]" x-text="anomalyTip.data.summary.poor"></span>
+                    </div>
+                    <div class="flex items-center justify-between px-2 py-1 rounded bg-[#FFF7E6] border border-[#FFE7BA]/50 text-[11px]">
+                      <span class="text-[#D46B08]">一般</span>
+                      <span class="font-mono font-semibold text-[#D46B08]" x-text="anomalyTip.data.summary.fair"></span>
+                    </div>
+                    <div class="flex items-center justify-between px-2 py-1 rounded bg-[#E6F8F1] border border-[#B7EB8F]/50 text-[11px]">
+                      <span class="text-[#0E8A63]">正常</span>
+                      <span class="font-mono font-semibold text-[#0E8A63]" x-text="anomalyTip.data.summary.normal"></span>
                     </div>
                   </div>
                 </div>
@@ -5093,14 +5297,6 @@
                   </template>
                 </div>
               </template>
-
-
-              <!-- 4. 底部：真实访问时间与数据源 (放在最下方) -->
-              <div class="pt-1.5 mt-0.5 border-t border-[#F1F5F9] flex items-center gap-1 text-[10.5px] text-[#94A3B8] font-mono">
-                <span x-text="currentGlobalSlice.dataSource || '真实访问'"></span>
-                <span>·</span>
-                <span x-text="anomalyTip.data.timeText || selectedGlobalSliceTime"></span>
-              </div>
             </div>
           </template>
         </div>
