@@ -7,7 +7,7 @@
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="../assets/css/css-overrides.css">
   <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/collapse@3.x.x/dist/cdn.min.js"></script>
@@ -19,12 +19,394 @@
 
   <!-- 集中维护的双底座公共 Shell 样式 -->
   <link rel="stylesheet" href="./_shell/shell.css" />
+
+  <style>
+    /* 极细平滑滚动条 */
+    .dem-custom-scroll::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+    .dem-custom-scroll::-webkit-scrollbar-thumb {
+      background: #D9D9D9;
+      border-radius: 4px;
+    }
+    .dem-custom-scroll::-webkit-scrollbar-thumb:hover {
+      background: #BFBFBF;
+    }
+    .dem-custom-scroll {
+      scrollbar-width: thin;
+      scrollbar-color: #D9D9D9 transparent;
+    }
+
+    /* 规范表格与表头 */
+    .dem-table {
+      width: 100%;
+      border-collapse: collapse;
+      border-spacing: 0;
+    }
+    .dem-table thead tr {
+      height: 32px;
+      background-color: #EDF1F7;
+    }
+    .dem-table th {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      height: 32px;
+      padding: 0 12px;
+      font-size: 12px;
+      font-weight: 400;
+      color: #454C59;
+      background-color: #EDF1F7;
+      white-space: nowrap;
+      text-align: left;
+      border-bottom: 1px solid #E1E5EB;
+      box-shadow: inset 0 -1px 0 #E1E5EB;
+      user-select: none;
+      vertical-align: middle;
+    }
+    .dem-table th:not(:last-child)::after {
+      content: '';
+      position: absolute;
+      right: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 1px;
+      height: 16px;
+      background-color: #E1E5EB;
+    }
+    .dem-table td {
+      padding: 8px 12px;
+      font-size: 12px;
+      font-weight: 400;
+      color: #2F3540;
+      border-bottom: 1px solid #F0F2F5;
+      vertical-align: middle;
+    }
+    .dem-table tbody tr {
+      transition: background-color 0.15s ease;
+    }
+    .dem-table tbody tr:hover {
+      background-color: #F8FAFC;
+    }
+
+    /* 精致紧凑 Switch 开关 */
+    .dem-switch {
+      position: relative;
+      display: inline-block;
+      width: 28px;
+      height: 16px;
+    }
+    .dem-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .dem-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #CBD5E1;
+      transition: .2s;
+      border-radius: 16px;
+    }
+    .dem-slider:before {
+      position: absolute;
+      content: "";
+      height: 12px;
+      width: 12px;
+      left: 2px;
+      bottom: 2px;
+      background-color: white;
+      transition: .2s;
+      border-radius: 50%;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.15);
+    }
+    input:checked + .dem-slider {
+      background-color: #1C6EFF;
+    }
+    input:checked + .dem-slider:before {
+      transform: translateX(12px);
+    }
+  </style>
+
+  <script>
+    function demConfigPageState() {
+      return {
+        ...window.dualShellAppStore('监控配置'),
+
+        // 子 Tab 切换：'realTraffic' | 'syntheticProbe' | 'qualityStandard'
+        currentTab: 'realTraffic',
+
+        // 全局 DEM 监控引擎状态
+        engineStatus: true,
+
+        // 认知原理轻量浮层
+        theoryModalOpen: false,
+
+        // 内置零信任与 SaaS 应用集合开启状态
+        ztnaEnabled: true,
+        saasEnabled: true,
+
+        // 自定义应用演示切换：false 为开箱初态(0个)，true 为演示数据态
+        customAppsPreviewList: false,
+
+        // 抽屉状态
+        drawerOpen: false,
+        drawerType: '', // 'ztna' | 'saas' | 'addCustom'
+        drawerSearch: '',
+        drawerCategory: 'all',
+
+        // 自定义应用筛选
+        customSearch: '',
+        customFilterProtocol: 'all',
+        customFilterStatus: 'all',
+
+        // 新增表单
+        newAppForm: {
+          name: '',
+          target: '',
+          port: '443',
+          protocol: 'HTTPS',
+          priority: '核心业务',
+          remark: ''
+        },
+
+        // 自定义扩展应用数据
+        customApps: [
+          {
+            id: 'c1',
+            name: '自建运营BI看板',
+            target: 'bi.internal.corp',
+            port: '8443',
+            protocol: 'HTTPS',
+            priority: '核心业务',
+            status: true,
+            source: '专有域名',
+            createTime: '2026-06-04 09:30'
+          },
+          {
+            id: 'c2',
+            name: '研发自建知识库 (Wiki)',
+            target: '10.20.14.50',
+            port: '8080',
+            protocol: 'HTTP',
+            priority: '普通业务',
+            status: true,
+            source: '内部IP段',
+            createTime: '2026-06-03 14:15'
+          },
+          {
+            id: 'c3',
+            name: '生产环境API网关集群',
+            target: 'api-gw.prod.internal',
+            port: '9000',
+            protocol: 'TCP',
+            priority: '核心业务',
+            status: false,
+            source: '专网集群',
+            createTime: '2026-06-02 17:00'
+          }
+        ],
+
+        // 零信任内置应用清单 (42个精选)
+        ztnaApps: [
+          { id: 'z1', name: 'ERP 核心生产系统', target: 'erp.corp.internal', protocol: 'HTTPS / Web', category: '核心业务', status: true, connector: '北京总部Connector-01' },
+          { id: 'z2', name: '企业协同办公系统 (OA)', target: 'oa.corp.internal', protocol: 'HTTPS / Web', category: '协同办公', status: true, connector: '北京总部Connector-01' },
+          { id: 'z3', name: 'GitLab 企业代码托管', target: 'gitlab.rd.internal', protocol: 'HTTPS / SSH', category: '研发资产', status: true, connector: '研发中心Connector-02' },
+          { id: 'z4', name: 'Jira 项目协同看板', target: 'jira.rd.internal', protocol: 'HTTPS / Web', category: '研发资产', status: true, connector: '研发中心Connector-02' },
+          { id: 'z5', name: 'CRM 客户关系管理系统', target: 'crm.corp.internal', protocol: 'HTTPS / Web', category: '核心业务', status: true, connector: '华东POP-连接器集群' },
+          { id: 'z6', name: '财务报销与预算核算中心', target: 'finance.corp.internal', protocol: 'HTTPS / Web', category: '财务风控', status: true, connector: '北京总部Connector-01' },
+          { id: 'z7', name: 'HR 人力资源服务门户', target: 'hr.corp.internal', protocol: 'HTTPS / Web', category: '协同办公', status: true, connector: '北京总部Connector-01' },
+          { id: 'z8', name: 'Jenkins 持续集成流水线', target: 'ci.rd.internal', protocol: 'HTTPS / Web', category: '研发资产', status: true, connector: '研发中心Connector-02' },
+          { id: 'z9', name: '堡垒机运维管控平台', target: 'bastion.ops.internal', protocol: 'HTTPS / SSH', category: '安全基础设施', status: true, connector: '核心数据中心Connector' },
+          { id: 'z10', name: '企业统一知识库 (Confluence)', target: 'wiki.corp.internal', protocol: 'HTTPS / Web', category: '协同办公', status: true, connector: '北京总部Connector-01' },
+          { id: 'z11', name: '供应链 SRM 采购平台', target: 'srm.corp.internal', protocol: 'HTTPS / Web', category: '核心业务', status: true, connector: '华东POP-连接器集群' },
+          { id: 'z12', name: '自建邮件协同 Exchange', target: 'mail.corp.internal', protocol: 'HTTPS / IMAP', category: '协同办公', status: true, connector: '北京总部Connector-01' }
+        ],
+
+        // SaaS 内置应用清单 (86个精选)
+        saasApps: [
+          { id: 's1', name: '飞书 (Feishu)', domain: '*.feishu.cn', category: '办公协同', status: true, proto: 'HTTPS / WebRTC' },
+          { id: 's2', name: '钉钉 (DingTalk)', domain: '*.dingtalk.com', category: '办公协同', status: true, proto: 'HTTPS / WebRTC' },
+          { id: 's3', name: '企业微信 (WeCom)', domain: '*.work.weixin.qq.com', category: '办公协同', status: true, proto: 'HTTPS' },
+          { id: 's4', name: '腾讯会议 (Tencent Meeting)', domain: '*.meeting.qq.com', category: '音视频会议', status: true, proto: 'HTTPS / UDP' },
+          { id: 's5', name: 'Microsoft 365 (Office/Teams)', domain: '*.office.com, *.teams.microsoft.com', category: '办公协同', status: true, proto: 'HTTPS / WebRTC' },
+          { id: 's6', name: 'Zoom 视频会议', domain: '*.zoom.us', category: '音视频会议', status: true, proto: 'HTTPS / UDP' },
+          { id: 's7', name: 'Salesforce CRM', domain: '*.salesforce.com', category: '营销销售', status: true, proto: 'HTTPS' },
+          { id: 's8', name: 'GitHub Enterprise / Cloud', domain: 'github.com', category: '技术研发', status: true, proto: 'HTTPS / SSH' },
+          { id: 's9', name: '阿里云控制台 (Aliyun)', domain: '*.aliyun.com', category: '云端服务', status: true, proto: 'HTTPS' },
+          { id: 's10', name: '腾讯云控制台 (Tencent Cloud)', domain: '*.cloud.tencent.com', category: '云端服务', status: true, proto: 'HTTPS' },
+          { id: 's11', name: '腾讯文档 (Tencent Docs)', domain: 'docs.qq.com', category: '办公协同', status: true, proto: 'HTTPS' },
+          { id: 's12', name: '百度网盘企业版', domain: 'eyun.baidu.com', category: '网盘存储', status: true, proto: 'HTTPS' }
+        ],
+
+        // 主动探测策略
+        probePolicies: [
+          {
+            id: 'p1',
+            name: '核心 ERP 系统 - POP 节点 7x24h 周期拨测',
+            target: 'erp.corp.internal (10.10.4.50:443)',
+            protocol: 'HTTP GET',
+            interval: '5分钟',
+            probeNodes: '4 个核心边缘 POP 探针 (北京/上海/深圳/成都)',
+            status: true
+          },
+          {
+            id: 'p2',
+            name: '企业协同 OA 门户 - 分支网关连通性巡检',
+            target: 'oa.corp.internal (10.10.2.10:80)',
+            protocol: 'TCP Handshake',
+            interval: '3分钟',
+            probeNodes: '8 个重点分支网络硬件网关探针',
+            status: true
+          }
+        ],
+
+        // 体验标准
+        qualityStandards: [
+          {
+            category: 'Web办公与公有云SaaS',
+            desc: '覆盖 ERP、OA、CRM、飞书、Office 365 等 HTTP/HTTPS 页面级业务',
+            ttfbGood: '≤ 300 ms',
+            ttfbNormal: '300 ~ 800 ms',
+            ttfbBad: '> 800 ms',
+            lossGood: '≤ 1 %',
+            lossBad: '> 3 %'
+          },
+          {
+            category: '实时音视频协同与会议',
+            desc: '覆盖 腾讯会议、Zoom、Teams 等延迟敏感的音视频与流媒体业务',
+            ttfbGood: 'RTT ≤ 100 ms',
+            ttfbNormal: '100 ~ 200 ms',
+            ttfbBad: 'RTT > 200 ms',
+            lossGood: '抖动 ≤ 20ms, 丢包 ≤ 0.5%',
+            lossBad: '抖动 > 50ms, 丢包 > 2%'
+          },
+          {
+            category: '专网传输与私有长连接业务',
+            desc: '覆盖 数据库连接、Git/SSH、远程桌面 RDP、TCP 专网接口等',
+            ttfbGood: '握手 ≤ 50 ms',
+            ttfbNormal: '50 ~ 150 ms',
+            ttfbBad: '握手 > 150 ms',
+            lossGood: '丢包率 ≤ 1 %',
+            lossBad: '丢包率 > 3 %'
+          }
+        ],
+
+        toggleEngine() {
+          this.engineStatus = !this.engineStatus;
+        },
+
+        openZtnaDrawer() {
+          this.drawerType = 'ztna';
+          this.drawerSearch = '';
+          this.drawerCategory = 'all';
+          this.drawerOpen = true;
+        },
+
+        openSaasDrawer() {
+          this.drawerType = 'saas';
+          this.drawerSearch = '';
+          this.drawerCategory = 'all';
+          this.drawerOpen = true;
+        },
+
+        openAddAppDrawer() {
+          this.drawerType = 'addCustom';
+          this.newAppForm = {
+            name: '',
+            target: '',
+            port: '443',
+            protocol: 'HTTPS',
+            priority: '核心业务',
+            remark: ''
+          };
+          this.drawerOpen = true;
+        },
+
+        closeDrawer() {
+          this.drawerOpen = false;
+        },
+
+        submitNewApp() {
+          if (!this.newAppForm.name.trim() || !this.newAppForm.target.trim()) {
+            alert('请填写完整的应用名称与监控目标');
+            return;
+          }
+          const now = new Date();
+          const timeStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+          
+          this.customApps.unshift({
+            id: 'c' + (this.customApps.length + 1),
+            name: this.newAppForm.name.trim(),
+            target: this.newAppForm.target.trim(),
+            port: this.newAppForm.port.trim() || '443',
+            protocol: this.newAppForm.protocol,
+            priority: this.newAppForm.priority,
+            status: true,
+            source: '自定义添加',
+            createTime: timeStr
+          });
+
+          this.customAppsPreviewList = true;
+          this.closeDrawer();
+        },
+
+        deleteCustomApp(id) {
+          this.customApps = this.customApps.filter(app => app.id !== id);
+        },
+
+        toggleCustomAppStatus(id) {
+          const item = this.customApps.find(app => app.id === id);
+          if (item) item.status = !item.status;
+        },
+
+        get activeCustomApps() {
+          if (!this.customAppsPreviewList) return [];
+          return this.customApps.filter(item => {
+            const matchSearch = !this.customSearch || 
+              item.name.toLowerCase().includes(this.customSearch.toLowerCase()) || 
+              item.target.toLowerCase().includes(this.customSearch.toLowerCase());
+            const matchProto = this.customFilterProtocol === 'all' || item.protocol === this.customFilterProtocol;
+            const matchStatus = this.customFilterStatus === 'all' || 
+              (this.customFilterStatus === 'enabled' && item.status) || 
+              (this.customFilterStatus === 'disabled' && !item.status);
+            return matchSearch && matchProto && matchStatus;
+          });
+        },
+
+        get filteredZtnaApps() {
+          return this.ztnaApps.filter(item => {
+            const matchSearch = !this.drawerSearch || 
+              item.name.toLowerCase().includes(this.drawerSearch.toLowerCase()) || 
+              item.target.toLowerCase().includes(this.drawerSearch.toLowerCase());
+            const matchCat = this.drawerCategory === 'all' || item.category === this.drawerCategory;
+            return matchSearch && matchCat;
+          });
+        },
+
+        get filteredSaasApps() {
+          return this.saasApps.filter(item => {
+            const matchSearch = !this.drawerSearch || 
+              item.name.toLowerCase().includes(this.drawerSearch.toLowerCase()) || 
+              item.domain.toLowerCase().includes(this.drawerSearch.toLowerCase());
+            const matchCat = this.drawerCategory === 'all' || item.category === this.drawerCategory;
+            return matchSearch && matchCat;
+          });
+        }
+      };
+    }
+  </script>
 </head>
 <body class="bg-bg-light text-text font-sans overflow-hidden w-screen h-screen">
 
   <div id="dem-svgs"></div>
 
-  <div class="flex flex-col w-full h-full" x-data="dualShellAppStore('监控配置')">
+  <div class="flex flex-col w-full h-full" x-data="demConfigPageState()">
     <!-- 底座切换浮层（由 shell.js 注入） -->
     <div id="shell-switcher"></div>
 
@@ -50,22 +432,670 @@
     <!-- Workspace 内容模板 -->
     <template id="page-content-template">
       <div class="flex flex-col w-full h-full overflow-hidden">
-        <!-- 页头 -->
-        <div class="h-[48px] min-h-[48px] max-h-[48px] bg-white border-b border-[#E2E8F0] px-3 flex items-center flex-shrink-0 select-none z-20">
-          <span class="text-[14px] font-semibold text-[#1E293B]">监控配置</span>
+        
+        <!-- 1. 页头 (严格遵循 48px 标准，清爽中性) -->
+        <div class="h-[48px] min-h-[48px] max-h-[48px] bg-white border-b border-[#E1E5EB] px-4 flex items-center justify-between flex-shrink-0 select-none z-20">
+          <div class="flex items-center h-full">
+            <span class="text-[16px] font-[600] text-[#2F3540] mr-3">监控配置</span>
+            <span class="w-[1px] h-[16px] bg-[#E1E5EB] mr-3"></span>
+            <div class="flex items-center gap-6 h-full">
+              <!-- Tab 1: 真实流量观测 -->
+              <button @click="currentTab = 'realTraffic'"
+                      class="relative h-full flex items-center text-[14px] transition-colors cursor-pointer"
+                      :class="currentTab === 'realTraffic' ? 'text-[#1C6EFF] font-[600]' : 'text-[#454C59] hover:text-[#1C6EFF] font-[400]'">
+                <span>真实流量观测</span>
+                <div x-show="currentTab === 'realTraffic'" class="absolute bottom-0 left-0 right-0 h-[2px] bg-[#1C6EFF]"></div>
+              </button>
+
+              <!-- Tab 2: 主动探测配置 -->
+              <button @click="currentTab = 'syntheticProbe'"
+                      class="relative h-full flex items-center text-[14px] transition-colors cursor-pointer"
+                      :class="currentTab === 'syntheticProbe' ? 'text-[#1C6EFF] font-[600]' : 'text-[#454C59] hover:text-[#1C6EFF] font-[400]'">
+                <span>主动探测配置</span>
+                <div x-show="currentTab === 'syntheticProbe'" class="absolute bottom-0 left-0 right-0 h-[2px] bg-[#1C6EFF]"></div>
+              </button>
+
+              <!-- Tab 3: 体验质量标准 -->
+              <button @click="currentTab = 'qualityStandard'"
+                      class="relative h-full flex items-center text-[14px] transition-colors cursor-pointer"
+                      :class="currentTab === 'qualityStandard' ? 'text-[#1C6EFF] font-[600]' : 'text-[#454C59] hover:text-[#1C6EFF] font-[400]'">
+                <span>体验质量标准</span>
+                <div x-show="currentTab === 'qualityStandard'" class="absolute bottom-0 left-0 right-0 h-[2px] bg-[#1C6EFF]"></div>
+              </button>
+            </div>
+          </div>
+
+          <!-- 右侧：DEM 引擎启动状态（精炼通透胶囊） -->
+          <div class="flex items-center gap-2.5">
+            <div class="flex items-center gap-1.5 text-xs">
+              <span class="w-2 h-2 rounded-full" :class="engineStatus ? 'bg-[#16A34A] animate-pulse' : 'bg-[#94A3B8]'"></span>
+              <span class="text-[#454C59]" x-text="engineStatus ? 'DEM 监控引擎已就绪运行中' : 'DEM 监控引擎已挂起'"></span>
+            </div>
+            <button @click="toggleEngine()"
+                    class="text-xs text-[#1C6EFF] hover:underline cursor-pointer ml-1"
+                    x-text="engineStatus ? '暂停' : '启动'"></button>
+          </div>
         </div>
 
+        <!-- 2. 主体工作区 -->
         <main class="flex-1 bg-[#EDF1F7] px-3 pt-2 pb-3 flex flex-col gap-2 overflow-hidden">
-          <div class="bg-white rounded-container border border-bg-line p-8 shadow-sm flex-1 flex flex-col items-center justify-center text-center">
-            <div class="w-14 h-14 rounded-full bg-brand/10 text-brand flex items-center justify-center mb-4">
-              <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
-              </svg>
+          
+          <!-- 单行通透说明条 (彻底干掉 120px 巨幅向导展板，省出 100px 纵向空间) -->
+          <div class="h-8 min-h-[32px] px-3 bg-white border border-[#E1E5EB] rounded-[2px] flex items-center justify-between text-xs text-[#454C59] shadow-2xs flex-shrink-0">
+            <div class="flex items-center gap-2">
+              <span class="text-[#1C6EFF] font-semibold">💡 开箱已就绪：</span>
+              <span>已默认启用平台内置的 <strong>42 个零信任业务</strong> 与 <strong>86 个常用 SaaS</strong> 应用的真实流量监测，终端访问自动上报。</span>
             </div>
-            <h2 class="text-xl font-bold text-text-title">DEM-监控配置 模块容器</h2>
-            <p class="text-xs text-text-mute mt-2 max-w-md leading-relaxed">路由关系与 Shell 框架已完整保留。您可以在此区域编写【监控配置】重构代码。</p>
+            <button @click="theoryModalOpen = true" class="text-[#1C6EFF] hover:underline cursor-pointer flex items-center gap-1">
+              <span>DEM 3 步监控感知逻辑</span>
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            </button>
           </div>
+
+          <!-- =========================================================================
+               TAB 1: 真实流量观测 (重塑后：3 个对称资产卡片 + 下方干净管理区)
+               ========================================================================= -->
+          <div x-show="currentTab === 'realTraffic'" class="flex-1 flex flex-col gap-2 overflow-hidden">
+            
+            <!-- 3 张结构完全统一的对象卡片 (融合了 KPI 数字与管理入口，去框线降噪) -->
+            <div class="grid grid-cols-3 gap-2 flex-shrink-0">
+              
+              <!-- 卡片 1: 平台零信任私有应用 -->
+              <div class="bg-white rounded-[4px] border border-[#E1E5EB] p-3 shadow-2xs flex flex-col justify-between hover:border-[#1C6EFF] transition-colors">
+                <div>
+                  <div class="flex items-center justify-between mb-1.5">
+                    <div class="flex items-center gap-1.5">
+                      <div class="w-6 h-6 rounded bg-[#F1F5F9] text-[#1C6EFF] flex items-center justify-center">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                      </div>
+                      <span class="text-xs font-semibold text-[#1E293B]">零信任私有应用 (ZTNA)</span>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                      <span class="text-[11px] text-[#16A34A]" x-show="ztnaEnabled">● 监控中</span>
+                      <span class="text-[11px] text-[#94A3B8]" x-show="!ztnaEnabled">已停用</span>
+                      <label class="dem-switch">
+                        <input type="checkbox" x-model="ztnaEnabled">
+                        <span class="dem-slider"></span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <!-- 聚合核心数字 -->
+                  <div class="flex items-baseline gap-1 mt-1 mb-1.5">
+                    <span class="text-2xl font-bold font-outfit text-[#1E293B]">42</span>
+                    <span class="text-xs text-[#64748B]">个应用 (已纳管全量私有资产)</span>
+                  </div>
+
+                  <!-- 中性浅灰胶囊标签 -->
+                  <div class="flex flex-wrap items-center gap-1 text-[11px] text-[#475569]">
+                    <span class="px-1.5 py-0.5 bg-[#F1F5F9] rounded">ERP</span>
+                    <span class="px-1.5 py-0.5 bg-[#F1F5F9] rounded">OA</span>
+                    <span class="px-1.5 py-0.5 bg-[#F1F5F9] rounded">GitLab</span>
+                    <span class="px-1.5 py-0.5 bg-[#F1F5F9] rounded">财务核算</span>
+                    <span class="px-1.5 py-0.5 bg-[#F1F5F9] rounded">CRM</span>
+                    <span class="text-[11px] text-[#86909C]">等</span>
+                  </div>
+                </div>
+
+                <!-- 底部操作链接 -->
+                <div class="pt-2 mt-2 border-t border-[#F1F5F9] flex items-center justify-between text-xs">
+                  <button @click="openZtnaDrawer()" class="text-[#1C6EFF] hover:underline cursor-pointer font-medium">
+                    查看应用清单 (42) >
+                  </button>
+                  <a href="javascript:void(0)" @click="alert('演示跳转：前往「零信任安全接入 > 应用管理」')" class="text-[#8A92A1] hover:text-[#1C6EFF]">
+                    前往应用模块
+                  </a>
+                </div>
+              </div>
+
+              <!-- 卡片 2: 平台内置企业 SaaS 应用 -->
+              <div class="bg-white rounded-[4px] border border-[#E1E5EB] p-3 shadow-2xs flex flex-col justify-between hover:border-[#1C6EFF] transition-colors">
+                <div>
+                  <div class="flex items-center justify-between mb-1.5">
+                    <div class="flex items-center gap-1.5">
+                      <div class="w-6 h-6 rounded bg-[#F1F5F9] text-[#7C3AED] flex items-center justify-center">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                      </div>
+                      <span class="text-xs font-semibold text-[#1E293B]">企业常用 SaaS 应用</span>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                      <span class="text-[11px] text-[#16A34A]" x-show="saasEnabled">● 监控中</span>
+                      <span class="text-[11px] text-[#94A3B8]" x-show="!saasEnabled">已停用</span>
+                      <label class="dem-switch">
+                        <input type="checkbox" x-model="saasEnabled">
+                        <span class="dem-slider"></span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <!-- 聚合核心数字 -->
+                  <div class="flex items-baseline gap-1 mt-1 mb-1.5">
+                    <span class="text-2xl font-bold font-outfit text-[#1E293B]">86</span>
+                    <span class="text-xs text-[#64748B]">个应用 (云网关指纹库识别)</span>
+                  </div>
+
+                  <!-- 中性浅灰胶囊标签 -->
+                  <div class="flex flex-wrap items-center gap-1 text-[11px] text-[#475569]">
+                    <span class="px-1.5 py-0.5 bg-[#F1F5F9] rounded">飞书</span>
+                    <span class="px-1.5 py-0.5 bg-[#F1F5F9] rounded">钉钉</span>
+                    <span class="px-1.5 py-0.5 bg-[#F1F5F9] rounded">企业微信</span>
+                    <span class="px-1.5 py-0.5 bg-[#F1F5F9] rounded">腾讯会议</span>
+                    <span class="px-1.5 py-0.5 bg-[#F1F5F9] rounded">Office 365</span>
+                    <span class="text-[11px] text-[#86909C]">等</span>
+                  </div>
+                </div>
+
+                <!-- 底部操作链接 -->
+                <div class="pt-2 mt-2 border-t border-[#F1F5F9] flex items-center justify-between text-xs">
+                  <button @click="openSaasDrawer()" class="text-[#1C6EFF] hover:underline cursor-pointer font-medium">
+                    查看应用清单 (86) >
+                  </button>
+                  <a href="javascript:void(0)" @click="alert('演示跳转：前往「互联网应用特征库」')" class="text-[#8A92A1] hover:text-[#1C6EFF]">
+                    前往特征库
+                  </a>
+                </div>
+              </div>
+
+              <!-- 卡片 3: 自定义扩展应用 -->
+              <div class="bg-white rounded-[4px] border border-[#E1E5EB] p-3 shadow-2xs flex flex-col justify-between hover:border-[#1C6EFF] transition-colors">
+                <div>
+                  <div class="flex items-center justify-between mb-1.5">
+                    <div class="flex items-center gap-1.5">
+                      <div class="w-6 h-6 rounded bg-[#F1F5F9] text-[#D97706] flex items-center justify-center">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                      </div>
+                      <span class="text-xs font-semibold text-[#1E293B]">自定义扩展应用</span>
+                    </div>
+                    <button @click="customAppsPreviewList = !customAppsPreviewList"
+                            class="text-[11px] text-[#64748B] hover:text-[#1C6EFF] cursor-pointer"
+                            x-text="customAppsPreviewList ? '切为开箱初态' : '切为演示数据'"></button>
+                  </div>
+
+                  <!-- 聚合核心数字 -->
+                  <div class="flex items-baseline gap-1 mt-1 mb-1.5">
+                    <span class="text-2xl font-bold font-outfit text-[#1E293B]" x-text="customAppsPreviewList ? customApps.length : '0'"></span>
+                    <span class="text-xs text-[#64748B]">个自定义监控目标</span>
+                  </div>
+
+                  <p class="text-[11px] text-[#64748B] leading-relaxed line-clamp-2">
+                    针对未走零信任网关的专有内网 IP 段、自建看板域名或特定靶机，可自主增补监控。
+                  </p>
+                </div>
+
+                <!-- 底部操作链接 -->
+                <div class="pt-2 mt-2 border-t border-[#F1F5F9] flex items-center justify-between text-xs">
+                  <button @click="openAddAppDrawer()" class="text-[#1C6EFF] hover:underline cursor-pointer font-medium flex items-center gap-1">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                    <span>添加自定义应用</span>
+                  </button>
+                  <span class="text-[11px] text-[#8A92A1]">支持 IP / 域名 / CIDR</span>
+                </div>
+              </div>
+
+            </div>
+
+            <!-- 下方主体区域：自定义应用管理明细 (单一通透容器，告别框套框) -->
+            <div class="bg-white rounded-[4px] border border-[#E1E5EB] p-3 shadow-2xs flex-1 flex flex-col overflow-hidden">
+              
+              <!-- 标题与操作条 -->
+              <div class="flex items-center justify-between mb-2 pb-2 border-b border-[#F1F5F9] flex-shrink-0">
+                <div class="flex items-center gap-2">
+                  <span class="text-xs font-semibold text-[#1E293B]">自定义应用管理明细</span>
+                  <span class="text-[11px] text-[#8A92A1]">（已由上方智能集合默认纳管 128 个业务，此区域展示用户扩展添加的专网/独立应用）</span>
+                </div>
+
+                <div class="flex items-center gap-2" x-show="customAppsPreviewList">
+                  <div class="relative w-48">
+                    <input type="text" x-model="customSearch" placeholder="搜索应用或目标..."
+                           class="w-full h-7 pl-6 pr-2 text-xs border border-[#D9D9D9] rounded-[2px] focus:border-[#1C6EFF] outline-none">
+                    <svg class="w-3 h-3 text-[#8A92A1] absolute left-2 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                    </svg>
+                  </div>
+
+                  <select x-model="customFilterProtocol" class="h-7 px-1.5 border border-[#D9D9D9] rounded-[2px] text-xs text-[#454C59] outline-none">
+                    <option value="all">所有协议</option>
+                    <option value="HTTPS">HTTPS</option>
+                    <option value="HTTP">HTTP</option>
+                    <option value="TCP">TCP</option>
+                  </select>
+
+                  <button @click="openAddAppDrawer()"
+                          class="h-7 px-2.5 bg-[#1C6EFF] hover:bg-[#0056EB] text-white rounded-[2px] text-xs font-medium transition-colors flex items-center gap-1 shadow-2xs cursor-pointer">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                    <span>添加应用</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- 状态 A：首次开箱空态 (极简轻量，彻底消灭巨大虚线框) -->
+              <div x-show="!customAppsPreviewList" class="flex-1 flex flex-col items-center justify-center text-center p-6">
+                <div class="w-10 h-10 rounded-full bg-[#F1F5F9] text-[#64748B] flex items-center justify-center mb-2">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                  </svg>
+                </div>
+                <div class="text-xs font-medium text-[#1E293B]">暂无自定义应用，上方 128 个平台内置核心业务已处于全量监控中</div>
+                <div class="text-[11px] text-[#8A92A1] mt-1 max-w-md">
+                  如果您有额外的私有云专网 IP、独立域名或第三方接口需要监测，可随时在此添加。
+                </div>
+                <div class="mt-3 flex items-center gap-2">
+                  <button @click="openAddAppDrawer()" class="px-3 py-1 bg-[#1C6EFF] hover:bg-[#0056EB] text-white rounded-[2px] text-xs font-medium transition-colors cursor-pointer flex items-center gap-1">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                    <span>添加自定义应用</span>
+                  </button>
+                  <button @click="customAppsPreviewList = true" class="px-2.5 py-1 bg-white border border-[#D9D9D9] hover:border-[#1C6EFF] text-[#454C59] rounded-[2px] text-xs transition-colors cursor-pointer">
+                    模拟已添加数据列表
+                  </button>
+                </div>
+              </div>
+
+              <!-- 状态 B：自定义应用列表态 (标准 SeerDesign 表格) -->
+              <div x-show="customAppsPreviewList" class="flex-1 overflow-y-auto dem-custom-scroll border border-[#E1E5EB] rounded-[2px]">
+                <table class="dem-table">
+                  <thead>
+                    <tr>
+                      <th class="w-8 text-center">#</th>
+                      <th>应用名称</th>
+                      <th>监控目标 (域名 / IP段)</th>
+                      <th>端口</th>
+                      <th>协议</th>
+                      <th>重要度</th>
+                      <th>监控开关</th>
+                      <th>添加时间</th>
+                      <th class="w-16 text-center">操作</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <template x-for="(app, idx) in activeCustomApps" :key="app.id">
+                      <tr>
+                        <td class="text-center text-[#8A92A1]" x-text="idx + 1"></td>
+                        <td>
+                          <span class="font-medium text-[#1E293B]" x-text="app.name"></span>
+                        </td>
+                        <td class="font-mono text-[11px] text-[#334155]" x-text="app.target"></td>
+                        <td class="font-mono text-[11px] text-[#64748B]" x-text="app.port"></td>
+                        <td>
+                          <span class="px-1.5 py-0.2 text-[10px] rounded font-mono bg-[#F1F5F9] text-[#475569]" x-text="app.protocol"></span>
+                        </td>
+                        <td>
+                          <span class="px-1.5 py-0.2 text-[10px] rounded"
+                                :class="app.priority === '核心业务' ? 'bg-[#FEF2F2] text-[#DC2626]' : 'bg-[#F1F5F9] text-[#475569]'"
+                                x-text="app.priority"></span>
+                        </td>
+                        <td>
+                          <label class="dem-switch scale-90 origin-left">
+                            <input type="checkbox" :checked="app.status" @change="toggleCustomAppStatus(app.id)">
+                            <span class="dem-slider"></span>
+                          </label>
+                        </td>
+                        <td class="text-[11px] text-[#8A92A1] font-mono" x-text="app.createTime"></td>
+                        <td class="text-center">
+                          <button @click="deleteCustomApp(app.id)" class="text-[#DC2626] hover:underline text-xs cursor-pointer">
+                            删除
+                          </button>
+                        </td>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+
+            </div>
+
+          </div>
+
+          <!-- =========================================================================
+               TAB 2: 主动探测配置
+               ========================================================================= -->
+          <div x-show="currentTab === 'syntheticProbe'" class="flex-1 bg-white rounded-[4px] border border-[#E1E5EB] p-3.5 shadow-2xs flex flex-col overflow-hidden">
+            <div class="flex items-center justify-between pb-2.5 border-b border-[#F1F5F9] flex-shrink-0">
+              <div>
+                <h2 class="text-xs font-semibold text-[#1E293B]">7x24h 关键业务主动探测巡检</h2>
+                <p class="text-[11px] text-[#64748B] mt-0.5">从 POP 节点探针与分支硬件探针周期性模拟发起访问，在无人产生真实流量时提前发现网络中断与劣化隐患</p>
+              </div>
+              <button @click="alert('演示功能：打开新建主动探测抽屉')"
+                      class="h-7 px-3 bg-[#1C6EFF] hover:bg-[#0056EB] text-white rounded-[2px] text-xs font-medium transition-colors flex items-center gap-1 cursor-pointer">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                <span>新建探测任务</span>
+              </button>
+            </div>
+
+            <!-- 探针概况极简条 -->
+            <div class="my-2.5 px-3 py-2 bg-[#F8FAFC] border border-[#E2E8F0] rounded flex items-center justify-between text-xs flex-shrink-0">
+              <div class="flex items-center gap-5 text-[#475569]">
+                <span>边缘 POP 探针：<strong class="text-[#1E293B]">8 个就绪</strong></span>
+                <span>分支硬件网关探针：<strong class="text-[#1E293B]">12 个在线</strong></span>
+                <span>VIP 客户端端侧探针：<strong class="text-[#1E293B]">500+ 可调度</strong></span>
+              </div>
+              <span class="text-[#1C6EFF] cursor-pointer hover:underline text-[11px]">查看探针节点拓扑 ></span>
+            </div>
+
+            <!-- 预置策略列表 -->
+            <div class="flex-1 overflow-y-auto dem-custom-scroll space-y-2">
+              <template x-for="policy in probePolicies" :key="policy.id">
+                <div class="p-3 rounded border border-[#E1E5EB] bg-white hover:border-[#1C6EFF] transition-all flex items-center justify-between">
+                  <div class="space-y-1">
+                    <div class="flex items-center gap-2">
+                      <span class="font-semibold text-xs text-[#1E293B]" x-text="policy.name"></span>
+                      <span class="px-1.5 py-0.2 text-[10px] rounded bg-[#F1F5F9] text-[#475569]" x-text="policy.protocol"></span>
+                      <span class="px-1.5 py-0.2 text-[10px] rounded bg-[#F1F5F9] text-[#475569]" x-text="'频次: ' + policy.interval"></span>
+                    </div>
+                    <div class="text-xs text-[#64748B]">
+                      <span>目标: </span><strong class="font-mono text-[#334155]" x-text="policy.target"></strong>
+                    </div>
+                    <div class="text-[11px] text-[#8A92A1]">
+                      <span>探针源: </span><span x-text="policy.probeNodes"></span>
+                    </div>
+                  </div>
+
+                  <div class="flex items-center gap-3">
+                    <div class="text-right">
+                      <div class="text-[11px] text-[#16A34A]" x-show="policy.status">● 7x24h 巡检中</div>
+                      <div class="text-[11px] text-[#8A92A1]" x-show="!policy.status">已暂停</div>
+                    </div>
+                    <label class="dem-switch">
+                      <input type="checkbox" x-model="policy.status">
+                      <span class="dem-slider"></span>
+                    </label>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </div>
+
+          <!-- =========================================================================
+               TAB 3: 体验质量标准
+               ========================================================================= -->
+          <div x-show="currentTab === 'qualityStandard'" class="flex-1 bg-white rounded-[4px] border border-[#E1E5EB] p-3.5 shadow-2xs flex flex-col overflow-hidden">
+            <div class="flex items-center justify-between pb-2.5 border-b border-[#F1F5F9] flex-shrink-0">
+              <div>
+                <h2 class="text-xs font-semibold text-[#1E293B]">访问体验质量标准 (SLO 分级标尺)</h2>
+                <p class="text-[11px] text-[#64748B] mt-0.5">解决“什么样是好、什么样是坏”。驱动大盘告警与体验评级的判定基准</p>
+              </div>
+              <div class="flex items-center gap-2">
+                <button @click="alert('已恢复平台推荐的企业级体验标准基线')"
+                        class="h-7 px-2.5 bg-white border border-[#D9D9D9] hover:border-[#1C6EFF] text-[#334155] rounded-[2px] text-xs transition-colors cursor-pointer">
+                  恢复默认标准
+                </button>
+                <button @click="alert('演示功能：打开【自定义体验阈值微调】面板')"
+                        class="h-7 px-2.5 bg-[#1C6EFF] hover:bg-[#0056EB] text-white rounded-[2px] text-xs font-medium transition-colors cursor-pointer">
+                  微调标准
+                </button>
+              </div>
+            </div>
+
+            <!-- 标准列表 -->
+            <div class="flex-1 overflow-y-auto dem-custom-scroll py-2.5 space-y-2.5">
+              <template x-for="item in qualityStandards" :key="item.category">
+                <div class="p-3 rounded border border-[#E1E5EB] bg-[#FAFAFA]">
+                  <div class="flex items-center justify-between mb-1.5">
+                    <div>
+                      <h3 class="text-xs font-semibold text-[#1E293B]" x-text="item.category"></h3>
+                      <p class="text-[11px] text-[#8A92A1]" x-text="item.desc"></p>
+                    </div>
+                    <span class="px-1.5 py-0.2 bg-[#F1F5F9] text-[#475569] text-[10px] rounded">行业推荐通用基准</span>
+                  </div>
+
+                  <!-- 色块条 -->
+                  <div class="grid grid-cols-4 gap-2 text-xs mt-2">
+                    <div class="p-2 rounded bg-white border-l-2 border-l-[#16A34A] border border-[#E2E8F0]">
+                      <div class="font-bold text-[#16A34A] text-[11px]">● 优秀 (Good)</div>
+                      <div class="text-[11px] text-[#334155] mt-0.5 font-mono" x-text="item.ttfbGood"></div>
+                      <div class="text-[10px] text-[#8A92A1]" x-text="'丢包率 ' + item.lossGood"></div>
+                    </div>
+
+                    <div class="p-2 rounded bg-white border-l-2 border-l-[#1C6EFF] border border-[#E2E8F0]">
+                      <div class="font-bold text-[#1C6EFF] text-[11px]">● 良好 (Normal)</div>
+                      <div class="text-[11px] text-[#334155] mt-0.5 font-mono" x-text="item.ttfbNormal"></div>
+                      <div class="text-[10px] text-[#8A92A1]">网络平稳</div>
+                    </div>
+
+                    <div class="p-2 rounded bg-white border-l-2 border-l-[#D97706] border border-[#E2E8F0]">
+                      <div class="font-bold text-[#D97706] text-[11px]">● 卡慢预警 (Degraded)</div>
+                      <div class="text-[11px] text-[#334155] mt-0.5 font-mono" x-text="item.ttfbBad"></div>
+                      <div class="text-[10px] text-[#8A92A1]" x-text="'丢包率 ' + item.lossBad"></div>
+                    </div>
+
+                    <div class="p-2 rounded bg-white border-l-2 border-l-[#DC2626] border border-[#E2E8F0]">
+                      <div class="font-bold text-[#DC2626] text-[11px]">● 故障严重 (Bad)</div>
+                      <div class="text-[11px] text-[#334155] mt-0.5 font-mono">严重卡顿 / 熔断</div>
+                      <div class="text-[10px] text-[#8A92A1]">丢包率 &gt; 5%</div>
+                    </div>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </div>
+
         </main>
+
+        <!-- =========================================================================
+             轻量应用清单与表单抽屉 (Drawer)
+             ========================================================================= -->
+        <div x-show="drawerOpen"
+             x-transition:enter="transition ease-out duration-150"
+             x-transition:enter-start="opacity-0"
+             x-transition:enter-end="opacity-100"
+             x-transition:leave="transition ease-in duration-100"
+             x-transition:leave-start="opacity-100"
+             x-transition:leave-end="opacity-0"
+             class="fixed inset-0 bg-black/25 z-50 flex justify-end"
+             style="display: none;"
+             @click.self="closeDrawer()">
+          
+          <div x-show="drawerOpen"
+               x-transition:enter="transition transform ease-out duration-150"
+               x-transition:enter-start="translate-x-full"
+               x-transition:enter-end="translate-x-0"
+               x-transition:leave="transition transform ease-in duration-100"
+               x-transition:leave-start="translate-x-0"
+               x-transition:leave-end="translate-x-full"
+               class="w-[480px] max-w-full h-full bg-white shadow-xl flex flex-col justify-between">
+            
+            <!-- 抽屉头部 -->
+            <div class="h-11 px-4 border-b border-[#E1E5EB] flex items-center justify-between flex-shrink-0">
+              <h3 class="text-xs font-semibold text-[#1E293B]"
+                  x-text="drawerType === 'ztna' ? '内置零信任应用清单 (共 42 个)' : (drawerType === 'saas' ? '内置企业 SaaS 清单 (共 86 个)' : '添加自定义监控应用')"></h3>
+              <button @click="closeDrawer()" class="text-[#8A92A1] hover:text-[#1E293B] cursor-pointer">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+              </button>
+            </div>
+
+            <!-- 抽屉内容：零信任清单 -->
+            <div x-show="drawerType === 'ztna'" class="flex-1 p-3 overflow-y-auto dem-custom-scroll flex flex-col gap-2.5">
+              <div class="flex items-center gap-2 flex-shrink-0">
+                <div class="relative flex-1">
+                  <input type="text" x-model="drawerSearch" placeholder="搜索应用名称或域名..."
+                         class="w-full h-7 pl-6 pr-2 text-xs border border-[#D9D9D9] rounded-[2px] focus:border-[#1C6EFF] outline-none">
+                  <svg class="w-3 h-3 text-[#8A92A1] absolute left-2 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                </div>
+                <select x-model="drawerCategory" class="h-7 px-1.5 border border-[#D9D9D9] rounded-[2px] text-xs text-[#454C59] outline-none">
+                  <option value="all">所有分类</option>
+                  <option value="核心业务">核心业务</option>
+                  <option value="协同办公">协同办公</option>
+                  <option value="研发资产">研发资产</option>
+                  <option value="财务风控">财务风控</option>
+                </select>
+              </div>
+
+              <div class="border border-[#E1E5EB] rounded-[2px] overflow-hidden flex-1">
+                <table class="dem-table">
+                  <thead>
+                    <tr>
+                      <th>应用名称</th>
+                      <th>域名 / 目标地址</th>
+                      <th>分类</th>
+                      <th>监控</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <template x-for="app in filteredZtnaApps" :key="app.id">
+                      <tr>
+                        <td>
+                          <div class="font-medium text-xs text-[#1E293B]" x-text="app.name"></div>
+                          <div class="text-[10px] text-[#8A92A1]" x-text="app.connector"></div>
+                        </td>
+                        <td class="font-mono text-[11px] text-[#334155]" x-text="app.target"></td>
+                        <td>
+                          <span class="px-1.5 py-0.2 bg-[#F1F5F9] text-[#475569] text-[10px] rounded" x-text="app.category"></span>
+                        </td>
+                        <td>
+                          <label class="dem-switch scale-80 origin-left">
+                            <input type="checkbox" x-model="app.status">
+                            <span class="dem-slider"></span>
+                          </label>
+                        </td>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- 抽屉内容：SaaS 清单 -->
+            <div x-show="drawerType === 'saas'" class="flex-1 p-3 overflow-y-auto dem-custom-scroll flex flex-col gap-2.5">
+              <div class="flex items-center gap-2 flex-shrink-0">
+                <div class="relative flex-1">
+                  <input type="text" x-model="drawerSearch" placeholder="搜索 SaaS 应用名称或域名..."
+                         class="w-full h-7 pl-6 pr-2 text-xs border border-[#D9D9D9] rounded-[2px] focus:border-[#1C6EFF] outline-none">
+                  <svg class="w-3 h-3 text-[#8A92A1] absolute left-2 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                </div>
+                <select x-model="drawerCategory" class="h-7 px-1.5 border border-[#D9D9D9] rounded-[2px] text-xs text-[#454C59] outline-none">
+                  <option value="all">所有分类</option>
+                  <option value="办公协同">办公协同</option>
+                  <option value="音视频会议">音视频会议</option>
+                  <option value="云端服务">云端服务</option>
+                  <option value="技术研发">技术研发</option>
+                </select>
+              </div>
+
+              <div class="border border-[#E1E5EB] rounded-[2px] overflow-hidden flex-1">
+                <table class="dem-table">
+                  <thead>
+                    <tr>
+                      <th>SaaS 名称</th>
+                      <th>域名特征</th>
+                      <th>协议</th>
+                      <th>监控</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <template x-for="app in filteredSaasApps" :key="app.id">
+                      <tr>
+                        <td>
+                          <div class="font-medium text-xs text-[#1E293B]" x-text="app.name"></div>
+                          <div class="text-[10px] text-[#8A92A1]" x-text="app.category"></div>
+                        </td>
+                        <td class="font-mono text-[11px] text-[#334155]" x-text="app.domain"></td>
+                        <td>
+                          <span class="px-1.5 py-0.2 bg-[#F1F5F9] text-[#475569] text-[10px] rounded" x-text="app.proto"></span>
+                        </td>
+                        <td>
+                          <label class="dem-switch scale-80 origin-left">
+                            <input type="checkbox" x-model="app.status">
+                            <span class="dem-slider"></span>
+                          </label>
+                        </td>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- 抽屉内容：添加自定义应用 -->
+            <div x-show="drawerType === 'addCustom'" class="flex-1 p-4 overflow-y-auto dem-custom-scroll space-y-3.5">
+              <div>
+                <label class="block text-xs font-semibold text-[#1E293B] mb-1">应用名称 <span class="text-red-500">*</span></label>
+                <input type="text" x-model="newAppForm.name" placeholder="例如：自建数据分析看板"
+                       class="w-full h-8 px-2 text-xs border border-[#D9D9D9] rounded-[2px] focus:border-[#1C6EFF] outline-none">
+              </div>
+
+              <div>
+                <label class="block text-xs font-semibold text-[#1E293B] mb-1">监控目标 (域名 / IP段) <span class="text-red-500">*</span></label>
+                <input type="text" x-model="newAppForm.target" placeholder="例如：data.internal.corp 或 10.20.0.0/16"
+                       class="w-full h-8 px-2 text-xs border border-[#D9D9D9] rounded-[2px] focus:border-[#1C6EFF] outline-none font-mono">
+              </div>
+
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-xs font-semibold text-[#1E293B] mb-1">协议类型</label>
+                  <select x-model="newAppForm.protocol" class="w-full h-8 px-2 text-xs border border-[#D9D9D9] rounded-[2px] outline-none">
+                    <option value="HTTPS">HTTPS</option>
+                    <option value="HTTP">HTTP</option>
+                    <option value="TCP">TCP</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label class="block text-xs font-semibold text-[#1E293B] mb-1">重要度等级</label>
+                  <select x-model="newAppForm.priority" class="w-full h-8 px-2 text-xs border border-[#D9D9D9] rounded-[2px] outline-none">
+                    <option value="核心业务">核心业务</option>
+                    <option value="普通业务">普通业务</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label class="block text-xs font-semibold text-[#1E293B] mb-1">端口</label>
+                <input type="text" x-model="newAppForm.port" placeholder="443"
+                       class="w-full h-8 px-2 text-xs border border-[#D9D9D9] rounded-[2px] focus:border-[#1C6EFF] outline-none font-mono">
+              </div>
+            </div>
+
+            <!-- 抽屉底栏 -->
+            <div class="p-2.5 border-t border-[#E1E5EB] flex items-center justify-end gap-2 bg-[#FAFAFA] flex-shrink-0">
+              <button @click="closeDrawer()" class="px-3 py-1 bg-white border border-[#D9D9D9] text-xs text-[#334155] rounded-[2px] cursor-pointer">
+                关闭
+              </button>
+              <button x-show="drawerType === 'addCustom'" @click="submitNewApp()"
+                      class="px-3.5 py-1 bg-[#1C6EFF] hover:bg-[#0056EB] text-xs text-white rounded-[2px] cursor-pointer shadow-2xs font-medium">
+                保存纳入监控
+              </button>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- =========================================================================
+             DEM 3步感知逻辑说明弹窗 (Modal)
+             ========================================================================= -->
+        <div x-show="theoryModalOpen"
+             class="fixed inset-0 bg-black/30 backdrop-blur-[1px] z-50 flex items-center justify-center p-4"
+             style="display: none;"
+             @click.self="theoryModalOpen = false">
+          <div class="bg-white rounded-[4px] shadow-2xl border border-[#E1E5EB] max-w-lg w-full p-5 space-y-4">
+            <div class="flex items-center justify-between border-b border-[#F1F5F9] pb-2">
+              <h3 class="text-sm font-bold text-[#1E293B]">DEM 体验监控 3 步感知闭环原理</h3>
+              <button @click="theoryModalOpen = false" class="text-[#8A92A1] hover:text-[#1E293B] cursor-pointer">✕</button>
+            </div>
+            
+            <div class="space-y-3 text-xs text-[#454C59] leading-relaxed">
+              <div class="p-2.5 rounded bg-[#F8FAFC] border border-[#E2E8F0]">
+                <strong class="text-[#1E293B]">1. 真实流量观测 (RUM)：</strong>
+                <p class="mt-0.5">面向真实访问，被动采集终端与网关上的用户会话指标（TTFB、页面渲染、网络丢包）。平台已自动纳管零信任与 SaaS 资产，开箱免配即可看到真实用户体验。</p>
+              </div>
+
+              <div class="p-2.5 rounded bg-[#F8FAFC] border border-[#E2E8F0]">
+                <strong class="text-[#1E293B]">2. 主动探测配置 (Synthetic)：</strong>
+                <p class="mt-0.5">面向 7x24h 连续基线保障。在夜间或无真实流量访问时，边缘 POP 探针主动向 ERP/OA 等关键靶机发起周期性探测，提前发现链路劣化与中断。</p>
+              </div>
+
+              <div class="p-2.5 rounded bg-[#F8FAFC] border border-[#E2E8F0]">
+                <strong class="text-[#1E293B]">3. 体验质量标准 (SLO)：</strong>
+                <p class="mt-0.5">解决“好与坏”的评判标尺。系统预置了 Web 办公、音视频会议等分级阈值，据此判定卡慢并触发【体验预警】。</p>
+              </div>
+            </div>
+
+            <div class="flex justify-end pt-1">
+              <button @click="theoryModalOpen = false" class="px-4 py-1.5 bg-[#1C6EFF] text-white rounded-[2px] text-xs font-medium cursor-pointer">
+                我知道了
+              </button>
+            </div>
+          </div>
+        </div>
+
       </div>
     </template>
   </div>
