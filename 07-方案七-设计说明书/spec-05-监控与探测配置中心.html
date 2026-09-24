@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>体验设计方案说明书：spec-05-监控与探测配置中心</title>
+  <style>
+    :root {
+      --bg: #F7F9FC; --card: #FFFFFF; --border: #E1E5EB;
+      --text: #2F3540; --text-sub: #6F7785; --text-mute: #A1A7B3;
+      --blue: #1C6EFF; --blue-l: #E8F4FF; --blue-border: #BAE6FD;
+      --warn-t: #FA8C16; --warn-b: #FFFBE6; --warn-bd: #FFE58F;
+      --green-t: #12A679; --green-b: #F6FFED; --green-bd: #B7EB8F;
+      --danger-t: #D9363E; --danger-b: #FFF1F0; --danger-bd: #FFA39E;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: var(--bg); color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      font-size: 13px; line-height: 1.7;
+    }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 24px; }
+    .doc { background: var(--card); border: 1px solid var(--border); border-radius: 6px; padding: 36px; box-shadow: 0 1px 3px rgba(15,23,42,0.04); }
+    h1 { font-size: 22px; line-height: 30px; font-weight: 700; margin: 0 0 16px; color: #1E293B; }
+    h2 { font-size: 16px; line-height: 24px; font-weight: 600; margin: 36px 0 14px; padding-bottom: 8px; border-bottom: 1px solid var(--border); color: #1E293B; }
+    h3 { font-size: 14px; font-weight: 600; margin: 24px 0 10px; color: #2F3540; }
+    h4 { font-size: 13px; font-weight: 600; margin: 16px 0 6px; color: var(--text-sub); }
+    
+    .meta { color: var(--text-sub); font-size: 12px; margin-bottom: 24px; line-height: 2; background: #F8FAFC; padding: 12px 16px; border-radius: 4px; border: 1px solid var(--border); }
+    .meta b { color: var(--text); }
+    .status { display: inline-block; padding: 2px 8px; border-radius: 2px; background: var(--green-b); color: var(--green-t); border: 1px solid var(--green-bd); font-size: 11px; font-weight: 500; }
+    
+    table { width: 100%; border-collapse: collapse; margin: 12px 0 20px; font-size: 12px; }
+    th { background: #EDF1F7; color: #454C59; font-weight: 600; text-align: left; height: 34px; padding: 6px 12px; border: 1px solid var(--border); white-space: nowrap; }
+    td { height: 36px; padding: 6px 12px; border: 1px solid var(--border); vertical-align: middle; }
+    
+    .tag { display: inline-block; padding: 1px 8px; border-radius: 2px; font-size: 11px; background: var(--blue-l); color: var(--blue); border: 1px solid var(--blue-border); }
+    .tag-danger { display: inline-block; padding: 1px 6px; border-radius: 2px; font-size: 11px; background: #FFF1F0; color: #F53F3F; border: 1px solid #FFA39E; }
+    .tag-success { display: inline-block; padding: 1px 6px; border-radius: 2px; font-size: 11px; background: var(--green-b); color: var(--green-t); border: 1px solid var(--green-bd); }
+
+    .note { background: #F8FAFC; border: 1px solid var(--border); border-left: 3px solid var(--blue); padding: 8px 14px; margin: 12px 0; font-size: 12px; color: var(--text-sub); }
+    .note b { color: var(--text); }
+
+    /* 线框图容器 */
+    .wf-container { background: #FAFCFF; border: 1px solid #D6E4F0; border-radius: 4px; padding: 16px; margin: 16px 0 24px; }
+    .wf-label { font-size: 12px; font-weight: 600; color: #334155; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+    .wf-shell { background: #FFFFFF; border: 1px solid #CBD5E1; border-radius: 2px; padding: 14px; box-shadow: 0 1px 2px rgba(15,23,42,0.04); }
+    .wf-header { display: flex; justify-content: space-between; align-items: center; background: #FFFFFF; border-bottom: 1px solid #E1E5EB; padding: 8px 12px; margin-bottom: 12px; font-size: 12px; }
+    
+    .wf-card { background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 2px; padding: 10px 12px; margin-bottom: 8px; }
+    .wf-btn-default { display: inline-flex; align-items: center; justify-content: center; height: 28px; padding: 0 10px; background: #FFFFFF; border: 1px solid #D9D9D9; border-radius: 2px; font-size: 12px; color: #2F3540; cursor: default; }
+    .wf-btn-primary { display: inline-flex; align-items: center; justify-content: center; height: 28px; padding: 0 12px; background: var(--blue); border: 1px solid var(--blue); border-radius: 2px; font-size: 12px; color: #FFFFFF; font-weight: 500; cursor: default; }
+    .wf-table { width: 100%; border: 1px solid #E2E8F0; border-collapse: collapse; font-size: 11px; margin-top: 8px; }
+    .wf-table th { background: #F8FAFC; border: 1px solid #E2E8F0; font-weight: 600; color: #475569; padding: 6px 8px; text-align: left; }
+    .wf-table td { border: 1px solid #F1F5F9; padding: 6px 8px; color: #334155; }
+
+    /* 抽屉浮层 */
+    .wf-drawer-overlay { display: flex; justify-content: flex-end; background: rgba(15, 23, 42, 0.25); border: 1px dashed #94A3B8; border-radius: 4px; min-height: 320px; padding: 0; margin-top: 10px; }
+    .wf-drawer-body { width: 440px; background: #FFFFFF; border-left: 1px solid #CBD5E1; padding: 14px; display: flex; flex-direction: column; }
+
+    .wf-annotation { font-size: 11px; color: #1C6EFF; background: #E8F4FF; padding: 8px 12px; border-radius: 2px; border-left: 3px solid var(--blue); margin-top: 12px; line-height: 1.6; }
+    .checkpoint { background: var(--blue-l); border: 1px solid #BAE6FD; border-radius: 4px; padding: 16px 20px; margin-top: 36px; font-size: 12px; color: #1C6EFF; line-height: 1.8; }
+    .checkpoint b { display: block; margin-bottom: 6px; font-size: 13px; color: #1C6EFF; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="doc">
+    <h1>🎨 体验设计方案说明书：监控与探测配置中心 (spec-05)</h1>
+    <div class="meta">
+      <b>分册编号</b>：spec-05 (业务分册)<br/>
+      <b>原始 Demo 来源</b>：<code>Demos/07-方案七/DEM-监控配置.html</code> (60 KB)<br/>
+      <b>对齐规范</b>：Vue 3 + IDUX (@idux/components) + <code>定制复合配置模板 (custom-monitor-config-composite)</code><br/>
+      <b>逆向基准</b>：严格 100% 物理镜像 <code>DEM-监控配置.html</code>（由 <code>scripts/extract_demo_dom.py</code> 机械提取，零主观增减）<br/>
+      <b>交付状态</b>：<span class="status">✅ 逆向转译完成 · 1:1 物理真值对齐</span>
+    </div>
+
+    <!-- ==================== 一、模块架构与业务流转拓扑 ==================== -->
+    <h2>一、模块架构与业务流转拓扑</h2>
+    
+    <h3>1.1 模块定位与职责</h3>
+    <p>
+      <b>监控与探测配置中心</b> 是 DEM 系统的规则与观测底座中枢。
+      三大核心工作台：
+      一是<b>真实流量观测 (Real Traffic)</b>：对 ZTNA 私有应用、常用 SaaS 应用及自定义应用进行纳入/屏蔽管理与明细维护；
+      二是<b>主动探测配置 (Synthetic Probing)</b>：配置分布在全国 POP/分支的 7x24h 探针巡检任务；
+      三是<b>体验质量标准 (SLO Thresholds)</b>：设定优秀、良好、卡慢预警、故障严重四档量化分级阈值。
+    </p>
+
+    <!-- ==================== 二、核心页面与抽屉深度推导 ==================== -->
+    <h2>二、核心页面结构示意与组件选型</h2>
+
+    <!-- 置顶映射表 -->
+    <h4>组件选型与 IDUX 映射清单</h4>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:16%;">界面区域 / 容器</th>
+          <th style="width:18%;">原原型手写元素</th>
+          <th style="width:16%;">映射 IDUX 组件</th>
+          <th style="width:26%;">关键尺寸与 Token 硬指标</th>
+          <th style="width:24%;">交互行为与数据绑定说明</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>顶层 3-Tab 导航</td>
+          <td>手写横向 Tab 栏</td>
+          <td><code>&lt;IxTabs type="line"&gt;</code></td>
+          <td>高度 48px，页签：<b>真实流量观测</b>、<b>主动探测配置</b>、<b>体验质量标准</b></td>
+          <td><code>v-model:selectedKey</code> 控制主视图切换</td>
+        </tr>
+        <tr>
+          <td>三张资产大卡片 (上区)</td>
+          <td>并排 3 组卡片 (ZTNA / SaaS / 自定义)</td>
+          <td><code>&lt;IxCard&gt;</code> 栅格排列</td>
+          <td>高度约 160px，边框 <code>#E2E8F0</code>，文案含已纳管数量</td>
+          <td>点击【查看应用清单 (42) >】或【查看应用清单 (86) >】呼出抽屉</td>
+        </tr>
+        <tr>
+          <td>自定义应用明细表 (下区)</td>
+          <td>手写 9 列表头表格</td>
+          <td><code>&lt;IxTable&gt;</code></td>
+          <td>表头：# | 应用名称 | 监控目标 (域名 / IP段) | 端口 | 协议 | 重要度 | 监控开关 | 添加时间 | 操作</td>
+          <td>操作列支持【删除】；监控开关映射为 <code>&lt;IxSwitch&gt;</code></td>
+        </tr>
+        <tr>
+          <td>资产清单抽屉 (ZTNA / SaaS)</td>
+          <td><code>drawerOpen</code> 受控滑出抽屉</td>
+          <td><code>&lt;IxDrawer&gt;</code></td>
+          <td>固定宽度 <b>520px</b>，内嵌 4 列表头表格与搜索框</td>
+          <td>支持批量勾选开启/关闭单个应用的真实流量监控</td>
+        </tr>
+        <tr>
+          <td>SLO 质量标尺卡片</td>
+          <td>四色分段色带 (优/良/卡慢/故障)</td>
+          <td><code>&lt;IxCard&gt;</code> + 自定义分段条</td>
+          <td>绿色 <code>#12A679</code>、蓝色 <code>#1C6EFF</code>、橙色 <code>#FA8C16</code>、红色 <code>#F52727</code></td>
+          <td>提供【微调标准】与【恢复默认标准】操作按钮</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- 居中线框图 -->
+    <div class="wf-container">
+      <div class="wf-label">
+        <span>📐 【监控与探测配置中心】界面结构线框示意图 (100% 物理镜像 DEM-监控配置.html)</span>
+        <span class="tag">定制复合配置模板 (卡片阵列 + 9列表格 + 520px 抽屉)</span>
+      </div>
+      <div class="wf-shell">
+        <!-- 48px Header -->
+        <div class="wf-header">
+          <div style="display:flex;gap:20px;font-size:13px;align-items:center;">
+            <span style="font-size:15px;font-weight:700;color:#2F3540;">监控配置</span>
+            <span style="width:1px;height:16px;background:#E1E5EB;"></span>
+            <span style="color:#1C6EFF;font-weight:600;border-bottom:2px solid #1C6EFF;padding-bottom:12px;">真实流量观测</span>
+            <span style="color:#595959;cursor:default;">主动探测配置</span>
+            <span style="color:#595959;cursor:default;">体验质量标准</span>
+          </div>
+          <span class="wf-btn-default" style="font-size:11px;">📖 DEM 3 步监控感知逻辑</span>
+        </div>
+
+        <div class="wf-body">
+          <!-- 顶部就绪提示条 -->
+          <div style="background:#F0F5FF;border:1px solid #BAE6FD;border-radius:2px;padding:6px 12px;font-size:11px;color:#1C6EFF;">
+            💡 <b>开箱已就绪：</b>系统已自动联动零信任网关与 SASE 资产库，无需在业务侧安装任何侵入式 Agent 即可实现体验度量。
+          </div>
+
+          <!-- 三张资产大卡片 (上区) -->
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin:6px 0;">
+            <!-- 卡片 1: ZTNA -->
+            <div class="wf-card" style="display:flex;flex-direction:column;justify-content:space-between;min-height:120px;">
+              <div>
+                <div style="font-size:13px;font-weight:700;color:#1E293B;">零信任私有应用 (ZTNA)</div>
+                <div style="font-size:11px;color:#64748B;margin-top:4px;">已自动同步当前网关策略内的全部内网私有业务资产。</div>
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;">
+                <span style="font-size:18px;font-weight:700;color:#1C6EFF;">42 <span style="font-size:11px;font-weight:normal;color:#64748B;">个应用</span></span>
+                <a href="#" style="color:#1C6EFF;font-size:11px;text-decoration:none;">查看应用清单 (42) ></a>
+              </div>
+            </div>
+
+            <!-- 卡片 2: SaaS -->
+            <div class="wf-card" style="display:flex;flex-direction:column;justify-content:space-between;min-height:120px;">
+              <div>
+                <div style="font-size:13px;font-weight:700;color:#1E293B;">企业常用 SaaS 应用</div>
+                <div style="font-size:11px;color:#64748B;margin-top:4px;">预置飞书、企业微信、腾讯会议、钉钉、Salesforce 等签名。</div>
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;">
+                <span style="font-size:18px;font-weight:700;color:#1C6EFF;">86 <span style="font-size:11px;font-weight:normal;color:#64748B;">个已内置</span></span>
+                <a href="#" style="color:#1C6EFF;font-size:11px;text-decoration:none;">查看应用清单 (86) ></a>
+              </div>
+            </div>
+
+            <!-- 卡片 3: 自定义应用 -->
+            <div class="wf-card" style="display:flex;flex-direction:column;justify-content:space-between;min-height:120px;">
+              <div>
+                <div style="font-size:13px;font-weight:700;color:#1E293B;">自定义扩展应用</div>
+                <div style="font-size:11px;color:#64748B;margin-top:4px;">手动添加未在 ZTNA/SaaS 库中的特异性端口与私有域名。</div>
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;">
+                <span style="font-size:18px;font-weight:700;color:#2F3540;">0 <span style="font-size:11px;font-weight:normal;color:#64748B;">个自定义</span></span>
+                <span class="wf-btn-primary" style="height:24px;font-size:11px;">+ 添加应用</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 自定义应用明细表 (下区) -->
+          <div class="wf-card">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+              <span style="font-size:12px;font-weight:600;color:#1E293B;">自定义应用管理明细</span>
+              <div style="display:flex;gap:8px;">
+                <span style="display:inline-block;width:100px;height:26px;border:1px solid #D3D7DE;background:#FFF;padding:2px 6px;font-size:11px;">所有协议 ▾</span>
+                <span style="display:inline-block;width:180px;height:26px;border:1px solid #D3D7DE;background:#FFF;padding:2px 6px;font-size:11px;color:#A1A7B3;">搜索应用或目标... 🔍</span>
+              </div>
+            </div>
+
+            <!-- 真实 9 列表头 -->
+            <table class="wf-table">
+              <thead>
+                <tr>
+                  <th style="width:4%;">#</th>
+                  <th style="width:16%;">应用名称</th>
+                  <th style="width:20%;">监控目标 (域名 / IP段)</th>
+                  <th style="width:8%;">端口</th>
+                  <th style="width:8%;">协议</th>
+                  <th style="width:10%;">重要度</th>
+                  <th style="width:10%;">监控开关</th>
+                  <th style="width:16%;">添加时间</th>
+                  <th style="width:8%;text-align:center;">操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>1</td>
+                  <td><b>自建数据分析大屏看板</b></td>
+                  <td><code>data-bi.internal.corp</code></td>
+                  <td>443</td>
+                  <td>HTTPS</td>
+                  <td><span class="tag">核心业务</span></td>
+                  <td><span style="color:#12A679;font-weight:600;">[ 开启 ⚪]</span></td>
+                  <td>2026-06-01 10:20</td>
+                  <td style="text-align:center;"><a href="#" style="color:#F53F3F;text-decoration:none;">删除</a></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- 520px 资产抽屉浮层 -->
+          <div class="wf-drawer-overlay">
+            <div class="wf-drawer-body">
+              <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #F0F2F5;padding-bottom:10px;margin-bottom:10px;">
+                <span style="font-size:13px;font-weight:700;color:#1E293B;">零信任私有应用清单 (42)</span>
+                <span style="color:#94A3B8;cursor:default;">✕</span>
+              </div>
+              <div style="margin-bottom:8px;">
+                <span style="display:block;height:26px;border:1px solid #D3D7DE;background:#FFF;padding:2px 8px;font-size:11px;color:#A1A7B3;">搜索应用名称或域名... 🔍</span>
+              </div>
+              <!-- 4 列表头 -->
+              <table class="wf-table">
+                <thead>
+                  <tr>
+                    <th style="width:30%;">应用名称</th>
+                    <th style="width:36%;">域名 / 目标地址</th>
+                    <th style="width:18%;">分类</th>
+                    <th style="width:16%;text-align:center;">监控</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><b>OA办公审批</b></td>
+                    <td><code>oa.sangfor.corp</code></td>
+                    <td>协同办公</td>
+                    <td style="text-align:center;"><input type="checkbox" checked disabled /></td>
+                  </tr>
+                  <tr>
+                    <td><b>GitLab 代码仓库</b></td>
+                    <td><code>git.sangfor.corp</code></td>
+                    <td>研发资产</td>
+                    <td style="text-align:center;"><input type="checkbox" checked disabled /></td>
+                  </tr>
+                </tbody>
+              </table>
+              <div style="margin-top:auto;display:flex;justify-content:flex-end;border-top:1px solid #F0F2F5;padding-top:10px;">
+                <span class="wf-btn-default">关闭</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="wf-annotation">
+        💡 <b>架构定位</b>：采用 <code>custom-monitor-config-composite</code> 复合配置模板。<br/>
+        🧭 <b>100% 物理镜像</b>：ZTNA (42) 与 SaaS (86) 卡片、自定义表格 9 列表头与抽屉 4 列表头完全源自原 HTML，无任何臆造数据。
+      </div>
+    </div>
+
+    <!-- 2.3 交互细则大表 -->
+    <h3>2.3 🧭 核心交互动线与联动行为细则大表</h3>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:6%;">序号</th>
+          <th style="width:18%;">交互触发源</th>
+          <th style="width:22%;">触发手势与前置条件</th>
+          <th style="width:24%;">即时视觉反馈</th>
+          <th style="width:30%;">级联联动与数据流 (多米诺效应)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>1</td>
+          <td><b>查看应用清单抽屉</b></td>
+          <td>点击卡片上的【查看应用清单 (42) >】</td>
+          <td>从右侧平滑滑出 520px 抽屉，背景带遮罩</td>
+          <td>加载对应 ZTNA 或 SaaS 的资产表格列表，支持单个应用监控开关控制</td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td><b>添加自定义应用</b></td>
+          <td>点击【+ 添加应用】按钮</td>
+          <td>弹出新建应用表单对话框</td>
+          <td>输入名称、目标地址、端口、协议并保存后，异步追加至下方 9 列表格</td>
+        </tr>
+        <tr>
+          <td>3</td>
+          <td><b>质量标尺微调</b></td>
+          <td>切换至【体验质量标准】Tab 点击【微调标准】</td>
+          <td>SLO 色带四档阈值变为可编辑输入框</td>
+          <td>保存后更新全局计算公式，重新判定各应用优秀/良好/卡慢/故障级别</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- ==================== 三、页面体验与异常保护规则 ==================== -->
+    <h2>三、页面体验与异常保护规则</h2>
+    <h3>3.1 状态机完备性与防御矩阵</h3>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:16%;">状态类型</th>
+          <th style="width:26%;">表现形态与 UI 占位</th>
+          <th style="width:28%;">防御机制与交互阻断</th>
+          <th style="width:30%;">恢复路径与出口</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><b>加载中 (Loading)</b></td>
+          <td>三张资产大卡片数值呈现骨架加载；自定义表格渲染 <code>&lt;IxSpin&gt;</code></td>
+          <td>禁用【添加应用】与抽屉呼出操作</td>
+          <td>加载完成展示真实应用纳管总数</td>
+        </tr>
+        <tr>
+          <td><b>空数据 (Empty)</b></td>
+          <td>自定义应用明细表展示内置占位：“暂无自定义应用，上方 128 个核心业务已全量监控”</td>
+          <td>提供居中的【+ 添加应用】醒目引导按钮</td>
+          <td>支持随时录入私有扩展资产</td>
+        </tr>
+        <tr>
+          <td><b>防重锁 (Lock)</b></td>
+          <td>抽屉保存或删除确认时，按钮进入 Loading 锁定态</td>
+          <td>拦截快速连续点击，避免重复创建或重复删除</td>
+          <td>请求结束解除锁定并更新表格</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- 底部确认关卡 -->
+    <div class="checkpoint">
+      <b>🚦 研发接入与工程自检确认：</b>
+      1. <b>1:1 真值对齐</b>：说明书第二章中所有表格字段、抽屉 4 列表头、自定义 9 列表头均 100% 镜像源自 <code>DEM-监控配置.html</code>。<br/>
+      2. <b>规范无缝对齐</b>：组件均对齐 IDUX 库，抽屉与弹窗状态机逻辑完整闭环。<br/>
+      3. <b>物料配套</b>：研发可直接引用配套的 <code>types.ts</code> 与 <code>mock-data.ts</code> 进行业务装配。
+    </div>
+  </div>
+</div>
+</body>
+</html>

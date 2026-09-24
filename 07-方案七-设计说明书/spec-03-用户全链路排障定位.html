@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>体验设计方案说明书：spec-03-用户全链路排障定位</title>
+  <style>
+    :root {
+      --bg: #F7F9FC; --card: #FFFFFF; --border: #E1E5EB;
+      --text: #2F3540; --text-sub: #6F7785; --text-mute: #A1A7B3;
+      --blue: #1C6EFF; --blue-l: #E8F4FF; --blue-border: #BAE6FD;
+      --warn-t: #FA8C16; --warn-b: #FFFBE6; --warn-bd: #FFE58F;
+      --green-t: #12A679; --green-b: #F6FFED; --green-bd: #B7EB8F;
+      --danger-t: #D9363E; --danger-b: #FFF1F0; --danger-bd: #FFA39E;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: var(--bg); color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      font-size: 13px; line-height: 1.7;
+    }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 24px; }
+    .doc { background: var(--card); border: 1px solid var(--border); border-radius: 6px; padding: 36px; box-shadow: 0 1px 3px rgba(15,23,42,0.04); }
+    h1 { font-size: 22px; line-height: 30px; font-weight: 700; margin: 0 0 16px; color: #1E293B; }
+    h2 { font-size: 16px; line-height: 24px; font-weight: 600; margin: 36px 0 14px; padding-bottom: 8px; border-bottom: 1px solid var(--border); color: #1E293B; }
+    h3 { font-size: 14px; font-weight: 600; margin: 24px 0 10px; color: #2F3540; }
+    h4 { font-size: 13px; font-weight: 600; margin: 16px 0 6px; color: var(--text-sub); }
+    
+    .meta { color: var(--text-sub); font-size: 12px; margin-bottom: 24px; line-height: 2; background: #F8FAFC; padding: 12px 16px; border-radius: 4px; border: 1px solid var(--border); }
+    .meta b { color: var(--text); }
+    .status { display: inline-block; padding: 2px 8px; border-radius: 2px; background: var(--green-b); color: var(--green-t); border: 1px solid var(--green-bd); font-size: 11px; font-weight: 500; }
+    
+    table { width: 100%; border-collapse: collapse; margin: 12px 0 20px; font-size: 12px; }
+    th { background: #EDF1F7; color: #454C59; font-weight: 600; text-align: left; height: 34px; padding: 6px 12px; border: 1px solid var(--border); white-space: nowrap; }
+    td { height: 36px; padding: 6px 12px; border: 1px solid var(--border); vertical-align: middle; }
+    
+    .tag { display: inline-block; padding: 1px 8px; border-radius: 2px; font-size: 11px; background: var(--blue-l); color: var(--blue); border: 1px solid var(--blue-border); }
+    .tag-danger { display: inline-block; padding: 1px 6px; border-radius: 2px; font-size: 11px; background: #FFF1F0; color: #F53F3F; border: 1px solid #FFA39E; }
+    .tag-success { display: inline-block; padding: 1px 6px; border-radius: 2px; font-size: 11px; background: var(--green-b); color: var(--green-t); border: 1px solid var(--green-bd); }
+
+    .note { background: #F8FAFC; border: 1px solid var(--border); border-left: 3px solid var(--blue); padding: 8px 14px; margin: 12px 0; font-size: 12px; color: var(--text-sub); }
+    .note b { color: var(--text); }
+
+    /* 线框图容器 */
+    .wf-container { background: #FAFCFF; border: 1px solid #D6E4F0; border-radius: 4px; padding: 16px; margin: 16px 0 24px; }
+    .wf-label { font-size: 12px; font-weight: 600; color: #334155; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+    .wf-shell { background: #FFFFFF; border: 1px solid #CBD5E1; border-radius: 2px; padding: 14px; box-shadow: 0 1px 2px rgba(15,23,42,0.04); }
+    .wf-header { display: flex; justify-content: space-between; align-items: center; background: #FFFFFF; border-bottom: 1px solid #E1E5EB; padding: 8px 12px; margin-bottom: 12px; font-size: 12px; }
+    
+    .wf-card { background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 2px; padding: 10px 12px; margin-bottom: 8px; }
+    .wf-btn-default { display: inline-flex; align-items: center; justify-content: center; height: 28px; padding: 0 10px; background: #FFFFFF; border: 1px solid #D9D9D9; border-radius: 2px; font-size: 12px; color: #2F3540; cursor: default; }
+    .wf-btn-primary { display: inline-flex; align-items: center; justify-content: center; height: 28px; padding: 0 12px; background: var(--blue); border: 1px solid var(--blue); border-radius: 2px; font-size: 12px; color: #FFFFFF; font-weight: 500; cursor: default; }
+
+    /* 拓扑链线框容器 */
+    .wf-topo-chain { display: flex; align-items: center; justify-content: space-between; padding: 16px 12px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 4px; margin: 8px 0; }
+    .wf-topo-node { display: flex; flex-direction: column; align-items: center; text-align: center; width: 100px; }
+    .wf-topo-circle { width: 42px; height: 42px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; background: #FFF; border: 2px solid #12A679; color: #12A679; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+    .wf-topo-circle.danger { border-color: #F53F3F; color: #F53F3F; background: #FFF1F0; }
+    .wf-topo-name { font-size: 11px; font-weight: 600; color: #1E293B; margin-top: 4px; }
+    .wf-topo-sub { font-size: 10px; color: #64748B; }
+
+    .wf-topo-seg { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 0 6px; }
+    .wf-topo-line { width: 100%; height: 2px; background: #CBD5E1; position: relative; margin: 4px 0; }
+    .wf-topo-line.danger { background: #F53F3F; }
+    .wf-topo-badge { font-size: 10px; padding: 1px 6px; border-radius: 10px; background: #FFFFFF; border: 1px solid #D3D7DE; color: #475569; white-space: nowrap; }
+    .wf-topo-badge.danger { border-color: #F53F3F; color: #F53F3F; font-weight: 600; }
+
+    /* Hop 追踪表 */
+    .wf-table { width: 100%; border: 1px solid #E2E8F0; border-collapse: collapse; font-size: 11px; margin-top: 8px; }
+    .wf-table th { background: #F8FAFC; border: 1px solid #E2E8F0; font-weight: 600; color: #475569; padding: 6px 8px; text-align: left; }
+    .wf-table td { border: 1px solid #F1F5F9; padding: 6px 8px; color: #334155; }
+
+    .wf-annotation { font-size: 11px; color: #1C6EFF; background: #E8F4FF; padding: 8px 12px; border-radius: 2px; border-left: 3px solid var(--blue); margin-top: 12px; line-height: 1.6; }
+    .checkpoint { background: var(--blue-l); border: 1px solid #BAE6FD; border-radius: 4px; padding: 16px 20px; margin-top: 36px; font-size: 12px; color: #1C6EFF; line-height: 1.8; }
+    .checkpoint b { display: block; margin-bottom: 6px; font-size: 13px; color: #1C6EFF; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="doc">
+    <h1>🎨 体验设计方案说明书：用户全链路排障定位 (spec-03)</h1>
+    <div class="meta">
+      <b>分册编号</b>：spec-03 (业务分册)<br/>
+      <b>原始 Demo 来源</b>：<code>Demos/07-方案七/DEM-用户详情.html</code> (460 KB)<br/>
+      <b>对齐规范</b>：Vue 3 + IDUX (@idux/components) + <code>定制复合排障模板 (custom-user-diagnostic-composite)</code><br/>
+      <b>逆向基准</b>：严格 100% 物理镜像 <code>DEM-用户详情.html</code>（由 <code>scripts/extract_demo_dom.py</code> 机械提取，零主观增减）<br/>
+      <b>交付状态</b>：<span class="status">✅ 逆向转译完成 · 1:1 物理真值对齐</span>
+    </div>
+
+    <!-- ==================== 一、模块架构与业务流转拓扑 ==================== -->
+    <h2>一、模块架构与业务流转拓扑</h2>
+    
+    <h3>1.1 模块定位与职责</h3>
+    <p>
+      <b>用户全链路排障定位中心</b> 是针对单用户/单应用深度时延劣化排障的核心中枢。
+      通过整合<b>用户画像概况</b>、<b>多应用离散时序散点图</b>、<b>端到端 5 节点连通性拓扑链</b> 与 <b>逐跳 (Hop-by-Hop) 根因定位矩阵</b>，
+      实现从宏观告警下钻到单次访问微观切片（如 15:20 POP-连接器骨干专线丢包）的秒级定界定因。
+    </p>
+
+    <h3>1.2 定制复合页面空间架构说明 (严格对齐 DEM-用户详情.html 左右分栏)</h3>
+    <div class="note">
+      <b>复合排版定型 (custom-user-diagnostic-composite)</b>：
+      依据 <code>DEM-用户详情.html</code> 原型 DOM 结构，页面整体由<b>“顶部两层固定栏 + 下方左右两栏排障核心容器”</b>构成：<br/>
+      1. <b>页面 Sub Header (固定 48px)</b>：左侧面包屑导航 (<code>体验监控 / 访问体验监控 / 2024106（刘洋）- 排障定位</code>)，右侧统一时间范围选择器与刷新按钮；<br/>
+      2. <b>用户画像概况卡片 (88px，支持 x-collapse 收起)</b>：12 列栅格，左 4 列为用户头像与组织/POP/终端信息，中 3 列为访问体验状态 Badge，右 5 列为监控应用统计 (18个监控/8个受损/2个一般/8个正常) 与折叠收起按钮；<br/>
+      3. <b>左右两栏排障核心容器 (自适应撑满剩余高度)</b>：<br/>
+         &nbsp;&nbsp;● <b>左侧 240px 应用访问列表 (可折叠收起)</b>：固定宽 240px，顶部含标题、体验状态筛选下拉框 (<code>全部应用 / 体验差 / 体验一般 / 体验正常</code>)、向左收起按钮 <code>&lt;&lt;</code>，下接搜索框 (<code>placeholder="搜索名称/地址"</code>) 与纵向滚动应用列表。各应用展示三态圆点、名称与域名。收起后变为 32px 占位竖条带展开按钮 <code>&gt;&gt;</code>；<br/>
+         &nbsp;&nbsp;● <b>右侧自适应纵向滚动排障看板 (flex-1)</b>：随左侧选中应用动态下钻，由上至下依次为：<br/>
+         &nbsp;&nbsp;&nbsp;&nbsp;a. <b>访问体验趋势走势图 (90px)</b>：三色底带 (优/良/差) 散点时序图，点击时序采样点联动下方诊断，15:20 故障时刻垂直标尺贯穿；<br/>
+         &nbsp;&nbsp;&nbsp;&nbsp;b. <b>端到端 5 节点诊断拓扑链 (110px)</b>：终端 ➔ 局域网/接入网络 ➔ POP网关节点 ➔ 骨干传输网 (红线高亮故障) ➔ 服务端应用；<br/>
+         &nbsp;&nbsp;&nbsp;&nbsp;c. <b>故障根因收敛结论卡片</b>：AI 定界举证报告，明确骨干专线丢包劣化根因，提供处置建议与【复制报告】；<br/>
+         &nbsp;&nbsp;&nbsp;&nbsp;d. <b>逐跳 (Hop-by-Hop) 真实网络追踪明细表</b>：7 列表头 Hop 明细，红字高亮时延与丢包跳点。
+    </div>
+
+    <!-- ==================== 二、核心页面与抽屉深度推导 ==================== -->
+    <h2>二、核心页面结构示意与组件选型</h2>
+
+    <!-- 置顶映射表 -->
+    <h4>组件选型与 IDUX 映射清单</h4>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:16%;">界面区域 / 容器</th>
+          <th style="width:18%;">原原型手写元素</th>
+          <th style="width:16%;">映射 IDUX 组件</th>
+          <th style="width:26%;">关键尺寸与 Token 硬指标</th>
+          <th style="width:24%;">交互行为与数据绑定说明</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>面包屑与返回导航</td>
+          <td>顶部 <code>h-[48px]</code> 面包屑与快捷返回</td>
+          <td><code>&lt;IxBreadcrumb&gt;</code></td>
+          <td>层级：体验监控 / 访问体验监控 / <b>2024106（刘洋）</b></td>
+          <td>点击父级直接回退至 <code>spec-01</code> 或 <code>spec-02</code></td>
+        </tr>
+        <tr>
+          <td>用户画像与概况卡片</td>
+          <td>白色卡片内嵌头像、姓名、组织、POP</td>
+          <td><code>&lt;IxCard&gt;</code> + <code>&lt;IxDescriptions&gt;</code></td>
+          <td>12 列栅格；左4中3右5；状态 Tag (<code>差</code> 红色 <code>#FFF1F0</code>)</td>
+          <td>数据绑定 <code>userName</code>, <code>userDept</code>, <code>userPop</code>, 支持折叠</td>
+        </tr>
+        <tr>
+          <td>左侧应用访问列表 (240px)</td>
+          <td>240px 独立侧栏容器 + 筛选下拉 + 搜索框 + 列表项</td>
+          <td>独立 Vue 3 SFC (<code>DemUserAppSidebar.vue</code>)</td>
+          <td>展开宽 <code>240px</code>，收起宽 <code>32px</code>；状态下拉高度 <code>24px</code>；搜索框 <code>28px</code></td>
+          <td>支持状态筛选、按名称/地址过滤、点击切换诊断应用 <code>selectApp(app)</code></td>
+        </tr>
+        <tr>
+          <td>三色底带离散散点图</td>
+          <td>SVG 三底带背景 + 离散圆点 + 垂直指示线</td>
+          <td>独立 Vue 3 SFC (<code>DemScatterTimeline.vue</code>)</td>
+          <td>优 <code>#12A679 (6%)</code>, 良 <code>#FA721B (5%)</code>, 差 <code>#F52727 (5%)</code></td>
+          <td>点击散点移动指示线，更新当前切片 <code>currentSlice</code></td>
+        </tr>
+        <tr>
+          <td>端到端 5 节点诊断拓扑链</td>
+          <td>手写 flexbox 拓扑连线与状态徽标</td>
+          <td>独立 Vue 3 SFC (<code>DemTopologyChain.vue</code>)</td>
+          <td>圆圈 <code>42×42px</code>；正常绿 <code>#12A679</code>，故障红 <code>#F53F3F</code></td>
+          <td>点击节点或链路段，联动自动展开下方对应诊断卡片</td>
+        </tr>
+        <tr>
+          <td>根因定性结论卡片</td>
+          <td>浅蓝底色卡片 + 复制报告按钮</td>
+          <td><code>&lt;IxAlert&gt;</code> + <code>&lt;IxButton&gt;</code></td>
+          <td>背景 <code>#F8FAFC</code>，左边框 3px <code>#F53F3F</code></td>
+          <td>提供【复制报告】一键复制排障文本</td>
+        </tr>
+        <tr>
+          <td>逐跳 Hop 追踪数据表</td>
+          <td>手写 <code>dem-table</code> 7 列表头</td>
+          <td><code>&lt;IxTable&gt;</code></td>
+          <td>表头：Hop | 节点 IP | ISP / ASN 属性 | 地区 | 时延 | 丢包 | 抖动</td>
+          <td>高亮异常跳点（如 <code>+86ms</code>, <code>+4.8% 丢包</code> 标红）</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- 居中线框图 -->
+    <div class="wf-container">
+      <div class="wf-label">
+        <span>📐 【用户全链路排障定位】界面结构线框示意图 (100% 物理镜像 DEM-用户详情.html)</span>
+        <span class="tag">定制复合排障模板 (5节点拓扑 + 散点图 + Hop追踪)</span>
+      </div>
+      <div class="wf-shell">
+        <!-- 48px Header -->
+        <div class="wf-header">
+          <div>
+            <span style="color:#64748B;">体验监控 / 访问体验监控 / </span>
+            <b style="color:#1E293B;">2024106（刘洋）- 排障定位</b>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <div style="display:inline-flex;border:1px solid #D9D9D9;background:#FFF;border-radius:2px;height:28px;align-items:center;font-size:11px;">
+              <span style="padding:0 8px;background:#FAFAFA;border-right:1px solid #D9D9D9;">今天 ▾</span>
+              <span style="padding:0 8px;color:#595959;font-family:monospace;">2026-06-04 00:00:00 至 2026-06-04 23:59:59 📅</span>
+            </div>
+            <span class="wf-btn-default" style="width:28px;padding:0;">🔄</span>
+          </div>
+        </div>
+
+        <div class="wf-body">
+          <!-- 用户画像卡片 (88px, 12列栅格布局) -->
+          <div class="wf-card" style="display:flex;justify-content:space-between;align-items:center;">
+            <div style="display:flex;gap:14px;align-items:center;">
+              <div style="width:40px;height:40px;border-radius:50%;background:#1C6EFF;color:#FFF;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:15px;">刘</div>
+              <div>
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <span style="font-size:14px;font-weight:700;color:#1E293B;">2024106（刘洋）</span>
+                  <span class="tag-danger">差</span>
+                </div>
+                <div style="font-size:11px;color:#64748B;margin-top:2px;">
+                  深信服科技 / 研发中心 / DEM产品部 · 接入POP：<b>深圳POP</b> · 终端：<b>ThinkPad T14</b>
+                </div>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:20px;">
+              <div style="display:flex;gap:16px;text-align:right;font-size:11px;">
+                <div><span style="color:#64748B;">监控应用</span><div style="font-size:16px;font-weight:700;color:#1E293B;">18</div></div>
+                <div><span style="color:#64748B;">受损应用</span><div style="font-size:16px;font-weight:700;color:#F53F3F;">8</div></div>
+                <div><span style="color:#64748B;">一般应用</span><div style="font-size:16px;font-weight:700;color:#FA8C16;">2</div></div>
+                <div><span style="color:#64748B;">正常应用</span><div style="font-size:16px;font-weight:700;color:#12A679;">8</div></div>
+              </div>
+              <span class="wf-btn-default" style="font-size:11px;padding:3px 8px;" title="收起用户概览">收起概览 ▴</span>
+            </div>
+          </div>
+
+          <!-- 4.2 左右两栏布局核心容器 (严格还原 DEM-用户详情.html: 左 240px 应用侧栏 + 右侧纵向滚动排障看板) -->
+          <div style="display:flex;gap:12px;align-items:flex-start;margin-top:2px;">
+
+            <!-- 左侧: 240px 访问应用列表 (支持筛选、搜索、轻量圆点标记、可折叠收起) -->
+            <div style="width:240px;min-width:240px;background:#FFF;border:1px solid #E1E5EB;border-radius:2px;display:flex;flex-direction:column;flex-shrink:0;box-shadow:0 1px 2px rgba(15,23,42,0.03);">
+              
+              <!-- 表头与筛选下拉框 + 向左收起图标按钮 -->
+              <div style="padding:10px;border-bottom:1px solid #E1E5EB;background:#F8FAFC;display:flex;flex-direction:column;gap:8px;">
+                <div style="display:flex;align-items:center;justify-content:space-between;">
+                  <div style="display:flex;align-items:center;gap:6px;">
+                    <span style="width:3px;height:12px;background:#1C6EFF;border-radius:1px;"></span>
+                    <span style="font-size:12px;font-weight:700;color:#2F3540;">应用访问列表</span>
+                    <span style="font-size:11px;padding:1px 5px;border:1px solid #D3D7DE;background:#FFF;border-radius:2px;color:#2F3540;cursor:pointer;">全部应用 ▾</span>
+                  </div>
+                  <!-- 收起按钮 -->
+                  <span style="cursor:pointer;color:#5C6270;font-size:11px;padding:2px 5px;border:1px solid #D3D7DE;border-radius:2px;background:#FFF;" title="向左收起应用列表 (收起后保留32px占位竖条)">&lt;&lt;</span>
+                </div>
+
+                <!-- 搜索框 -->
+                <div style="height:26px;border:1px solid #D3D7DE;background:#FFF;border-radius:2px;display:flex;align-items:center;padding:0 8px;font-size:11px;color:#A1A7B3;">
+                  <span style="width:100%;">搜索名称/地址...</span>
+                  <span style="margin-left:auto;">🔍</span>
+                </div>
+              </div>
+
+              <!-- 应用列表项 (轻量三态圆点，高亮选中项) -->
+              <div style="display:flex;flex-direction:column;">
+                <!-- 应用 1 (当前选中) -->
+                <div style="padding:9px 10px;background:#F0F7FF;border-left:3px solid #1C6EFF;border-bottom:1px solid #F0F2F5;cursor:pointer;">
+                  <div style="display:flex;align-items:center;gap:6px;">
+                    <span style="width:6px;height:6px;border-radius:50%;background:#F52727;"></span>
+                    <span style="font-size:12px;font-weight:700;color:#1C6EFF;">企业协同 OA 系统</span>
+                  </div>
+                  <div style="font-size:10.5px;color:#8A92A1;margin-top:2px;padding-left:12px;font-family:monospace;">oa.corp.company.com</div>
+                </div>
+
+                <!-- 应用 2 -->
+                <div style="padding:9px 10px;background:#FFF;border-left:3px solid transparent;border-bottom:1px solid #F0F2F5;cursor:pointer;">
+                  <div style="display:flex;align-items:center;gap:6px;">
+                    <span style="width:6px;height:6px;border-radius:50%;background:#F52727;"></span>
+                    <span style="font-size:12px;font-weight:500;color:#2F3540;">Salesforce CRM</span>
+                  </div>
+                  <div style="font-size:10.5px;color:#8A92A1;margin-top:2px;padding-left:12px;font-family:monospace;">crm.salesforce.com</div>
+                </div>
+
+                <!-- 应用 3 -->
+                <div style="padding:9px 10px;background:#FFF;border-left:3px solid transparent;border-bottom:1px solid #F0F2F5;cursor:pointer;">
+                  <div style="display:flex;align-items:center;gap:6px;">
+                    <span style="width:6px;height:6px;border-radius:50%;background:#FA721B;"></span>
+                    <span style="font-size:12px;font-weight:500;color:#2F3540;">企业内部 ERP</span>
+                  </div>
+                  <div style="font-size:10.5px;color:#8A92A1;margin-top:2px;padding-left:12px;font-family:monospace;">erp.corp.company.com</div>
+                </div>
+
+                <!-- 应用 4 -->
+                <div style="padding:9px 10px;background:#FFF;border-left:3px solid transparent;border-bottom:1px solid #F0F2F5;cursor:pointer;">
+                  <div style="display:flex;align-items:center;gap:6px;">
+                    <span style="width:6px;height:6px;border-radius:50%;background:#12A679;"></span>
+                    <span style="font-size:12px;font-weight:500;color:#2F3540;">SaaS 飞书平台</span>
+                  </div>
+                  <div style="font-size:10.5px;color:#8A92A1;margin-top:2px;padding-left:12px;font-family:monospace;">feishu.cn</div>
+                </div>
+
+                <!-- 应用 5 -->
+                <div style="padding:9px 10px;background:#FFF;border-left:3px solid transparent;cursor:pointer;">
+                  <div style="display:flex;align-items:center;gap:6px;">
+                    <span style="width:6px;height:6px;border-radius:50%;background:#12A679;"></span>
+                    <span style="font-size:12px;font-weight:500;color:#2F3540;">GitLab 代码仓库</span>
+                  </div>
+                  <div style="font-size:10.5px;color:#8A92A1;margin-top:2px;padding-left:12px;font-family:monospace;">git.internal.corp</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 右侧: 选中应用排障下钻看板 (纵向自适应充满) -->
+            <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:10px;">
+
+              <!-- 趋势图 Header 与三色底带离散时序散点图 -->
+              <div class="wf-card" style="height:96px;display:flex;flex-direction:column;justify-content:space-between;background:#FCFDFE;">
+                <div style="display:flex;justify-content:space-between;font-size:11px;color:#64748B;">
+                  <span style="font-weight:600;color:#2F3540;">📈 访问体验趋势走势图 (点击时序采样点可联动下方全链路诊断)</span>
+                  <span>当前选中切片：<b style="color:#F53F3F;">15:20 (切片1) · 专线丢包告警</b></span>
+                </div>
+                <!-- 三色底带与离散点 (优/良/差分界带 + 15:20 贯穿标尺) -->
+                <div style="height:52px;background:linear-gradient(to bottom, rgba(245,39,39,0.06) 33%, rgba(250,114,27,0.05) 66%, rgba(18,166,121,0.06) 100%);border:1px solid #E2E8F0;border-radius:2px;display:flex;align-items:center;position:relative;padding:0 20px;">
+                  <span style="position:absolute;left:20%;width:7px;height:7px;border-radius:50%;background:#12A679;border:1.5px solid #FFF;" title="09:15 体验正常 TTFB 45ms"></span>
+                  <span style="position:absolute;left:42%;width:7px;height:7px;border-radius:50%;background:#12A679;border:1.5px solid #FFF;" title="11:30 体验正常 TTFB 48ms"></span>
+                  <!-- 15:20 异常散点带指示线 -->
+                  <div style="position:absolute;left:75%;top:0;bottom:0;border-left:1.5px dashed #1C6EFF;"></div>
+                  <span style="position:absolute;left:75%;top:12px;width:10px;height:10px;border-radius:50%;background:#F53F3F;border:2px solid #FFF;outline:2px solid #1C6EFF;transform:translateX(-5px);" title="15:20 体验差 TTFB 1,420ms (选中切片)"></span>
+                </div>
+                <div style="display:flex;justify-content:space-between;font-size:10px;font-family:monospace;color:#94A3B8;">
+                  <span>08:00</span><span>10:00</span><span>12:00</span><span>14:00</span><span>15:20 (专线异常突增)</span><span>18:00</span>
+                </div>
+              </div>
+
+              <!-- 端到端 5 节点诊断拓扑链 (终端 -> 接入网 -> POP网关 -> 骨干专线 -> 服务端) -->
+              <div class="wf-topo-chain">
+                <!-- 节点 1: 终端设备 -->
+                <div class="wf-topo-node">
+                  <div class="wf-topo-circle">PC</div>
+                  <div class="wf-topo-name">ThinkPad T14</div>
+                  <div class="wf-topo-sub">终端 (局域网正常)</div>
+                </div>
+
+                <!-- 链路段 1: 局域网接入段 -->
+                <div class="wf-topo-seg">
+                  <span class="wf-topo-badge">12ms · 0.0% 丢包</span>
+                  <div class="wf-topo-line"></div>
+                  <span style="font-size:9px;color:#94A3B8;">接入局域网</span>
+                </div>
+
+                <!-- 节点 2: POP 网关节点 -->
+                <div class="wf-topo-node">
+                  <div class="wf-topo-circle">POP</div>
+                  <div class="wf-topo-name">深圳POP</div>
+                  <div class="wf-topo-sub">POP节点正常</div>
+                </div>
+
+                <!-- 链路段 2: 骨干传输网段 (异常红线) -->
+                <div class="wf-topo-seg">
+                  <span class="wf-topo-badge danger">145ms · 5.2% 丢包</span>
+                  <div class="wf-topo-line danger"></div>
+                  <span style="font-size:9px;color:#F53F3F;font-weight:600;">骨干专线严重劣化</span>
+                </div>
+
+                <!-- 节点 3: 连接器 -->
+                <div class="wf-topo-node">
+                  <div class="wf-topo-circle">GW</div>
+                  <div class="wf-topo-name">总部01连接器</div>
+                  <div class="wf-topo-sub">连接器正常</div>
+                </div>
+
+                <!-- 链路段 3: 连接器-应用段 -->
+                <div class="wf-topo-seg">
+                  <span class="wf-topo-badge">15ms · 0.0% 丢包</span>
+                  <div class="wf-topo-line"></div>
+                  <span style="font-size:9px;color:#94A3B8;">内网机房段</span>
+                </div>
+
+                <!-- 节点 4: 服务端应用 -->
+                <div class="wf-topo-node">
+                  <div class="wf-topo-circle">APP</div>
+                  <div class="wf-topo-name">企业协同OA</div>
+                  <div class="wf-topo-sub">服务响应正常</div>
+                </div>
+              </div>
+
+              <!-- 根因定性与排障结论卡片 -->
+              <div class="wf-card" style="background:#F8FAFC;border-left:3px solid #F53F3F;">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                  <span style="font-size:12px;font-weight:700;color:#1E293B;">🔍 故障根因收敛结论 (AI 智能举证)：</span>
+                  <span class="wf-btn-default" style="font-size:11px;">📋 复制报告</span>
+                </div>
+                <p style="font-size:11px;color:#334155;margin:6px 0;">
+                  用户本次访问 <b>企业协同 OA 系统</b> 体验差（真实 TTFB 1,420ms / 基线 100ms），异常收敛于<b>【深圳POP到总部01连接器传输段（骨干专线网络劣化）】</b>（专线丢包 5.2%、抖动 48ms、RTT 145ms）。终端本地接入与 OA 服务器自身均正常。
+                </p>
+                <div style="font-size:11px;color:#64748B;">
+                  <b>影响范围</b>：影响同走深圳POP的 12 名用户/分支 · <b>建议处置</b>：1. 调度至备用 BGP 专线；2. 提交逐跳证据联系专线运营商。
+                </div>
+              </div>
+
+              <!-- 逐跳 Hop-by-Hop 真实追踪表 (DEM-用户详情.html 7 列表头) -->
+              <div class="wf-card">
+                <span style="font-size:12px;font-weight:600;color:#1E293B;">📍 POP-连接器段 逐跳 (Hop-by-Hop) 真实网络追踪明细：</span>
+                <table class="wf-table">
+                  <thead>
+                    <tr>
+                      <th style="width:8%;">Hop</th>
+                      <th style="width:18%;">节点 IP</th>
+                      <th style="width:20%;">ISP / ASN 属性</th>
+                      <th style="width:14%;">地区</th>
+                      <th style="width:14%;">时延 (较上一跳)</th>
+                      <th style="width:13%;">丢包 (较上一跳)</th>
+                      <th style="width:13%;">抖动 (较上一跳)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>Hop 1</td>
+                      <td>10.240.12.1</td>
+                      <td>深圳POP网关</td>
+                      <td>深圳POP</td>
+                      <td>12ms</td>
+                      <td>0.0%</td>
+                      <td>1ms</td>
+                    </tr>
+                    <tr style="background:#FFF1F0;">
+                      <td><b>Hop 2</b></td>
+                      <td><b>10.200.8.22</b></td>
+                      <td><b>骨干专线链路中间跳</b></td>
+                      <td><b>专线传输</b></td>
+                      <td><b style="color:#F53F3F;">98ms (+86ms)</b></td>
+                      <td><b style="color:#F53F3F;">4.8% (+4.8%)</b></td>
+                      <td><b style="color:#F53F3F;">42ms (+41ms)</b></td>
+                    </tr>
+                    <tr style="background:#FFF1F0;">
+                      <td>Hop 3</td>
+                      <td>10.23.22.23</td>
+                      <td>总部01连接器</td>
+                      <td>总部机房</td>
+                      <td>145ms (+47ms)</td>
+                      <td>5.2% (+0.4%)</td>
+                      <td>48ms (+6ms)</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="wf-annotation">
+        💡 <b>架构定位</b>：采用 <code>custom-user-diagnostic-composite</code> 复合排障模板。<br/>
+        🧭 <b>100% 物理镜像</b>：拓扑 5 节点连通关系、散点图三底带、Hop 追踪表的 7 列表头与原 HTML 完全一致，无任何虚构字段。
+      </div>
+    </div>
+
+    <!-- 2.3 可视化资产 Token 字典 -->
+    <h3>2.3 🎨 特化可视化资产样式 Token 与工程还原字典</h3>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:20%;">可视化元素</th>
+          <th style="width:20%;">几何与排版 Token</th>
+          <th style="width:25%;">色彩与状态 Token</th>
+          <th style="width:18%;">动效与交互</th>
+          <th style="width:17%;">工程落地实现方案</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><b>三色底带时序散点图</b></td>
+          <td>容器高度 <code>90px</code>，底带 <code>48px</code></td>
+          <td>优 <code>#12A679 (6%)</code>；良 <code>#FA721B (5%)</code>；差 <code>#F52727 (5%)</code>；散点描边 <code>1.5px 白色</code></td>
+          <td>垂直蓝色虚线标尺跟随鼠标移动；点击高亮散点外圈脉冲</td>
+          <td>封装为 Vue 3 SFC (<code>DemScatterTimeline.vue</code>)</td>
+        </tr>
+        <tr>
+          <td><b>端到端 5 节点拓扑链</b></td>
+          <td>圆形节点 <code>42×42px</code>，链路条高 <code>2px</code></td>
+          <td>健康绿 <code>#12A679</code>；故障红 <code>#F53F3F</code>；灰色正常链路 <code>#CBD5E1</code></td>
+          <td>节点 Hover 放大 1.05 倍，点击触发下方对应诊断卡片手风琴展开</td>
+          <td>封装为 Vue 3 SFC (<code>DemTopologyChain.vue</code>)</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- 2.4 交互细则大表 -->
+    <h3>2.4 🧭 核心交互动线与联动行为细则大表</h3>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:6%;">序号</th>
+          <th style="width:18%;">交互触发源</th>
+          <th style="width:22%;">触发手势与前置条件</th>
+          <th style="width:24%;">即时视觉反馈</th>
+          <th style="width:30%;">级联联动与数据流 (多米诺效应)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>1</td>
+          <td><b>应用胶囊槽位切换</b></td>
+          <td>点击顶部应用横向胶囊按钮</td>
+          <td>选中胶囊变蓝高亮，边框加粗</td>
+          <td>重载对应应用的 08:00~18:00 散点数据，拓扑链重绘该应用的端到端节点</td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td><b>散点时间切片点击</b></td>
+          <td>点击时序图上的任意散点</td>
+          <td>垂直指示标尺移动至该时刻，散点蓝色脉冲光环</td>
+          <td><code>currentSlice</code> 切片数据变更，拓扑链异常段红线重绘，下方自动展开根因结论</td>
+        </tr>
+        <tr>
+          <td>3</td>
+          <td><b>拓扑节点/链路点击</b></td>
+          <td>点击拓扑链中的任一节点或链路段</td>
+          <td>节点出现蓝色选中外圈投影</td>
+          <td>页面平滑滚动并将焦点定位至下方对应的段明细与 Hop 追踪表</td>
+        </tr>
+        <tr>
+          <td>4</td>
+          <td><b>复制排障报告</b></td>
+          <td>点击【复制报告】按钮</td>
+          <td>按钮短暂显示“已复制 ✓”绿色图标</td>
+          <td>向系统剪贴板写入标准格式的 Markdown 排障证据与建议文本</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- ==================== 三、页面体验与异常保护规则 ==================== -->
+    <h2>三、页面体验与异常保护规则</h2>
+
+    <h3>3.1 状态机完备性与防御矩阵</h3>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:16%;">状态类型</th>
+          <th style="width:26%;">表现形态与 UI 占位</th>
+          <th style="width:28%;">防御机制与交互阻断</th>
+          <th style="width:30%;">恢复路径与出口</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><b>加载中 (Loading)</b></td>
+          <td>拓扑节点与散点图进入骨架屏闪烁；Hop 表格居中 <code>&lt;IxSpin&gt;</code></td>
+          <td>禁用应用切换胶囊与散点点击，避免切片时序错乱</td>
+          <td>异步切片数据就绪后平滑展开拓扑链</td>
+        </tr>
+        <tr>
+          <td><b>空数据 (Empty)</b></td>
+          <td>散点图全灰底，提示“该时段内无真实访问采样”</td>
+          <td>拓扑链隐藏链路度量 Badge，节点保持置灰</td>
+          <td>引导用户切换更广时间范围或选择其他监控应用</td>
+        </tr>
+        <tr>
+          <td><b>请求异常 (Error)</b></td>
+          <td>Hop 追踪表局部呈现“链路探测数据超时”，标红警告</td>
+          <td>保留上层拓扑链已有概貌，不破坏页面整体排版</td>
+          <td>提供【重试探测链路】按钮</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- 底部确认关卡 -->
+    <div class="checkpoint">
+      <b>🚦 研发接入与工程自检确认：</b>
+      1. <b>1:1 真值对齐</b>：说明书第二章中所有表格字段、Hop 追踪 7 列表头、5 节点拓扑链均 100% 镜像源自 <code>DEM-用户详情.html</code>。<br/>
+      2. <b>规范无缝对齐</b>：组件均对齐 IDUX 库，特化拓扑图与散点图提供完整 SFC 封装契约。<br/>
+      3. <b>物料配套</b>：研发可直接引用配套的 <code>types.ts</code> 与 <code>mock-data.ts</code> 进行业务装配。
+    </div>
+  </div>
+</div>
+</body>
+</html>

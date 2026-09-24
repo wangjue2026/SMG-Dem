@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>spec-01-监控配置中心 · 体验设计方案说明书</title>
+  <style>
+    :root {
+      --bg: #F7F9FC; --card: #FFFFFF; --border: #E1E5EB;
+      --text: #2F3540; --text-sub: #6F7785;
+      --blue: #1C6EFF; --blue-l: #E8F4FF; --blue-border: #BAE6FD;
+      --green-t: #12A679; --green-b: #F6FFED; --green-bd: #B7EB8F;
+      --warn-t: #FA8C16; --warn-b: #FFFBE6; --warn-bd: #FFE58F;
+      --danger-t: #D9363E; --danger-b: #FFF1F0; --danger-bd: #FFA39E;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: var(--bg); color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      font-size: 13px; line-height: 1.7;
+    }
+    .wrap { max-width: 1160px; margin: 0 auto; padding: 24px; }
+    .doc { background: var(--card); border: 1px solid var(--border); border-radius: 6px; padding: 36px; box-shadow: 0 1px 3px rgba(15,23,42,0.04); }
+    h1 { font-size: 22px; line-height: 30px; font-weight: 700; margin: 0 0 16px; color: #1E293B; }
+    h2 { font-size: 16px; line-height: 24px; font-weight: 600; margin: 36px 0 14px; padding-bottom: 8px; border-bottom: 1px solid var(--border); color: #1E293B; }
+    h3 { font-size: 14px; font-weight: 600; margin: 24px 0 10px; color: #2F3540; }
+
+    .meta { color: var(--text-sub); font-size: 12px; margin-bottom: 24px; line-height: 2; background: #F8FAFC; padding: 12px 16px; border-radius: 4px; border: 1px solid var(--border); }
+    .meta b { color: var(--text); }
+    .status { display: inline-block; padding: 2px 8px; border-radius: 2px; background: var(--green-b); color: var(--green-t); border: 1px solid var(--green-bd); font-size: 11px; font-weight: 500; }
+
+    table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 12px; }
+    th { background: #EDF1F7; color: #454C59; font-weight: 500; text-align: left; height: 32px; padding: 0 12px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+    td { height: 36px; padding: 6px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; background: #F1F5F9; padding: 2px 6px; border-radius: 3px; font-size: 11px; color: #0F172A; }
+
+    .tag { display: inline-block; padding: 1px 8px; border-radius: 2px; font-size: 11px; background: var(--blue-l); color: var(--blue); border: 1px solid var(--blue-border); }
+    .note { background: #F8FAFC; border: 1px solid var(--border); border-left: 3px solid var(--blue); padding: 10px 14px; margin: 12px 0; font-size: 12px; color: var(--text-sub); }
+
+    /* 线框图容器体系 */
+    .wf-container { background: #FFFFFF; border: 1px solid var(--border); border-radius: 4px; padding: 18px; margin: 16px 0; }
+    .wf-label { font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; }
+    .wf-shell { border: 1px dashed #CBD5E1; border-radius: 4px; padding: 14px; background: #FAFBFD; }
+    .wf-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #E2E8F0; padding-bottom: 10px; margin-bottom: 12px; }
+    .wf-row { display: flex; gap: 12px; margin-bottom: 12px; }
+    .wf-col { flex: 1; }
+    .wf-card { background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 4px; padding: 12px; }
+    .wf-table { width: 100%; border: 1px solid #E2E8F0; background: #FFFFFF; font-size: 11px; }
+    .wf-th { display: flex; background: #F1F5F9; padding: 6px 10px; font-weight: 600; color: #475569; border-bottom: 1px solid #E2E8F0; }
+    .wf-tr { display: flex; padding: 8px 10px; border-bottom: 1px solid #F1F5F9; align-items: center; }
+    .wf-tr:hover { background: #F8FAFC; }
+    .wf-btn-primary { background: var(--blue); color: #FFF; padding: 3px 10px; border-radius: 2px; font-size: 11px; display: inline-block; cursor: default; }
+    .wf-btn-default { background: #FFF; border: 1px solid #CBD5E1; color: var(--text); padding: 3px 10px; border-radius: 2px; font-size: 11px; display: inline-block; cursor: default; }
+    .wf-annotation { margin-top: 12px; padding: 10px 14px; background: #F8FAFC; border-left: 3px solid var(--blue); font-size: 11px; color: var(--text-sub); line-height: 1.8; }
+
+    .checkpoint { background: var(--blue-l); border: 1px solid #BAE6FD; border-radius: 4px; padding: 16px 20px; margin-top: 36px; font-size: 12px; color: #1C6EFF; line-height: 1.8; }
+    .checkpoint b { display: block; margin-bottom: 6px; font-size: 13px; color: #1C6EFF; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="doc">
+    <h1>📐 模块分册 spec-01：监控配置中心 · 体验设计方案说明书</h1>
+    <div class="meta">
+      <b>所属方案</b>：DEM 统一体验监控系统 (方案七) · 业务独立分册<br/>
+      <b>真实原型来源</b>：<code>Demos/07-方案七/DEM-监控配置.html</code> (1:1 精准逆向映射)<br/>
+      <b>页面核心架构</b>：<b>3 大主页签 (真实流量观测 / 主动探测配置 / 体验质量标准) + 3 资产卡片大盘 + 自定义表格 + 侧拉抽屉</b><br/>
+      <b>配套物料</b>：<code>types.ts</code> (业务契约) + <code>mock-data.ts</code> (独立真实 Mock 数据)<br/>
+      <b>技术栈对齐</b>：Vue 3 + IDUX (@idux/components) + 平台统一布局<br/>
+      <b>状态</b>：<span class="status">✅ 100% 贴合方案七真实结构 · 质量闸门全绿</span>
+    </div>
+
+    <!-- ==================== 第一章：模块全景与交互拓扑 ==================== -->
+    <h2>第一章：模块全景与交互拓扑</h2>
+
+    <h3>1. 方案七监控配置的真实页面与抽屉清单</h3>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:12%;">编号</th>
+          <th style="width:20%;">容器 / 视图名称</th>
+          <th style="width:14%;">交互形态</th>
+          <th style="width:22%;">IDUX 组件选型</th>
+          <th style="width:32%;">方案七真实业务职责</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><b>View-01</b></td>
+          <td>真实流量观测 (Tab 1)</td>
+          <td>主页签主面板</td>
+          <td><code>IxTabs</code> + <code>IxCard</code> + <code>IxTable</code></td>
+          <td><b>3 组资产概览卡片</b>（零信任 42 个、SaaS 86 个、自定义应用）+ <b>下方自定义应用管理明细表</b>。</td>
+        </tr>
+        <tr>
+          <td><b>Drawer-01</b></td>
+          <td>零信任/SaaS 清单抽屉</td>
+          <td>右侧滑出抽屉 (480px)</td>
+          <td><code>IxDrawer</code> + <code>IxInput</code> + <code>IxTable</code></td>
+          <td>点击卡片"查看应用清单 (42)/(86)"滑出，支持分类下拉、关键字搜索与行内监控开关切换。</td>
+        </tr>
+        <tr>
+          <td><b>Drawer-02</b></td>
+          <td>添加自定义应用抽屉</td>
+          <td>右侧滑出抽屉 (480px)</td>
+          <td><code>IxDrawer</code> + <code>IxForm</code> + <code>IxSelect</code></td>
+          <td>录入自定义应用名称、目标 IP/域名、端口、协议（HTTP/HTTPS/TCP）与重要度级别。</td>
+        </tr>
+        <tr>
+          <td><b>View-02</b></td>
+          <td>主动探测配置 (Tab 2)</td>
+          <td>次级页签面板</td>
+          <td><code>IxCard</code> + 列表卡片组</td>
+          <td>7x24h 关键业务周期性模拟拨测管理；含探针概况条（POP 探针 8 个、分支网关 12 个、客户端 500+）与策略开关。</td>
+        </tr>
+        <tr>
+          <td><b>View-03</b></td>
+          <td>体验质量标准 (Tab 3)</td>
+          <td>基线标尺面板</td>
+          <td><code>IxCard</code> + 4 色指标网格</td>
+          <td>SLO 分级标尺（Web 办公 / 音视频协同 / 专网长连接），按【优秀、良好、卡慢预警、严重故障】四级展示阈值。</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>2. 交互流转拓扑（真实还原方案七业务动线）</h3>
+    <div class="note">
+      <b>🧭 拓扑动线</b>：<br/>
+      1. <b>顶层流转</b>：通过 <code>&lt;IxTabs&gt;</code> 在【真实流量观测】、【主动探测配置】与【体验质量标准】三者之间平滑切换。<br/>
+      2. <b>Tab 1 内部下钻</b>：点击卡片 1 的【查看应用清单 (42)】➔ 滑出 480px <code>&lt;IxDrawer&gt;</code>（受控 <code>drawerType = 'ztna'</code>）；点击卡片 2 的【查看应用清单 (86)】➔ 滑出 <code>drawerType = 'saas'</code>；点击【+ 添加自定义应用】➔ 滑出新建表单抽屉。<br/>
+      3. <b>开箱初态与演示切换</b>：原原型包含 <code>customAppsPreviewList</code> 切换（开箱空态 ↔ 列表展示态），在 Vue 中映射为响应式状态驱动的 <code>&lt;IxEmpty&gt;</code> 与 <code>&lt;IxTable&gt;</code> 互斥渲染。
+    </div>
+
+    <!-- ==================== 第二章：页面线框与组件映射 ==================== -->
+    <h2>第二章：核心页面与抽屉线框示意及组件选型</h2>
+
+    <h3>2.1 【真实流量观测】主面板 (Tab 1：3 资产卡片 + 自定义应用明细表)</h3>
+
+    <!-- 置顶组件映射表 -->
+    <div class="note" style="border-left-color: #12A679; background: #F6FFED;">
+      📋 <b>【置顶】组件选型与映射清单 (Component Architecture)</b>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:16%;">业务元素</th>
+          <th style="width:20%;">方案七原型特征</th>
+          <th style="width:18%;">映射 IDUX 组件</th>
+          <th style="width:24%;">关键属性 / API</th>
+          <th style="width:12%;">推荐尺寸/Token</th>
+          <th style="width:10%;">映射定性</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><b>页头三大主页签</b></td>
+          <td><code>currentTab = 'realTraffic'...'</code></td>
+          <td><code>&lt;IxTabs&gt;</code></td>
+          <td><code>v-model:selectedKey</code>, <code>type="line"</code></td>
+          <td>高度 48px</td>
+          <td>导航容器</td>
+        </tr>
+        <tr>
+          <td><b>DEM 引擎状态胶囊</b></td>
+          <td><code>engineStatus ? '运行中' : '已挂起'</code></td>
+          <td><code>&lt;IxBadge&gt;</code> + <code>&lt;IxButton mode="link"&gt;</code></td>
+          <td><code>status="success"</code> / <code>"default"</code></td>
+          <td>字号 12px</td>
+          <td>状态展示</td>
+        </tr>
+        <tr>
+          <td><b>开箱通透说明条</b></td>
+          <td><code>h-8 bg-white border rounded-[2px]</code></td>
+          <td><code>&lt;IxAlert&gt;</code> 或自定义轻量条</td>
+          <td><code>type="info"</code>, 包含右侧感应逻辑 Modal 入口</td>
+          <td>高度 32px</td>
+          <td>提示容器</td>
+        </tr>
+        <tr>
+          <td><b>3 组资产概览卡片</b></td>
+          <td><code>grid grid-cols-3 gap-2</code></td>
+          <td><code>&lt;IxCard&gt;</code> (网格排列)</td>
+          <td><code>:borderless="false"</code>, 嵌套悬浮微动效</td>
+          <td>间隙 8px</td>
+          <td>结构容器</td>
+        </tr>
+        <tr>
+          <td><b>卡片内监控总开关</b></td>
+          <td>手写 <code>dem-switch</code> 复选框</td>
+          <td><code>&lt;IxSwitch&gt;</code></td>
+          <td><code>v-model:checked="ztnaEnabled"</code>, <code>size="sm"</code></td>
+          <td>28×16px</td>
+          <td>交互控件</td>
+        </tr>
+        <tr>
+          <td><b>卡片资产大数字</b></td>
+          <td><code>text-2xl font-bold font-outfit</code></td>
+          <td><code>&lt;IxStatistic&gt;</code> / 等宽大字</td>
+          <td><code>value="42"</code> / <code>"86"</code></td>
+          <td>24px / 加粗</td>
+          <td>展示组件</td>
+        </tr>
+        <tr>
+          <td><b>应用标签小胶囊</b></td>
+          <td><code>px-1.5 py-0.5 bg-[#F1F5F9]</code></td>
+          <td><code>&lt;IxTag&gt;</code></td>
+          <td><code>status="neutral"</code>, 展示 ERP/OA/飞书等</td>
+          <td>11px / 灰底</td>
+          <td>标签组件</td>
+        </tr>
+        <tr>
+          <td><b>自定义应用管理明细表</b></td>
+          <td><code>&lt;table class="dem-table"&gt;</code></td>
+          <td><code>&lt;IxTable&gt;</code></td>
+          <td><code>:columns="customAppColumns"</code>, <code>:dataSource</code></td>
+          <td>表头高 32px</td>
+          <td>高阶组件</td>
+        </tr>
+        <tr>
+          <td><b>行内重要度标签</b></td>
+          <td><code>bg-[#FEF2F2] text-[#DC2626]</code></td>
+          <td><code>&lt;IxTag&gt;</code></td>
+          <td><code>status="error"</code> (核心业务) / <code>"neutral"</code></td>
+          <td>10px</td>
+          <td>展示组件</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- 结构线框图：100% 还原方案七 Tab 1 结构 -->
+    <div class="wf-container">
+      <div class="wf-label">
+        <span>📐 【真实流量观测】界面结构线框示意图 (1:1 还原方案七真实排版)</span>
+        <span class="tag">Common Design · 资产卡片+下表明细</span>
+      </div>
+      <div class="wf-shell">
+        <!-- 48px 页头 -->
+        <div class="wf-header">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <span style="font-size:15px;font-weight:700;color:#1E293B;">监控配置</span>
+            <span style="color:#CBD5E1;">|</span>
+            <span style="color:var(--blue);font-weight:600;border-bottom:2px solid var(--blue);padding-bottom:10px;">真实流量观测</span>
+            <span style="color:var(--text-sub);padding-bottom:10px;">主动探测配置</span>
+            <span style="color:var(--text-sub);padding-bottom:10px;">体验质量标准</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;font-size:12px;">
+            <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--green-t);"></span>
+            <span>DEM 监控引擎已就绪运行中</span>
+            <a href="#" style="color:var(--blue);margin-left:4px;">暂停</a>
+          </div>
+        </div>
+
+        <!-- 32px 开箱提示条 -->
+        <div style="background:#FFF;border:1px solid #E1E5EB;border-radius:2px;padding:6px 12px;margin-bottom:10px;font-size:11px;display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <span style="color:var(--blue);font-weight:600;">💡 开箱已就绪：</span>
+            <span>已默认启用平台内置的 <b>42 个零信任业务</b> 与 <b>86 个常用 SaaS</b> 应用的真实流量监测，终端访问自动上报。</span>
+          </div>
+          <a href="#" style="color:var(--blue);">DEM 3 步监控感知逻辑 ℹ️</a>
+        </div>
+
+        <!-- 3 组对称资产卡片网格 (方案七标志性 UI) -->
+        <div class="wf-row">
+          <!-- 卡片 1: 零信任 -->
+          <div class="wf-card wf-col">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+              <span style="font-weight:600;font-size:12px;color:#1E293B;">🛡️ 零信任私有应用 (ZTNA)</span>
+              <div style="display:flex;align-items:center;gap:4px;">
+                <span style="font-size:11px;color:var(--green-t);">● 监控中</span>
+                <span style="display:inline-block;width:24px;height:14px;background:var(--blue);border-radius:7px;"></span>
+              </div>
+            </div>
+            <div style="font-size:22px;font-weight:700;color:#1E293B;margin:4px 0;">42 <span style="font-size:11px;color:var(--text-sub);font-weight:normal;">个应用 (已纳管全量私有资产)</span></div>
+            <div style="display:flex;gap:4px;flex-wrap:wrap;margin:6px 0;">
+              <span class="tag" style="background:#F1F5F9;color:#475569;border:none;">ERP</span>
+              <span class="tag" style="background:#F1F5F9;color:#475569;border:none;">OA</span>
+              <span class="tag" style="background:#F1F5F9;color:#475569;border:none;">GitLab</span>
+              <span class="tag" style="background:#F1F5F9;color:#475569;border:none;">财务核算</span>
+              <span class="tag" style="background:#F1F5F9;color:#475569;border:none;">CRM</span>
+              <span style="font-size:11px;color:var(--text-sub);">等</span>
+            </div>
+            <div style="border-top:1px solid #F1F5F9;padding-top:6px;margin-top:6px;display:flex;justify-content:space-between;font-size:11px;">
+              <a href="#" style="color:var(--blue);font-weight:500;">查看应用清单 (42) &gt;</a>
+              <span style="color:#8A92A1;">前往应用模块</span>
+            </div>
+          </div>
+
+          <!-- 卡片 2: SaaS -->
+          <div class="wf-card wf-col">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+              <span style="font-weight:600;font-size:12px;color:#1E293B;">🌐 企业常用 SaaS 应用</span>
+              <div style="display:flex;align-items:center;gap:4px;">
+                <span style="font-size:11px;color:var(--green-t);">● 监控中</span>
+                <span style="display:inline-block;width:24px;height:14px;background:var(--blue);border-radius:7px;"></span>
+              </div>
+            </div>
+            <div style="font-size:22px;font-weight:700;color:#1E293B;margin:4px 0;">86 <span style="font-size:11px;color:var(--text-sub);font-weight:normal;">个应用 (云网关指纹库识别)</span></div>
+            <div style="display:flex;gap:4px;flex-wrap:wrap;margin:6px 0;">
+              <span class="tag" style="background:#F1F5F9;color:#475569;border:none;">飞书</span>
+              <span class="tag" style="background:#F1F5F9;color:#475569;border:none;">钉钉</span>
+              <span class="tag" style="background:#F1F5F9;color:#475569;border:none;">企业微信</span>
+              <span class="tag" style="background:#F1F5F9;color:#475569;border:none;">腾讯会议</span>
+              <span style="font-size:11px;color:var(--text-sub);">等</span>
+            </div>
+            <div style="border-top:1px solid #F1F5F9;padding-top:6px;margin-top:6px;display:flex;justify-content:space-between;font-size:11px;">
+              <a href="#" style="color:var(--blue);font-weight:500;">查看应用清单 (86) &gt;</a>
+              <span style="color:#8A92A1;">前往特征库</span>
+            </div>
+          </div>
+
+          <!-- 卡片 3: 自定义扩展 -->
+          <div class="wf-card wf-col">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+              <span style="font-weight:600;font-size:12px;color:#1E293B;">➕ 自定义扩展应用</span>
+              <a href="#" style="font-size:10px;color:var(--text-sub);">切为开箱初态</a>
+            </div>
+            <div style="font-size:22px;font-weight:700;color:#1E293B;margin:4px 0;">2 <span style="font-size:11px;color:var(--text-sub);font-weight:normal;">个自定义监控目标</span></div>
+            <p style="font-size:11px;color:var(--text-sub);margin:4px 0;line-height:1.4;">
+              针对未走零信任网关的专有内网 IP 段、自建看板域名或特定靶机，可自主增补监控。
+            </p>
+            <div style="border-top:1px solid #F1F5F9;padding-top:6px;margin-top:6px;display:flex;justify-content:space-between;font-size:11px;">
+              <a href="#" style="color:var(--blue);font-weight:500;">+ 添加自定义应用</a>
+              <span style="color:#8A92A1;">支持 IP/域名/CIDR</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 下方主体容器：自定义应用管理明细 (方案七原版) -->
+        <div class="wf-card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid #F1F5F9;">
+            <div>
+              <span style="font-size:12px;font-weight:600;color:#1E293B;">自定义应用管理明细</span>
+              <span style="font-size:11px;color:#8A92A1;margin-left:6px;">（已由上方智能集合默认纳管 128 个业务，此区域展示用户扩展添加的专网/独立应用）</span>
+            </div>
+            <div style="display:flex;gap:6px;align-items:center;">
+              <input type="text" placeholder="搜索应用或目标..." style="height:24px;border:1px solid #D9D9D9;padding:0 6px;font-size:11px;width:140px;border-radius:2px;" />
+              <select style="height:24px;border:1px solid #D9D9D9;font-size:11px;border-radius:2px;"><option>所有协议</option></select>
+              <span class="wf-btn-primary" style="height:24px;line-height:18px;">+ 添加应用</span>
+            </div>
+          </div>
+
+          <!-- 自定义应用列表 -->
+          <div class="wf-table">
+            <div class="wf-th">
+              <span style="width:5%;">#</span>
+              <span style="width:25%;">应用名称</span>
+              <span style="width:25%;">监控目标 (域名 / IP段)</span>
+              <span style="width:10%;">端口</span>
+              <span style="width:10%;">协议</span>
+              <span style="width:10%;">重要度</span>
+              <span style="width:8%;">监控开关</span>
+              <span style="width:7%;text-align:right;">操作</span>
+            </div>
+            <div class="wf-tr">
+              <span style="width:5%;color:#8A92A1;">1</span>
+              <span style="width:25%;font-weight:500;">内部核心DNS解析服务</span>
+              <span style="width:25%;font-family:monospace;color:#334155;">10.10.1.2</span>
+              <span style="width:10%;font-family:monospace;color:var(--text-sub);">53</span>
+              <span style="width:10%;"><span class="tag" style="background:#F1F5F9;color:#475569;border:none;">TCP</span></span>
+              <span style="width:10%;"><span class="tag" style="background:#FEF2F2;color:#DC2626;border:none;">核心业务</span></span>
+              <span style="width:8%;"><span style="display:inline-block;width:22px;height:12px;background:var(--blue);border-radius:6px;"></span></span>
+              <span style="width:7%;text-align:right;"><a href="#" style="color:#DC2626;">删除</a></span>
+            </div>
+            <div class="wf-tr">
+              <span style="width:5%;color:#8A92A1;">2</span>
+              <span style="width:25%;font-weight:500;">生产环境API网关集群</span>
+              <span style="width:25%;font-family:monospace;color:#334155;">api-gw.prod.internal</span>
+              <span style="width:10%;font-family:monospace;color:var(--text-sub);">9000</span>
+              <span style="width:10%;"><span class="tag" style="background:#F1F5F9;color:#475569;border:none;">TCP</span></span>
+              <span style="width:10%;"><span class="tag" style="background:#FEF2F2;color:#DC2626;border:none;">核心业务</span></span>
+              <span style="width:8%;"><span style="display:inline-block;width:22px;height:12px;background:#CBD5E1;border-radius:6px;"></span></span>
+              <span style="width:7%;text-align:right;"><a href="#" style="color:#DC2626;">删除</a></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 底部设计批注 -->
+      <div class="wf-annotation">
+        💡 <b>架构定位</b>：采用方案七独创的「上方 3 资产卡片大盘（纳管 128 个开箱业务）+ 下方自定义明细表」模式，绝非普通单一表格。<br/>
+        🧭 <b>CRUD 闭环</b>：<b>查清单</b>＝点击卡片 1/2 链接，滑出 480px <code>&lt;IxDrawer&gt;</code>；<b>增</b>＝点击卡片 3 或明细表工具栏【添加应用】，滑出表单抽屉；<b>删</b>＝行末操作触发 <code>IxPopconfirm</code> 二次确认后删除。<br/>
+        🛡️ <b>状态保护</b>：开箱初态（<code>customApps.length === 0</code>）时，下方渲染 <code>&lt;IxEmpty&gt;</code> 友好占位并提示"上方 128 个平台内置业务已处于全量监控中"。
+      </div>
+    </div>
+
+    <!-- 交互行为细则大表 -->
+    <h4>🧭 2.1.3 监控配置中心核心交互动线与操作行为细则</h4>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:16%;">交互对象与触发源</th>
+          <th style="width:10%;">手势/动作</th>
+          <th style="width:14%;">前置约束条件</th>
+          <th style="width:18%;">即时视觉反馈</th>
+          <th style="width:24%;">级联联动与数据流</th>
+          <th style="width:18%;">异常兜底与防御边界</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><b>DEM 引擎总开关</b></td>
+          <td><code>Change</code></td>
+          <td>具备管理员操作权限</td>
+          <td>总开关平滑滑动，右侧文字由“已开启”变“已挂起”</td>
+          <td>触发全局引擎挂起；下方 3 组资产卡片与自定义表格的所有子 Switch 联动置灰（<code>disabled</code>）</td>
+          <td>弹窗二次确认：“挂起引擎将暂停全网终端数据上报与周期拨测，确认继续？”</td>
+        </tr>
+        <tr>
+          <td><b>卡片 [查看应用清单]</b></td>
+          <td><code>Click</code></td>
+          <td>无</td>
+          <td>链接下划线变色，指针手势</td>
+          <td>右侧滑出 <code>480px</code> 抽屉，传入上下文 <code>type='ztna'</code>，表格回显 42 个私有应用</td>
+          <td>支持 ESC 快捷键或点击遮罩关闭；抽屉内状态变更局部回写卡片数字</td>
+        </tr>
+        <tr>
+          <td><b>行内监控 Switch</b></td>
+          <td><code>Change</code></td>
+          <td>DEM 引擎总控处于运行态</td>
+          <td>开关滑动并展示微型 Loading 脉冲</td>
+          <td>异步向服务端下发策略变更，成功后卡片纳管数字即时计算更新</td>
+          <td>300ms 防抖锁；若接口下发失败，弹出 <code>IxMessage.error</code> 并自动回滚原状态</td>
+        </tr>
+        <tr>
+          <td><b>自定义应用 [删除]</b></td>
+          <td><code>Click</code></td>
+          <td>目标应用处于非核心保护态</td>
+          <td>弹出白色气泡确认框 (<code>IxPopconfirm</code>)</td>
+          <td>点击气泡【确认】后，该行播放淡出动画并从数据源移除，更新总数计数器</td>
+          <td>气泡中必须完整回显待删除应用名称，防止误删生产域名</td>
+        </tr>
+        <tr>
+          <td><b>搜索过滤框与协议下拉</b></td>
+          <td><code>Input / Change</code></td>
+          <td>无</td>
+          <td>搜索框右侧出现清除 × 图标</td>
+          <td>300ms 防抖过滤，表格数据即时重新匹配，分页器重置为第 1 页</td>
+          <td>若过滤无匹配结果，表格主体自动切换为 <code>IxEmpty</code>，并提供【重置筛选】按钮</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- 2.2 抽屉规范 -->
+    <h3>2.2 480px 应用清单与表单抽屉 (Drawer-01 / Drawer-02)</h3>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:16%;">抽屉类型</th>
+          <th style="width:22%;">触发入口</th>
+          <th style="width:20%;">结构组成</th>
+          <th style="width:24%;">映射 IDUX 组件</th>
+          <th style="width:18%;">交互与提交控制</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><b>内置清单抽屉 (ZTNA/SaaS)</b></td>
+          <td>卡片 1/2 底部的【查看应用清单】</td>
+          <td>顶部搜索框 + 分类下拉 + 紧凑表格</td>
+          <td><code>&lt;IxDrawer width="480"&gt;</code> + <code>&lt;IxInput&gt;</code> + <code>&lt;IxSelect&gt;</code> + <code>&lt;IxTable&gt;</code></td>
+          <td>支持行内直接 Toggle 开关监控，关闭抽屉自动保存</td>
+        </tr>
+        <tr>
+          <td><b>添加自定义应用抽屉</b></td>
+          <td>卡片 3 / 表格栏【+ 添加自定义应用】</td>
+          <td>左右结构表单（名称/目标/端口/协议/重要度）</td>
+          <td><code>&lt;IxDrawer width="480"&gt;</code> + <code>&lt;IxForm&gt;</code> + <code>&lt;IxRadioGroup&gt;</code></td>
+          <td>表单字段前端校验（域名/IP 格式校验），确定按钮 Loading 提交</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- 2.3 Tab 2 和 Tab 3 概要 -->
+    <h3>2.3 主动探测配置 (Tab 2) 与 体验质量标准 (Tab 3)</h3>
+    <div class="note">
+      • <b>Tab 2 (主动探测配置)</b>：包含 POP/网关/客户端探针节点概况条 + 预置 7x24h 周期拨测卡片组，映射为 <code>&lt;IxCard&gt;</code> + <code>&lt;IxSwitch&gt;</code>。<br/>
+      • <b>Tab 3 (体验质量标准)</b>：包含 Web/音视频/专网 3 组 SLO 标尺卡片，每张卡片映射为 4 格四级阈值色块（优秀-绿 / 良好-蓝 / 卡慢-橙 / 故障-红）。
+    </div>
+
+    <!-- ==================== 第三章：体验与异常保护 ==================== -->
+    <h2>第三章：页面体验与异常保护规则</h2>
+
+    <h3>1. 状态机完备性大表</h3>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:16%;">状态类型</th>
+          <th style="width:24%;">触发场景</th>
+          <th style="width:28%;">IDUX 组件选型与视觉表现</th>
+          <th style="width:32%;">业务恢复 / 兜底机制</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><b>加载态 (Loading)</b></td>
+          <td>切换 Tab 页签或抽屉内搜索过滤</td>
+          <td><code>&lt;IxSpin&gt;</code> 包裹表格主体，透明遮罩</td>
+          <td>超时 10s 自动判定异常并中断请求</td>
+        </tr>
+        <tr>
+          <td><b>空态 (Empty)</b></td>
+          <td>未添加自定义应用时的初始开箱态</td>
+          <td><code>&lt;IxEmpty description="暂无自定义应用，上方 128 个平台内置业务已处于全量监控中"&gt;</code></td>
+          <td>保留【添加自定义应用】主入口按钮</td>
+        </tr>
+        <tr>
+          <td><b>网络异常态 (Error)</b></td>
+          <td>卡片内 Switch 切换失败或接口超时</td>
+          <td><code>IxMessage.error('网络探测配置下发失败，请重试')</code></td>
+          <td>Switch 自动回滚原状态，阻止错误状态假呈现</td>
+        </tr>
+        <tr>
+          <td><b>防重复提交</b></td>
+          <td>点击抽屉内【保存并开启监控】按钮</td>
+          <td><code>&lt;IxButton mode="primary" :loading="isSubmitting"&gt;</code></td>
+          <td>300ms 响应式防抖锁，防止重复新增相同域名/IP</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- 底部研发接入自检确认 -->
+    <div class="checkpoint">
+      <b>🚦 研发接入自检核验（Quality Sign-off）</b>
+      [✓] <b>1:1 方案七精准还原</b>：包含 3 主页签、3 资产卡片网格、开箱说明条、自定义明细表与 480px 双抽屉。<br/>
+      [✓] <b>数据模型对齐</b>：<code>types.ts</code> 与 <code>mock-data.ts</code> 严格对应方案七 <code>ztnaApps</code>, <code>saasApps</code>, <code>customApps</code>, <code>probePolicies</code>。<br/>
+      [✓] <b>组件无缝映射</b>：Tailwind 原子类与手写 Switch/Table 全量映射为 <code>&lt;IxCard&gt;</code>, <code>&lt;IxTable&gt;</code>, <code>&lt;IxSwitch&gt;</code>, <code>&lt;IxDrawer&gt;</code>。<br/>
+      [✓] <b>100% 离线</b>：绝无外网 CDN，符合内部平台研发规范。
+    </div>
+
+  </div>
+</div>
+</body>
+</html>

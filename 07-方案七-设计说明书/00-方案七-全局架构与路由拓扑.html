@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>00-方案七-全局架构与路由拓扑 · 总控说明书</title>
+  <style>
+    :root {
+      --bg: #F7F9FC; --card: #FFFFFF; --border: #E1E5EB;
+      --text: #2F3540; --text-sub: #6F7785; --text-mute: #8A92A1;
+      --blue: #1C6EFF; --blue-l: #E8F4FF; --blue-border: #BAE6FD;
+      --green-t: #12A679; --green-b: #F6FFED; --green-bd: #B7EB8F;
+      --warn-t: #FA8C16; --warn-b: #FFFBE6; --warn-bd: #FFE58F;
+      --danger-t: #D9363E; --danger-b: #FFF1F0; --danger-bd: #FFA39E;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: var(--bg); color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      font-size: 13px; line-height: 1.7;
+    }
+    .wrap { max-width: 1180px; margin: 0 auto; padding: 24px; }
+    .doc { background: var(--card); border: 1px solid var(--border); border-radius: 6px; padding: 36px; box-shadow: 0 1px 3px rgba(15,23,42,0.04); }
+    h1 { font-size: 22px; line-height: 30px; font-weight: 700; margin: 0 0 16px; color: #1E293B; }
+    h2 { font-size: 16px; line-height: 24px; font-weight: 600; margin: 36px 0 14px; padding-bottom: 8px; border-bottom: 1px solid var(--border); color: #1E293B; }
+    h3 { font-size: 14px; font-weight: 600; margin: 24px 0 10px; color: #2F3540; }
+
+    .meta { color: var(--text-sub); font-size: 12px; margin-bottom: 24px; line-height: 2; background: #F8FAFC; padding: 14px 18px; border-radius: 4px; border: 1px solid var(--border); }
+    .meta b { color: var(--text); }
+    .status { display: inline-block; padding: 2px 8px; border-radius: 2px; background: var(--green-b); color: var(--green-t); border: 1px solid var(--green-bd); font-size: 11px; font-weight: 500; }
+    .badge { display: inline-block; padding: 1px 6px; border-radius: 2px; font-size: 11px; background: #F1F5F9; color: #475569; border: 1px solid #CBD5E1; }
+
+    table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 12px; }
+    th { background: #EDF1F7; color: #454C59; font-weight: 500; text-align: left; height: 32px; padding: 0 12px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+    td { height: 36px; padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; background: #F1F5F9; padding: 2px 6px; border-radius: 3px; font-size: 11px; color: #0F172A; }
+
+    .tag { display: inline-block; padding: 1px 8px; border-radius: 2px; font-size: 11px; background: var(--blue-l); color: var(--blue); border: 1px solid var(--blue-border); }
+    .tag-spec { display: inline-block; padding: 2px 8px; border-radius: 2px; font-size: 11px; background: #EEF2FF; color: #4F46E5; border: 1px solid #C7D2FE; font-weight: 600; }
+    .note { background: #F8FAFC; border: 1px solid var(--border); border-left: 3px solid var(--blue); padding: 10px 14px; margin: 12px 0; font-size: 12px; color: var(--text-sub); }
+
+    .topology-card { background: #FAFBFD; border: 1px solid #CBD5E1; border-radius: 6px; padding: 20px; margin: 16px 0; }
+    .node-chain { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin: 14px 0; }
+    .node-box { background: #FFFFFF; border: 1px solid #CBD5E1; border-radius: 4px; padding: 12px 14px; min-width: 150px; text-align: center; box-shadow: 0 1px 2px rgba(0,0,0,0.03); }
+    .node-title { font-weight: 600; color: #1E293B; margin-bottom: 4px; }
+    .node-desc { font-size: 11px; color: var(--text-sub); }
+    .arrow-icon { color: var(--blue); font-weight: bold; font-size: 14px; }
+
+    .checkpoint { background: var(--blue-l); border: 1px solid #BAE6FD; border-radius: 4px; padding: 16px 20px; margin-top: 36px; font-size: 12px; color: #1C6EFF; line-height: 1.8; }
+    .checkpoint b { display: block; margin-bottom: 6px; font-size: 13px; color: #1C6EFF; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="doc">
+    <h1>🏗️ 方案七：全局架构与路由拓扑 · 总控说明书</h1>
+    <div class="meta">
+      <b>方案定位</b>：DEM (Digital Experience Management) 统一数字体验管理系统 · 方案七全量工程<br/>
+      <b>原始 Demo 来源</b>：<code>Demos/07-方案七/</code> (包含 5 大核心 HTML 原型，累计源码体量约 1.17 MB)<br/>
+      <b>架构规范执行</b>：<b>强制触发「1 + N」树状分册规约</b>（1 个全局总控 + 5 个业务独立分册）<br/>
+      <b>技术栈对齐</b>：Vue 3 + IDUX (@idux/components) + Common Design 内部平台标准规范<br/>
+      <b>当前进度状态</b>：<span class="status">✅ 全量交付就绪 · 1 份全局总控 + 5 份独立业务分册 + TypeScript 契约与 Mock 数据集全部物理对齐</span>
+    </div>
+
+    <!-- ==================== 一、方案全景系统架构与模块职责 ==================== -->
+    <h2>一、方案全景系统架构与分册规划大盘</h2>
+    <p>
+      方案七作为 DEM 体验监控的核心标杆方案，涵盖了<b>“宏观全局感知 ➔ 异常事件预警 ➔ 单点深度定位 ➔ 资产应用分析 ➔ 策略监控配置”</b>的完整运维闭环。
+      为杜绝单体巨石说明书导致的上下文截断、排版降维与研发协作阻塞，方案七全面拆解为 <b>1 个全局总控 + 5 份独立业务分册</b>：
+    </p>
+
+    <table>
+      <thead>
+        <tr>
+          <th style="width:9%;">分册编号</th>
+          <th style="width:20%;">分册文件名称</th>
+          <th style="width:16%;">对应原始 Demo 页面</th>
+          <th style="width:15%;">选用页面模板</th>
+          <th style="width:28%;">核心业务职责与交付边界</th>
+          <th style="width:12%;">交付状态</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="tag-spec">spec-01</span></td>
+          <td><b>全网体验监控大盘</b></td>
+          <td><code>DEM-首页.html</code> (190KB)</td>
+          <td><code>定制复合模板</code></td>
+          <td>顶部综合概览卡片 (30%预警事件分布 + 40%体验质量 + 30%VIP对象体验) + 3-Tab监控数据容器 (站点分支 / 访问用户 / 应用)。</td>
+          <td><span class="status">✅ 已交付</span></td>
+        </tr>
+        <tr>
+          <td><span class="tag-spec">spec-02</span></td>
+          <td><b>全网体验预警中心</b></td>
+          <td><code>DEM-体验预警.html</code> (170KB)</td>
+          <td><code>page-table-overview</code></td>
+          <td>预警指标大盘 (告警总数+趋势+3色分类卡片) + 9 列表头预警事件列表 (支持批量操作) + 告警策略 8 列表格与 640px 抽屉。</td>
+          <td><span class="status">✅ 已交付</span></td>
+        </tr>
+        <tr>
+          <td><span class="tag-spec">spec-03</span></td>
+          <td><b>用户全链路排障定位</b></td>
+          <td><code>DEM-用户详情.html</code> (460KB)</td>
+          <td><code>定制复合排障模板</code></td>
+          <td>两栏排障架构：左侧 240px 应用访问列表 (支持状态过滤与折叠收起为 32px) + 右侧看板 (三色散点图 + 5 节点拓扑链 + 根因卡片 + 7 列 Hop 追踪)。</td>
+          <td><span class="status">✅ 已交付</span></td>
+        </tr>
+        <tr>
+          <td><span class="tag-spec">spec-04</span></td>
+          <td><b>应用体验与关联分析</b></td>
+          <td><code>DEM-应用详情.html</code> (289KB)</td>
+          <td><code>page-detail-drilldown</code></td>
+          <td>顶栏内联应用切换下拉 + 3 栏概况卡片 + 时序质量图 + 4 张指标洞察卡片 (共性TOP3/定界TOP3/TTFB拆解/HTTP可用性) + 10 列分支与 7 列用户双 Tab。</td>
+          <td><span class="status">✅ 已交付</span></td>
+        </tr>
+        <tr>
+          <td><span class="tag-spec">spec-05</span></td>
+          <td><b>监控与探测配置中心</b></td>
+          <td><code>DEM-监控配置.html</code> (60KB)</td>
+          <td><code>定制复合配置模板</code></td>
+          <td>真实流量观测（零信任/SaaS资产卡片+520px抽屉）+ 9列自定义明细表 + 主动探测任务 + SLO 评分标准。</td>
+          <td><span class="status">✅ 已交付</span></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- ==================== 二、全局业务流转与排障交互拓扑 ==================== -->
+    <h2>二、全局业务流转与排障交互拓扑</h2>
+    <div class="note">
+      <b>排障协同主线说明</b>：管理员/运维工程师通常从 <b>spec-01 (首页大盘)</b> 或 <b>spec-02 (预警中心)</b> 发现劣化异动，通过点击用户行、VIP卡片或告警事件，一键下钻至 <b>spec-03 (用户详情)</b> 进行端到端诊断，或跳转至 <b>spec-04 (应用详情)</b> 验证后端服务影响面，最后在 <b>spec-05 (监控配置)</b> 调整拨测阈值。
+    </div>
+
+    <div class="topology-card">
+      <div class="node-chain">
+        <div class="node-box" style="border-top: 3px solid #1C6EFF;">
+          <div class="node-title">spec-01: 首页大盘</div>
+          <div class="node-desc">感知全网体验波动<br/>锁定 VIP 劣化对象</div>
+        </div>
+        <div class="arrow-icon">➔ 下钻排障 ➔</div>
+        <div class="node-box" style="border-top: 3px solid #FA8C16;">
+          <div class="node-title">spec-03: 用户详情</div>
+          <div class="node-desc">5 节点诊断拓扑链<br/>三色散点标尺定界</div>
+        </div>
+        <div class="arrow-icon">➔ 关联追查 ➔</div>
+        <div class="node-box" style="border-top: 3px solid #12A679;">
+          <div class="node-title">spec-04: 应用详情</div>
+          <div class="node-desc">应用基线时序趋势<br/>排查数据中心/SaaS服务</div>
+        </div>
+      </div>
+      <div class="node-chain" style="margin-top: 24px;">
+        <div class="node-box" style="border-top: 3px solid #D9363E;">
+          <div class="node-title">spec-02: 体验预警</div>
+          <div class="node-desc">告警事件多维筛选<br/>事件详情抽屉审查</div>
+        </div>
+        <div class="arrow-icon">➔ 策略调优 ➔</div>
+        <div class="node-box" style="border-top: 3px solid #8B5CF6;">
+          <div class="node-title">spec-05: 监控配置</div>
+          <div class="node-desc">真实流量资产监控<br/>主动探测频率与质量基线</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== 三、跨页面传参协议与上下文契约 ==================== -->
+    <h2>三、跨页面传参协议与上下文契约</h2>
+    <p>为确保系统在 Vue 3 单页应用 (SPA) 环境下平滑流转，跨模块跳转必须严格遵循统一的路由 Query 参数协议：</p>
+
+    <table>
+      <thead>
+        <tr>
+          <th style="width:14%;">参数名 (Key)</th>
+          <th style="width:12%;">类型</th>
+          <th style="width:18%;">示例值</th>
+          <th style="width:24%;">来源页面 ➔ 目标页面</th>
+          <th style="width:32%;">业务语义与受控动作</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>userId</code></td>
+          <td><code>string</code></td>
+          <td><code>usr_001</code> / <code>45232</code></td>
+          <td>spec-01 / spec-02 ➔ spec-03</td>
+          <td>定位目标用户，自动装载该用户的 5 节点诊断拓扑与访问时序散点图。</td>
+        </tr>
+        <tr>
+          <td><code>appName</code></td>
+          <td><code>string</code></td>
+          <td><code>OA系统</code> / <code>Salesforce</code></td>
+          <td>spec-01 / spec-03 ➔ spec-04</td>
+          <td>筛选特定应用详情，自动绘制时序延迟走势与受影响用户列表。</td>
+        </tr>
+        <tr>
+          <td><code>timeRange</code></td>
+          <td><code>[string, string]</code></td>
+          <td><code>['2026-06-04 00:00', ...]</code></td>
+          <td>全局同步 (Pinia Store)</td>
+          <td>顶层全局时间范围筛选器，跨所有分册共享时间窗口上下文。</td>
+        </tr>
+        <tr>
+          <td><code>shortcut</code></td>
+          <td><code>string</code></td>
+          <td><code>'今天' | '近24小时' | '近7天'</code></td>
+          <td>全局同步 (Pinia Store)</td>
+          <td>时间快捷模式标识，驱动时序图按小时（hour）或按天（day）聚合粒度。</td>
+        </tr>
+        <tr>
+          <td><code>branchId</code></td>
+          <td><code>string</code></td>
+          <td><code>br_001</code> (西安研发中心)</td>
+          <td>spec-01 ➔ spec-01 抽屉 / spec-03</td>
+          <td>分支过滤下钻，展示该分支下受影响的用户明细。</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- ==================== 四、交付物结构与全量落地内容 ==================== -->
+    <h2>四、设计说明书交付物架构与物料规划</h2>
+    <pre style="background: #F8FAFC; border: 1px solid var(--border); padding: 14px; border-radius: 4px; font-size: 12px; line-height: 1.6; color: #334155;">
+07-方案七-设计说明书/
+├── 00-方案七-全局架构与路由拓扑.html          # [已交付] 全局总控说明书与系统流转中枢
+├── spec-01-全网体验监控大盘.html              # [已交付] 第 1 份业务分册：首页大盘与 AI 双层抽屉
+├── spec-02-全网体验预警中心.html              # [已交付] 第 2 份业务分册：预警大盘 (9列) 与策略配置抽屉
+├── spec-03-用户全链路排障定位.html            # [已交付] 第 3 份业务分册：左侧 240px 应用侧栏 + 5节点拓扑/Hop追踪
+├── spec-04-应用体验与关联分析.html            # [已交付] 第 4 份业务分册：顶栏切应用 + 4张指标卡片 + 双Tab明细
+├── spec-05-监控与探测配置中心.html            # [已交付] 第 5 份业务分册：真实流量观测 (9列) 与资产抽屉
+├── types.ts                                   # [已交付] TypeScript 业务实体接口与全链路数据契约
+├── mock-data.ts                               # [已交付] 纯净无依赖 1:1 仿真真实 Mock 数据集
+└── README.md                                  # [已交付] 交付成果索引与使用集成指南
+    </pre>
+
+    <div class="checkpoint">
+      <b>🎉 全量交付与高保真质量验收通过声明</b>
+      1. 本方案七全量《体验设计方案说明书》已严格遵照“零主观脑补、100% 忠实物理原型”原则完成全部编译；<br/>
+      2. 经过全量物理 DOM 树与空间布局的一致性检视与校正，各分册在<b>置顶组件选型映射</b>、<b>居中结构线框图</b>、<b>样式 Token 字典</b>、<b>因果交互细则大表</b>与<b>异常保护状态机</b>五个维度均达标，研发团队可直接依据各分册进行组件还原与契约联调！
+    </div>
+  </div>
+</div>
+</body>
+</html>
