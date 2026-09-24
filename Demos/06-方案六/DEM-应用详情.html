@@ -2001,25 +2001,25 @@
         // 分支列表数据 (分为 OA 与 ERP)
         oaBranchList: [
           // 异常分支 (3个) - 去掉异常二字
-          { name: '香港办事处', type: 'NGAF', group: '海外大区', location: '中国 香港', exp: '差', isp: '香港 PCCW', pop: '香港POP', affectedUsers: 2, anomalies: ['POP', 'POP-连接器段'], normalCount: 410, fairCount: 110, poorCount: 160 },
-          { name: '马尼拉办公室', type: 'NGAF', group: '海外大区', location: '菲律宾 马尼拉', exp: '差', isp: '菲律宾 PLDT', pop: '香港POP', affectedUsers: 4, anomalies: ['POP', '分支-POP段'], normalCount: 320, fairCount: 140, poorCount: 180 },
-          { name: '广州研发中心', type: 'NGAF', group: '华南大区', location: '中国 广州', exp: '差', isp: '广东电信', pop: '香港POP', affectedUsers: 5, anomalies: ['POP', 'POP-连接器段'], normalCount: 1820, fairCount: 150, poorCount: 65 },
+          { name: '香港办事处', ip: '203.80.12.34', type: 'NGAF', group: '海外大区', location: '中国 香港', exp: '差', isp: '香港 PCCW', pop: '香港POP', affectedUsers: 2, anomalies: ['POP', 'POP-连接器段'], normalCount: 410, fairCount: 110, poorCount: 160 },
+          { name: '马尼拉办公室', ip: '203.177.12.8', type: 'NGAF', group: '海外大区', location: '菲律宾 马尼拉', exp: '差', isp: '菲律宾 PLDT', pop: '香港POP', affectedUsers: 4, anomalies: ['POP', '分支-POP段'], normalCount: 320, fairCount: 140, poorCount: 180 },
+          { name: '广州研发中心', ip: '113.108.24.16', type: 'NGAF', group: '华南大区', location: '中国 广州', exp: '差', isp: '广东电信', pop: '香港POP', affectedUsers: 5, anomalies: ['POP', 'POP-连接器段'], normalCount: 1820, fairCount: 150, poorCount: 65 },
 
           // 一般体验分支 (1个) - 去掉异常二字
-          { name: '北京研发中心', type: 'NGAF', group: '华北大区', location: '中国 北京', exp: '一般', isp: '北京联通', pop: '北京POP', affectedUsers: 1, anomalies: ['连接器'], normalCount: 1800, fairCount: 320, poorCount: 25 },
+          { name: '北京研发中心', ip: '202.108.22.5', type: 'NGAF', group: '华北大区', location: '中国 北京', exp: '一般', isp: '北京联通', pop: '北京POP', affectedUsers: 1, anomalies: ['连接器'], normalCount: 1800, fairCount: 320, poorCount: 25 },
 
           // 正常分支 (2个)
-          { name: '上海总部大楼', type: 'NGAF', group: '华东大区', location: '中国 上海', exp: '正常', isp: '上海电信', pop: '上海POP', affectedUsers: 0, anomalies: [], normalCount: 8520, fairCount: 20, poorCount: 0 },
-          { name: '成都西南研发基地', type: 'NGAF', group: '西南大区', location: '中国 成都', exp: '正常', isp: '四川电信', pop: '成都POP', affectedUsers: 0, anomalies: [], normalCount: 1820, fairCount: 5, poorCount: 0 }
+          { name: '上海总部大楼', ip: '101.226.30.18', type: 'NGAF', group: '华东大区', location: '中国 上海', exp: '正常', isp: '上海电信', pop: '上海POP', affectedUsers: 0, anomalies: [], normalCount: 8520, fairCount: 20, poorCount: 0 },
+          { name: '成都西南研发基地', ip: '118.121.44.10', type: 'NGAF', group: '西南大区', location: '中国 成都', exp: '正常', isp: '四川电信', pop: '成都POP', affectedUsers: 0, anomalies: [], normalCount: 1820, fairCount: 5, poorCount: 0 }
         ],
 
         erpBranchList: [
-          { name: '上海总部大楼', type: '组网网关', group: '华东大区', location: '中国 上海', exp: '正常', isp: '上海电信', pop: '上海网关', affectedUsers: 0, anomalies: [], normalCount: 8520, fairCount: 0, poorCount: 0 },
-          { name: '成都研发基地', type: '组网网关', group: '西南大区', location: '中国 成都', exp: '正常', isp: '四川电信', pop: '成都网关', affectedUsers: 0, anomalies: [], normalCount: 1820, fairCount: 0, poorCount: 0 },
-          { name: '北京分公司', type: '组网网关', group: '华北大区', location: '中国 北京', exp: '正常', isp: '北京联通', pop: '北京网关', affectedUsers: 0, anomalies: [], normalCount: 1800, fairCount: 0, poorCount: 0 },
-          { name: '广州办事处', type: '组网网关', group: '华南大区', location: '中国 广州', exp: '正常', isp: '广东电信', pop: '广州网关', affectedUsers: 0, anomalies: [], normalCount: 1450, fairCount: 0, poorCount: 0 },
-          { name: '武汉运营中心', type: '组网网关', group: '华中大区', location: '中国 武汉', exp: '正常', isp: '湖北电信', pop: '武汉网关', affectedUsers: 0, anomalies: [], normalCount: 1200, fairCount: 0, poorCount: 0 },
-          { name: '西安办事处', type: '组网网关', group: '西北大区', location: '中国 西安', exp: '正常', isp: '陕西电信', pop: '西安网关', affectedUsers: 0, anomalies: [], normalCount: 960, fairCount: 0, poorCount: 0 }
+          { name: '上海总部大楼', ip: '101.226.30.26', type: '组网网关', group: '华东大区', location: '中国 上海', exp: '正常', isp: '上海电信', pop: '上海网关', affectedUsers: 0, anomalies: [], normalCount: 8520, fairCount: 0, poorCount: 0 },
+          { name: '成都研发基地', ip: '118.121.44.28', type: '组网网关', group: '西南大区', location: '中国 成都', exp: '正常', isp: '四川电信', pop: '成都网关', affectedUsers: 0, anomalies: [], normalCount: 1820, fairCount: 0, poorCount: 0 },
+          { name: '北京分公司', ip: '202.108.22.19', type: '组网网关', group: '华北大区', location: '中国 北京', exp: '正常', isp: '北京联通', pop: '北京网关', affectedUsers: 0, anomalies: [], normalCount: 1800, fairCount: 0, poorCount: 0 },
+          { name: '广州办事处', ip: '113.108.24.35', type: '组网网关', group: '华南大区', location: '中国 广州', exp: '正常', isp: '广东电信', pop: '广州网关', affectedUsers: 0, anomalies: [], normalCount: 1450, fairCount: 0, poorCount: 0 },
+          { name: '武汉运营中心', ip: '111.170.60.12', type: '组网网关', group: '华中大区', location: '中国 武汉', exp: '正常', isp: '湖北电信', pop: '武汉网关', affectedUsers: 0, anomalies: [], normalCount: 1200, fairCount: 0, poorCount: 0 },
+          { name: '西安办事处', ip: '117.35.80.24', type: '组网网关', group: '西北大区', location: '中国 西安', exp: '正常', isp: '陕西电信', pop: '西安网关', affectedUsers: 0, anomalies: [], normalCount: 960, fairCount: 0, poorCount: 0 }
         ],
 
         get branchList() {
@@ -2098,85 +2098,85 @@
         // OA 用户列表数据 (共 28 位用户: 9差 / 1一般 / 18正常) - 去掉异常二字
         oaUserList: [
           // ① 体验差用户 (9人)
-          { empId: '88012', name: '彭经理', dept: '海外业务部 / 香港办事处', exp: '差', isp: '香港 PCCW', pop: '香港POP', anomalies: ['POP', 'POP-连接器段'], totalApps: 15, normalCount: 7, fairCount: 2, poorCount: 6 },
-          { empId: '88015', name: '张工', dept: '海外业务部 / 香港办事处', exp: '差', isp: '香港 PCCW', pop: '香港POP', anomalies: ['POP', 'POP-连接器段'], totalApps: 13, normalCount: 6, fairCount: 2, poorCount: 5 },
-          { empId: '88028', name: 'Maria', dept: '海外业务部 / 马尼拉办事处', exp: '差', isp: '菲律宾 PLDT', pop: '马尼拉POP', anomalies: ['POP', 'POP-连接器段'], totalApps: 14, normalCount: 8, fairCount: 2, poorCount: 4 },
-          { empId: '2024019', name: '陈工', dept: '研发中心 / 广州研发部', exp: '差', isp: '广东广州 电信', pop: '深圳POP', anomalies: ['POP', 'POP-连接器段'], totalApps: 17, normalCount: 12, fairCount: 3, poorCount: 2 },
-          { empId: '2024106', name: '刘洋', dept: '深信服科技 / 研发中心 / DEM产品部', exp: '差', isp: '广东深圳 电信', pop: '深圳POP', anomalies: ['POP', 'POP-连接器段'], totalApps: 18, normalCount: 9, fairCount: 1, poorCount: 8 },
-          { empId: '2024118', name: '陈晨', dept: '深信服科技 / 研发中心 / DEM产品部', exp: '差', isp: '广东深圳 电信', pop: '深圳POP', anomalies: ['POP', 'POP-连接器段'], totalApps: 14, normalCount: 7, fairCount: 2, poorCount: 5 },
-          { empId: '2024122', name: '周华', dept: '深信服科技 / 运营中心 / 华南组', exp: '差', isp: '广东广州 电信', pop: '深圳POP', anomalies: ['POP', 'POP-连接器段'], totalApps: 16, normalCount: 11, fairCount: 2, poorCount: 3 },
-          { empId: '2024135', name: '黄明', dept: '深信服科技 / 客户服务部 / 华南支持', exp: '差', isp: '广东广州 电信', pop: '深圳POP', anomalies: ['POP', 'POP-连接器段'], totalApps: 14, normalCount: 8, fairCount: 3, poorCount: 3 },
-          { empId: '2024088', name: '李四', dept: '深信服科技 / 销售中心 / 西南大区', exp: '差', isp: '四川电信', pop: '深圳POP', anomalies: ['POP', '终端-POP段'], totalApps: 15, normalCount: 10, fairCount: 2, poorCount: 3 },
+          { empId: '88012', name: '彭经理', ip: '203.80.44.18', dept: '海外业务部 / 香港办事处', exp: '差', isp: '香港 PCCW', pop: '香港POP', anomalies: ['POP', 'POP-连接器段'], totalApps: 15, normalCount: 7, fairCount: 2, poorCount: 6 },
+          { empId: '88015', name: '张工', ip: '203.80.44.27', dept: '海外业务部 / 香港办事处', exp: '差', isp: '香港 PCCW', pop: '香港POP', anomalies: ['POP', 'POP-连接器段'], totalApps: 13, normalCount: 6, fairCount: 2, poorCount: 5 },
+          { empId: '88028', name: 'Maria', ip: '203.177.15.36', dept: '海外业务部 / 马尼拉办事处', exp: '差', isp: '菲律宾 PLDT', pop: '马尼拉POP', anomalies: ['POP', 'POP-连接器段'], totalApps: 14, normalCount: 8, fairCount: 2, poorCount: 4 },
+          { empId: '2024019', name: '陈工', ip: '113.108.18.52', dept: '研发中心 / 广州研发部', exp: '差', isp: '广东广州 电信', pop: '深圳POP', anomalies: ['POP', 'POP-连接器段'], totalApps: 17, normalCount: 12, fairCount: 3, poorCount: 2 },
+          { empId: '2024106', name: '刘洋', ip: '119.12.8.20', dept: '深信服科技 / 研发中心 / DEM产品部', exp: '差', isp: '广东深圳 电信', pop: '深圳POP', anomalies: ['POP', 'POP-连接器段'], totalApps: 18, normalCount: 9, fairCount: 1, poorCount: 8 },
+          { empId: '2024118', name: '陈晨', ip: '119.12.8.34', dept: '深信服科技 / 研发中心 / DEM产品部', exp: '差', isp: '广东深圳 电信', pop: '深圳POP', anomalies: ['POP', 'POP-连接器段'], totalApps: 14, normalCount: 7, fairCount: 2, poorCount: 5 },
+          { empId: '2024122', name: '周华', ip: '183.14.5.12', dept: '深信服科技 / 运营中心 / 华南组', exp: '差', isp: '广东广州 电信', pop: '深圳POP', anomalies: ['POP', 'POP-连接器段'], totalApps: 16, normalCount: 11, fairCount: 2, poorCount: 3 },
+          { empId: '2024135', name: '黄明', ip: '183.14.5.26', dept: '深信服科技 / 客户服务部 / 华南支持', exp: '差', isp: '广东广州 电信', pop: '深圳POP', anomalies: ['POP', 'POP-连接器段'], totalApps: 14, normalCount: 8, fairCount: 3, poorCount: 3 },
+          { empId: '2024088', name: '李四', ip: '118.121.52.9', dept: '深信服科技 / 销售中心 / 西南大区', exp: '差', isp: '四川电信', pop: '深圳POP', anomalies: ['POP', '终端-POP段'], totalApps: 15, normalCount: 10, fairCount: 2, poorCount: 3 },
 
           // ② 体验一般用户 (1人)
-          { empId: '2024155', name: '赵六', dept: '深信服科技 / 运营中心 / 华北大区', exp: '一般', isp: '北京联通', pop: '北京POP', anomalies: ['连接器'], totalApps: 22, normalCount: 18, fairCount: 3, poorCount: 1 },
+          { empId: '2024155', name: '赵六', ip: '202.108.22.41', dept: '深信服科技 / 运营中心 / 华北大区', exp: '一般', isp: '北京联通', pop: '北京POP', anomalies: ['连接器'], totalApps: 22, normalCount: 18, fairCount: 3, poorCount: 1 },
 
           // ③ 体验正常用户 (18人)
-          { empId: '2024178', name: '周杰', dept: '深信服科技 / 技术支持部 / 华东组', exp: '正常', isp: '上海电信', pop: '上海POP', totalApps: 28, normalCount: 28, fairCount: 0, poorCount: 0 },
-          { empId: '2024102', name: '王五', dept: '深信服科技 / 研发中心 / 架构组', exp: '正常', isp: '上海电信', pop: '上海POP', totalApps: 45, normalCount: 45, fairCount: 0, poorCount: 0 },
-          { empId: '2024210', name: '钱七', dept: '深信服科技 / 财务部 / 总部财务', exp: '正常', isp: '四川电信', pop: '成都POP', totalApps: 49, normalCount: 49, fairCount: 0, poorCount: 0 },
-          { empId: '2024225', name: '吴八', dept: '深信服科技 / 人力资源部 / 招聘组', exp: '正常', isp: '上海电信', pop: '上海POP', totalApps: 42, normalCount: 42, fairCount: 0, poorCount: 0 },
-          { empId: '2024238', name: '郑九', dept: '深信服科技 / 研发中心 / 前端组', exp: '正常', isp: '广东深圳 电信', pop: '深圳POP', totalApps: 52, normalCount: 52, fairCount: 0, poorCount: 0 },
-          { empId: '2024242', name: '冯十', dept: '深信服科技 / 研发中心 / 测试组', exp: '正常', isp: '广东深圳 电信', pop: '深圳POP', totalApps: 48, normalCount: 48, fairCount: 0, poorCount: 0 },
-          { empId: '2024256', name: '陈十一', dept: '深信服科技 / 安全团队 / 攻防组', exp: '正常', isp: '北京联通', pop: '北京POP', totalApps: 50, normalCount: 50, fairCount: 0, poorCount: 0 },
-          { empId: '2024260', name: '宋十二', dept: '深信服科技 / 研发中心 / 后端组', exp: '正常', isp: '北京联通', pop: '北京POP', totalApps: 35, normalCount: 35, fairCount: 0, poorCount: 0 },
-          { empId: '2024265', name: '何十三', dept: '深信服科技 / 销售中心 / 华东大区', exp: '正常', isp: '上海移动', pop: '上海POP', totalApps: 32, normalCount: 32, fairCount: 0, poorCount: 0 },
-          { empId: '2024270', name: '韩十四', dept: '深信服科技 / 运维中心 / 网络组', exp: '正常', isp: '上海电信', pop: '上海POP', totalApps: 40, normalCount: 40, fairCount: 0, poorCount: 0 },
-          { empId: '2024275', name: '杨十五', dept: '深信服科技 / 总裁办 / 秘书处', exp: '正常', isp: '广东深圳 电信', pop: '深圳POP', totalApps: 30, normalCount: 30, fairCount: 0, poorCount: 0 },
-          { empId: '2024280', name: '朱十六', dept: '深信服科技 / 市场部 / 品牌组', exp: '正常', isp: '广东深圳 移动', pop: '深圳POP', totalApps: 28, normalCount: 28, fairCount: 0, poorCount: 0 },
-          { empId: '2024285', name: '秦十七', dept: '深信服科技 / 部署中心 / 华北大区', exp: '正常', isp: '北京电信', pop: '北京POP', totalApps: 34, normalCount: 34, fairCount: 0, poorCount: 0 },
-          { empId: '2024290', name: '许十八', dept: '深信服科技 / 部署中心 / 西南大区', exp: '正常', isp: '四川移动', pop: '成都POP', totalApps: 36, normalCount: 36, fairCount: 0, poorCount: 0 },
-          { empId: '2024295', name: '曹十九', dept: '深信服科技 / 技术支持部 / 华北大区', exp: '正常', isp: '北京联通', pop: '北京POP', totalApps: 31, normalCount: 31, fairCount: 0, poorCount: 0 },
-          { empId: '2024300', name: '陶二十', dept: '深信服科技 / 销售中心 / 西南大区', exp: '正常', isp: '四川电信', pop: '成都POP', totalApps: 29, normalCount: 29, fairCount: 0, poorCount: 0 },
-          { empId: '2024305', name: '孔廿一', dept: '深信服科技 / 财务部 / 税务组', exp: '正常', isp: '四川电信', pop: '成都POP', totalApps: 33, normalCount: 33, fairCount: 0, poorCount: 0 },
-          { empId: '45232', name: '何总', dept: '深信服科技 / 总裁办 / 总经办', exp: '正常', isp: '广东深圳 电信', pop: '深圳POP', totalApps: 42, normalCount: 42, fairCount: 0, poorCount: 0 }
+          { empId: '2024178', name: '周杰', ip: '101.226.42.7', dept: '深信服科技 / 技术支持部 / 华东组', exp: '正常', isp: '上海电信', pop: '上海POP', totalApps: 28, normalCount: 28, fairCount: 0, poorCount: 0 },
+          { empId: '2024102', name: '王五', ip: '101.226.42.18', dept: '深信服科技 / 研发中心 / 架构组', exp: '正常', isp: '上海电信', pop: '上海POP', totalApps: 45, normalCount: 45, fairCount: 0, poorCount: 0 },
+          { empId: '2024210', name: '钱七', ip: '118.121.60.22', dept: '深信服科技 / 财务部 / 总部财务', exp: '正常', isp: '四川电信', pop: '成都POP', totalApps: 49, normalCount: 49, fairCount: 0, poorCount: 0 },
+          { empId: '2024225', name: '吴八', ip: '101.226.42.29', dept: '深信服科技 / 人力资源部 / 招聘组', exp: '正常', isp: '上海电信', pop: '上海POP', totalApps: 42, normalCount: 42, fairCount: 0, poorCount: 0 },
+          { empId: '2024238', name: '郑九', ip: '119.12.9.11', dept: '深信服科技 / 研发中心 / 前端组', exp: '正常', isp: '广东深圳 电信', pop: '深圳POP', totalApps: 52, normalCount: 52, fairCount: 0, poorCount: 0 },
+          { empId: '2024242', name: '冯十', ip: '119.12.9.23', dept: '深信服科技 / 研发中心 / 测试组', exp: '正常', isp: '广东深圳 电信', pop: '深圳POP', totalApps: 48, normalCount: 48, fairCount: 0, poorCount: 0 },
+          { empId: '2024256', name: '陈十一', ip: '202.108.23.6', dept: '深信服科技 / 安全团队 / 攻防组', exp: '正常', isp: '北京联通', pop: '北京POP', totalApps: 50, normalCount: 50, fairCount: 0, poorCount: 0 },
+          { empId: '2024260', name: '宋十二', ip: '202.108.23.17', dept: '深信服科技 / 研发中心 / 后端组', exp: '正常', isp: '北京联通', pop: '北京POP', totalApps: 35, normalCount: 35, fairCount: 0, poorCount: 0 },
+          { empId: '2024265', name: '何十三', ip: '117.135.70.14', dept: '深信服科技 / 销售中心 / 华东大区', exp: '正常', isp: '上海移动', pop: '上海POP', totalApps: 32, normalCount: 32, fairCount: 0, poorCount: 0 },
+          { empId: '2024270', name: '韩十四', ip: '101.226.42.40', dept: '深信服科技 / 运维中心 / 网络组', exp: '正常', isp: '上海电信', pop: '上海POP', totalApps: 40, normalCount: 40, fairCount: 0, poorCount: 0 },
+          { empId: '2024275', name: '杨十五', ip: '119.12.9.35', dept: '深信服科技 / 总裁办 / 秘书处', exp: '正常', isp: '广东深圳 电信', pop: '深圳POP', totalApps: 30, normalCount: 30, fairCount: 0, poorCount: 0 },
+          { empId: '2024280', name: '朱十六', ip: '183.14.6.8', dept: '深信服科技 / 市场部 / 品牌组', exp: '正常', isp: '广东深圳 移动', pop: '深圳POP', totalApps: 28, normalCount: 28, fairCount: 0, poorCount: 0 },
+          { empId: '2024285', name: '秦十七', ip: '202.108.23.28', dept: '深信服科技 / 部署中心 / 华北大区', exp: '正常', isp: '北京电信', pop: '北京POP', totalApps: 34, normalCount: 34, fairCount: 0, poorCount: 0 },
+          { empId: '2024290', name: '许十八', ip: '117.136.80.19', dept: '深信服科技 / 部署中心 / 西南大区', exp: '正常', isp: '四川移动', pop: '成都POP', totalApps: 36, normalCount: 36, fairCount: 0, poorCount: 0 },
+          { empId: '2024295', name: '曹十九', ip: '202.108.23.39', dept: '深信服科技 / 技术支持部 / 华北大区', exp: '正常', isp: '北京联通', pop: '北京POP', totalApps: 31, normalCount: 31, fairCount: 0, poorCount: 0 },
+          { empId: '2024300', name: '陶二十', ip: '118.121.60.33', dept: '深信服科技 / 销售中心 / 西南大区', exp: '正常', isp: '四川电信', pop: '成都POP', totalApps: 29, normalCount: 29, fairCount: 0, poorCount: 0 },
+          { empId: '2024305', name: '孔廿一', ip: '118.121.60.44', dept: '深信服科技 / 财务部 / 税务组', exp: '正常', isp: '四川电信', pop: '成都POP', totalApps: 33, normalCount: 33, fairCount: 0, poorCount: 0 },
+          { empId: '45232', name: '何总', ip: '114.242.25.18', dept: '深信服科技 / 总裁办 / 总经办', exp: '正常', isp: '广东深圳 电信', pop: '深圳POP', totalApps: 42, normalCount: 42, fairCount: 0, poorCount: 0 }
         ],
 
         // ERP 用户列表数据 (28位差体验用户 · 集中在用户终端-代理网关段 + 12位正常用户)
         erpUserList: [
           // ① 体验差用户 (28人，故障全在 用户终端-代理网关段)
-          { empId: '2024001', name: '钱海', dept: '深信服科技 / 财务中心 / 资金结算部', exp: '差', isp: '广东深圳 电信', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 16, normalCount: 11, fairCount: 1, poorCount: 4 },
-          { empId: '2024002', name: '孙敏', dept: '深信服科技 / 财务中心 / 资金结算部', exp: '差', isp: '广东深圳 电信', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 15, normalCount: 10, fairCount: 2, poorCount: 3 },
-          { empId: '2024003', name: '周磊', dept: '深信服科技 / 财务中心 / 成本会计部', exp: '差', isp: '广东深圳 电信', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 18, normalCount: 12, fairCount: 2, poorCount: 4 },
-          { empId: '2024004', name: '吴薇', dept: '深信服科技 / 财务中心 / 成本会计部', exp: '差', isp: '广东广州 电信', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 14, normalCount: 9, fairCount: 1, poorCount: 4 },
-          { empId: '2024005', name: '郑翔', dept: '深信服科技 / 运营管理部 / 计划调度处', exp: '差', isp: '广东深圳 电信', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 19, normalCount: 13, fairCount: 2, poorCount: 4 },
-          { empId: '2024006', name: '王丽', dept: '深信服科技 / 供应链管理中心 / 采购部', exp: '差', isp: '广东深圳 移动', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 20, normalCount: 14, fairCount: 2, poorCount: 4 },
-          { empId: '2024007', name: '冯超', dept: '深信服科技 / 供应链管理中心 / 仓储物流部', exp: '差', isp: '广东广州 电信', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 16, normalCount: 10, fairCount: 3, poorCount: 3 },
-          { empId: '2024008', name: '陈峰', dept: '深信服科技 / 销售中心 / 华南订单部', exp: '差', isp: '广东深圳 电信', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 22, normalCount: 16, fairCount: 2, poorCount: 4 },
-          { empId: '2024009', name: '褚刚', dept: '深信服科技 / 销售中心 / 华东订单部', exp: '差', isp: '上海电信', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 17, normalCount: 12, fairCount: 1, poorCount: 4 },
-          { empId: '2024010', name: '卫兵', dept: '深信服科技 / 销售中心 / 华北订单部', exp: '差', isp: '北京联通', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 18, normalCount: 13, fairCount: 1, poorCount: 4 },
-          { empId: '2024011', name: '蒋波', dept: '深信服科技 / 制造事业部 / 生产企划科', exp: '差', isp: '广东深圳 电信', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 15, normalCount: 10, fairCount: 2, poorCount: 3 },
-          { empId: '2024012', name: '沈婷', dept: '深信服科技 / 财务中心 / 税务管理部', exp: '差', isp: '广东深圳 电信', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 14, normalCount: 9, fairCount: 2, poorCount: 3 },
-          { empId: '2024013', name: '韩雪', dept: '深信服科技 / 财务中心 / 税务管理部', exp: '差', isp: '广东广州 移动', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 16, normalCount: 11, fairCount: 2, poorCount: 3 },
-          { empId: '2024014', name: '杨勇', dept: '深信服科技 / 供应链管理中心 / 供应商认证处', exp: '差', isp: '广东深圳 电信', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 17, normalCount: 12, fairCount: 2, poorCount: 3 },
-          { empId: '2024015', name: '朱鹏', dept: '深信服科技 / 销售中心 / 渠道对账组', exp: '差', isp: '四川成都 电信', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 15, normalCount: 10, fairCount: 2, poorCount: 3 },
-          { empId: '2024016', name: '秦岚', dept: '深信服科技 / 销售中心 / 渠道对账组', exp: '差', isp: '广东深圳 电信', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 19, normalCount: 14, fairCount: 1, poorCount: 4 },
-          { empId: '2024017', name: '尤佳', dept: '深信服科技 / 财务中心 / 资产核算科', exp: '差', isp: '广东深圳 电信', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 13, normalCount: 8, fairCount: 2, poorCount: 3 },
-          { empId: '2024018', name: '许宏', dept: '深信服科技 / 制造事业部 / 物料控制科', exp: '差', isp: '广东深圳 联通', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 18, normalCount: 13, fairCount: 2, poorCount: 3 },
-          { empId: '2024019', name: '何斌', dept: '深信服科技 / 制造事业部 / 质量检验处', exp: '差', isp: '广东广州 电信', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 16, normalCount: 11, fairCount: 2, poorCount: 3 },
-          { empId: '2024020', name: '吕强', dept: '深信服科技 / 运营管理部 / 经营分析室', exp: '差', isp: '北京联通', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 21, normalCount: 16, fairCount: 2, poorCount: 3 },
-          { empId: '2024021', name: '施霞', dept: '深信服科技 / 财务中心 / 预算控制部', exp: '差', isp: '上海电信', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 14, normalCount: 9, fairCount: 2, poorCount: 3 },
-          { empId: '2024022', name: '张健', dept: '深信服科技 / 供应链管理中心 / 进出口关务组', exp: '差', isp: '广东深圳 电信', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 17, normalCount: 12, fairCount: 2, poorCount: 3 },
-          { empId: '2024023', name: '孔明', dept: '深信服科技 / 销售中心 / 客户合同处', exp: '差', isp: '广东广州 电信', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 20, normalCount: 15, fairCount: 2, poorCount: 3 },
-          { empId: '2024024', name: '曹斌', dept: '深信服科技 / 制造事业部 / 工艺工程科', exp: '差', isp: '广东深圳 电信', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 16, normalCount: 11, fairCount: 2, poorCount: 3 },
-          { empId: '2024025', name: '严谨', dept: '深信服科技 / 内部审计部 / 财经审计组', exp: '差', isp: '北京电信', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 15, normalCount: 10, fairCount: 2, poorCount: 3 },
-          { empId: '2024026', name: '华芳', dept: '深信服科技 / 财务中心 / 报销审核处', exp: '差', isp: '广东深圳 电信', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 18, normalCount: 13, fairCount: 2, poorCount: 3 },
-          { empId: '2024027', name: '金玉', dept: '深信服科技 / 供应链管理中心 / 采购商务科', exp: '差', isp: '广东深圳 移动', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 14, normalCount: 9, fairCount: 2, poorCount: 3 },
-          { empId: '2024028', name: '魏明', dept: '深信服科技 / 销售中心 / 商务支持部', exp: '差', isp: '四川成都 电信', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 19, normalCount: 14, fairCount: 2, poorCount: 3 },
+          { empId: '2024001', name: '钱海', ip: '119.12.10.5', dept: '深信服科技 / 财务中心 / 资金结算部', exp: '差', isp: '广东深圳 电信', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 16, normalCount: 11, fairCount: 1, poorCount: 4 },
+          { empId: '2024002', name: '孙敏', ip: '119.12.10.14', dept: '深信服科技 / 财务中心 / 资金结算部', exp: '差', isp: '广东深圳 电信', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 15, normalCount: 10, fairCount: 2, poorCount: 3 },
+          { empId: '2024003', name: '周磊', ip: '119.12.10.23', dept: '深信服科技 / 财务中心 / 成本会计部', exp: '差', isp: '广东深圳 电信', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 18, normalCount: 12, fairCount: 2, poorCount: 4 },
+          { empId: '2024004', name: '吴薇', ip: '113.108.26.7', dept: '深信服科技 / 财务中心 / 成本会计部', exp: '差', isp: '广东广州 电信', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 14, normalCount: 9, fairCount: 1, poorCount: 4 },
+          { empId: '2024005', name: '郑翔', ip: '119.12.10.32', dept: '深信服科技 / 运营管理部 / 计划调度处', exp: '差', isp: '广东深圳 电信', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 19, normalCount: 13, fairCount: 2, poorCount: 4 },
+          { empId: '2024006', name: '王丽', ip: '183.14.7.6', dept: '深信服科技 / 供应链管理中心 / 采购部', exp: '差', isp: '广东深圳 移动', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 20, normalCount: 14, fairCount: 2, poorCount: 4 },
+          { empId: '2024007', name: '冯超', ip: '113.108.26.15', dept: '深信服科技 / 供应链管理中心 / 仓储物流部', exp: '差', isp: '广东广州 电信', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 16, normalCount: 10, fairCount: 3, poorCount: 3 },
+          { empId: '2024008', name: '陈峰', ip: '119.12.10.41', dept: '深信服科技 / 销售中心 / 华南订单部', exp: '差', isp: '广东深圳 电信', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 22, normalCount: 16, fairCount: 2, poorCount: 4 },
+          { empId: '2024009', name: '褚刚', ip: '101.226.44.9', dept: '深信服科技 / 销售中心 / 华东订单部', exp: '差', isp: '上海电信', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 17, normalCount: 12, fairCount: 1, poorCount: 4 },
+          { empId: '2024010', name: '卫兵', ip: '202.108.24.11', dept: '深信服科技 / 销售中心 / 华北订单部', exp: '差', isp: '北京联通', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 18, normalCount: 13, fairCount: 1, poorCount: 4 },
+          { empId: '2024011', name: '蒋波', ip: '119.12.11.8', dept: '深信服科技 / 制造事业部 / 生产企划科', exp: '差', isp: '广东深圳 电信', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 15, normalCount: 10, fairCount: 2, poorCount: 3 },
+          { empId: '2024012', name: '沈婷', ip: '119.12.11.17', dept: '深信服科技 / 财务中心 / 税务管理部', exp: '差', isp: '广东深圳 电信', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 14, normalCount: 9, fairCount: 2, poorCount: 3 },
+          { empId: '2024013', name: '韩雪', ip: '183.14.8.13', dept: '深信服科技 / 财务中心 / 税务管理部', exp: '差', isp: '广东广州 移动', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 16, normalCount: 11, fairCount: 2, poorCount: 3 },
+          { empId: '2024014', name: '杨勇', ip: '119.12.11.26', dept: '深信服科技 / 供应链管理中心 / 供应商认证处', exp: '差', isp: '广东深圳 电信', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 17, normalCount: 12, fairCount: 2, poorCount: 3 },
+          { empId: '2024015', name: '朱鹏', ip: '118.121.62.10', dept: '深信服科技 / 销售中心 / 渠道对账组', exp: '差', isp: '四川成都 电信', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 15, normalCount: 10, fairCount: 2, poorCount: 3 },
+          { empId: '2024016', name: '秦岚', ip: '119.12.11.35', dept: '深信服科技 / 销售中心 / 渠道对账组', exp: '差', isp: '广东深圳 电信', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 19, normalCount: 14, fairCount: 1, poorCount: 4 },
+          { empId: '2024017', name: '尤佳', ip: '119.12.11.44', dept: '深信服科技 / 财务中心 / 资产核算科', exp: '差', isp: '广东深圳 电信', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 13, normalCount: 8, fairCount: 2, poorCount: 3 },
+          { empId: '2024018', name: '许宏', ip: '119.12.12.9', dept: '深信服科技 / 制造事业部 / 物料控制科', exp: '差', isp: '广东深圳 联通', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 18, normalCount: 13, fairCount: 2, poorCount: 3 },
+          { empId: '2024019', name: '何斌', ip: '113.108.26.24', dept: '深信服科技 / 制造事业部 / 质量检验处', exp: '差', isp: '广东广州 电信', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 16, normalCount: 11, fairCount: 2, poorCount: 3 },
+          { empId: '2024020', name: '吕强', ip: '202.108.24.22', dept: '深信服科技 / 运营管理部 / 经营分析室', exp: '差', isp: '北京联通', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 21, normalCount: 16, fairCount: 2, poorCount: 3 },
+          { empId: '2024021', name: '施霞', ip: '101.226.44.18', dept: '深信服科技 / 财务中心 / 预算控制部', exp: '差', isp: '上海电信', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 14, normalCount: 9, fairCount: 2, poorCount: 3 },
+          { empId: '2024022', name: '张健', ip: '119.12.12.18', dept: '深信服科技 / 供应链管理中心 / 进出口关务组', exp: '差', isp: '广东深圳 电信', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 17, normalCount: 12, fairCount: 2, poorCount: 3 },
+          { empId: '2024023', name: '孔明', ip: '113.108.26.33', dept: '深信服科技 / 销售中心 / 客户合同处', exp: '差', isp: '广东广州 电信', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 20, normalCount: 15, fairCount: 2, poorCount: 3 },
+          { empId: '2024024', name: '曹斌', ip: '119.12.12.27', dept: '深信服科技 / 制造事业部 / 工艺工程科', exp: '差', isp: '广东深圳 电信', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 16, normalCount: 11, fairCount: 2, poorCount: 3 },
+          { empId: '2024025', name: '严谨', ip: '202.108.24.33', dept: '深信服科技 / 内部审计部 / 财经审计组', exp: '差', isp: '北京电信', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 15, normalCount: 10, fairCount: 2, poorCount: 3 },
+          { empId: '2024026', name: '华芳', ip: '119.12.12.36', dept: '深信服科技 / 财务中心 / 报销审核处', exp: '差', isp: '广东深圳 电信', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 18, normalCount: 13, fairCount: 2, poorCount: 3 },
+          { empId: '2024027', name: '金玉', ip: '183.14.8.22', dept: '深信服科技 / 供应链管理中心 / 采购商务科', exp: '差', isp: '广东深圳 移动', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 14, normalCount: 9, fairCount: 2, poorCount: 3 },
+          { empId: '2024028', name: '魏明', ip: '118.121.62.19', dept: '深信服科技 / 销售中心 / 商务支持部', exp: '差', isp: '四川成都 电信', pop: '代理网关', anomalies: ['用户终端-代理网关段'], totalApps: 19, normalCount: 14, fairCount: 2, poorCount: 3 },
 
           // ② 正常体验用户代表 (12人)
-          { empId: '2024029', name: '赵俊', dept: '深信服科技 / 技术研发部 / 核心架构组', exp: '正常', isp: '上海电信', pop: '代理网关', totalApps: 32, normalCount: 32, fairCount: 0, poorCount: 0 },
-          { empId: '2024030', name: '钱亮', dept: '深信服科技 / 运维中心 / 基础平台组', exp: '正常', isp: '广东深圳 电信', pop: '代理网关', totalApps: 35, normalCount: 35, fairCount: 0, poorCount: 0 },
-          { empId: '2024031', name: '孙琪', dept: '深信服科技 / 人力资源部 / 薪酬福利组', exp: '正常', isp: '北京联通', pop: '代理网关', totalApps: 28, normalCount: 28, fairCount: 0, poorCount: 0 },
-          { empId: '2024032', name: '李强', dept: '深信服科技 / 行政管理中心 / 总务科', exp: '正常', isp: '四川成都 电信', pop: '代理网关', totalApps: 26, normalCount: 26, fairCount: 0, poorCount: 0 },
-          { empId: '2024033', name: '周成', dept: '深信服科技 / 法务合规部 / 商业合规组', exp: '正常', isp: '广东深圳 电信', pop: '代理网关', totalApps: 30, normalCount: 30, fairCount: 0, poorCount: 0 },
-          { empId: '2024034', name: '吴峰', dept: '深信服科技 / 战略市场部 / 行业拓展组', exp: '正常', isp: '上海电信', pop: '代理网关', totalApps: 29, normalCount: 29, fairCount: 0, poorCount: 0 },
-          { empId: '2024035', name: '郑洁', dept: '深信服科技 / 数字化推进室 / 项目管理处', exp: '正常', isp: '广东深圳 电信', pop: '代理网关', totalApps: 34, normalCount: 34, fairCount: 0, poorCount: 0 },
-          { empId: '2024036', name: '王坤', dept: '深信服科技 / 智能制造研究院 / 工控软件部', exp: '正常', isp: '广东广州 电信', pop: '代理网关', totalApps: 31, normalCount: 31, fairCount: 0, poorCount: 0 },
-          { empId: '2024037', name: '冯宇', dept: '深信服科技 / 客户服务中心 / 备件支持科', exp: '正常', isp: '湖北武汉 电信', pop: '代理网关', totalApps: 27, normalCount: 27, fairCount: 0, poorCount: 0 },
-          { empId: '2024038', name: '陈晶', dept: '深信服科技 / 总裁办 / 业务督办组', exp: '正常', isp: '北京电信', pop: '代理网关', totalApps: 33, normalCount: 33, fairCount: 0, poorCount: 0 },
-          { empId: '2024039', name: '褚浩', dept: '深信服科技 / 审计监察部 / 内部控制处', exp: '正常', isp: '陕西西安 电信', pop: '代理网关', totalApps: 28, normalCount: 28, fairCount: 0, poorCount: 0 },
-          { empId: '2024040', name: '卫琳', dept: '深信服科技 / 财务中心 / 财务共享中心', exp: '正常', isp: '广东深圳 电信', pop: '代理网关', totalApps: 36, normalCount: 36, fairCount: 0, poorCount: 0 }
+          { empId: '2024029', name: '赵俊', ip: '101.226.45.6', dept: '深信服科技 / 技术研发部 / 核心架构组', exp: '正常', isp: '上海电信', pop: '代理网关', totalApps: 32, normalCount: 32, fairCount: 0, poorCount: 0 },
+          { empId: '2024030', name: '钱亮', ip: '119.12.13.7', dept: '深信服科技 / 运维中心 / 基础平台组', exp: '正常', isp: '广东深圳 电信', pop: '代理网关', totalApps: 35, normalCount: 35, fairCount: 0, poorCount: 0 },
+          { empId: '2024031', name: '孙琪', ip: '202.108.25.8', dept: '深信服科技 / 人力资源部 / 薪酬福利组', exp: '正常', isp: '北京联通', pop: '代理网关', totalApps: 28, normalCount: 28, fairCount: 0, poorCount: 0 },
+          { empId: '2024032', name: '李强', ip: '118.121.63.11', dept: '深信服科技 / 行政管理中心 / 总务科', exp: '正常', isp: '四川成都 电信', pop: '代理网关', totalApps: 26, normalCount: 26, fairCount: 0, poorCount: 0 },
+          { empId: '2024033', name: '周成', ip: '119.12.13.16', dept: '深信服科技 / 法务合规部 / 商业合规组', exp: '正常', isp: '广东深圳 电信', pop: '代理网关', totalApps: 30, normalCount: 30, fairCount: 0, poorCount: 0 },
+          { empId: '2024034', name: '吴峰', ip: '101.226.45.15', dept: '深信服科技 / 战略市场部 / 行业拓展组', exp: '正常', isp: '上海电信', pop: '代理网关', totalApps: 29, normalCount: 29, fairCount: 0, poorCount: 0 },
+          { empId: '2024035', name: '郑洁', ip: '119.12.13.25', dept: '深信服科技 / 数字化推进室 / 项目管理处', exp: '正常', isp: '广东深圳 电信', pop: '代理网关', totalApps: 34, normalCount: 34, fairCount: 0, poorCount: 0 },
+          { empId: '2024036', name: '王坤', ip: '113.108.27.12', dept: '深信服科技 / 智能制造研究院 / 工控软件部', exp: '正常', isp: '广东广州 电信', pop: '代理网关', totalApps: 31, normalCount: 31, fairCount: 0, poorCount: 0 },
+          { empId: '2024037', name: '冯宇', ip: '111.170.62.18', dept: '深信服科技 / 客户服务中心 / 备件支持科', exp: '正常', isp: '湖北武汉 电信', pop: '代理网关', totalApps: 27, normalCount: 27, fairCount: 0, poorCount: 0 },
+          { empId: '2024038', name: '陈晶', ip: '202.108.25.19', dept: '深信服科技 / 总裁办 / 业务督办组', exp: '正常', isp: '北京电信', pop: '代理网关', totalApps: 33, normalCount: 33, fairCount: 0, poorCount: 0 },
+          { empId: '2024039', name: '褚浩', ip: '117.35.82.14', dept: '深信服科技 / 审计监察部 / 内部控制处', exp: '正常', isp: '陕西西安 电信', pop: '代理网关', totalApps: 28, normalCount: 28, fairCount: 0, poorCount: 0 },
+          { empId: '2024040', name: '卫琳', ip: '119.12.13.34', dept: '深信服科技 / 财务中心 / 财务共享中心', exp: '正常', isp: '广东深圳 电信', pop: '代理网关', totalApps: 36, normalCount: 36, fairCount: 0, poorCount: 0 }
         ],
 
         get userList() {
@@ -4899,7 +4899,14 @@
                               :class="item.exp === '差' ? 'bg-[#D9363E]/10 text-[#D9363E]' : (item.exp === '一般' ? 'bg-[#FA721B]/10 text-[#FA721B]' : 'bg-[#12A679]/10 text-[#12A679]')"
                               class="px-2 py-0.5 text-[11px] rounded-[2px] font-medium" x-text="item.exp"></span>
                           </td>
-                          <td x-text="item.isp"></td>
+                          <td>
+                            <div class="flex flex-col justify-center leading-snug py-0.5">
+                              <span class="font-mono text-xs text-[#2F3540]"
+                                x-text="item.ip || '-'"></span>
+                              <span class="text-[11px] text-[#8C8C8C] leading-tight mt-0.5"
+                                x-text="item.isp || '-'"></span>
+                            </div>
+                          </td>
                           <td class="text-[#2F3540]" x-text="item.pop"></td>
                           <td class="num-col font-mono"
                             x-text="item.affectedUsers > 0 ? item.affectedUsers + ' 人' : '-'"></td>
@@ -5141,7 +5148,14 @@
                               :class="item.exp === '差' ? 'bg-[#D9363E]/10 text-[#D9363E]' : (item.exp === '一般' ? 'bg-[#FA721B]/10 text-[#FA721B]' : 'bg-[#12A679]/10 text-[#12A679]')"
                               class="px-2 py-0.5 text-[11px] rounded-[2px] font-medium" x-text="item.exp"></span>
                           </td>
-                          <td x-text="item.isp"></td>
+                          <td>
+                            <div class="flex flex-col justify-center leading-snug py-0.5">
+                              <span class="font-mono text-xs text-[#2F3540]"
+                                x-text="item.ip || '-'"></span>
+                              <span class="text-[11px] text-[#8C8C8C] leading-tight mt-0.5"
+                                x-text="item.isp || '-'"></span>
+                            </div>
+                          </td>
                           <td class="text-[#2F3540]" x-text="item.pop"></td>
                           <td>
                             <template x-if="item.anomalies && item.anomalies.length > 0">

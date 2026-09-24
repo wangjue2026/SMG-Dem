@@ -3762,6 +3762,258 @@
           }, 400);
         },
 
+        // 页面轻量 Toast 提示状态与方法
+        toast: {
+          show: false,
+          message: '',
+          timer: null
+        },
+
+        showToast(msg = '操作成功') {
+          if (this.toast.timer) clearTimeout(this.toast.timer);
+          this.toast.message = msg;
+          this.toast.show = true;
+          this.toast.timer = setTimeout(() => {
+            this.toast.show = false;
+          }, 2600);
+        },
+
+        // 一键转派工单
+        dispatchTicket() {
+          const analysis = this.currentAiAnalysis;
+          const woNumber = 'WO-' + new Date().getFullYear() + '-' + Math.floor(1000 + Math.random() * 9000);
+          this.showToast(`已成功转派排障工单【${woNumber}】至【${analysis.team}】！`);
+        },
+
+        // 复制 AI 排障诊断摘要与举证
+        copyAiAnalysisText() {
+          const analysis = this.currentAiAnalysis;
+          const time = this.currentPoint?.time || this.currentSlice?.time || '15:20';
+          const text = `【DEM AI 诊断报告】\n` +
+            `• 联动时刻: ${time}\n` +
+            `• 研判结论: ${(analysis.executiveSummary || '').replace(/<[^>]+>/g, '')}\n` +
+            `• 问题节点 / 链路段: ${analysis.segmentName} (${analysis.locationTag})\n` +
+            `• 关键排障依据:\n` +
+            analysis.evidences.map((e, idx) => `  - ${e.replace(/<[^>]+>/g, '')}`).join('\n') + `\n` +
+            `• 影响范围与关联分析: [${analysis.scopeCategoryTag}]\n` +
+            `  - 判定依据: ${analysis.scopeVerdict}\n` +
+            `  - 同接入 POP 访问情况: ${analysis.scopePopAnalysis}\n` +
+            `  - 同地理位置访问情况: ${analysis.scopeGeoAnalysis}\n` +
+            `• 处置指引 (协同: ${analysis.team}):\n` +
+            analysis.steps.map((s, idx) => `  ${idx + 1}. ${s}`).join('\n');
+
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(() => {
+              this.showToast('已复制 AI 诊断报告至剪贴板');
+            }).catch(() => {
+              this.showToast('已生成诊断摘要');
+            });
+          } else {
+            this.showToast('已生成诊断摘要');
+          }
+        },
+
+        // 调度至备用 POP 策略
+        quickSwitchPopOrPolicy() {
+          this.showToast('已下发流量应急调度指令：受影响用户流量已临时切换至上海备用 POP 链路！');
+        },
+
+        // 快捷锚点跳转并高亮展开对应手风琴明细
+        locateTopologyDetail(targetId) {
+          if (!targetId) return;
+          this.clickTopologyItem('segment', targetId);
+        },
+
+        // DEM AI 智能排障与根因分析计算属性 (针对当前选中时刻的访问，高信噪比极简结构)
+        get currentAiAnalysis() {
+          const point = this.currentPoint;
+          const slice = this.currentSlice;
+          const exp = point?.experience || slice?.experience || '正常';
+          const isAbnormal = (exp === '差');
+          const isFair = (exp === '一般');
+          const isHeZong = this.userName?.includes('何总') || this.userId === 'usr_hezong';
+          const isOaIncident = (this.currentApp?.name === 'OA系统' || this.currentApp?.id === 'app_oa' || this.userName?.includes('刘洋') || this.userName?.includes('陈晨'));
+          const isMaria = this.userName?.includes('Maria') || this.userId === 'usr_digiplus_maria';
+          const isBranch = this.queryType === '分支';
+          const userDisplay = this.userName || '该用户';
+          const timeDisplay = point?.time || slice?.time || '当前时刻';
+          const appDisplay = this.currentApp?.name || '该应用';
+
+          if (isAbnormal) {
+            if (isHeZong) {
+              return {
+                status: '异常',
+                locationTag: '终端无线接入异常',
+                segmentName: '终端 ➔ 本地 Wi-Fi 接入段',
+                targetId: 'seg_client_pop',
+                executiveSummary: `用户 <b>${userDisplay}</b> 在 <b>${timeDisplay}</b> 访问 <b>${appDisplay}</b> 体验差主要问题在于 <b>终端本地 Wi-Fi 接入段弱信号与空口高重传异常</b>，且关联同地理位置（16 楼同办公区 42 位员工接入正常）、同 POP 等其他用户访问体验分析，此问题大概率为 <b>个例问题</b>（仅当前 1 台终端受影响）。`,
+                locationDesc: '16 楼 VIP 接待室处于无线 AP 盲区，空口同频竞争引发 38% 高重传。',
+                isIndividual: true,
+                scopeCategoryTag: '群体问题概率：低',
+                scopeTag: '群体问题概率：低',
+                scopeDesc: '仅何总专用终端处于接待室边缘弱信号盲区，同办公区其他终端及同 POP 接入均正常。',
+                scopeVerdict: '同地理位置与同 POP 其他用户体验均正常，问题局限于该终端所处无线盲区，确认为个体问题。',
+                scopePopAnalysis: '此时刻经北京 POP 接入的 412 名并发用户中，同时仅 1 人访问体验异常，占比 0.2%，说明 POP 节点及骨干网络整体正常。',
+                scopeGeoAnalysis: '此时刻 16 楼同办公区 42 名员工中，同时仅 1 人访问体验异常，占比 2.4%，说明办公区局域网正常，仅当前工位无线信号弱。',
+                scopeMetrics: '同办公区 42 人访问正常 · 同 POP 接入可用性 99.8% · 出口负载 18% 正常',
+                evidences: [
+                  '终端 Wi-Fi 信号强度弱至 <b>-82 dBm</b>（基线 &gt; -65 dBm），空口重传率达 <b>38.0%</b>（基线 &lt; 5%）。',
+                  '第 1 跳局域网网关丢包 <b>4.8%</b>，终端至北京 POP 接入段时延达 <b>198ms</b>。',
+                  '北京 POP、专线连接器与后端服务器探针 TTFB 仅 <b>48ms</b> (HTTP 200)，排除服务端与骨干网故障。',
+                  '该终端同期访问的 ERP系统、企业邮箱 亦呈相同卡慢，印证为本地无线接入层故障。'
+                ],
+                team: '北京现场 IT 运维 & 无线网络管理组',
+                steps: [
+                  '指导用户临时连接会议桌有线网线，或就近连接 5GHz 强信号 Wi-Fi 热点。',
+                  '调高 16 楼邻近 AP 发射功率，调整信道避免同频干扰，并增配微型补盲 AP。'
+                ],
+                hasSwitchPop: false
+              };
+            } else if (isMaria) {
+              return {
+                status: '异常',
+                locationTag: '私网丢包与平台限流',
+                segmentName: '办公室私网 Hop2 + 马尼拉 POP 节点',
+                targetId: 'seg_client_pop',
+                executiveSummary: `用户 <b>${userDisplay}</b> 在 <b>${timeDisplay}</b> 访问 <b>${appDisplay}</b> 体验差主要问题在于 <b>马尼拉办公室私网 Hop2 丢包与马尼拉 POP 平台 10Gbps 限流异常</b>，且关联同地理位置（同公网出口 34 位员工均受阻）、同 POP 等其他用户访问体验分析，此问题大概率为 <b>局部群体问题</b>（波及同出口 34 名用户）。`,
+                locationDesc: '私网 Hop2 丢包 3.1% / 抖动 40ms，叠加马尼拉 POP 流量达 10.4Gbps 触发租户限流。',
+                isIndividual: false,
+                scopeCategoryTag: '群体问题概率：高',
+                scopeTag: '群体问题概率：高',
+                scopeDesc: '马尼拉办公室同一公网出口下 34 名员工访问飞书及 Office 均出现上传下载严重受阻。',
+                scopeVerdict: '同出口多名员工并发受阻叠加 POP 端口限流丢包，确认为私网端口误码与平台限流引发的局部群体问题。',
+                scopePopAnalysis: '此时刻经马尼拉 POP 接入的 46 名并发用户中，同时有 34 人访问体验异常，占比 73.9%，说明 POP 平台侧触发租户限流排队。',
+                scopeGeoAnalysis: '此时刻马尼拉现场办公区 46 名员工中，同时有 34 人访问体验异常，占比 73.9%，说明本地办公区私网交换设备存在共性丢包。',
+                scopeMetrics: '同出口 34 人受影响 (占 73.9%) · 马尼拉 POP 流量超 10Gbps 限流 · 公网出口后时延正常',
+                evidences: [
+                  'Underlay 丢包 <b>3.1%</b>、抖动 <b>40ms</b>，Overlay 隧道有效吞吐由 50Mbps 骤降至 <b>20Mbps</b>。',
+                  '第 2 个私网 Hop (10.10.0.1) 出现 <b>+2.9%</b> 丢包增量与 <b>+36ms</b> 抖动；公网出口后未见新增丢包。',
+                  '马尼拉 POP 节点当前租户总吞吐达 <b>10.4 Gbps</b>（阈值 10 Gbps），触发平台侧限速排队。',
+                  '飞书官方 SaaS 服务状态良好，全球探测可用性 <b>99.9%</b>，排除应用服务商服务端故障。'
+                ],
+                team: 'DigiPlus 现场网络运维组 & SASE 租户运营团队',
+                steps: [
+                  '联系 SASE 运营团队对该租户马尼拉 POP 实施临时弹性扩容（将限流阈值调高至 15Gbps）。',
+                  '现场网络工程师排查私网交换机 Hop 2 端口队列与双工模式，消除物理误码。'
+                ],
+                hasSwitchPop: false
+              };
+            } else if (isBranch) {
+              return {
+                status: '异常',
+                locationTag: '分支专线上车异常',
+                segmentName: '分支出口AF ➔ 上车POP专线传输段',
+                targetId: 'seg_client_pop',
+                executiveSummary: `用户 <b>${userDisplay}</b> 在 <b>${timeDisplay}</b> 访问 <b>${appDisplay}</b> 体验差主要问题在于 <b>分支出口专线上车段运营商物理链路突发丢包异常</b>，且关联同地理位置、同 POP 等其他用户访问体验分析，此问题大概率为 <b>全分支群体问题</b>（约 68 人受损）。`,
+                locationDesc: '分支出口专线抖动突增，上车 POP 队列排队导致协议直探 TTFB 升至 880ms。',
+                isIndividual: false,
+                scopeCategoryTag: '群体问题概率：高',
+                scopeTag: '群体问题概率：高',
+                scopeDesc: '该分支出口全部员工跨域访问总部业务均响应放缓，波及该分支所有并发终端。',
+                scopeVerdict: '该分支出口物理专线突发丢包误码，导致全部分支员工跨域访问集体卡顿，确认为分支共性群体问题。',
+                scopePopAnalysis: '此时刻经该分支出口专线上车 POP 的 68 名并发用户中，同时有 68 人访问体验异常，占比 100%，说明上车段物理专线出现共性丢包抖动。',
+                scopeGeoAnalysis: '此时刻该分支办公区 68 名员工中，同时有 68 人访问体验异常，占比 100%，说明故障局限于该分支物理出口专线，总部及其他分支正常。',
+                scopeMetrics: '分支全体人员受影响 · 上车 POP 链路利用率 88% · 分支 AF 本地负载 14% 正常',
+                evidences: [
+                  '专线传输时延升至 <b>88ms</b>，丢包率 <b>2.8%</b>，直探 TTFB 由 280ms 延展至 <b>880ms</b>。',
+                  '分支 AF 本地转发耗时 4ms 正常，上车段运营商物理链路出现突发丢包跳变。',
+                  '总部 AF 与后端应用服务器健康度 <b>100%</b>，内网传输段零丢包。'
+                ],
+                team: '分支网络管理员 & 专线运营商运维',
+                steps: [
+                  '启用分支 AF 双专线智能选路，将核心业务流量倒换至备用运营商专线。',
+                  '向专线运营商提交逐跳丢包记录，排查本地接入光缆误码与衰耗。'
+                ],
+                hasSwitchPop: false
+              };
+            } else {
+              // 默认/刘洋/陈晨/OA系统等深圳POP骨干专线场景
+              return {
+                status: '异常',
+                locationTag: '骨干专线传输异常',
+                segmentName: '华南深圳POP ➔ 总部01连接器传输段',
+                targetId: 'seg_pop_gw',
+                executiveSummary: `用户 <b>${userDisplay}</b> 在 <b>${timeDisplay}</b> 访问 <b>${appDisplay}</b> 体验差主要问题在于 <b>华南深圳 POP 至总部 01 连接器专线传输拥塞与丢包异常</b>，且关联同地理位置、同 POP 等其他用户访问体验分析（同走该 POP 访问 OA 的用户中 38.2% 均出现卡慢），此问题大概率为 <b>跨区分支群体问题</b>（共 12 名并发用户受波及）。`,
+                locationDesc: '深圳 POP 骨干出向专线队列拥塞，传输丢包 5.2%、抖动 48ms，拖慢真实访问响应。',
+                isIndividual: false,
+                scopeCategoryTag: '群体问题概率：高',
+                scopeTag: '群体问题概率：高',
+                scopeVerdict: '多地域分支跨区访问该应用并发受损，专线丢包达 5.2%，确认为骨干传输段专线拥塞引发的跨区分支群体问题。',
+                scopePopAnalysis: '此时刻经华南深圳 POP 跨区访问的 31 名并发用户中，同时有 12 人访问体验异常，占比 38.2%，说明该 POP 出向骨干专线发生共性拥塞。',
+                scopeGeoAnalysis: '此时刻深圳、东莞等 3 个分支办公区走该专线的 31 名员工中，同时有 12 人访问体验异常，占比 38.2%，说明为跨地域分支走该专线的共性异常，非本地办公区网络问题。',
+                scopeMetrics: '同走深圳 POP 用户中 38.2% (12/31人) 受损 · 上海本地出口丢包 0% · 上海本地 POP 用户访问顺畅',
+                evidences: [
+                  '深圳 POP 至总部专线丢包率 <b>5.2%</b>（基线 &lt; 0.5%）、抖动 <b>48ms</b>、RTT <b>145ms</b>。',
+                  'Hop 1~2 上海电信接入段丢包 0%；Hop 3 深圳 POP 骨干出口出现丢包跳变 (<b>+4.8%</b>) 与抖动突增。',
+                  '总部01连接器与 OA 后端应用服务器探针 TTFB 仅 <b>12ms</b> (HTTP 200)，排除应用自身故障。',
+                  '经华东上海本地 POP 接入同应用的其余 180 名用户访问顺畅（平均 TTFB 42ms），确认仅华南专线异常。'
+                ],
+                team: 'SASE 平台网络运营组 & 骨干专线运营商',
+                steps: [
+                  '在 SASE 策略控制台将上海/东京分支用户临时调度切换至上海/广州本地 POP，绕行故障专线。',
+                  '将 Hop 3 逐跳丢包与抖动监控报告转派运营商工单系统，核查华南光缆传输质量。'
+                ],
+                hasSwitchPop: true
+              };
+            }
+          } else if (isFair) {
+            return {
+              status: '一般',
+              locationTag: '网络轻微波动',
+              segmentName: 'POP ➔ 连接器传输链路',
+              targetId: 'seg_pop_gw',
+              executiveSummary: `用户 <b>${userDisplay}</b> 在 <b>${timeDisplay}</b> 访问 <b>${appDisplay}</b> 体验一般主要问题在于 <b>传输链路短时微抖动与轻度拥塞</b>，且关联同地理位置、同 POP 等其他用户访问体验分析（同 POP 成功率 98.6%，未大面积扩散），此问题大概率为 <b>局部轻度波动个例问题</b>。`,
+              locationDesc: '链路出现短时突发轻度拥塞，TTFB 处于关注区间 (300~600ms)。',
+              isIndividual: true,
+              scopeCategoryTag: '群体问题概率：低',
+              scopeTag: '群体问题概率：低',
+              scopeDesc: '同 POP 接入用户中仅个别会话偶发微小延迟，未形成大面积扩散故障。',
+              scopeVerdict: '全网与同办公区无扩散性异常，指标处于关注阈值内，确认为短时偶发微波动个例。',
+              scopePopAnalysis: '此时刻经同 POP 接入的 210 名并发用户中，同时仅有 2 人访问体验异常，占比 0.9%，说明骨干传输网络整体健康。',
+              scopeGeoAnalysis: '此时刻同办公区 85 名员工中，同时仅当前 1 人访问体验异常，占比 1.2%，说明本地网络运行平稳无共性故障。',
+              scopeMetrics: '同 POP 用户会话成功率 98.6% · 所在办公区网络平稳 · 出口负载 42%',
+              evidences: [
+                `当前时刻真实 TTFB 为 <b>${point?.ttfb || 420}ms</b>，丢包率 <b>${point?.loss || '0.8%'}</b>，略高于基线但未阻断业务。`,
+                '传输队列无持续拥塞，抖动在 15ms 以内，链路具备自愈能力，未触发硬告警阈值。',
+                '后端业务系统处理时延正常，终端本地信号优良。'
+              ],
+              team: '网络智能监控系统 (自动追踪)',
+              steps: [
+                '系统自动保持高频采样观察指标是否自愈恢复，若持续 3 个周期劣化将自动升级告警。'
+              ],
+              hasSwitchPop: false
+            };
+          } else {
+            // 正常健康状态
+            return {
+              status: '正常',
+              locationTag: '全链路健康',
+              segmentName: '端 ➔ 网 ➔ 云 ➔ 服 全路径',
+              targetId: null,
+              executiveSummary: `用户 <b>${userDisplay}</b> 在 <b>${timeDisplay}</b> 访问 <b>${appDisplay}</b> 体验良好，全链路各关键性能与网络指标均在健康基线内，关联同地理位置与同 POP 其他用户访问均顺畅，全网运行平稳无异常。`,
+              locationDesc: '当前时刻全链路各项性能与网络指标均在健康基线内，访问敏捷顺畅。',
+              isIndividual: true,
+              scopeCategoryTag: '全网正常',
+              scopeTag: '全网正常',
+              scopeDesc: '该用户与同接入点、同办公区所有人员访问该应用均顺畅，全网运行平稳。',
+              scopeVerdict: '端-网-云-服各项性能指标均处于健康基线，关联同地域与同 POP 运行平稳，零故障。',
+              scopePopAnalysis: '此时刻经同 POP 接入的并发用户中，同时有 0 人访问体验异常，占比 0%，说明骨干传输网络整体优良。',
+              scopeGeoAnalysis: '此时刻同办公区所有员工中，同时有 0 人访问体验异常，占比 0%，说明本地网络接入与服务整体顺畅。',
+              scopeMetrics: '同 POP 接入用户访问成功率 100% · 平均 TTFB 28ms · 出口零丢包',
+              evidences: [
+                '终端本地 Wi-Fi / LAN 连通良好，时延 12ms，零丢包，信号强度正常。',
+                'POP 骨干专线传输低时延（RTT 22ms）、零丢包、抖动 &lt; 2ms，路由处于最优路径。',
+                `应用服务探针响应迅捷（TTFB <b>${point?.ttfb || 28}ms</b>，HTTP 200 OK），应用健康度 100%。`
+              ],
+              team: '系统平稳运行 (无需干预)',
+              steps: [
+                '当前时刻各项指标优良，体验优秀，无需人工排查干预。'
+              ],
+              hasSwitchPop: false
+            };
+          }
+        },
+
         goBackUserList() {
           try {
             if (this.queryType) {
@@ -3825,6 +4077,24 @@
     <template id="page-content-template">
       <div class="flex flex-col w-full h-full overflow-hidden" x-data="demUserDetailState()" x-init="init()">
         
+        <!-- 页面顶部 Tips 成功提示浮层 (如: 工单转派成功/报告复制成功) -->
+        <div x-show="toast.show" 
+             x-transition:enter="transition ease-out duration-200"
+             x-transition:enter-start="opacity-0 -translate-y-4 scale-95"
+             x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+             x-transition:leave="transition ease-in duration-150"
+             x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+             x-transition:leave-end="opacity-0 -translate-y-4 scale-95"
+             class="fixed top-12 left-1/2 -translate-x-1/2 z-[99999] pointer-events-none bg-white text-[#1E293B] px-4 py-2 rounded-[4px] shadow-xl border border-[#CBD5E1] text-xs font-medium flex items-center gap-2 select-none"
+             x-cloak>
+          <div class="w-4 h-4 rounded-full bg-[#E6F8F1] text-[#12A679] flex items-center justify-center shrink-0">
+            <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path>
+            </svg>
+          </div>
+          <span class="text-xs text-[#1E293B] font-sans font-medium" x-text="toast.message"></span>
+        </div>
+
         <!-- 页面 Sub Header (面包屑与时间筛选器) -->
         <div class="h-[48px] min-h-[48px] bg-white border-b border-[#E1E5EB] px-3 flex items-center justify-between flex-shrink-0 select-none z-20">
           <div class="flex items-center gap-2">
@@ -4501,6 +4771,7 @@
                             </div>
                           </div>
 
+
                           <!-- 2. 真实访问 TTFB -->
                           <div class="relative"
                                x-data="{ realHoverOpen: false, realTimeout: null }"
@@ -5010,6 +5281,144 @@
                         </div>
                       </div>
                     </template>
+
+                    </div>
+                  </div>
+
+                  <!-- [REFINED] DEM AI 智能排障与研判解读面板 -->
+                  <div class="rounded-[3px] border border-[#E2E8F0] bg-white shadow-xs overflow-hidden">
+                    <!-- 标题栏：现代 AI 微渐变底色 (淡雅科技感，告别死板灰底) -->
+                    <div class="px-4 py-2.5 bg-gradient-to-r from-[#F8FAFC] via-[#F1F5F9]/60 to-[#F5F3FF]/70 border-b border-[#E2E8F0] flex items-center justify-between select-none">
+                      <div class="flex items-center gap-2.5">
+                        <!-- AI 专属标识图标 (优雅蓝绿渐变色) -->
+                        <div class="w-5 h-5 rounded-[5px] bg-gradient-to-tr from-[#0284C7] via-[#0EA5E9] to-[#10B981] text-white flex items-center justify-center shadow-xs shrink-0">
+                          <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z"/>
+                          </svg>
+                        </div>
+                        <span class="text-xs font-semibold text-[#1E293B]">AI 诊断解读</span>
+                        
+                        <!-- 核心状态与影响面标签：仅当整块内容收起时才在标题栏展示，展开时隐藏保持头部纯粹 -->
+                        <template x-if="isAiSummaryCollapsed">
+                          <div class="flex items-center gap-2">
+                            <span class="px-2 py-0.5 rounded-[2px] text-[11px] font-medium"
+                                  :class="currentAiAnalysis.status === '异常' ? 'bg-[#FFF1F0] text-[#F52727] border border-[#FFA39E]' : (currentAiAnalysis.status === '一般' ? 'bg-[#FFF7E6] text-[#FA721B] border border-[#FFD591]' : 'bg-[#E6F8F2] text-[#12A679] border border-[#B7EB8F]')"
+                                  x-text="currentAiAnalysis.locationTag"></span>
+                            
+                            <span class="px-2 py-0.5 rounded-[2px] text-[11px] font-medium"
+                                  :class="currentAiAnalysis.scopeCategoryTag.includes('高') ? 'bg-[#FFF1F0] text-[#F52727] border border-[#FFA39E]' : (currentAiAnalysis.status === '正常' ? 'bg-[#E6F8F2] text-[#12A679] border border-[#B7EB8F]' : 'bg-[#F8FAFC] text-[#475569] border border-[#CBD5E1]')"
+                                  x-text="currentAiAnalysis.scopeCategoryTag"></span>
+                          </div>
+                        </template>
+                      </div>
+
+                      <div class="flex items-center gap-3">
+                        <button type="button" 
+                                @click="copyAiAnalysisText()"
+                                class="text-[11px] text-[#64748B] hover:text-[#1C6EFF] transition-colors cursor-pointer flex items-center gap-1">
+                          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                          </svg>
+                          <span>复制报告</span>
+                        </button>
+
+                        <span class="w-[1px] h-3 bg-[#CBD5E1]"></span>
+
+                        <button type="button"
+                                @click="isAiSummaryCollapsed = !isAiSummaryCollapsed"
+                                class="text-[11px] text-[#64748B] hover:text-[#1E293B] transition-colors cursor-pointer flex items-center gap-0.5">
+                          <span x-text="isAiSummaryCollapsed ? '展开' : '收起'"></span>
+                          <svg class="w-3 h-3 transition-transform duration-150"
+                               :class="isAiSummaryCollapsed ? '-rotate-90' : 'rotate-0'"
+                               fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+
+                    <!-- 面板主体 (通透清爽、增加 AI 核心研判摘要，告别工程化表单感) -->
+                    <div x-show="!isAiSummaryCollapsed" x-collapse class="p-4 space-y-3.5 text-xs">
+                      
+                      <!-- 核心 AI 研判结论 (智能自然语言摘要卡，带 AI 专属微弱蓝绿/蓝紫渐变底色) -->
+                      <div class="px-3.5 py-2.5 rounded-[3px] bg-gradient-to-r from-[#F8FAFC] via-[#F0FDFA]/60 to-[#F5F7FF] border border-[#CCFBF1]/80 flex items-start gap-2.5">
+                        <div class="mt-0.5 text-[#0EA5E9] shrink-0">
+                          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                          </svg>
+                        </div>
+                        <div class="text-xs text-[#334155] leading-relaxed flex-1">
+                          <span class="font-medium text-[#1E293B]">研判结论：</span>
+                          <span x-html="currentAiAnalysis.executiveSummary"></span>
+                        </div>
+                      </div>
+
+                      <!-- 一、问题节点 / 链路段 (简洁标题文案形式，无框线背景，去除冗余描述长句) -->
+                      <div class="flex items-center gap-2 text-xs">
+                        <span class="text-[11px] text-[#64748B] font-medium shrink-0">问题节点 / 链路段：</span>
+                        <span class="text-xs font-semibold"
+                              :class="currentAiAnalysis.status === '异常' ? 'text-[#F52727]' : (currentAiAnalysis.status === '一般' ? 'text-[#FA721B]' : 'text-[#12A679]')"
+                              x-text="currentAiAnalysis.segmentName"></span>
+                        <span class="px-2 py-0.5 rounded-[2px] text-[11px] font-medium"
+                              :class="currentAiAnalysis.status === '异常' ? 'bg-[#FFF1F0] text-[#F52727] border border-[#FFA39E]' : (currentAiAnalysis.status === '一般' ? 'bg-[#FFF7E6] text-[#FA721B] border border-[#FFD591]' : 'bg-[#E6F8F2] text-[#12A679] border border-[#B7EB8F]')"
+                              x-text="currentAiAnalysis.locationTag"></span>
+                      </div>
+
+                      <!-- 二、关键排障依据 (调至问题节点/链路段正下方) -->
+                      <div class="space-y-1.5 pb-3 border-b border-[#F1F5F9]">
+                        <div class="text-[11px] text-[#64748B] font-medium">关键排障依据：</div>
+                        <div class="space-y-1 pl-1">
+                          <template x-for="(ev, idx) in currentAiAnalysis.evidences" :key="idx">
+                            <div class="flex items-start gap-2 text-[11px] text-[#334155] leading-relaxed">
+                              <span class="text-[#94A3B8] font-mono text-[10px] select-none mt-0.5">&bull;</span>
+                              <span x-html="ev"></span>
+                            </div>
+                          </template>
+                        </div>
+                      </div>
+
+                      <!-- 三、影响范围与关联分析 (判定依据首位，同POP/同地域无容器，简单标题文案格式) -->
+                      <div class="space-y-1.5 pb-3 border-b border-[#F1F5F9]">
+                        <!-- 标题栏：仅保留标题与个体/群体Tag，已去除右侧冗余文案 -->
+                        <div class="flex items-center gap-2">
+                          <span class="text-[11px] text-[#64748B] font-medium">影响范围与关联分析：</span>
+                          <span class="px-2 py-0.5 rounded-[2px] text-[11px] font-medium"
+                                :class="currentAiAnalysis.scopeCategoryTag.includes('高') ? 'bg-[#FFF1F0] text-[#F52727] border border-[#FFA39E]' : (currentAiAnalysis.status === '正常' ? 'bg-[#E6F8F2] text-[#12A679] border border-[#B7EB8F]' : 'bg-[#F1F5F9] text-[#475569] border border-[#CBD5E1]')"
+                                x-text="currentAiAnalysis.scopeCategoryTag"></span>
+                        </div>
+
+                        <!-- 列表内容：判定依据放首位，POP与地理位置平铺展开，无容器 -->
+                        <div class="space-y-1.5 pl-1 text-[11px] text-[#334155] leading-relaxed">
+                          <div class="flex items-start gap-2">
+                            <span class="text-[#94A3B8] font-mono text-[10px] select-none mt-0.5">&bull;</span>
+                            <div><span class="font-medium text-[#1E293B]">判定依据：</span><span x-text="currentAiAnalysis.scopeVerdict"></span></div>
+                          </div>
+                          <div class="flex items-start gap-2">
+                            <span class="text-[#94A3B8] font-mono text-[10px] select-none mt-0.5">&bull;</span>
+                            <div><span class="font-medium text-[#1E293B]">同接入 POP 访问情况：</span><span x-text="currentAiAnalysis.scopePopAnalysis"></span></div>
+                          </div>
+                          <div class="flex items-start gap-2">
+                            <span class="text-[#94A3B8] font-mono text-[10px] select-none mt-0.5">&bull;</span>
+                            <div><span class="font-medium text-[#1E293B]">同地理位置访问情况：</span><span x-text="currentAiAnalysis.scopeGeoAnalysis"></span></div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- 四、处置指引 (纯粹专业指引，无不支持的外部操作按钮) -->
+                      <div class="space-y-1 pt-0.5">
+                        <div class="flex items-center gap-2">
+                          <span class="text-[11px] text-[#64748B] font-medium">处置指引:</span>
+                          <span class="text-[11px] text-[#334155]">协同团队: <strong class="font-medium text-[#1E293B]" x-text="currentAiAnalysis.team"></strong></span>
+                        </div>
+                        <div class="text-[11px] text-[#475569] space-y-0.5 pl-1">
+                          <template x-for="(step, sIdx) in currentAiAnalysis.steps" :key="sIdx">
+                            <div class="flex items-start gap-1.5">
+                              <span class="text-[#94A3B8] text-[10px] font-mono" x-text="(sIdx + 1) + '.'"></span>
+                              <span x-text="step"></span>
+                            </div>
+                          </template>
+                        </div>
+                      </div>
 
                     </div>
                   </div>

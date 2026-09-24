@@ -107,6 +107,38 @@
       display: flex;
     }
 
+    /* 告警等级多选：已选择时，悬浮将下箭头替换为快捷清除按钮 */
+    .dem-level-clear {
+      display: none;
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background-color: #FFFFFF;
+      color: #8A92A1;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      z-index: 20;
+      transition: all 0.15s;
+    }
+
+    .dem-level-clear:hover {
+      color: #1C6EFF;
+      background-color: #F0F5FF;
+    }
+
+    .dem-level-wrapper:hover .dem-level-clear.has-value {
+      display: flex;
+    }
+
+    .dem-level-wrapper:hover .dem-level-arrow.has-value {
+      display: none;
+    }
+
     /* 仿原生复选框 */
     .dem-checkbox {
       width: 14px;
@@ -310,14 +342,94 @@
         // 告警趋势图交互状态与计算逻辑
         trendHoverIndex: null,
 
-        // 动态计算当前时间段以天为单位的趋势数据
+        // 告警趋势粒度：随顶层时间范围自适应（短范围按小时，长范围按天）
+        get trendBucket() {
+          const s = this.dateFilterState.shortcut;
+          if (s === '今天' || s === '近24小时') return 'hour';
+          if (s === '自定义') return this.customSpanDays <= 1 ? 'hour' : 'day';
+          return 'day';
+        },
+        get trendBucketLabel() {
+          return this.trendBucket === 'hour' ? '按小时' : '按天';
+        },
+        // 均值量纲随粒度变化：小时粒度叫"时均"，天粒度叫"日均"
+        get trendAvgLabel() {
+          return this.trendBucket === 'hour' ? '时均' : '日均';
+        },
+        // 自定义范围跨度（含首尾）
+        get customSpanDays() {
+          const st = this.parseLocalDate(this.dateFilterState.startDate);
+          const en = this.parseLocalDate(this.dateFilterState.endDate);
+          if (!st || !en) return 1;
+          const diff = (en.getTime() - st.getTime()) / 86400000;
+          return Math.max(1, Math.round(diff) + 1);
+        },
+        // 按本地时区解析 YYYY-MM-DD，避免 new Date('YYYY-MM-DD') 按 UTC 解析造成日期偏移
+        parseLocalDate(str) {
+          if (!str) return null;
+          const parts = String(str).split('-');
+          if (parts.length !== 3) return null;
+          return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+        },
+        // 按权重把某等级的总量精确切分到各时间桶（累计取整，保证求和恒等于 total）
+        spreadByWeights(total, weights) {
+          const sumW = weights.reduce((a, b) => a + b, 0) || 1;
+          const out = [];
+          let acc = 0;
+          let prev = 0;
+          for (let i = 0; i < weights.length; i++) {
+            acc += weights[i];
+            const cum = Math.round((total * acc) / sumW);
+            out.push(cum - prev);
+            prev = cum;
+          }
+          return out;
+        },
+        // 把某一天的四等级量摊到 24 个小时桶（各桶之和恒等于当日各等级量）
+        buildHourlyPoints(dayLevels) {
+          const weights = [0, 0, 0, 0, 0, 0, 1, 3, 6, 10, 9, 7, 5, 7, 9, 10, 6, 4, 2, 1, 0, 0, 0, 0];
+          const u = this.spreadByWeights(dayLevels.urgent, weights);
+          const im = this.spreadByWeights(dayLevels.important, weights);
+          const sec = this.spreadByWeights(dayLevels.secondary, weights);
+          const inf = this.spreadByWeights(dayLevels.info, weights);
+          return weights.map((_, h) => ({
+            date: `${String(h).padStart(2, '0')}:00`,
+            total: u[h] + im[h] + sec[h] + inf[h],
+            urgent: u[h],
+            important: im[h],
+            secondary: sec[h],
+            info: inf[h]
+          }));
+        },
+        // 自定义多天范围：按天生成（末日对齐"今天"口径）
+        customDayLabel(i) {
+          const st = this.parseLocalDate(this.dateFilterState.startDate);
+          if (!st) return `第${i + 1}天`;
+          const d = new Date(st.getFullYear(), st.getMonth(), st.getDate() + i);
+          return `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        },
+
+        // 动态计算当前时间范围的趋势数据（粒度随范围自适应）
         get trendList() {
           const s = this.dateFilterState.shortcut;
+
+          // 小时粒度：今天 / 近24小时 / 自定义单日
+          if (this.trendBucket === 'hour') {
+            const hourly = this.buildHourlyPoints({ urgent: 9, important: 11, secondary: 4, info: 3 });
+            if (s === '近24小时') {
+              // 滚动 24 小时窗口：把 23:00 挪到最前，末点标记为"现在"
+              const rotated = hourly.slice(-1).concat(hourly.slice(0, -1));
+              rotated[rotated.length - 1] = { ...rotated[rotated.length - 1], date: '现在' };
+              return rotated;
+            }
+            return hourly;
+          }
+
           if (s === '近3天') {
             return [
-              { date: '06-02', total: 7, urgent: 2, important: 4 },
-              { date: '06-03', total: 4, urgent: 1, important: 2 },
-              { date: '06-04', total: 27, urgent: 9, important: 11 }
+              { date: '06-02', total: 7, urgent: 2, important: 4, secondary: 1, info: 0 },
+              { date: '06-03', total: 4, urgent: 1, important: 2, secondary: 1, info: 0 },
+              { date: '06-04', total: 27, urgent: 9, important: 11, secondary: 4, info: 3 }
             ];
           }
           if (s === '近30天') {
@@ -327,25 +439,61 @@
               const dayNum = 6 + i;
               const dStr = dayNum <= 31 ? `05-${String(dayNum).padStart(2, '0')}` : `06-${String(dayNum - 31).padStart(2, '0')}`;
               const t = totals[i];
+              const urgent = Math.max(0, Math.round(t * 0.33));
+              const important = Math.max(0, Math.round(t * 0.4));
+              const secondary = Math.max(0, Math.round(t * 0.15));
               list.push({
                 date: dStr,
                 total: t,
-                urgent: Math.max(0, Math.round(t * 0.35)),
-                important: Math.max(0, Math.round(t * 0.45))
+                urgent: urgent,
+                important: important,
+                secondary: secondary,
+                info: Math.max(0, t - urgent - important - secondary)
               });
             }
             return list;
           }
-          // 默认近7天每日趋势（今天、近24小时、近7天及自定义均提供7日对照趋势）
+          if (s === '自定义') {
+            const n = this.customSpanDays;
+            const seed = [4, 6, 3, 5, 7, 4, 6, 3, 5, 4];
+            const list = [];
+            for (let i = 0; i < n; i++) {
+              const isLast = i === n - 1;
+              const t = isLast ? 27 : seed[i % seed.length];
+              const urgent = isLast ? 9 : Math.max(0, Math.round(t * 0.33));
+              const important = isLast ? 11 : Math.max(0, Math.round(t * 0.4));
+              const secondary = isLast ? 4 : Math.max(0, Math.round(t * 0.15));
+              list.push({
+                date: this.customDayLabel(i),
+                total: t,
+                urgent: urgent,
+                important: important,
+                secondary: secondary,
+                info: Math.max(0, t - urgent - important - secondary)
+              });
+            }
+            return list;
+          }
+          // 近7天每日趋势
           return [
-            { date: '05-29', total: 4, urgent: 1, important: 2 },
-            { date: '05-30', total: 6, urgent: 2, important: 3 },
-            { date: '05-31', total: 3, urgent: 0, important: 2 },
-            { date: '06-01', total: 5, urgent: 1, important: 3 },
-            { date: '06-02', total: 7, urgent: 2, important: 4 },
-            { date: '06-03', total: 4, urgent: 1, important: 2 },
-            { date: '06-04', total: 27, urgent: 9, important: 11 }
+            { date: '05-29', total: 4, urgent: 1, important: 2, secondary: 1, info: 0 },
+            { date: '05-30', total: 6, urgent: 2, important: 3, secondary: 1, info: 0 },
+            { date: '05-31', total: 3, urgent: 0, important: 2, secondary: 1, info: 0 },
+            { date: '06-01', total: 5, urgent: 1, important: 3, secondary: 1, info: 0 },
+            { date: '06-02', total: 7, urgent: 2, important: 4, secondary: 1, info: 0 },
+            { date: '06-03', total: 4, urgent: 1, important: 2, secondary: 1, info: 0 },
+            { date: '06-04', total: 27, urgent: 9, important: 11, secondary: 4, info: 3 }
           ];
+        },
+
+        // X 轴标签抽稀步长（点数多时按步长显示，避免标签重叠）
+        get trendLabelStep() {
+          const n = this.trendChartPoints.length || 1;
+          return Math.max(1, Math.ceil(n / 7));
+        },
+        // 仅当槽位窄于标签文字时（点数多）才需要首尾贴边，否则居中更贴合数据点
+        get trendLabelEdgeClamp() {
+          return this.trendChartPoints.length > 10;
         },
 
         get trendPeak() {
@@ -364,7 +512,8 @@
           const padTop = 6;
           const padBottom = 6;
           const plotH = h - padTop - padBottom;
-          const maxVal = Math.max(28, ...list.map(d => d.total));
+          const totals = list.map(d => d.total);
+          const maxVal = Math.max(4, Math.max(...totals)) * 1.05;
           const colW = w / (list.length || 1);
 
           return list.map((item, idx) => {
@@ -438,14 +587,42 @@
         // 行级直接改状态下拉记录
         statusDropdownRowId: null,
 
-        // 统计数据
-        totalAlarmCount: 27,
-        urgentCount: 9,
-        importantCount: 11,
+        // 统计数据：全部由所选时间范围派生，切换顶层范围时自动联动
         pendingCount: 17,
-        userAlarmCount: 6,
-        appAlarmCount: 11,
-        branchAlarmCount: 10,
+        get totalAlarmCount() {
+          return this.trendList.reduce((acc, cur) => acc + cur.total, 0);
+        },
+        get urgentCount() {
+          return this.trendList.reduce((acc, cur) => acc + cur.urgent, 0);
+        },
+        get importantCount() {
+          return this.trendList.reduce((acc, cur) => acc + cur.important, 0);
+        },
+        get secondaryCount() {
+          return this.trendList.reduce((acc, cur) => acc + cur.secondary, 0);
+        },
+        get infoCount() {
+          return this.trendList.reduce((acc, cur) => acc + cur.info, 0);
+        },
+        // 告警对象分布：按基准日口径(用户6/应用11/分支10，合计27)等比缩放，三者之和恒等于总数
+        get userAlarmCount() {
+          return Math.round((this.totalAlarmCount * 6) / 27);
+        },
+        get appAlarmCount() {
+          return Math.round((this.totalAlarmCount * 11) / 27);
+        },
+        get branchAlarmCount() {
+          return this.totalAlarmCount - this.userAlarmCount - this.appAlarmCount;
+        },
+        get userRatio() {
+          return this.totalAlarmCount ? Math.round((this.userAlarmCount / this.totalAlarmCount) * 100) : 0;
+        },
+        get appRatio() {
+          return this.totalAlarmCount ? Math.round((this.appAlarmCount / this.totalAlarmCount) * 100) : 0;
+        },
+        get branchRatio() {
+          return this.totalAlarmCount ? 100 - this.userRatio - this.appRatio : 0;
+        },
 
         // 告警详细数据 (按需求丰富 mock 10 条记录，涵盖应用、用户、分支等多维度场景)
         alarms: [
@@ -1024,6 +1201,15 @@
         isPolicyDrawerOpen: false,
         policyDrawerMode: 'add', // 'add' | 'edit'
         policyStatusMenuId: null,
+        policyLevelFilter: [],
+        policyLevelMenuOpen: false,
+
+        // 顶部轻量 Tips 操作成功提示
+        toast: {
+          show: false,
+          message: '',
+          timer: null
+        },
 
         // 默认预置 6 条真实还原截图的策略数据
         policyList: [
@@ -1045,7 +1231,7 @@
             emailRecipients: 'admin@company.com, huadong_ops@company.com',
             wechatRecipients: '',
             status: '启用',
-            creator: '系统管理员',
+            creator: 'Admin',
             desc: '实时监测华东核心分支与各业务网关互联的网络丢包、时延及首屏劣化。',
             cond1Enabled: true,
             cond1Minutes: 5,
@@ -1077,7 +1263,7 @@
             emailRecipients: 'ops_net@company.com',
             wechatRecipients: '全网网络运维保障群',
             status: '启用',
-            creator: '系统管理员',
+            creator: 'Admin',
             desc: '企业接入层 VPN 门户应用隧道延迟突增、认证排队超阈值告警。',
             cond1Enabled: true,
             cond1Minutes: 5,
@@ -1109,7 +1295,7 @@
             emailRecipients: '',
             wechatRecipients: '',
             status: '启用',
-            creator: '系统管理员',
+            creator: 'Admin',
             desc: '针对跨分支实时多方音视频丢包率 > 5% 及画面卡顿进行质量探测告警。',
             cond1Enabled: true,
             cond1Minutes: 5,
@@ -1143,7 +1329,7 @@
             emailRecipients: 'rd1_lead@company.com',
             wechatRecipients: '',
             status: '禁用',
-            creator: '系统管理员',
+            creator: 'Admin',
             desc: '重点研发核心人员端到端办公软件卡顿与代码仓库拉取超时监控。',
             cond1Enabled: true,
             cond1Minutes: 5,
@@ -1175,7 +1361,7 @@
             emailRecipients: '',
             wechatRecipients: 'IT办公服务台支持组',
             status: '启用',
-            creator: '系统管理员',
+            creator: 'Admin',
             desc: '日常办公审批与流程表单提交耗时 > 3s 的异常预警策略。',
             cond1Enabled: true,
             cond1Minutes: 5,
@@ -1207,7 +1393,7 @@
             emailRecipients: '',
             wechatRecipients: '',
             status: '禁用',
-            creator: '系统管理员',
+            creator: 'Admin',
             desc: '北京分支主备出口隧道连通性及 BGP 路由跳变体验监控。',
             cond1Enabled: true,
             cond1Minutes: 5,
@@ -1255,8 +1441,12 @@
         // 过滤策略列表
         get filteredPolicies() {
           const kw = (this.policySearchKeyword || '').trim().toLowerCase();
-          if (!kw) return this.policyList;
-          return this.policyList.filter(p => {
+          let list = this.policyList;
+          if (this.policyLevelFilter.length > 0) {
+            list = list.filter(p => this.policyLevelFilter.includes(p.level));
+          }
+          if (!kw) return list;
+          return list.filter(p => {
             const matchName = (p.name || '').toLowerCase().includes(kw);
             const matchType = (p.type || '').toLowerCase().includes(kw);
             const matchTarget = (p.targetInput || '').toLowerCase().includes(kw) || (p.targets || []).some(t => t.name.toLowerCase().includes(kw));
@@ -1400,7 +1590,7 @@
             type: `${this.policyForm.targetType}告警`,
             action: actionText,
             targets: finalTargets.length > 0 ? finalTargets : [{ name: this.policyForm.targetType === '应用' ? '默认应用' : '默认对象', type: typeKey }],
-            creator: '系统管理员'
+            creator: 'Admin'
           };
 
           if (this.policyDrawerMode === 'add') {
@@ -1451,6 +1641,31 @@
 
         togglePolicyStatus(policy) {
           policy.status = policy.status === '启用' ? '禁用' : '启用';
+        },
+
+        setPolicyStatus(item, status) {
+          this.policyStatusMenuId = null;
+          if (item.status === status) return;
+          item.status = status;
+          this.showToast(`策略状态已切换为${status}`);
+        },
+
+        togglePolicyLevel(level) {
+          const idx = this.policyLevelFilter.indexOf(level);
+          if (idx >= 0) {
+            this.policyLevelFilter.splice(idx, 1);
+          } else {
+            this.policyLevelFilter.push(level);
+          }
+        },
+
+        showToast(msg = '操作成功') {
+          if (this.toast.timer) clearTimeout(this.toast.timer);
+          this.toast.message = msg;
+          this.toast.show = true;
+          this.toast.timer = setTimeout(() => {
+            this.toast.show = false;
+          }, 2000);
         }
       };
     }
@@ -1699,23 +1914,21 @@
             class="bg-white rounded-[2px] border border-[#E5E6EB] p-3 shadow-2xs mb-2 flex-shrink-0 min-h-[132px] flex flex-col lg:flex-row items-stretch">
 
             <!-- 左半边：告警概况与每日告警趋势 (纯留白过渡无分割线) -->
-            <div class="w-full lg:w-1/2 flex items-stretch justify-between pr-0 lg:pr-6 pb-3 lg:pb-0">
+            <div class="w-full lg:w-1/2 flex items-stretch justify-between pr-0 lg:pr-6 pb-3 lg:pb-2">
               <!-- 告警总数指标 (整体向右平移4px: pl-1) -->
               <div class="w-[185px] flex-shrink-0 flex flex-col justify-between h-full pl-1 pr-2">
                 <span class="text-[12px] font-medium text-[#1D2129]">告警总数</span>
 
                 <!-- 统计信息 (向上移动2px，向右移动4px) -->
-                <div class="flex items-center gap-4 mt-auto pt-1 translate-x-[4px] -translate-y-[2px]">
-                  <!-- 统计数字与下方较昨日 -->
+                <div class="flex items-center gap-3 mt-auto pt-1 translate-x-[4px] -translate-y-[2px]">
+                  <!-- 统计数字（该数值为所选时间范围内的累计告警数） -->
                   <div class="flex flex-col">
                     <span class="text-[32px] font-bold text-[#1C6EFF] tracking-tight leading-none font-sans"
                       x-text="totalAlarmCount">27</span>
-                    <span class="text-[11px] text-[#86909C] mt-1.5 whitespace-nowrap">较昨日 <span
-                        class="text-[#00B42A] font-medium">+3</span></span>
                   </div>
 
-                  <!-- 统计数字右侧：紧急与重要纯文本 (按标注再向右平移4px: translate-x-[8px]) -->
-                  <div class="flex flex-col justify-center gap-1.5 text-[12px] translate-x-[8px]">
+                  <!-- 统计数字右侧：四个告警等级统计 (紧急/重要/次要/提示，2×2 排布) -->
+                  <div class="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[12px] translate-x-[8px]">
                     <div class="flex items-baseline gap-1.5 whitespace-nowrap">
                       <span class="text-[#86909C]">紧急</span>
                       <span class="font-semibold text-[#1D2129]" x-text="urgentCount">9</span>
@@ -1723,6 +1936,14 @@
                     <div class="flex items-baseline gap-1.5 whitespace-nowrap">
                       <span class="text-[#86909C]">重要</span>
                       <span class="font-semibold text-[#1D2129]" x-text="importantCount">11</span>
+                    </div>
+                    <div class="flex items-baseline gap-1.5 whitespace-nowrap">
+                      <span class="text-[#86909C]">次要</span>
+                      <span class="font-semibold text-[#1D2129]" x-text="secondaryCount">4</span>
+                    </div>
+                    <div class="flex items-baseline gap-1.5 whitespace-nowrap">
+                      <span class="text-[#86909C]">提示</span>
+                      <span class="font-semibold text-[#1D2129]" x-text="infoCount">3</span>
                     </div>
                   </div>
                 </div>
@@ -1734,11 +1955,13 @@
                 <div class="flex items-center justify-between text-[12px]">
                   <div class="flex items-center gap-1.5">
                     <span class="font-normal text-[#86909C]">告警趋势</span>
+                    <span class="text-[10px] text-[#A9AEB8]" x-text="'· ' + trendBucketLabel">· 按天</span>
                   </div>
                   <div class="flex items-center gap-2 text-[11px] text-[#86909C] whitespace-nowrap flex-shrink-0">
                     <span>峰值 <span class="font-normal text-[#1D2129]" x-text="trendPeak + '次'">27次</span></span>
                     <span class="text-[#D3D7DE]">·</span>
-                    <span>日均 <span class="font-normal text-[#1D2129]" x-text="trendAvg + '次'">8次</span></span>
+                    <span><span x-text="trendAvgLabel">日均</span> <span class="font-normal text-[#1D2129]"
+                        x-text="trendAvg + '次'">8次</span></span>
                   </div>
                 </div>
 
@@ -1756,7 +1979,7 @@
                       <span class="text-white/60"
                         x-text="'共 ' + (trendChartPoints[trendHoverIndex]?.total || 0) + ' 条告警'"></span>
                     </div>
-                    <div class="flex items-center gap-3 mt-1 text-[11px]">
+                    <div class="grid grid-cols-2 gap-x-3 gap-y-1 mt-1 text-[11px]">
                       <span class="flex items-center gap-1.5">
                         <span class="w-1.5 h-1.5 rounded-full bg-[#F53F3F]"></span>
                         <span class="text-white/80">紧急:</span>
@@ -1768,6 +1991,18 @@
                         <span class="text-white/80">重要:</span>
                         <strong class="font-medium text-white"
                           x-text="(trendChartPoints[trendHoverIndex]?.important || 0) + ' 条'"></strong>
+                      </span>
+                      <span class="flex items-center gap-1.5">
+                        <span class="w-1.5 h-1.5 rounded-full bg-[#D48806]"></span>
+                        <span class="text-white/80">次要:</span>
+                        <strong class="font-medium text-white"
+                          x-text="(trendChartPoints[trendHoverIndex]?.secondary || 0) + ' 条'"></strong>
+                      </span>
+                      <span class="flex items-center gap-1.5">
+                        <span class="w-1.5 h-1.5 rounded-full bg-[#86909C]"></span>
+                        <span class="text-white/80">提示:</span>
+                        <strong class="font-medium text-white"
+                          x-text="(trendChartPoints[trendHoverIndex]?.info || 0) + ' 条'"></strong>
                       </span>
                     </div>
                     <!-- 小三角箭头 -->
@@ -1834,11 +2069,12 @@
                     </template>
                   </div>
 
-                  <!-- 底部 X 轴日期刻度 (与图表列 1:1 等分对齐) -->
+                  <!-- 底部 X 轴刻度 (min-w-0 让每格严格等分为 1/n 宽度；首尾贴边对齐防止溢出；点数多时按步长抽稀) -->
                   <div class="flex items-center text-[10px] text-[#86909C] mt-1 font-mono leading-none">
                     <template x-for="(pt, idx) in trendChartPoints" :key="idx">
-                      <span class="flex-1 text-center transition-colors truncate"
-                        :class="trendHoverIndex === idx ? 'text-[#1C6EFF] font-semibold' : ''" x-text="pt.date"></span>
+                      <span class="flex-1 min-w-0 whitespace-nowrap transition-colors"
+                        :class="[(trendLabelEdgeClamp && idx === 0) ? 'text-left' : ((trendLabelEdgeClamp && idx === trendChartPoints.length - 1) ? 'text-right' : 'text-center'), trendHoverIndex === idx ? 'text-[#1C6EFF] font-semibold' : '']"
+                        x-text="(idx % trendLabelStep === 0 || idx === trendChartPoints.length - 1) ? pt.date : ''"></span>
                     </template>
                   </div>
 
@@ -1871,7 +2107,7 @@
                   <div class="flex items-baseline justify-between mt-2">
                     <span class="text-[22px] font-bold text-[#1D2129] leading-none font-sans"
                       x-text="userAlarmCount">6</span>
-                    <span class="text-[10px] text-[#86909C]">占比 22%</span>
+                    <span class="text-[10px] text-[#86909C]" x-text="'占比 ' + userRatio + '%'">占比 22%</span>
                   </div>
                 </div>
 
@@ -1891,7 +2127,7 @@
                   <div class="flex items-baseline justify-between mt-2">
                     <span class="text-[22px] font-bold text-[#1D2129] leading-none font-sans"
                       x-text="appAlarmCount">11</span>
-                    <span class="text-[10px] text-[#86909C]">占比 41%</span>
+                    <span class="text-[10px] text-[#86909C]" x-text="'占比 ' + appRatio + '%'">占比 41%</span>
                   </div>
                 </div>
 
@@ -1912,7 +2148,7 @@
                   <div class="flex items-baseline justify-between mt-2">
                     <span class="text-[22px] font-bold text-[#1D2129] leading-none font-sans"
                       x-text="branchAlarmCount">10</span>
-                    <span class="text-[10px] text-[#86909C]">占比 37%</span>
+                    <span class="text-[10px] text-[#86909C]" x-text="'占比 ' + branchRatio + '%'">占比 37%</span>
                   </div>
                 </div>
 
@@ -2401,13 +2637,6 @@
                   <span>新增策略</span>
                 </button>
 
-                <!-- 批量删除 -->
-                <button type="button" @click="batchDeletePolicies()" :disabled="selectedPolicyIds.length === 0"
-                  class="h-8 px-3 rounded-[2px] text-[12px] transition-colors border shadow-2xs"
-                  :class="selectedPolicyIds.length > 0 ? 'bg-white border-[#D9D9D9] text-[#F53F3F] hover:border-[#F53F3F] cursor-pointer' : 'bg-[#F5F5F5] border-[#E5E6EB] text-[#C9CDD4] cursor-not-allowed'">
-                  <span>删除</span>
-                </button>
-
                 <!-- 批量启用 -->
                 <button type="button" @click="batchEnablePolicies()" :disabled="selectedPolicyIds.length === 0"
                   class="h-8 px-3 rounded-[2px] text-[12px] transition-colors border shadow-2xs"
@@ -2421,10 +2650,50 @@
                   :class="selectedPolicyIds.length > 0 ? 'bg-white border-[#D9D9D9] text-[#2F3540] hover:border-[#1C6EFF] hover:text-[#1C6EFF] cursor-pointer' : 'bg-[#F5F5F5] border-[#E5E6EB] text-[#C9CDD4] cursor-not-allowed'">
                   <span>禁用</span>
                 </button>
+
+                <!-- 批量删除 (激活时与其它按钮字体同色，不使用红色) -->
+                <button type="button" @click="batchDeletePolicies()" :disabled="selectedPolicyIds.length === 0"
+                  class="h-8 px-3 rounded-[2px] text-[12px] transition-colors border shadow-2xs"
+                  :class="selectedPolicyIds.length > 0 ? 'bg-white border-[#D9D9D9] text-[#2F3540] hover:border-[#1C6EFF] hover:text-[#1C6EFF] cursor-pointer' : 'bg-[#F5F5F5] border-[#E5E6EB] text-[#C9CDD4] cursor-not-allowed'">
+                  <span>删除</span>
+                </button>
               </div>
 
-              <!-- 右侧搜索检索区 -->
+              <!-- 右侧筛选检索区 -->
               <div class="flex items-center gap-2">
+                <!-- 告警等级多选筛选 (位于搜索框左侧) -->
+                <div class="relative select-none dem-level-wrapper" @click.outside="policyLevelMenuOpen = false">
+                  <button type="button" @click="policyLevelMenuOpen = !policyLevelMenuOpen"
+                    class="h-8 min-w-[136px] max-w-[200px] pl-3 pr-8 bg-white border rounded-[2px] flex items-center text-left text-xs transition-colors shadow-2xs cursor-pointer relative"
+                    :class="policyLevelFilter.length > 0 ? 'border-[#1C6EFF] text-[#2F3540]' : 'border-[#D9D9D9] text-[#2F3540] hover:border-[#1C6EFF]'">
+                    <span class="truncate" :class="policyLevelFilter.length > 0 ? 'text-[#2F3540]' : 'text-[#8C8C8C]'"
+                      x-text="policyLevelFilter.length > 0 ? policyLevelFilter.join('、') : '告警等级'"></span>
+                    <svg class="dem-level-arrow w-3.5 h-3.5 absolute right-2.5 text-[#8C8C8C] transition-transform"
+                      :class="[policyLevelMenuOpen && 'rotate-180', policyLevelFilter.length > 0 && 'has-value']" fill="none"
+                      stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                    </svg>
+                  </button>
+                  <button type="button" x-show="policyLevelFilter.length > 0" @click.stop.prevent="policyLevelFilter = []"
+                    class="dem-level-clear has-value" title="清除选择">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                  </button>
+                  <div x-show="policyLevelMenuOpen"
+                    class="absolute top-9 left-0 bg-white border border-[#E5E6EB] shadow-lg rounded-[2px] py-1 z-40 min-w-[136px] text-xs"
+                    style="display: none;">
+                    <template x-for="level in ['紧急', '重要', '次要', '提示']" :key="level">
+                      <div @click="togglePolicyLevel(level)"
+                        class="px-2.5 py-1.5 hover:bg-[#F2F3F5] cursor-pointer flex items-center gap-2 text-[#2F3540]">
+                        <input type="checkbox" :checked="policyLevelFilter.includes(level)"
+                          class="accent-[#1C6EFF] w-3.5 h-3.5 rounded-[2px] pointer-events-none" />
+                        <span x-text="level"></span>
+                      </div>
+                    </template>
+                  </div>
+                </div>
+
                 <div class="relative flex items-center">
                   <input type="text" x-model="policySearchKeyword" placeholder="搜索策略名称/类型/对象..."
                     class="h-8 w-56 pl-3 pr-8 bg-white border border-[#D9D9D9] rounded-[2px] text-xs text-[#2F3540] placeholder-[#8C8C8C] outline-none focus:border-[#1C6EFF] transition-colors shadow-2xs" />
@@ -2466,8 +2735,8 @@
                     <th class="text-left min-w-[200px]">告警对象</th>
                     <!-- 6. 告警动作 -->
                     <th class="text-left w-[160px]">告警动作</th>
-                    <!-- 7. 策略状态 -->
-                    <th class="text-left w-[110px]">策略状态</th>
+                    <!-- 7. 状态 -->
+                    <th class="text-left w-[110px]">状态</th>
                     <!-- 8. 创建人 -->
                     <th class="text-left w-[110px]">创建人</th>
                     <!-- 9. 操作列 -->
@@ -2485,9 +2754,10 @@
                           class="accent-[#1C6EFF] w-3.5 h-3.5 rounded-[2px] cursor-pointer align-middle" />
                       </td>
 
-                      <!-- 2. 策略名称 -->
+                      <!-- 2. 策略名称 (蓝色可点击，点击等同编辑) -->
                       <td>
-                        <span class="text-[#2F3540] font-normal" x-text="item.name"></span>
+                        <span class="text-[#1C6EFF] hover:text-[#4086FF] cursor-pointer transition-colors"
+                          @click="openEditPolicyDrawer(item)" x-text="item.name"></span>
                       </td>
 
                       <!-- 3. 告警等级 (Tag) -->
@@ -2539,10 +2809,11 @@
                         <span class="text-[#2F3540]" x-text="item.action"></span>
                       </td>
 
-                      <!-- 7. 策略状态 (带绿/灰圆点的切换下拉) -->
+                      <!-- 7. 状态 (带绿/灰圆点的切换下拉) -->
                       <td>
-                        <div class="relative inline-block select-none" @click.outside="policyStatusMenuId = null">
-                          <button type="button" @click="policyStatusMenuId = (policyStatusMenuId === item.id ? null : item.id)"
+                        <div class="relative inline-block select-none"
+                          @click.outside="if (policyStatusMenuId === item.id) policyStatusMenuId = null">
+                          <button type="button" @click.stop="policyStatusMenuId = (policyStatusMenuId === item.id ? null : item.id)"
                             class="inline-flex items-center gap-1.5 py-1 px-1.5 rounded hover:bg-[#F2F3F5] cursor-pointer text-xs">
                             <span class="w-1.5 h-1.5 rounded-full" :class="item.status === '启用' ? 'bg-[#00B42A]' : 'bg-[#86909C]'"></span>
                             <span :class="item.status === '启用' ? 'text-[#2F3540]' : 'text-[#86909C]'" x-text="item.status"></span>
@@ -2553,12 +2824,12 @@
                           <div x-show="policyStatusMenuId === item.id"
                             class="absolute top-7 left-0 bg-white border border-[#E5E6EB] shadow-lg rounded-[2px] py-1 z-30 min-w-[76px] text-xs"
                             style="display: none;">
-                            <div @click="item.status = '启用'; policyStatusMenuId = null"
+                            <div @click="setPolicyStatus(item, '启用')"
                               class="px-2.5 py-1 hover:bg-[#F2F3F5] cursor-pointer flex items-center gap-1.5 text-[#2F3540]">
                               <span class="w-1.5 h-1.5 rounded-full bg-[#00B42A]"></span>
                               <span>启用</span>
                             </div>
-                            <div @click="item.status = '禁用'; policyStatusMenuId = null"
+                            <div @click="setPolicyStatus(item, '禁用')"
                               class="px-2.5 py-1 hover:bg-[#F2F3F5] cursor-pointer flex items-center gap-1.5 text-[#86909C]">
                               <span class="w-1.5 h-1.5 rounded-full bg-[#86909C]"></span>
                               <span>禁用</span>
@@ -2740,7 +3011,7 @@
                 </div>
 
                 <!-- 2. 告警配置模块 -->
-                <div class="border-t border-[#F0F2F5] pt-5">
+                <div>
                   <div class="flex items-center gap-2 mb-4">
                     <span class="w-[3px] h-[14px] bg-[#1C6EFF] rounded-full"></span>
                     <span class="text-[14px] font-[600] text-[#2F3540]">告警配置</span>
@@ -2886,7 +3157,7 @@
                 </div>
 
                 <!-- 3. 告警动作模块 (根据用户指示补全) -->
-                <div class="border-t border-[#F0F2F5] pt-5">
+                <div>
                   <div class="flex items-center gap-2 mb-4">
                     <span class="w-[3px] h-[14px] bg-[#1C6EFF] rounded-full"></span>
                     <span class="text-[14px] font-[600] text-[#2F3540]">告警动作</span>
@@ -2957,6 +3228,24 @@
 
             </div>
           </div>
+        </div>
+
+        <!-- 页面顶部操作成功 Tips 轻量提示浮层 -->
+        <div x-show="toast.show"
+             x-transition:enter="transition ease-out duration-200"
+             x-transition:enter-start="opacity-0 -translate-y-3"
+             x-transition:enter-end="opacity-100 translate-y-0"
+             x-transition:leave="transition ease-in duration-150"
+             x-transition:leave-start="opacity-100 translate-y-0"
+             x-transition:leave-end="opacity-0 -translate-y-3"
+             class="fixed top-6 left-1/2 -translate-x-1/2 z-[99999] pointer-events-none bg-white px-4 py-2 rounded-[4px] shadow-xl border border-[#E1E5EB] flex items-center gap-2 select-none"
+             style="display: none;">
+          <div class="w-4 h-4 rounded-full bg-[#E8F7EE] text-[#00B42A] flex items-center justify-center shrink-0">
+            <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path>
+            </svg>
+          </div>
+          <span class="text-xs text-[#2F3540] font-medium" x-text="toast.message"></span>
         </div>
 
       </div>
