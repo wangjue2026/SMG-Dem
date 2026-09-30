@@ -7,3 +7,6 @@
 [submodule "SKillS/skill-designer-prism"]
 	path = SKillS/skill-designer-prism
 	url = https://github.com/wangjue2026/skill-designer-prism.git
+[submodule "SKillS/skill-demo-to-spec"]
+	path = SKillS/skill-demo-to-spec
+	url = https://github.com/wangjue2026/skill-demo-to-spec.git
