@@ -192,49 +192,19 @@
   <script>
     function demHomeTabState() {
       return {
+        ...window.demFilterMixin,
         ...window.dualShellAppStore('体验监控'),
         pageTab: '体验监控',
         contentTab: '分支', // '分支' | '用户' | '应用'
         showOverview: true,
-        vipTab: 'user',
-        vipUserPage: 1,
-        vipAppPage: 1,
-        vipUsersList: [
-          { id: '1', userName: '45232（何总）', nameOnly: '何总', department: '深信服科技 / 总裁办 / 总经办', experience: '差', appCount: 16, primaryApp: 'OA系统', degradedCount: 3, ipLocation: '114.242.25.18 (办公室Wi-Fi)', pop: 'POP (北京)' },
-          { id: '2', userName: '23222（李达）', nameOnly: '李达', department: '/深信服/总经办', experience: '差', appCount: 45, primaryApp: '企业微信', degradedCount: 35, ipLocation: '183.14.5.12 (移动-深圳)', pop: 'POP (深圳)' },
-          { id: '3', userName: '45452（吴刚）', nameOnly: '吴刚', department: '/深信服/总经办', experience: '差', appCount: 45, primaryApp: '内部OA', degradedCount: 35, ipLocation: '119.12.8.20 (联通-深圳)', pop: 'POP (深圳)' },
-          { id: '4', userName: '31201（陈董）', nameOnly: '陈董', department: '/深信服/董事会', experience: '差', appCount: 12, primaryApp: '腾讯会议', degradedCount: 3, ipLocation: '114.242.25.20 (北京办事处)', pop: 'POP (北京)' },
-          { id: '5', userName: '88219（张总）', nameOnly: '张总', department: '/深信服/总经办', experience: '差', appCount: 20, primaryApp: 'SAP ERP', degradedCount: 2, ipLocation: '183.14.5.18 (移动-深圳)', pop: 'POP (深圳)' }
+        // 体验异常对象共性特征 (取自站点分支表，按同地区 / 同POP 混排 TOP5)
+        commonFeatures: [
+          { key: 'loc-gz', filterKey: 'loc', typeLabel: '同地区', value: '中国 广州', filterValue: '中国 广州', userCount: 58, branchCount: 2 },
+          { key: 'pop-gz', filterKey: 'pop', typeLabel: '同POP', value: '广州POP', filterValue: '广州POP', userCount: 58, branchCount: 2 },
+          { key: 'loc-mnl', filterKey: 'loc', typeLabel: '同地区', value: '菲律宾 马尼拉', filterValue: '菲律宾 马尼拉', userCount: 34, branchCount: 1 },
+          { key: 'pop-mnl', filterKey: 'pop', typeLabel: '同POP', value: '马尼拉POP', filterValue: '马尼拉POP', userCount: 34, branchCount: 1 },
+          { key: 'loc-cq', filterKey: 'loc', typeLabel: '同地区', value: '中国 重庆', filterValue: '中国 重庆', userCount: 32, branchCount: 1 }
         ],
-        vipAppsList: [
-          { id: '1', appName: 'OA系统', affectedUsers: 12, affectedBranches: 3 },
-          { id: '2', appName: 'ERP系统', affectedUsers: 28, affectedBranches: 2 },
-          { id: '3', appName: 'Salesforce CRM', affectedUsers: 42, affectedBranches: 2 }
-        ],
-        get currentVipPage() {
-          return this.vipTab === 'user' ? this.vipUserPage : this.vipAppPage;
-        },
-        get totalVipPages() {
-          const count = this.vipTab === 'user' ? this.vipUsersList.length : this.vipAppsList.length;
-          return Math.ceil(count / 3) || 1;
-        },
-        get pagedVipUsers() {
-          const start = (this.vipUserPage - 1) * 3;
-          return this.vipUsersList.slice(start, start + 3);
-        },
-        get pagedVipApps() {
-          const start = (this.vipAppPage - 1) * 3;
-          return this.vipAppsList.slice(start, start + 3);
-        },
-        prevVipPage() {
-          if (this.vipTab === 'user' && this.vipUserPage > 1) this.vipUserPage--;
-          if (this.vipTab === 'app' && this.vipAppPage > 1) this.vipAppPage--;
-        },
-        nextVipPage() {
-          const maxP = this.totalVipPages;
-          if (this.vipTab === 'user' && this.vipUserPage < maxP) this.vipUserPage++;
-          if (this.vipTab === 'app' && this.vipAppPage < maxP) this.vipAppPage++;
-        },
 
         // 各种数据集合
         branches: [],
@@ -251,6 +221,12 @@
         branchPageSize: 10,
         branchJumpPageInput: '',
 
+        branchFilterConfigs: [
+          { key: 'branch-exp', selectedKey: 'branchSelectedExp', pageKey: 'branchCurrentPage', placeholder: '全部访问体验', options: ['差', '一般', '正常'], searchable: false },
+          { key: 'branch-loc', selectedKey: 'branchSelectedLoc', pageKey: 'branchCurrentPage', placeholder: '全部地理位置', searchable: true, searchPlaceholder: '搜索地区', options: ['菲律宾 马尼拉', '中国 西安', '中国 武汉', '中国 广州', '中国 深圳', '中国 上海', '中国 北京', '中国 成都', '中国 重庆', '中国 南京', '中国 杭州'] },
+          { key: 'branch-pop', selectedKey: 'branchSelectedPop', pageKey: 'branchCurrentPage', placeholder: '全部接入POP', searchable: true, searchPlaceholder: '搜索POP', options: ['马尼拉POP', '西安POP', '武汉POP', '广州POP', '深圳POP', '上海POP', '北京POP', '成都POP', '重庆POP', '南京POP', '香港POP'] }
+        ],
+
         // --- 2. 用户状态 ---
         userSearchQuery: '',
         userSelectedExp: [],
@@ -261,6 +237,12 @@
         userPageSize: 10,
         userJumpPageInput: '',
 
+        userFilterConfigs: [
+          { key: 'user-exp', selectedKey: 'userSelectedExp', pageKey: 'userCurrentPage', placeholder: '全部访问体验', options: ['差', '一般', '正常'], searchable: false },
+          { key: 'user-loc', selectedKey: 'userSelectedLoc', pageKey: 'userCurrentPage', placeholder: '全部IP归属地', searchable: true, searchPlaceholder: '搜索归属地', options: ['马尼拉', '长沙', '深圳', '北京', '上海', '广州', '成都', '西安', '南京', '武汉', '杭州', '重庆'] },
+          { key: 'user-pop', selectedKey: 'userSelectedPop', pageKey: 'userCurrentPage', placeholder: '全部接入POP', searchable: true, searchPlaceholder: '搜索POP', options: ['POP (香港)', 'POP (新加坡)', 'POP (成都)', '马尼拉POP01', '华北-北京POP01', '华东-上海POP02', '华南-深圳POP01', '华南-广州POP01', '西南-成都POP01', '西北-西安POP01', '华东-南京POP01', '华中-武汉POP01', '重庆POP01'] }
+        ],
+
         // --- 3. 应用状态 ---
         appSearchQuery: '',
         appSelectedExp: [],
@@ -270,6 +252,15 @@
         appCurrentPage: 1,
         appPageSize: 10,
         appJumpPageInput: '',
+
+        appFilterConfigs: [
+          { key: 'app-exp', selectedKey: 'appSelectedExp', pageKey: 'appCurrentPage', placeholder: '全部访问体验', options: ['差', '一般', '正常'], searchable: false },
+          { key: 'app-type', selectedKey: 'appSelectedType', pageKey: 'appCurrentPage', placeholder: '全部应用类型', searchable: true, searchPlaceholder: '搜索应用类型', options: ['内网应用', 'SaaS应用'] },
+          { key: 'app-region', selectedKey: 'appSelectedRegion', pageKey: 'appCurrentPage', placeholder: '全部所属区域', searchable: true, searchPlaceholder: '搜索区域', options: [
+            '上海数据中心', '北京数据中心', '华南数据中心', '西北数据中心', '华中数据中心', '西南数据中心', '华东数据中心',
+            { value: '-', label: '- (SaaS应用)' }
+          ] }
+        ],
 
         // 统一时间筛选器状态与交互 (快捷 + 自定义级联 + 30天跨度)
         dateShortcut: '今天',
@@ -528,6 +519,7 @@
             { id: "usr_d1", userName: "14810（郝星伍）", isVip: false, department: "/本地用户/安全BG/零信任", ipLocation: "202.108.22.5 (电信-长沙)", experience: "差", terminals: ["WIN-DESK-88--WIN-YZ", "iPhone 15 Pro"], pop: "POP (香港)", appCount: 9, degradedApps: ["Salesforce"] },
             { id: "usr_d2", userName: "63728（王浩）", isVip: false, department: "/本地用户/安全BG/零信任", ipLocation: "183.14.5.12 (移动-深圳)", experience: "差", terminals: ["WIN-DESK-62--OKP"], pop: "POP (新加坡)", appCount: 15, degradedApps: ["Salesforce", "Teams", "Yahoo"] },
             { id: "usr_d3", userName: "84261（柯特）", isVip: false, department: "/国内市场体系/华东区", ipLocation: "119.12.8.20 (联通-深圳)", experience: "差", terminals: ["WIN-DESK-97JUA-OKP"], pop: "POP (新加坡)", appCount: 11, degradedApps: ["Yahoo", "内部 CRM 系统", "OA审批平台"] },
+            { id: "usr_cq", userName: "11356（周庆）", isVip: false, department: "重庆分公司 / 交付部", ipLocation: "113.207.32.18 (重庆-渝北)", experience: "差", terminals: ["ThinkPad T14"], pop: "重庆POP01", appCount: 12, degradedApps: ["Salesforce CRM", "OA审批平台"] },
             { id: "usr_d4", userName: "35627（黎维祁）", isVip: false, department: "/本地用户/安全BG/零信任", ipLocation: "202.108.22.8 (电信-长沙)", experience: "一般", terminals: ["MacBook Air"], pop: "POP (成都)", appCount: 7, degradedApps: ["Yahoo"] },
             { id: "usr_d5", userName: "15628（文惠辰）", isVip: false, department: "/本地用户/安全BG/零信任", ipLocation: "202.108.22.9 (电信-长沙)", experience: "一般", terminals: ["WIN-DESK-243JUA-OKP"], pop: "POP (新加坡)", appCount: 14, degradedApps: [] }
           ];
@@ -552,10 +544,10 @@
           return {
             pendingCount: 16,
             total: 23,
-            highCount: 4,
-            medCount: 12,
-            lowCount: 1,
-            resolvedCount: 4
+            urgentCount: 4,
+            importantCount: 12,
+            minorCount: 5,
+            infoCount: 2
           };
         },
 
@@ -765,6 +757,33 @@
           });
         },
 
+        // 点击共性特征：同时过滤下方「站点分支」和「访问用户」，切换 Tab 条件保留
+        filterByCommonFeature(feat) {
+          const filterValue = feat.filterValue || feat.value;
+          // 用户 Tab 的归属地按城市匹配，需要从「中国 广州」这类地域名中取城市
+          const userLocValue = filterValue.split(' ').pop();
+          this.contentTab = '分支';
+          this.branchSelectedExp = ['差'];
+          this.userSelectedExp = ['差'];
+          if (feat.filterKey === 'loc') {
+            this.branchSelectedLoc = [filterValue];
+            this.branchSelectedPop = [];
+            this.userSelectedLoc = [userLocValue];
+            this.userSelectedPop = [];
+          } else {
+            this.branchSelectedLoc = [];
+            this.branchSelectedPop = [filterValue];
+            this.userSelectedLoc = [];
+            this.userSelectedPop = [filterValue];
+          }
+          this.branchCurrentPage = 1;
+          this.userCurrentPage = 1;
+          this.$nextTick(() => {
+            const el = document.getElementById('home-bottom-content-area');
+            if (el) el.scrollIntoView({ behavior: 'smooth' });
+          });
+        },
+
         getExpBadgeClass(exp) {
           if (exp === '差') return 'bg-[#CF171D]/10 text-[#CF171D] rounded-[2px] font-normal border-0 w-[36px] h-5 inline-flex items-center justify-center text-xs';
           if (exp === '一般') return 'bg-[#FA721B]/10 text-[#FA721B] rounded-[2px] font-normal border-0 w-[36px] h-5 inline-flex items-center justify-center text-xs';
@@ -789,65 +808,6 @@
             showMore: true, 
             fullText: apps.join('、') 
           };
-        },
-
-        goToVipDetail(itemOrName, type) {
-          try {
-            // 兼容两种传参：对象（VIP 静态卡片直接内联完整数据）或字符串（动态匹配 users 列表）
-            let userName, nameOnly, dept, exp, appCount, poorApps, fairApps, normalApps, ipLocation, pop;
-
-            if (itemOrName && typeof itemOrName === 'object') {
-              // 对象传参：直接读取字段
-              userName = itemOrName.userName || '';
-              nameOnly = itemOrName.nameOnly || userName.replace(/[（(].*[）)]/g, '').replace(/^[0-9]+[（(]?/, '').trim();
-              dept = itemOrName.department || '深信服科技 / 总经办';
-              exp = itemOrName.experience || '差';
-              appCount = itemOrName.appCount || 17;
-              poorApps = itemOrName.poorApps != null ? itemOrName.poorApps : 0;
-              fairApps = itemOrName.fairApps != null ? itemOrName.fairApps : 0;
-              normalApps = itemOrName.normalApps != null ? itemOrName.normalApps : Math.max(0, appCount - poorApps - fairApps);
-              ipLocation = itemOrName.ipLocation || '';
-              pop = itemOrName.pop || '';
-            } else {
-              // 字符串传参：尝试从 users 列表匹配，找不到则用兜底值
-              userName = itemOrName || '';
-              const matchedUser = (this.users || []).find(u => u.userName === userName);
-              nameOnly = userName.replace(/[（(].*[）)]/g, '').replace(/^[0-9]+[（(]?/, '').trim();
-              dept = matchedUser?.department || '深信服科技 / 总经办';
-              exp = matchedUser?.experience || '差';
-              appCount = matchedUser?.appCount || 17;
-              poorApps = matchedUser?.degradedApps?.length || 0;
-              fairApps = Math.max(0, Math.round(appCount * 0.18));
-              normalApps = Math.max(0, appCount - poorApps - fairApps);
-              ipLocation = matchedUser?.ipLocation || '';
-              pop = matchedUser?.pop || '';
-            }
-
-            sessionStorage.setItem('dem_locate_query', JSON.stringify({
-              queryType: type === 'app' ? '应用' : '用户',
-              queryValue: userName,
-              dateShortcut: this.dateShortcut,
-              dateRange: this.dateRange,
-              selectedItem: {
-                label: userName,
-                nameOnly: nameOnly,
-                sub: dept,
-                dept: dept,
-                experience: exp,
-                totalApps: appCount,
-                poorApps: poorApps,
-                fairApps: fairApps,
-                normalApps: normalApps,
-                ipLocation: ipLocation,
-                pop: pop
-              }
-            }));
-          } catch(e) {}
-          if (type === 'app') {
-            this.navigateToDimension('应用');
-          } else {
-            window.location.href = './DEM-用户详情.html';
-          }
         },
 
         goToBranchDetail(branch) {
@@ -1176,15 +1136,15 @@
         <!-- 主内容区域：左边距12px、右边距12px、下边距12px；页头与内容上下间距8px；垂直内容间距默认8px -->
         <main class="flex-1 bg-[#EDF1F7] px-3 pt-2 pb-3 flex flex-col gap-2 overflow-y-auto custom-scrollbar">
 
-          <!-- 2. 顶部综合概览大卡片 (三段比例 4:3:3 布局: 体验预警事件分布 30% + 访问体验质量 40% + VIP对象体验 30%) -->
+          <!-- 2. 顶部综合概览大卡片 (三段比例 30:38:32 布局: 体验预警事件 + 访问体验质量 + 体验异常对象共性特征TOP5) -->
           <div x-show="showOverview" x-collapse class="flex-shrink-0 w-full overflow-hidden">
             <div class="bg-white border border-[#E2E8F0] rounded-[4px] p-4 shadow-2xs grid divide-x divide-[#F0F0F0] box-border min-h-[170px]"
-                 style="grid-template-columns: 30% 40% 30%;">
+                 style="grid-template-columns: 30% 38% 32%;">
               
-              <!-- 模块 1: 体验预警事件分布 (佔 30% 宽度) -->
+              <!-- 模块 1: 体验预警事件 (佔 30% 宽度) -->
               <div class="pr-4 flex flex-col justify-between select-none h-full">
                 <div class="flex items-center justify-between mb-2">
-                  <span class="text-[14px] font-bold text-[#262626]">体验预警事件分布</span>
+                  <span class="text-[14px] font-bold text-[#262626]">体验预警事件</span>
                 </div>
                 <div class="flex items-center gap-[40px] flex-1 min-w-0">
                   <!-- 左侧：待处置数字 (24px, 加粗) -->
@@ -1194,45 +1154,45 @@
                   </div>
 
                   <!-- 中间：环形图 -->
-                  <div class="relative w-[76px] h-[76px] flex items-center justify-center flex-shrink-0 cursor-pointer group" title="点击环形弧线按告警等级筛选">
+                  <div class="relative w-[76px] h-[76px] flex items-center justify-center flex-shrink-0 cursor-pointer group" title="点击环形弧线按事件等级筛选">
                     <svg class="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
                       <circle cx="50" cy="50" r="33" fill="#F0F5FF" />
                       <circle cx="50" cy="50" r="36" fill="none" stroke="#D0E2FF" stroke-width="1" stroke-dasharray="2.5 2.5" />
                       <circle cx="50" cy="50" r="43" fill="none" stroke="#F0F2F5" stroke-width="8" />
-                      <circle @click="filterAlertLevel('高优')" cx="50" cy="50" r="43" fill="none" stroke="#FF5752" stroke-width="8" stroke-dasharray="47 223" stroke-dashoffset="0" class="cursor-pointer transition-all duration-200 hover:stroke-[10px]" title="高优告警 (4)" />
-                      <circle @click="filterAlertLevel('中优')" cx="50" cy="50" r="43" fill="none" stroke="#FF9245" stroke-width="8" stroke-dasharray="141 129" stroke-dashoffset="-49" class="cursor-pointer transition-all duration-200 hover:stroke-[10px]" title="中优告警 (12)" />
-                      <circle @click="filterAlertLevel('低优')" cx="50" cy="50" r="43" fill="none" stroke="#5BD8A6" stroke-width="8" stroke-dasharray="12 258" stroke-dashoffset="-241" class="cursor-pointer transition-all duration-200 hover:stroke-[10px]" title="低优告警 (1)" />
-                      <circle @click="filterAlertLevel('all')" cx="50" cy="50" r="43" fill="none" stroke="#39C317" stroke-width="8" stroke-dasharray="47 223" stroke-dashoffset="-192" class="cursor-pointer transition-all duration-200 hover:stroke-[10px]" title="已修复 (4)" />
+                      <circle @click="filterAlertLevel('紧急')" cx="50" cy="50" r="43" fill="none" stroke="#F53F3F" stroke-width="8" stroke-dasharray="45 225" stroke-dashoffset="0" class="cursor-pointer transition-all duration-200 hover:stroke-[10px]" title="紧急 (4)" />
+                      <circle @click="filterAlertLevel('重要')" cx="50" cy="50" r="43" fill="none" stroke="#FF7D00" stroke-width="8" stroke-dasharray="139 131" stroke-dashoffset="-47" class="cursor-pointer transition-all duration-200 hover:stroke-[10px]" title="重要 (12)" />
+                      <circle @click="filterAlertLevel('次要')" cx="50" cy="50" r="43" fill="none" stroke="#1C6EFF" stroke-width="8" stroke-dasharray="57 213" stroke-dashoffset="-188" class="cursor-pointer transition-all duration-200 hover:stroke-[10px]" title="次要 (5)" />
+                      <circle @click="filterAlertLevel('提示')" cx="50" cy="50" r="43" fill="none" stroke="#86909C" stroke-width="8" stroke-dasharray="21 249" stroke-dashoffset="-247" class="cursor-pointer transition-all duration-200 hover:stroke-[10px]" title="提示 (2)" />
                     </svg>
                     <div class="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
                       <span class="text-[18px] font-bold text-[#262626] leading-none" x-text="metrics.total">23</span>
-                      <span class="text-[9px] text-[#8C8C8C] transform origin-center mt-1 font-normal">问题总数</span>
+                      <span class="text-[9px] text-[#8C8C8C] transform origin-center mt-1 font-normal">事件总数</span>
                     </div>
                   </div>
 
                   <!-- 右侧：图例列表 -->
                   <div class="flex flex-col gap-[7px] text-[12px] min-w-[66px] flex-shrink-0 select-none">
-                    <div @click="filterAlertLevel('高优')" class="flex items-center justify-between gap-1.5 cursor-pointer hover:opacity-80 transition-opacity" title="过滤高优告警">
-                      <div class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-[2px] bg-[#FF5752]"></span><span class="text-[#595959] font-normal">高优</span></div>
-                      <span class="font-normal text-[#262626] font-outfit text-right w-4" x-text="metrics.highCount">4</span>
+                    <div @click="filterAlertLevel('紧急')" class="flex items-center justify-between gap-1.5 cursor-pointer hover:opacity-80 transition-opacity" title="过滤紧急事件">
+                      <div class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-[2px] bg-[#F53F3F]"></span><span class="text-[#595959] font-normal">紧急</span></div>
+                      <span class="font-normal text-[#262626] font-outfit text-right w-4" x-text="metrics.urgentCount">4</span>
                     </div>
-                    <div @click="filterAlertLevel('中优')" class="flex items-center justify-between gap-1.5 cursor-pointer hover:opacity-80 transition-opacity" title="过滤中优告警">
-                      <div class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-[2px] bg-[#FF9245]"></span><span class="text-[#595959] font-normal">中优</span></div>
-                      <span class="font-normal text-[#262626] font-outfit text-right w-4" x-text="metrics.medCount">12</span>
+                    <div @click="filterAlertLevel('重要')" class="flex items-center justify-between gap-1.5 cursor-pointer hover:opacity-80 transition-opacity" title="过滤重要事件">
+                      <div class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-[2px] bg-[#FF7D00]"></span><span class="text-[#595959] font-normal">重要</span></div>
+                      <span class="font-normal text-[#262626] font-outfit text-right w-4" x-text="metrics.importantCount">12</span>
                     </div>
-                    <div @click="filterAlertLevel('低优')" class="flex items-center justify-between gap-1.5 cursor-pointer hover:opacity-80 transition-opacity" title="过滤低优告警">
-                      <div class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-[2px] bg-[#5BD8A6]"></span><span class="text-[#595959] font-normal">低优</span></div>
-                      <span class="font-normal text-[#262626] font-outfit text-right w-4" x-text="metrics.lowCount">1</span>
+                    <div @click="filterAlertLevel('次要')" class="flex items-center justify-between gap-1.5 cursor-pointer hover:opacity-80 transition-opacity" title="过滤次要事件">
+                      <div class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-[2px] bg-[#1C6EFF]"></span><span class="text-[#595959] font-normal">次要</span></div>
+                      <span class="font-normal text-[#262626] font-outfit text-right w-4" x-text="metrics.minorCount">5</span>
                     </div>
-                    <div @click="filterAlertLevel('all')" class="flex items-center justify-between gap-1.5 cursor-pointer hover:opacity-80 transition-opacity" title="显示全部分级">
-                      <div class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-[2px] bg-[#39C317]"></span><span class="text-[#595959] font-normal">已修复</span></div>
-                      <span class="font-normal text-[#262626] font-outfit text-right w-4" x-text="metrics.resolvedCount">4</span>
+                    <div @click="filterAlertLevel('提示')" class="flex items-center justify-between gap-1.5 cursor-pointer hover:opacity-80 transition-opacity" title="过滤提示事件">
+                      <div class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-[2px] bg-[#86909C]"></span><span class="text-[#595959] font-normal">提示</span></div>
+                      <span class="font-normal text-[#262626] font-outfit text-right w-4" x-text="metrics.infoCount">2</span>
                     </div>
                   </div>
                 </div>
               </div>
 
-              <!-- 模块 2: 访问体验质量 (佔 40% 宽度 - 获得宽敞空间，支持点击正常/一般/差联动) -->
+              <!-- 模块 2: 访问体验质量 (佔 38% 宽度 - 支持点击正常/一般/差联动) -->
               <div class="px-5 flex flex-col justify-between select-none h-full">
                 <div class="flex items-center justify-between mb-2">
                   <span class="text-[14px] font-bold text-[#262626]">访问体验质量</span>
@@ -1369,71 +1329,26 @@
                 </div>
               </div>
 
-              <!-- 模块 3: VIP对象体验 (佔 30% 宽度，支持局部切页与从上往下规整排列) -->
+              <!-- 模块 3: 体验异常对象共性特征TOP5 (佔 32% 宽度，同地区 / 同POP 混排单列) -->
               <div class="pl-4 flex flex-col justify-start select-none h-full">
-                <!-- 标题与 Tab 切换 -->
-                <div class="flex items-center justify-between mb-1">
-                  <span class="text-[14px] font-bold text-[#262626]">VIP对象体验</span>
-                  <!-- 右上角切换页 -->
-                  <div class="inline-flex items-center bg-[#F1F5F9] p-[2px] rounded-[3px] text-[11px] text-[#454C59] flex-shrink-0">
-                    <button @click="vipTab = 'user'" :class="vipTab === 'user' ? 'bg-white text-[#1890FF] font-medium shadow-2xs' : 'text-[#8C8C8C] hover:text-[#262626]'" class="px-2 py-[1px] rounded-[2px] transition-all cursor-pointer">用户</button>
-                    <button @click="vipTab = 'app'" :class="vipTab === 'app' ? 'bg-white text-[#1890FF] font-medium shadow-2xs' : 'text-[#8C8C8C] hover:text-[#262626]'" class="px-2 py-[1px] rounded-[2px] transition-all cursor-pointer">应用</button>
-                  </div>
+                <div class="flex items-center justify-between gap-2 mb-2">
+                  <span class="text-[14px] font-bold text-[#262626] whitespace-nowrap">体验异常对象共性特征TOP5</span>
                 </div>
 
-                <!-- 副标题与局部切页按钮 (方案: 局部切页) -->
-                <div class="flex items-center justify-between text-[12px] mb-2 font-normal">
-                  <span class="text-[#8C8C8C]" x-text="vipTab === 'user' ? '监测用户 18 人，体验异常 ' + vipUsersList.length + ' 人：' : '监测 VIP 应用 6 个，体验异常 ' + vipAppsList.length + ' 个：'"></span>
-                  <!-- 局部翻页指示器与按钮 -->
-                  <div class="flex items-center gap-1 text-[11px] text-[#8C8C8C] select-none">
-                    <button @click="prevVipPage()" :disabled="currentVipPage <= 1" :class="currentVipPage <= 1 ? 'opacity-30 cursor-not-allowed text-[#BFBFBF]' : 'hover:text-[#1890FF] hover:bg-[#F0F2F5] cursor-pointer text-[#595959]'" class="w-4 h-4 rounded flex items-center justify-center transition-all" title="上一页">
-                      <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
-                    </button>
-                    <span class="font-outfit text-[11px] leading-none"><span class="text-[#262626] font-medium" x-text="currentVipPage">1</span>/<span x-text="totalVipPages">2</span></span>
-                    <button @click="nextVipPage()" :disabled="currentVipPage >= totalVipPages" :class="currentVipPage >= totalVipPages ? 'opacity-30 cursor-not-allowed text-[#BFBFBF]' : 'hover:text-[#1890FF] hover:bg-[#F0F2F5] cursor-pointer text-[#595959]'" class="w-4 h-4 rounded flex items-center justify-center transition-all" title="下一页">
-                      <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-                    </button>
-                  </div>
-                </div>
-
-                <!-- VIP 用户明细列表 (每行 30px，从上往下排，优先保障用户名完整显示) -->
-                <div class="flex flex-col gap-[4px] text-[12px] flex-1 justify-start" x-show="vipTab === 'user'">
-                  <template x-for="item in pagedVipUsers" :key="item.id">
-                    <div @click="goToVipDetail(item, 'user')" 
-                         class="h-[30px] px-2.5 bg-[#F7F9FC] rounded-[4px] flex items-center cursor-pointer hover:bg-white hover:border-[#1890FF]/40 border border-transparent transition-all group"
-                         :title="item.userName + ' 受损应用：' + item.primaryApp + (item.degradedCount > 1 ? ' 等 ' + item.degradedCount + ' 个' : '')">
-                      <!-- 名字（自适应宽度，完整展示无省略，带红点） -->
-                      <div class="flex items-center gap-1.5 flex-shrink-0">
-                        <span class="w-1.5 h-1.5 rounded-full bg-[#FF5752] flex-shrink-0"></span>
-                        <span class="text-[12px] text-[#262626] font-medium group-hover:text-[#1890FF] whitespace-nowrap" x-text="item.userName"></span>
-                      </div>
-                      <!-- 描述文案（紧随用户名之后，左对齐） -->
-                      <div class="text-[12px] text-[#8C8C8C] ml-3 text-left font-normal whitespace-nowrap flex-shrink-0">
-                        <span>受损应用：</span><span class="text-[#595959]" x-text="item.primaryApp"></span><template x-if="item.degradedCount > 1"><span> 等 <span class="text-[#FF5752] font-medium font-outfit" x-text="item.degradedCount"></span> 个</span></template>
-                      </div>
+                <div class="flex flex-col gap-[3px] text-[12px] flex-1 justify-start">
+                  <template x-for="feat in commonFeatures" :key="feat.key">
+                    <div @click="filterByCommonFeature(feat)"
+                         class="h-[24px] px-2 bg-[#F7F9FC] rounded-[4px] flex items-center gap-2 cursor-pointer hover:bg-white hover:border-[#1890FF]/40 border border-transparent transition-all group"
+                         :title="feat.typeLabel + ' ' + feat.value + '：影响用户 ' + feat.userCount + ' 人，分支 ' + feat.branchCount + ' 个'">
+                      <span class="h-[16px] px-1 inline-flex items-center rounded-[2px] bg-[#EEF2F7] text-[10px] text-[#64748B] flex-shrink-0" x-text="feat.typeLabel"></span>
+                      <span class="text-[12px] text-[#262626] whitespace-nowrap group-hover:text-[#1890FF]" x-text="feat.value"></span>
+                      <span class="ml-auto text-[11px] text-[#8C8C8C] whitespace-nowrap flex-shrink-0">
+                        <span class="text-[#595959] font-medium font-outfit" x-text="feat.userCount"></span> 人 /
+                        <span class="text-[#595959] font-medium font-outfit" x-text="feat.branchCount"></span> 个分支
+                      </span>
                     </div>
                   </template>
                 </div>
-
-                <!-- VIP 应用明细列表 (每行 30px，从上往下排，优先保障应用名完整显示) -->
-                <div class="flex flex-col gap-[4px] text-[12px] flex-1 justify-start" x-show="vipTab === 'app'" x-cloak>
-                  <template x-for="app in pagedVipApps" :key="app.id">
-                    <div @click="goToVipDetail(app.appName, 'app')" 
-                         class="h-[30px] px-2.5 bg-[#F7F9FC] rounded-[4px] flex items-center cursor-pointer hover:bg-white hover:border-[#1890FF]/40 border border-transparent transition-all group"
-                         :title="app.appName + ' 影响用户 ' + app.affectedUsers + ' 人，分支 ' + app.affectedBranches + ' 个'">
-                      <!-- 应用名称（自适应宽度，完整展示无省略，带红点） -->
-                      <div class="flex items-center gap-1.5 flex-shrink-0">
-                        <span class="w-1.5 h-1.5 rounded-full bg-[#FF5752] flex-shrink-0"></span>
-                        <span class="text-[12px] text-[#262626] font-medium group-hover:text-[#1890FF] whitespace-nowrap" x-text="app.appName"></span>
-                      </div>
-                      <!-- 描述文案（紧随应用名之后，左对齐） -->
-                      <div class="text-[12px] text-[#8C8C8C] ml-3 text-left font-normal whitespace-nowrap flex-shrink-0">
-                        <span>影响用户 </span><span class="text-[#FF5752] font-medium font-outfit" x-text="app.affectedUsers"></span><span> 人，分支 </span><span class="text-[#595959] font-medium font-outfit" x-text="app.affectedBranches"></span><span> 个</span>
-                      </div>
-                    </div>
-                  </template>
-                </div>
-
               </div>
 
             </div>
@@ -1466,230 +1381,77 @@
               <div class="p-3 flex items-center justify-between gap-3 flex-wrap flex-shrink-0 bg-white">
                 <!-- 3个等宽多选筛选项在左侧 -->
                 <div class="flex items-center gap-2">
-                  <!-- 1. 访问体验多选 -->
-                  <div class="relative inline-flex items-center group w-[188px]" x-data="{ open: false }" @click.outside="open = false">
-                    <div @click="open = !open" 
-                         class="h-8 w-full px-2 bg-white border border-[#D3D7DE] rounded-[2px] hover:border-[#1C6EFF] transition-colors flex items-center justify-between cursor-pointer select-none text-xs">
-                      <!-- 未选状态 -->
-                      <template x-if="branchSelectedExp.length === 0">
-                        <span class="text-[#A1A7B3] font-normal truncate">全部访问体验</span>
-                      </template>
-                      <!-- 单选状态：展示单个 Tag -->
-                      <template x-if="branchSelectedExp.length === 1">
-                        <div class="flex items-center overflow-hidden">
-                          <span class="inline-flex items-center gap-1 h-5 px-1.5 bg-[#EDF1F7] text-[#2F3540] text-xs rounded-[2px] max-w-[130px] truncate select-none">
-                            <span class="truncate" x-text="branchSelectedExp[0]"></span>
-                            <button type="button" 
-                                    @click.stop.prevent="branchSelectedExp = []; branchCurrentPage = 1"
-                                    class="w-3 h-3 flex-shrink-0 text-[#8A92A1] hover:text-[#2F3540] inline-flex items-center justify-center rounded-[1px] hover:bg-[#D3D7DE] transition-colors cursor-pointer"
-                                    title="删除">
-                              <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
-                              </svg>
-                            </button>
-                          </span>
-                        </div>
-                      </template>
-                      <!-- 多选状态：第1个 Tag + 折叠 +N Badge -->
-                      <template x-if="branchSelectedExp.length > 1">
-                        <div class="flex items-center gap-1 overflow-hidden">
-                          <span class="inline-flex items-center gap-1 h-5 px-1.5 bg-[#EDF1F7] text-[#2F3540] text-xs rounded-[2px] max-w-[96px] truncate select-none">
-                            <span class="truncate" x-text="branchSelectedExp[0]"></span>
-                            <button type="button" 
-                                    @click.stop.prevent="branchSelectedExp = branchSelectedExp.filter((_, idx) => idx !== 0); branchCurrentPage = 1"
-                                    class="w-3 h-3 flex-shrink-0 text-[#8A92A1] hover:text-[#2F3540] inline-flex items-center justify-center rounded-[1px] hover:bg-[#D3D7DE] transition-colors cursor-pointer"
-                                    title="删除">
-                              <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
-                              </svg>
-                            </button>
-                          </span>
-                          <span class="inline-flex items-center justify-center h-5 px-1.5 bg-[#EDF1F7] text-[#2F3540] text-xs font-normal rounded-[2px] flex-shrink-0 select-none"
-                                :title="branchSelectedExp.join('、')"
-                                x-text="`+${branchSelectedExp.length - 1}`">
-                          </span>
-                        </div>
-                      </template>
-                      
-                      <!-- 右侧清除与展开箭头 -->
-                      <div class="flex items-center gap-1 ml-1 flex-shrink-0">
-                        <template x-if="branchSelectedExp.length > 0">
-                          <span @click.stop.prevent="branchSelectedExp = []; branchCurrentPage = 1" 
-                                class="w-3.5 h-3.5 rounded-full hover:bg-gray-200 inline-flex items-center justify-center text-[#8A92A1] hover:text-[#5C6270] transition-colors cursor-pointer"
-                                title="全部清除">
+                  <template x-for="filter in branchFilterConfigs" :key="filter.key">
+                    <div class="relative inline-flex items-center group w-[188px]" @click.outside="openFilterKey === filter.key && filterClose()">
+                      <div @click="filterOpen(filter)"
+                           class="h-8 w-full px-2 bg-white border border-[#D3D7DE] rounded-[2px] hover:border-[#1C6EFF] transition-colors flex items-center justify-between cursor-pointer select-none text-xs">
+                        <template x-if="filterList(filter.selectedKey).length === 0">
+                          <span class="text-[#A1A7B3] font-normal truncate" x-text="filter.placeholder"></span>
+                        </template>
+                        <template x-if="filterList(filter.selectedKey).length > 0">
+                          <div class="flex items-center gap-1 overflow-hidden">
+                            <template x-for="value in filterVisibleValues(filter)" :key="value">
+                              <span class="inline-flex items-center gap-1 h-5 px-1.5 bg-[#EDF1F7] text-[#2F3540] text-xs rounded-[2px] max-w-[120px] min-w-0 shrink-0 select-none">
+                                <span class="truncate" x-text="filterLabel(filter, value)"></span>
+                                <button type="button"
+                                        @click.stop.prevent="filterRemove(filter, value)"
+                                        class="w-3 h-3 flex-shrink-0 text-[#8A92A1] hover:text-[#2F3540] inline-flex items-center justify-center rounded-[1px] hover:bg-[#D3D7DE] transition-colors cursor-pointer"
+                                        title="删除">
+                                  <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
+                                  </svg>
+                                </button>
+                              </span>
+                            </template>
+                            <span x-show="filterHiddenCount(filter) > 0"
+                                  class="inline-flex items-center justify-center h-5 px-1.5 bg-[#EDF1F7] text-[#2F3540] text-xs font-normal rounded-[2px] flex-shrink-0 select-none"
+                                  :title="filterSelectedLabels(filter).join('、')"
+                                  x-text="`+${filterHiddenCount(filter)}`">
+                            </span>
+                          </div>
+                        </template>
+                        <div class="relative w-4 h-4 flex items-center justify-center ml-1 shrink-0">
+                          <svg class="w-3.5 h-3.5 text-[#A1A7B3] transition-transform duration-150"
+                               :class="[openFilterKey === filter.key && 'rotate-180', filterList(filter.selectedKey).length > 0 ? 'group-hover:hidden' : '']"
+                               fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                          </svg>
+                          <button type="button"
+                                  x-show="filterList(filter.selectedKey).length > 0"
+                                  @click.stop.prevent="filterClear(filter)"
+                                  class="hidden group-hover:flex absolute inset-0 w-4 h-4 rounded-full bg-white text-[#8A92A1] hover:text-[#1C6EFF] hover:bg-[#F0F5FF] items-center justify-center cursor-pointer transition-colors z-10"
+                                  title="清除选择">
                             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
                             </svg>
-                          </span>
+                          </button>
+                        </div>
+                      </div>
+
+                      <div x-show="openFilterKey === filter.key"
+                           x-cloak
+                           class="absolute left-0 top-full mt-1 min-w-[188px] max-h-[240px] overflow-y-auto bg-white border border-[#E1E5EB] shadow-lg rounded-[2px] py-1 z-50 text-xs text-[#2F3540] custom-scrollbar">
+                        <template x-if="filter.searchable">
+                          <div class="px-2 py-1.5 sticky top-0 bg-white z-10 border-b border-[#F1F5F9]">
+                            <input type="text" x-model="filterSearch" @click.stop
+                                   :placeholder="filter.searchPlaceholder || '搜索'"
+                                   class="h-7 w-full px-2 text-xs border border-[#D3D7DE] rounded-[2px] focus:outline-none focus:border-[#1C6EFF]">
+                          </div>
                         </template>
-                        <svg class="w-3.5 h-3.5 text-[#A1A7B3] transition-transform duration-150" :class="open && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                        </svg>
+                        <template x-for="opt in filterOptions(filter)" :key="filterOptionValue(opt)">
+                          <label class="flex items-center gap-2 px-3 py-1.5 hover:bg-[#F4F6F9] cursor-pointer select-none">
+                            <input type="checkbox"
+                                   :value="filterOptionValue(opt)"
+                                   :checked="filterIsSelected(filter, filterOptionValue(opt))"
+                                   @change="filterToggle(filter, filterOptionValue(opt))"
+                                   class="rounded border-gray-300 text-[#1C6EFF] focus:ring-0 w-3.5 h-3.5">
+                            <span x-text="filterOptionLabel(opt)"></span>
+                          </label>
+                        </template>
+                        <div x-show="filterOptions(filter).length === 0" class="px-3 py-2 text-[#8A92A1] text-center">无匹配项</div>
                       </div>
                     </div>
-
-                    <!-- 下拉多选列表 -->
-                    <div x-show="open" 
-                         x-cloak 
-                         class="absolute left-0 top-full mt-1 min-w-[188px] max-h-[220px] overflow-y-auto bg-white border border-[#E1E5EB] shadow-lg rounded-[2px] py-1 z-50 text-xs text-[#2F3540] custom-scrollbar">
-                      <template x-for="opt in ['差', '一般', '正常']" :key="opt">
-                        <label class="flex items-center gap-2 px-3 py-1.5 hover:bg-[#F4F6F9] cursor-pointer select-none">
-                          <input type="checkbox" :value="opt" x-model="branchSelectedExp" @change="branchCurrentPage = 1" class="rounded border-gray-300 text-[#1C6EFF] focus:ring-0 w-3.5 h-3.5">
-                          <span x-text="opt"></span>
-                        </label>
-                      </template>
-                    </div>
-                  </div>
-
-                  <!-- 2. 地理位置多选 -->
-                  <div class="relative inline-flex items-center group w-[188px]" x-data="{ open: false }" @click.outside="open = false">
-                    <div @click="open = !open" 
-                         class="h-8 w-full px-2 bg-white border border-[#D3D7DE] rounded-[2px] hover:border-[#1C6EFF] transition-colors flex items-center justify-between cursor-pointer select-none text-xs">
-                      <!-- 未选状态 -->
-                      <template x-if="branchSelectedLoc.length === 0">
-                        <span class="text-[#A1A7B3] font-normal truncate">全部地理位置</span>
-                      </template>
-                      <!-- 单选状态 -->
-                      <template x-if="branchSelectedLoc.length === 1">
-                        <div class="flex items-center overflow-hidden">
-                          <span class="inline-flex items-center gap-1 h-5 px-1.5 bg-[#EDF1F7] text-[#2F3540] text-xs rounded-[2px] max-w-[130px] truncate select-none">
-                            <span class="truncate" x-text="branchSelectedLoc[0]"></span>
-                            <button type="button" 
-                                    @click.stop.prevent="branchSelectedLoc = []; branchCurrentPage = 1"
-                                    class="w-3 h-3 flex-shrink-0 text-[#8A92A1] hover:text-[#2F3540] inline-flex items-center justify-center rounded-[1px] hover:bg-[#D3D7DE] transition-colors cursor-pointer"
-                                    title="删除">
-                              <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
-                              </svg>
-                            </button>
-                          </span>
-                        </div>
-                      </template>
-                      <!-- 多选状态 -->
-                      <template x-if="branchSelectedLoc.length > 1">
-                        <div class="flex items-center gap-1 overflow-hidden">
-                          <span class="inline-flex items-center gap-1 h-5 px-1.5 bg-[#EDF1F7] text-[#2F3540] text-xs rounded-[2px] max-w-[96px] truncate select-none">
-                            <span class="truncate" x-text="branchSelectedLoc[0]"></span>
-                            <button type="button" 
-                                    @click.stop.prevent="branchSelectedLoc = branchSelectedLoc.filter((_, idx) => idx !== 0); branchCurrentPage = 1"
-                                    class="w-3 h-3 flex-shrink-0 text-[#8A92A1] hover:text-[#2F3540] inline-flex items-center justify-center rounded-[1px] hover:bg-[#D3D7DE] transition-colors cursor-pointer"
-                                    title="删除">
-                              <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
-                              </svg>
-                            </button>
-                          </span>
-                          <span class="inline-flex items-center justify-center h-5 px-1.5 bg-[#EDF1F7] text-[#2F3540] text-xs font-normal rounded-[2px] flex-shrink-0 select-none"
-                                :title="branchSelectedLoc.join('、')"
-                                x-text="`+${branchSelectedLoc.length - 1}`">
-                          </span>
-                        </div>
-                      </template>
-                      
-                      <!-- 右侧清除与展开箭头 -->
-                      <div class="flex items-center gap-1 ml-1 flex-shrink-0">
-                        <template x-if="branchSelectedLoc.length > 0">
-                          <span @click.stop.prevent="branchSelectedLoc = []; branchCurrentPage = 1" 
-                                class="w-3.5 h-3.5 rounded-full hover:bg-gray-200 inline-flex items-center justify-center text-[#8A92A1] hover:text-[#5C6270] transition-colors cursor-pointer"
-                                title="全部清除">
-                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
-                            </svg>
-                          </span>
-                        </template>
-                        <svg class="w-3.5 h-3.5 text-[#A1A7B3] transition-transform duration-150" :class="open && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                        </svg>
-                      </div>
-                    </div>
-
-                    <!-- 下拉多选列表 -->
-                    <div x-show="open" 
-                         x-cloak 
-                         class="absolute left-0 top-full mt-1 min-w-[188px] max-h-[220px] overflow-y-auto bg-white border border-[#E1E5EB] shadow-lg rounded-[2px] py-1 z-50 text-xs text-[#2F3540] custom-scrollbar">
-                      <template x-for="opt in ['菲律宾 马尼拉', '中国 西安', '中国 武汉', '中国 广州', '中国 深圳', '中国 上海', '中国 北京', '中国 成都', '中国 南京', '中国 杭州']" :key="opt">
-                        <label class="flex items-center gap-2 px-3 py-1.5 hover:bg-[#F4F6F9] cursor-pointer select-none">
-                          <input type="checkbox" :value="opt" x-model="branchSelectedLoc" @change="branchCurrentPage = 1" class="rounded border-gray-300 text-[#1C6EFF] focus:ring-0 w-3.5 h-3.5">
-                          <span x-text="opt"></span>
-                        </label>
-                      </template>
-                    </div>
-                  </div>
-
-                  <!-- 3. 接入POP多选 -->
-                  <div class="relative inline-flex items-center group w-[188px]" x-data="{ open: false }" @click.outside="open = false">
-                    <div @click="open = !open" 
-                         class="h-8 w-full px-2 bg-white border border-[#D3D7DE] rounded-[2px] hover:border-[#1C6EFF] transition-colors flex items-center justify-between cursor-pointer select-none text-xs">
-                      <!-- 未选状态 -->
-                      <template x-if="branchSelectedPop.length === 0">
-                        <span class="text-[#8A92A1] font-normal truncate">全部接入POP</span>
-                      </template>
-                      <!-- 单选状态 -->
-                      <template x-if="branchSelectedPop.length === 1">
-                        <div class="flex items-center overflow-hidden">
-                          <span class="inline-flex items-center gap-1 h-5 px-1.5 bg-[#EDF1F7] text-[#2F3540] text-xs rounded-[2px] max-w-[130px] truncate select-none">
-                            <span class="truncate" x-text="branchSelectedPop[0]"></span>
-                            <button type="button" 
-                                    @click.stop.prevent="branchSelectedPop = []; branchCurrentPage = 1"
-                                    class="w-3 h-3 flex-shrink-0 text-[#8A92A1] hover:text-[#2F3540] inline-flex items-center justify-center rounded-[1px] hover:bg-[#D3D7DE] transition-colors cursor-pointer"
-                                    title="删除">
-                              <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
-                              </svg>
-                            </button>
-                          </span>
-                        </div>
-                      </template>
-                      <!-- 多选状态 -->
-                      <template x-if="branchSelectedPop.length > 1">
-                        <div class="flex items-center gap-1 overflow-hidden">
-                          <span class="inline-flex items-center gap-1 h-5 px-1.5 bg-[#EDF1F7] text-[#2F3540] text-xs rounded-[2px] max-w-[96px] truncate select-none">
-                            <span class="truncate" x-text="branchSelectedPop[0]"></span>
-                            <button type="button" 
-                                    @click.stop.prevent="branchSelectedPop = branchSelectedPop.filter((_, idx) => idx !== 0); branchCurrentPage = 1"
-                                    class="w-3 h-3 flex-shrink-0 text-[#8A92A1] hover:text-[#2F3540] inline-flex items-center justify-center rounded-[1px] hover:bg-[#D3D7DE] transition-colors cursor-pointer"
-                                    title="删除">
-                              <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
-                              </svg>
-                            </button>
-                          </span>
-                          <span class="inline-flex items-center justify-center h-5 px-1.5 bg-[#EDF1F7] text-[#2F3540] text-xs font-normal rounded-[2px] flex-shrink-0 select-none"
-                                :title="branchSelectedPop.join('、')"
-                                x-text="`+${branchSelectedPop.length - 1}`">
-                          </span>
-                        </div>
-                      </template>
-                      
-                      <!-- 右侧清除与展开箭头 -->
-                      <div class="flex items-center gap-1 ml-1 flex-shrink-0">
-                        <template x-if="branchSelectedPop.length > 0">
-                          <span @click.stop.prevent="branchSelectedPop = []; branchCurrentPage = 1" 
-                                class="w-3.5 h-3.5 rounded-full hover:bg-gray-200 inline-flex items-center justify-center text-[#8A92A1] hover:text-[#5C6270] transition-colors cursor-pointer"
-                                title="全部清除">
-                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
-                            </svg>
-                          </span>
-                        </template>
-                        <svg class="w-3.5 h-3.5 text-[#A1A7B3] transition-transform duration-150" :class="open && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                        </svg>
-                      </div>
-                    </div>
-
-                    <!-- 下拉多选列表 -->
-                    <div x-show="open" 
-                         x-cloak 
-                         class="absolute left-0 top-full mt-1 min-w-[188px] max-h-[220px] overflow-y-auto bg-white border border-[#E1E5EB] shadow-lg rounded-[2px] py-1 z-50 text-xs text-[#2F3540] custom-scrollbar">
-                      <template x-for="opt in ['马尼拉POP', '西安POP', '武汉POP', '广州POP', '深圳POP', '上海POP', '北京POP', '成都POP', '南京POP', '香港POP']" :key="opt">
-                        <label class="flex items-center gap-2 px-3 py-1.5 hover:bg-[#F4F6F9] cursor-pointer select-none">
-                          <input type="checkbox" :value="opt" x-model="branchSelectedPop" @change="branchCurrentPage = 1" class="rounded border-gray-300 text-[#1C6EFF] focus:ring-0 w-3.5 h-3.5">
-                          <span x-text="opt"></span>
-                        </label>
-                      </template>
-                    </div>
-                  </div>
+                  </template>
                 </div>
 
                 <!-- 搜索框带快捷清除 -->
@@ -1805,230 +1567,77 @@
               <div class="p-3 flex items-center justify-between gap-3 flex-wrap flex-shrink-0 bg-white">
                 <!-- 3个等宽多选筛选项在左侧 -->
                 <div class="flex items-center gap-2">
-                  <!-- 1. 访问体验多选 -->
-                  <div class="relative inline-flex items-center group w-[188px]" x-data="{ open: false }" @click.outside="open = false">
-                    <div @click="open = !open" 
-                         class="h-8 w-full px-2 bg-white border border-[#D3D7DE] rounded-[2px] hover:border-[#1C6EFF] transition-colors flex items-center justify-between cursor-pointer select-none text-xs">
-                      <!-- 未选状态 -->
-                      <template x-if="userSelectedExp.length === 0">
-                        <span class="text-[#A1A7B3] font-normal truncate">全部访问体验</span>
-                      </template>
-                      <!-- 单选状态 -->
-                      <template x-if="userSelectedExp.length === 1">
-                        <div class="flex items-center overflow-hidden">
-                          <span class="inline-flex items-center gap-1 h-5 px-1.5 bg-[#EDF1F7] text-[#2F3540] text-xs rounded-[2px] max-w-[130px] truncate select-none">
-                            <span class="truncate" x-text="userSelectedExp[0]"></span>
-                            <button type="button" 
-                                    @click.stop.prevent="userSelectedExp = []; userCurrentPage = 1"
-                                    class="w-3 h-3 flex-shrink-0 text-[#8A92A1] hover:text-[#2F3540] inline-flex items-center justify-center rounded-[1px] hover:bg-[#D3D7DE] transition-colors cursor-pointer"
-                                    title="删除">
-                              <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
-                              </svg>
-                            </button>
-                          </span>
-                        </div>
-                      </template>
-                      <!-- 多选状态 -->
-                      <template x-if="userSelectedExp.length > 1">
-                        <div class="flex items-center gap-1 overflow-hidden">
-                          <span class="inline-flex items-center gap-1 h-5 px-1.5 bg-[#EDF1F7] text-[#2F3540] text-xs rounded-[2px] max-w-[96px] truncate select-none">
-                            <span class="truncate" x-text="userSelectedExp[0]"></span>
-                            <button type="button" 
-                                    @click.stop.prevent="userSelectedExp = userSelectedExp.filter((_, idx) => idx !== 0); userCurrentPage = 1"
-                                    class="w-3 h-3 flex-shrink-0 text-[#8A92A1] hover:text-[#2F3540] inline-flex items-center justify-center rounded-[1px] hover:bg-[#D3D7DE] transition-colors cursor-pointer"
-                                    title="删除">
-                              <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
-                              </svg>
-                            </button>
-                          </span>
-                          <span class="inline-flex items-center justify-center h-5 px-1.5 bg-[#EDF1F7] text-[#2F3540] text-xs font-normal rounded-[2px] flex-shrink-0 select-none"
-                                :title="userSelectedExp.join('、')"
-                                x-text="`+${userSelectedExp.length - 1}`">
-                          </span>
-                        </div>
-                      </template>
-                      
-                      <!-- 右侧清除与展开箭头 -->
-                      <div class="flex items-center gap-1 ml-1 flex-shrink-0">
-                        <template x-if="userSelectedExp.length > 0">
-                          <span @click.stop.prevent="userSelectedExp = []; userCurrentPage = 1" 
-                                class="w-3.5 h-3.5 rounded-full hover:bg-gray-200 inline-flex items-center justify-center text-[#8A92A1] hover:text-[#5C6270] transition-colors cursor-pointer"
-                                title="全部清除">
+                  <template x-for="filter in userFilterConfigs" :key="filter.key">
+                    <div class="relative inline-flex items-center group w-[188px]" @click.outside="openFilterKey === filter.key && filterClose()">
+                      <div @click="filterOpen(filter)"
+                           class="h-8 w-full px-2 bg-white border border-[#D3D7DE] rounded-[2px] hover:border-[#1C6EFF] transition-colors flex items-center justify-between cursor-pointer select-none text-xs">
+                        <template x-if="filterList(filter.selectedKey).length === 0">
+                          <span class="text-[#A1A7B3] font-normal truncate" x-text="filter.placeholder"></span>
+                        </template>
+                        <template x-if="filterList(filter.selectedKey).length > 0">
+                          <div class="flex items-center gap-1 overflow-hidden">
+                            <template x-for="value in filterVisibleValues(filter)" :key="value">
+                              <span class="inline-flex items-center gap-1 h-5 px-1.5 bg-[#EDF1F7] text-[#2F3540] text-xs rounded-[2px] max-w-[120px] min-w-0 shrink-0 select-none">
+                                <span class="truncate" x-text="filterLabel(filter, value)"></span>
+                                <button type="button"
+                                        @click.stop.prevent="filterRemove(filter, value)"
+                                        class="w-3 h-3 flex-shrink-0 text-[#8A92A1] hover:text-[#2F3540] inline-flex items-center justify-center rounded-[1px] hover:bg-[#D3D7DE] transition-colors cursor-pointer"
+                                        title="删除">
+                                  <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
+                                  </svg>
+                                </button>
+                              </span>
+                            </template>
+                            <span x-show="filterHiddenCount(filter) > 0"
+                                  class="inline-flex items-center justify-center h-5 px-1.5 bg-[#EDF1F7] text-[#2F3540] text-xs font-normal rounded-[2px] flex-shrink-0 select-none"
+                                  :title="filterSelectedLabels(filter).join('、')"
+                                  x-text="`+${filterHiddenCount(filter)}`">
+                            </span>
+                          </div>
+                        </template>
+                        <div class="relative w-4 h-4 flex items-center justify-center ml-1 shrink-0">
+                          <svg class="w-3.5 h-3.5 text-[#A1A7B3] transition-transform duration-150"
+                               :class="[openFilterKey === filter.key && 'rotate-180', filterList(filter.selectedKey).length > 0 ? 'group-hover:hidden' : '']"
+                               fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                          </svg>
+                          <button type="button"
+                                  x-show="filterList(filter.selectedKey).length > 0"
+                                  @click.stop.prevent="filterClear(filter)"
+                                  class="hidden group-hover:flex absolute inset-0 w-4 h-4 rounded-full bg-white text-[#8A92A1] hover:text-[#1C6EFF] hover:bg-[#F0F5FF] items-center justify-center cursor-pointer transition-colors z-10"
+                                  title="清除选择">
                             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
                             </svg>
-                          </span>
+                          </button>
+                        </div>
+                      </div>
+
+                      <div x-show="openFilterKey === filter.key"
+                           x-cloak
+                           class="absolute left-0 top-full mt-1 min-w-[188px] max-h-[240px] overflow-y-auto bg-white border border-[#E1E5EB] shadow-lg rounded-[2px] py-1 z-50 text-xs text-[#2F3540] custom-scrollbar">
+                        <template x-if="filter.searchable">
+                          <div class="px-2 py-1.5 sticky top-0 bg-white z-10 border-b border-[#F1F5F9]">
+                            <input type="text" x-model="filterSearch" @click.stop
+                                   :placeholder="filter.searchPlaceholder || '搜索'"
+                                   class="h-7 w-full px-2 text-xs border border-[#D3D7DE] rounded-[2px] focus:outline-none focus:border-[#1C6EFF]">
+                          </div>
                         </template>
-                        <svg class="w-3.5 h-3.5 text-[#A1A7B3] transition-transform duration-150" :class="open && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                        </svg>
+                        <template x-for="opt in filterOptions(filter)" :key="filterOptionValue(opt)">
+                          <label class="flex items-center gap-2 px-3 py-1.5 hover:bg-[#F4F6F9] cursor-pointer select-none">
+                            <input type="checkbox"
+                                   :value="filterOptionValue(opt)"
+                                   :checked="filterIsSelected(filter, filterOptionValue(opt))"
+                                   @change="filterToggle(filter, filterOptionValue(opt))"
+                                   class="rounded border-gray-300 text-[#1C6EFF] focus:ring-0 w-3.5 h-3.5">
+                            <span x-text="filterOptionLabel(opt)"></span>
+                          </label>
+                        </template>
+                        <div x-show="filterOptions(filter).length === 0" class="px-3 py-2 text-[#8A92A1] text-center">无匹配项</div>
                       </div>
                     </div>
-
-                    <!-- 下拉多选列表 -->
-                    <div x-show="open" 
-                         x-cloak 
-                         class="absolute left-0 top-full mt-1 min-w-[188px] max-h-[220px] overflow-y-auto bg-white border border-[#E1E5EB] shadow-lg rounded-[2px] py-1 z-50 text-xs text-[#2F3540] custom-scrollbar">
-                      <template x-for="opt in ['差', '一般', '正常']" :key="opt">
-                        <label class="flex items-center gap-2 px-3 py-1.5 hover:bg-[#F4F6F9] cursor-pointer select-none">
-                          <input type="checkbox" :value="opt" x-model="userSelectedExp" @change="userCurrentPage = 1" class="rounded border-gray-300 text-[#1C6EFF] focus:ring-0 w-3.5 h-3.5">
-                          <span x-text="opt"></span>
-                        </label>
-                      </template>
-                    </div>
-                  </div>
-
-                  <!-- 2. IP 归属地多选 -->
-                  <div class="relative inline-flex items-center group w-[188px]" x-data="{ open: false }" @click.outside="open = false">
-                    <div @click="open = !open" 
-                         class="h-8 w-full px-2 bg-white border border-[#D3D7DE] rounded-[2px] hover:border-[#1C6EFF] transition-colors flex items-center justify-between cursor-pointer select-none text-xs">
-                      <!-- 未选状态 -->
-                      <template x-if="userSelectedLoc.length === 0">
-                        <span class="text-[#8A92A1] font-normal truncate">全部IP归属地</span>
-                      </template>
-                      <!-- 单选状态 -->
-                      <template x-if="userSelectedLoc.length === 1">
-                        <div class="flex items-center overflow-hidden">
-                          <span class="inline-flex items-center gap-1 h-5 px-1.5 bg-[#EDF1F7] text-[#2F3540] text-xs rounded-[2px] max-w-[130px] truncate select-none">
-                            <span class="truncate" x-text="userSelectedLoc[0]"></span>
-                            <button type="button" 
-                                    @click.stop.prevent="userSelectedLoc = []; userCurrentPage = 1"
-                                    class="w-3 h-3 flex-shrink-0 text-[#8A92A1] hover:text-[#2F3540] inline-flex items-center justify-center rounded-[1px] hover:bg-[#D3D7DE] transition-colors cursor-pointer"
-                                    title="删除">
-                              <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
-                              </svg>
-                            </button>
-                          </span>
-                        </div>
-                      </template>
-                      <!-- 多选状态 -->
-                      <template x-if="userSelectedLoc.length > 1">
-                        <div class="flex items-center gap-1 overflow-hidden">
-                          <span class="inline-flex items-center gap-1 h-5 px-1.5 bg-[#EDF1F7] text-[#2F3540] text-xs rounded-[2px] max-w-[96px] truncate select-none">
-                            <span class="truncate" x-text="userSelectedLoc[0]"></span>
-                            <button type="button" 
-                                    @click.stop.prevent="userSelectedLoc = userSelectedLoc.filter((_, idx) => idx !== 0); userCurrentPage = 1"
-                                    class="w-3 h-3 flex-shrink-0 text-[#8A92A1] hover:text-[#2F3540] inline-flex items-center justify-center rounded-[1px] hover:bg-[#D3D7DE] transition-colors cursor-pointer"
-                                    title="删除">
-                              <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
-                              </svg>
-                            </button>
-                          </span>
-                          <span class="inline-flex items-center justify-center h-5 px-1.5 bg-[#EDF1F7] text-[#2F3540] text-xs font-normal rounded-[2px] flex-shrink-0 select-none"
-                                :title="userSelectedLoc.join('、')"
-                                x-text="`+${userSelectedLoc.length - 1}`">
-                          </span>
-                        </div>
-                      </template>
-                      
-                      <!-- 右侧清除与展开箭头 -->
-                      <div class="flex items-center gap-1 ml-1 flex-shrink-0">
-                        <template x-if="userSelectedLoc.length > 0">
-                          <span @click.stop.prevent="userSelectedLoc = []; userCurrentPage = 1" 
-                                class="w-3.5 h-3.5 rounded-full hover:bg-gray-200 inline-flex items-center justify-center text-[#8A92A1] hover:text-[#5C6270] transition-colors cursor-pointer"
-                                title="全部清除">
-                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
-                            </svg>
-                          </span>
-                        </template>
-                        <svg class="w-3.5 h-3.5 text-[#A1A7B3] transition-transform duration-150" :class="open && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                        </svg>
-                      </div>
-                    </div>
-
-                    <!-- 下拉多选列表 -->
-                    <div x-show="open" 
-                         x-cloak 
-                         class="absolute left-0 top-full mt-1 min-w-[188px] max-h-[220px] overflow-y-auto bg-white border border-[#E1E5EB] shadow-lg rounded-[2px] py-1 z-50 text-xs text-[#2F3540] custom-scrollbar">
-                      <template x-for="opt in ['马尼拉', '长沙', '深圳', '北京', '上海', '广州', '成都', '西安', '南京', '武汉', '杭州']" :key="opt">
-                        <label class="flex items-center gap-2 px-3 py-1.5 hover:bg-[#F4F6F9] cursor-pointer select-none">
-                          <input type="checkbox" :value="opt" x-model="userSelectedLoc" @change="userCurrentPage = 1" class="rounded border-gray-300 text-[#1C6EFF] focus:ring-0 w-3.5 h-3.5">
-                          <span x-text="opt"></span>
-                        </label>
-                      </template>
-                    </div>
-                  </div>
-
-                  <!-- 3. 接入POP多选 -->
-                  <div class="relative inline-flex items-center group w-[188px]" x-data="{ open: false }" @click.outside="open = false">
-                    <div @click="open = !open" 
-                         class="h-8 w-full px-2 bg-white border border-[#D3D7DE] rounded-[2px] hover:border-[#1C6EFF] transition-colors flex items-center justify-between cursor-pointer select-none text-xs">
-                      <!-- 未选状态 -->
-                      <template x-if="userSelectedPop.length === 0">
-                        <span class="text-[#8A92A1] font-normal truncate">全部接入POP</span>
-                      </template>
-                      <!-- 单选状态 -->
-                      <template x-if="userSelectedPop.length === 1">
-                        <div class="flex items-center overflow-hidden">
-                          <span class="inline-flex items-center gap-1 h-5 px-1.5 bg-[#EDF1F7] text-[#2F3540] text-xs rounded-[2px] max-w-[130px] truncate select-none">
-                            <span class="truncate" x-text="userSelectedPop[0]"></span>
-                            <button type="button" 
-                                    @click.stop.prevent="userSelectedPop = []; userCurrentPage = 1"
-                                    class="w-3 h-3 flex-shrink-0 text-[#8A92A1] hover:text-[#2F3540] inline-flex items-center justify-center rounded-[1px] hover:bg-[#D3D7DE] transition-colors cursor-pointer"
-                                    title="删除">
-                              <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
-                              </svg>
-                            </button>
-                          </span>
-                        </div>
-                      </template>
-                      <!-- 多选状态 -->
-                      <template x-if="userSelectedPop.length > 1">
-                        <div class="flex items-center gap-1 overflow-hidden">
-                          <span class="inline-flex items-center gap-1 h-5 px-1.5 bg-[#EDF1F7] text-[#2F3540] text-xs rounded-[2px] max-w-[96px] truncate select-none">
-                            <span class="truncate" x-text="userSelectedPop[0]"></span>
-                            <button type="button" 
-                                    @click.stop.prevent="userSelectedPop = userSelectedPop.filter((_, idx) => idx !== 0); userCurrentPage = 1"
-                                    class="w-3 h-3 flex-shrink-0 text-[#8A92A1] hover:text-[#2F3540] inline-flex items-center justify-center rounded-[1px] hover:bg-[#D3D7DE] transition-colors cursor-pointer"
-                                    title="删除">
-                              <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
-                              </svg>
-                            </button>
-                          </span>
-                          <span class="inline-flex items-center justify-center h-5 px-1.5 bg-[#EDF1F7] text-[#2F3540] text-xs font-normal rounded-[2px] flex-shrink-0 select-none"
-                                :title="userSelectedPop.join('、')"
-                                x-text="`+${userSelectedPop.length - 1}`">
-                          </span>
-                        </div>
-                      </template>
-                      
-                      <!-- 右侧清除与展开箭头 -->
-                      <div class="flex items-center gap-1 ml-1 flex-shrink-0">
-                        <template x-if="userSelectedPop.length > 0">
-                          <span @click.stop.prevent="userSelectedPop = []; userCurrentPage = 1" 
-                                class="w-3.5 h-3.5 rounded-full hover:bg-gray-200 inline-flex items-center justify-center text-[#8A92A1] hover:text-[#5C6270] transition-colors cursor-pointer"
-                                title="全部清除">
-                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
-                            </svg>
-                          </span>
-                        </template>
-                        <svg class="w-3.5 h-3.5 text-[#A1A7B3] transition-transform duration-150" :class="open && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                        </svg>
-                      </div>
-                    </div>
-
-                    <!-- 下拉多选列表 -->
-                    <div x-show="open" 
-                         x-cloak 
-                         class="absolute left-0 top-full mt-1 min-w-[188px] max-h-[220px] overflow-y-auto bg-white border border-[#E1E5EB] shadow-lg rounded-[2px] py-1 z-50 text-xs text-[#2F3540] custom-scrollbar">
-                      <template x-for="opt in ['POP (香港)', 'POP (新加坡)', 'POP (成都)', '马尼拉POP01', '华北-北京POP01', '华东-上海POP02', '华南-深圳POP01', '华南-广州POP01', '西南-成都POP01', '西北-西安POP01', '华东-南京POP01', '华中-武汉POP01']" :key="opt">
-                        <label class="flex items-center gap-2 px-3 py-1.5 hover:bg-[#F4F6F9] cursor-pointer select-none">
-                          <input type="checkbox" :value="opt" x-model="userSelectedPop" @change="userCurrentPage = 1" class="rounded border-gray-300 text-[#1C6EFF] focus:ring-0 w-3.5 h-3.5">
-                          <span x-text="opt"></span>
-                        </label>
-                      </template>
-                    </div>
-                  </div>
+                  </template>
                 </div>
 
                 <!-- 搜索框带快捷清除 -->
@@ -2158,230 +1767,77 @@
               <div class="p-3 flex items-center justify-between gap-3 flex-wrap flex-shrink-0 bg-white">
                 <!-- 3个等宽多选筛选项在左侧 -->
                 <div class="flex items-center gap-2">
-                  <!-- 1. 访问体验多选 -->
-                  <div class="relative inline-flex items-center group w-[188px]" x-data="{ open: false }" @click.outside="open = false">
-                    <div @click="open = !open" 
-                         class="h-8 w-full px-2 bg-white border border-[#D3D7DE] rounded-[2px] hover:border-[#1C6EFF] transition-colors flex items-center justify-between cursor-pointer select-none text-xs">
-                      <!-- 未选状态 -->
-                      <template x-if="appSelectedExp.length === 0">
-                        <span class="text-[#A1A7B3] font-normal truncate">全部访问体验</span>
-                      </template>
-                      <!-- 单选状态 -->
-                      <template x-if="appSelectedExp.length === 1">
-                        <div class="flex items-center overflow-hidden">
-                          <span class="inline-flex items-center gap-1 h-5 px-1.5 bg-[#EDF1F7] text-[#2F3540] text-xs rounded-[2px] max-w-[130px] truncate select-none">
-                            <span class="truncate" x-text="appSelectedExp[0]"></span>
-                            <button type="button" 
-                                    @click.stop.prevent="appSelectedExp = []; appCurrentPage = 1"
-                                    class="w-3 h-3 flex-shrink-0 text-[#8A92A1] hover:text-[#2F3540] inline-flex items-center justify-center rounded-[1px] hover:bg-[#D3D7DE] transition-colors cursor-pointer"
-                                    title="删除">
-                              <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
-                              </svg>
-                            </button>
-                          </span>
-                        </div>
-                      </template>
-                      <!-- 多选状态 -->
-                      <template x-if="appSelectedExp.length > 1">
-                        <div class="flex items-center gap-1 overflow-hidden">
-                          <span class="inline-flex items-center gap-1 h-5 px-1.5 bg-[#EDF1F7] text-[#2F3540] text-xs rounded-[2px] max-w-[96px] truncate select-none">
-                            <span class="truncate" x-text="appSelectedExp[0]"></span>
-                            <button type="button" 
-                                    @click.stop.prevent="appSelectedExp = appSelectedExp.filter((_, idx) => idx !== 0); appCurrentPage = 1"
-                                    class="w-3 h-3 flex-shrink-0 text-[#8A92A1] hover:text-[#2F3540] inline-flex items-center justify-center rounded-[1px] hover:bg-[#D3D7DE] transition-colors cursor-pointer"
-                                    title="删除">
-                              <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
-                              </svg>
-                            </button>
-                          </span>
-                          <span class="inline-flex items-center justify-center h-5 px-1.5 bg-[#EDF1F7] text-[#2F3540] text-xs font-normal rounded-[2px] flex-shrink-0 select-none"
-                                :title="appSelectedExp.join('、')"
-                                x-text="`+${appSelectedExp.length - 1}`">
-                          </span>
-                        </div>
-                      </template>
-                      
-                      <!-- 右侧清除与展开箭头 -->
-                      <div class="flex items-center gap-1 ml-1 flex-shrink-0">
-                        <template x-if="appSelectedExp.length > 0">
-                          <span @click.stop.prevent="appSelectedExp = []; appCurrentPage = 1" 
-                                class="w-3.5 h-3.5 rounded-full hover:bg-gray-200 inline-flex items-center justify-center text-[#8A92A1] hover:text-[#5C6270] transition-colors cursor-pointer"
-                                title="全部清除">
+                  <template x-for="filter in appFilterConfigs" :key="filter.key">
+                    <div class="relative inline-flex items-center group w-[188px]" @click.outside="openFilterKey === filter.key && filterClose()">
+                      <div @click="filterOpen(filter)"
+                           class="h-8 w-full px-2 bg-white border border-[#D3D7DE] rounded-[2px] hover:border-[#1C6EFF] transition-colors flex items-center justify-between cursor-pointer select-none text-xs">
+                        <template x-if="filterList(filter.selectedKey).length === 0">
+                          <span class="text-[#A1A7B3] font-normal truncate" x-text="filter.placeholder"></span>
+                        </template>
+                        <template x-if="filterList(filter.selectedKey).length > 0">
+                          <div class="flex items-center gap-1 overflow-hidden">
+                            <template x-for="value in filterVisibleValues(filter)" :key="value">
+                              <span class="inline-flex items-center gap-1 h-5 px-1.5 bg-[#EDF1F7] text-[#2F3540] text-xs rounded-[2px] max-w-[120px] min-w-0 shrink-0 select-none">
+                                <span class="truncate" x-text="filterLabel(filter, value)"></span>
+                                <button type="button"
+                                        @click.stop.prevent="filterRemove(filter, value)"
+                                        class="w-3 h-3 flex-shrink-0 text-[#8A92A1] hover:text-[#2F3540] inline-flex items-center justify-center rounded-[1px] hover:bg-[#D3D7DE] transition-colors cursor-pointer"
+                                        title="删除">
+                                  <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
+                                  </svg>
+                                </button>
+                              </span>
+                            </template>
+                            <span x-show="filterHiddenCount(filter) > 0"
+                                  class="inline-flex items-center justify-center h-5 px-1.5 bg-[#EDF1F7] text-[#2F3540] text-xs font-normal rounded-[2px] flex-shrink-0 select-none"
+                                  :title="filterSelectedLabels(filter).join('、')"
+                                  x-text="`+${filterHiddenCount(filter)}`">
+                            </span>
+                          </div>
+                        </template>
+                        <div class="relative w-4 h-4 flex items-center justify-center ml-1 shrink-0">
+                          <svg class="w-3.5 h-3.5 text-[#A1A7B3] transition-transform duration-150"
+                               :class="[openFilterKey === filter.key && 'rotate-180', filterList(filter.selectedKey).length > 0 ? 'group-hover:hidden' : '']"
+                               fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                          </svg>
+                          <button type="button"
+                                  x-show="filterList(filter.selectedKey).length > 0"
+                                  @click.stop.prevent="filterClear(filter)"
+                                  class="hidden group-hover:flex absolute inset-0 w-4 h-4 rounded-full bg-white text-[#8A92A1] hover:text-[#1C6EFF] hover:bg-[#F0F5FF] items-center justify-center cursor-pointer transition-colors z-10"
+                                  title="清除选择">
                             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
                             </svg>
-                          </span>
+                          </button>
+                        </div>
+                      </div>
+
+                      <div x-show="openFilterKey === filter.key"
+                           x-cloak
+                           class="absolute left-0 top-full mt-1 min-w-[188px] max-h-[240px] overflow-y-auto bg-white border border-[#E1E5EB] shadow-lg rounded-[2px] py-1 z-50 text-xs text-[#2F3540] custom-scrollbar">
+                        <template x-if="filter.searchable">
+                          <div class="px-2 py-1.5 sticky top-0 bg-white z-10 border-b border-[#F1F5F9]">
+                            <input type="text" x-model="filterSearch" @click.stop
+                                   :placeholder="filter.searchPlaceholder || '搜索'"
+                                   class="h-7 w-full px-2 text-xs border border-[#D3D7DE] rounded-[2px] focus:outline-none focus:border-[#1C6EFF]">
+                          </div>
                         </template>
-                        <svg class="w-3.5 h-3.5 text-[#A1A7B3] transition-transform duration-150" :class="open && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                        </svg>
+                        <template x-for="opt in filterOptions(filter)" :key="filterOptionValue(opt)">
+                          <label class="flex items-center gap-2 px-3 py-1.5 hover:bg-[#F4F6F9] cursor-pointer select-none">
+                            <input type="checkbox"
+                                   :value="filterOptionValue(opt)"
+                                   :checked="filterIsSelected(filter, filterOptionValue(opt))"
+                                   @change="filterToggle(filter, filterOptionValue(opt))"
+                                   class="rounded border-gray-300 text-[#1C6EFF] focus:ring-0 w-3.5 h-3.5">
+                            <span x-text="filterOptionLabel(opt)"></span>
+                          </label>
+                        </template>
+                        <div x-show="filterOptions(filter).length === 0" class="px-3 py-2 text-[#8A92A1] text-center">无匹配项</div>
                       </div>
                     </div>
-
-                    <!-- 下拉多选列表 -->
-                    <div x-show="open" 
-                         x-cloak 
-                         class="absolute left-0 top-full mt-1 min-w-[188px] max-h-[220px] overflow-y-auto bg-white border border-[#E1E5EB] shadow-lg rounded-[2px] py-1 z-50 text-xs text-[#2F3540] custom-scrollbar">
-                      <template x-for="opt in ['差', '一般', '正常']" :key="opt">
-                        <label class="flex items-center gap-2 px-3 py-1.5 hover:bg-[#F4F6F9] cursor-pointer select-none">
-                          <input type="checkbox" :value="opt" x-model="appSelectedExp" @change="appCurrentPage = 1" class="rounded border-gray-300 text-[#1C6EFF] focus:ring-0 w-3.5 h-3.5">
-                          <span x-text="opt"></span>
-                        </label>
-                      </template>
-                    </div>
-                  </div>
-
-                  <!-- 2. 应用类型多选 -->
-                  <div class="relative inline-flex items-center group w-[188px]" x-data="{ open: false }" @click.outside="open = false">
-                    <div @click="open = !open" 
-                         class="h-8 w-full px-2 bg-white border border-[#D3D7DE] rounded-[2px] hover:border-[#1C6EFF] transition-colors flex items-center justify-between cursor-pointer select-none text-xs">
-                      <!-- 未选状态 -->
-                      <template x-if="appSelectedType.length === 0">
-                        <span class="text-[#8A92A1] font-normal truncate">全部应用类型</span>
-                      </template>
-                      <!-- 单选状态 -->
-                      <template x-if="appSelectedType.length === 1">
-                        <div class="flex items-center overflow-hidden">
-                          <span class="inline-flex items-center gap-1 h-5 px-1.5 bg-[#EDF1F7] text-[#2F3540] text-xs rounded-[2px] max-w-[130px] truncate select-none">
-                            <span class="truncate" x-text="appSelectedType[0]"></span>
-                            <button type="button" 
-                                    @click.stop.prevent="appSelectedType = []; appCurrentPage = 1"
-                                    class="w-3 h-3 flex-shrink-0 text-[#8A92A1] hover:text-[#2F3540] inline-flex items-center justify-center rounded-[1px] hover:bg-[#D3D7DE] transition-colors cursor-pointer"
-                                    title="删除">
-                              <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
-                              </svg>
-                            </button>
-                          </span>
-                        </div>
-                      </template>
-                      <!-- 多选状态 -->
-                      <template x-if="appSelectedType.length > 1">
-                        <div class="flex items-center gap-1 overflow-hidden">
-                          <span class="inline-flex items-center gap-1 h-5 px-1.5 bg-[#EDF1F7] text-[#2F3540] text-xs rounded-[2px] max-w-[96px] truncate select-none">
-                            <span class="truncate" x-text="appSelectedType[0]"></span>
-                            <button type="button" 
-                                    @click.stop.prevent="appSelectedType = appSelectedType.filter((_, idx) => idx !== 0); appCurrentPage = 1"
-                                    class="w-3 h-3 flex-shrink-0 text-[#8A92A1] hover:text-[#2F3540] inline-flex items-center justify-center rounded-[1px] hover:bg-[#D3D7DE] transition-colors cursor-pointer"
-                                    title="删除">
-                              <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
-                              </svg>
-                            </button>
-                          </span>
-                          <span class="inline-flex items-center justify-center h-5 px-1.5 bg-[#EDF1F7] text-[#2F3540] text-xs font-normal rounded-[2px] flex-shrink-0 select-none"
-                                :title="appSelectedType.join('、')"
-                                x-text="`+${appSelectedType.length - 1}`">
-                          </span>
-                        </div>
-                      </template>
-                      
-                      <!-- 右侧清除与展开箭头 -->
-                      <div class="flex items-center gap-1 ml-1 flex-shrink-0">
-                        <template x-if="appSelectedType.length > 0">
-                          <span @click.stop.prevent="appSelectedType = []; appCurrentPage = 1" 
-                                class="w-3.5 h-3.5 rounded-full hover:bg-gray-200 inline-flex items-center justify-center text-[#8A92A1] hover:text-[#5C6270] transition-colors cursor-pointer"
-                                title="全部清除">
-                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
-                            </svg>
-                          </span>
-                        </template>
-                        <svg class="w-3.5 h-3.5 text-[#A1A7B3] transition-transform duration-150" :class="open && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                        </svg>
-                      </div>
-                    </div>
-
-                    <!-- 下拉多选列表 -->
-                    <div x-show="open" 
-                         x-cloak 
-                         class="absolute left-0 top-full mt-1 min-w-[188px] max-h-[220px] overflow-y-auto bg-white border border-[#E1E5EB] shadow-lg rounded-[2px] py-1 z-50 text-xs text-[#2F3540] custom-scrollbar">
-                      <template x-for="opt in ['内网应用', 'SaaS应用']" :key="opt">
-                        <label class="flex items-center gap-2 px-3 py-1.5 hover:bg-[#F4F6F9] cursor-pointer select-none">
-                          <input type="checkbox" :value="opt" x-model="appSelectedType" @change="appCurrentPage = 1" class="rounded border-gray-300 text-[#1C6EFF] focus:ring-0 w-3.5 h-3.5">
-                          <span x-text="opt"></span>
-                        </label>
-                      </template>
-                    </div>
-                  </div>
-
-                  <!-- 3. 所属区域多选 -->
-                  <div class="relative inline-flex items-center group w-[188px]" x-data="{ open: false }" @click.outside="open = false">
-                    <div @click="open = !open" 
-                         class="h-8 w-full px-2 bg-white border border-[#D3D7DE] rounded-[2px] hover:border-[#1C6EFF] transition-colors flex items-center justify-between cursor-pointer select-none text-xs">
-                      <!-- 未选状态 -->
-                      <template x-if="appSelectedRegion.length === 0">
-                        <span class="text-[#8A92A1] font-normal truncate">全部所属区域</span>
-                      </template>
-                      <!-- 单选状态 -->
-                      <template x-if="appSelectedRegion.length === 1">
-                        <div class="flex items-center overflow-hidden">
-                          <span class="inline-flex items-center gap-1 h-5 px-1.5 bg-[#EDF1F7] text-[#2F3540] text-xs rounded-[2px] max-w-[130px] truncate select-none">
-                            <span class="truncate" x-text="appSelectedRegion[0] === '-' ? '- (SaaS应用)' : appSelectedRegion[0]"></span>
-                            <button type="button" 
-                                    @click.stop.prevent="appSelectedRegion = []; appCurrentPage = 1"
-                                    class="w-3 h-3 flex-shrink-0 text-[#8A92A1] hover:text-[#2F3540] inline-flex items-center justify-center rounded-[1px] hover:bg-[#D3D7DE] transition-colors cursor-pointer"
-                                    title="删除">
-                              <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
-                              </svg>
-                            </button>
-                          </span>
-                        </div>
-                      </template>
-                      <!-- 多选状态 -->
-                      <template x-if="appSelectedRegion.length > 1">
-                        <div class="flex items-center gap-1 overflow-hidden">
-                          <span class="inline-flex items-center gap-1 h-5 px-1.5 bg-[#EDF1F7] text-[#2F3540] text-xs rounded-[2px] max-w-[96px] truncate select-none">
-                            <span class="truncate" x-text="appSelectedRegion[0] === '-' ? '- (SaaS)' : appSelectedRegion[0]"></span>
-                            <button type="button" 
-                                    @click.stop.prevent="appSelectedRegion = appSelectedRegion.filter((_, idx) => idx !== 0); appCurrentPage = 1"
-                                    class="w-3 h-3 flex-shrink-0 text-[#8A92A1] hover:text-[#2F3540] inline-flex items-center justify-center rounded-[1px] hover:bg-[#D3D7DE] transition-colors cursor-pointer"
-                                    title="删除">
-                              <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
-                              </svg>
-                            </button>
-                          </span>
-                          <span class="inline-flex items-center justify-center h-5 px-1.5 bg-[#EDF1F7] text-[#2F3540] text-xs font-normal rounded-[2px] flex-shrink-0 select-none"
-                                :title="appSelectedRegion.map(r => r === '-' ? '- (SaaS应用)' : r).join('、')"
-                                x-text="`+${appSelectedRegion.length - 1}`">
-                          </span>
-                        </div>
-                      </template>
-                      
-                      <!-- 右侧清除与展开箭头 -->
-                      <div class="flex items-center gap-1 ml-1 flex-shrink-0">
-                        <template x-if="appSelectedRegion.length > 0">
-                          <span @click.stop.prevent="appSelectedRegion = []; appCurrentPage = 1" 
-                                class="w-3.5 h-3.5 rounded-full hover:bg-gray-200 inline-flex items-center justify-center text-[#8A92A1] hover:text-[#5C6270] transition-colors cursor-pointer"
-                                title="全部清除">
-                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
-                            </svg>
-                          </span>
-                        </template>
-                        <svg class="w-3.5 h-3.5 text-[#A1A7B3] transition-transform duration-150" :class="open && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                        </svg>
-                      </div>
-                    </div>
-
-                    <!-- 下拉多选列表 -->
-                    <div x-show="open" 
-                         x-cloak 
-                         class="absolute left-0 top-full mt-1 min-w-[188px] max-h-[220px] overflow-y-auto bg-white border border-[#E1E5EB] shadow-lg rounded-[2px] py-1 z-50 text-xs text-[#2F3540] custom-scrollbar">
-                      <template x-for="opt in ['上海数据中心', '北京数据中心', '华南数据中心', '西北数据中心', '华中数据中心', '西南数据中心', '华东数据中心', '-']" :key="opt">
-                        <label class="flex items-center gap-2 px-3 py-1.5 hover:bg-[#F4F6F9] cursor-pointer select-none">
-                          <input type="checkbox" :value="opt" x-model="appSelectedRegion" @change="appCurrentPage = 1" class="rounded border-gray-300 text-[#1C6EFF] focus:ring-0 w-3.5 h-3.5">
-                          <span x-text="opt === '-' ? '- (SaaS应用)' : opt"></span>
-                        </label>
-                      </template>
-                    </div>
-                  </div>
+                  </template>
                 </div>
 
                 <!-- 搜索框带快捷清除 -->
@@ -2903,7 +2359,7 @@
   </div>
 
   <!-- 双底座公共 Shell 逻辑 -->
-  <script src="./_shell/shell.js?v=sase_logo_v2"></script>
+  <script src="./_shell/shell.js?v=sase_logo_v2_filters4"></script>
   <script>
     (function injectHomeTemplate() {
       const tpl = document.getElementById('page-content-template');

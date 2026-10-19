@@ -18,7 +18,7 @@
 
   <!-- 集中维护的双底座公共 Shell 样式与脚本 -->
   <link rel="stylesheet" href="./_shell/shell.css?v=sase_logo_v2" />
-  <script src="./_shell/shell.js?v=sase_logo_v2"></script>
+  <script src="./_shell/shell.js?v=sase_logo_v2_filters4"></script>
 
   <style>
     [x-cloak] { display: none !important; }
@@ -134,11 +134,13 @@
     }
 
     .dem-table td {
-      padding: 8px 12px;
+      height: 40px;
+      padding: 0 12px;
       font-size: 12px;
       color: #2F3540;
       border-bottom: 1px solid #F0F2F5;
       white-space: nowrap;
+      vertical-align: middle;
     }
 
     .dem-table tbody tr:hover {
@@ -321,8 +323,11 @@
           
           let status = '正常';
           let score = 94;
-          let avgTtfb = '45ms';
-          let successRate = '99.8%';
+          // 网络层指标：时延与丢包（每个采样点代表 5 分钟聚合窗口）
+          let avgDelay = 45;
+          let maxDelay = 58;
+          let avgLoss = 0.2;
+          let maxLoss = 0.6;
 
           // 数据源判断：真实访问 vs 主动探测
           // 业务逻辑：时间线趋势由真实访问和主动探测聚合而成；
@@ -357,43 +362,55 @@
           if (minuteTotal >= 440 && minuteTotal <= 475) {
             status = '差';
             const faultOffsets = {
-              '15:20': { score: 32, ttfb: '78ms', sr: '94.8%' },
-              '15:25': { score: 28, ttfb: '85ms', sr: '93.6%' },
-              '15:30': { score: 35, ttfb: '76ms', sr: '94.1%' },
-              '15:35': { score: 26, ttfb: '88ms', sr: '92.8%' },
-              '15:40': { score: 30, ttfb: '80ms', sr: '93.5%' },
-              '15:45': { score: 34, ttfb: '75ms', sr: '94.2%' },
-              '15:50': { score: 38, ttfb: '72ms', sr: '94.9%' },
-              '15:55': { score: 45, ttfb: '68ms', sr: '95.5%' }
+              '15:20': { score: 32, delay: 78, maxDelay: 168, loss: 3.6, maxLoss: 6.2 },
+              '15:25': { score: 28, delay: 85, maxDelay: 186, loss: 4.1, maxLoss: 7.0 },
+              '15:30': { score: 35, delay: 76, maxDelay: 158, loss: 3.4, maxLoss: 5.8 },
+              '15:35': { score: 26, delay: 88, maxDelay: 196, loss: 4.5, maxLoss: 7.6 },
+              '15:40': { score: 30, delay: 80, maxDelay: 172, loss: 3.8, maxLoss: 6.4 },
+              '15:45': { score: 34, delay: 75, maxDelay: 154, loss: 3.2, maxLoss: 5.5 },
+              '15:50': { score: 38, delay: 72, maxDelay: 142, loss: 2.8, maxLoss: 4.9 },
+              '15:55': { score: 45, delay: 68, maxDelay: 128, loss: 2.4, maxLoss: 4.2 }
             };
-            const fo = faultOffsets[timeStr] || { score: 30, ttfb: '78ms', sr: '94.0%' };
+            const fo = faultOffsets[timeStr] || { score: 30, delay: 78, maxDelay: 168, loss: 3.6, maxLoss: 6.2 };
             score = fo.score;
-            avgTtfb = fo.ttfb;
-            successRate = fo.sr;
+            avgDelay = fo.delay;
+            maxDelay = fo.maxDelay;
+            avgLoss = fo.loss;
+            maxLoss = fo.maxLoss;
           } else if (timeStr === '08:45') {
             status = '差';
             score = 36;
-            avgTtfb = '82ms';
-            successRate = '93.2%';
+            avgDelay = 82;
+            maxDelay = 172;
+            avgLoss = 3.3;
+            maxLoss = 5.8;
           } else if (timeStr === '10:00') {
             status = '差';
             score = 34;
-            avgTtfb = '80ms';
-            successRate = '93.2%';
+            avgDelay = 80;
+            maxDelay = 164;
+            avgLoss = 3.1;
+            maxLoss = 5.4;
           } else if (timeStr === '11:15') {
             status = '一般';
             score = 72;
-            avgTtfb = '58ms';
-            successRate = '97.5%';
+            avgDelay = 58;
+            maxDelay = 96;
+            avgLoss = 1.2;
+            maxLoss = 2.2;
           } else if (timeStr === '14:10') {
             status = '一般';
             score = 70;
-            avgTtfb = '56ms';
-            successRate = '97.5%';
+            avgDelay = 56;
+            maxDelay = 92;
+            avgLoss = 1.0;
+            maxLoss = 1.9;
           } else {
             score = 92 + (idx % 5);
-            avgTtfb = (42 + (idx % 4) * 2) + 'ms';
-            successRate = (99.6 + (idx % 3) * 0.1).toFixed(1) + '%';
+            avgDelay = 42 + (idx % 4) * 2;
+            maxDelay = avgDelay + 10 + (idx % 3) * 3;
+            avgLoss = Number((0.1 + (idx % 3) * 0.1).toFixed(1));
+            maxLoss = Number((avgLoss + 0.4 + (idx % 2) * 0.2).toFixed(1));
           }
 
           let prevM = m - 5;
@@ -420,8 +437,10 @@
             minute: minuteTotal,
             status: status,
             score: score,
-            avgTtfb: avgTtfb,
-            successRate: successRate,
+            avgDelay: avgDelay,
+            maxDelay: maxDelay,
+            avgLoss: avgLoss,
+            maxLoss: maxLoss,
             hasRealTraffic: hasRealTraffic,
             hasProbe: hasProbe,
             dataSource: dataSource,
@@ -445,8 +464,10 @@
             minute: minuteTotal,
             status: '正常',
             score: normalScore,
-            avgTtfb: (40 + (idx % 3) * 2) + 'ms',
-            successRate: '99.9%',
+            avgDelay: 40 + (idx % 3) * 2,
+            maxDelay: 52 + (idx % 3) * 3,
+            avgLoss: 0.1,
+            maxLoss: 0.5,
             hasRealTraffic: hasRealTraffic,
             hasProbe: hasProbe,
             dataSource: dataSource,
@@ -583,6 +604,7 @@
     function demAppDetailState() {
       return {
         ...window.dualShellAppStore('应用详情'),
+        ...window.demFilterMixin,
 
         // 时间筛选器
         // 统一时间筛选器状态与交互 (快捷 + 自定义级联 + 30天跨度)
@@ -853,7 +875,7 @@
           return STATIC_TIMELINE_SLICES[this.hoveredTimelineIdx] || null;
         },
 
-        // 当前选中的切片完整聚合数据与研判洞察 (联动卡片1、卡片2、卡片3)
+        // 当前选中的切片完整聚合数据与研判洞察 (联动网络指标与共性特征)
         get currentGlobalSlice() {
           const found = STATIC_TIMELINE_MAP[this.selectedGlobalSliceTime] || STATIC_TIMELINE_SLICES[0];
           const isAbnormal = (found && found.status === '差');
@@ -863,334 +885,87 @@
           const time = this.selectedGlobalSliceTime || '15:20';
           const isErp = (this.activeAppId === 'app_erp');
 
-          // ==================== 1. 卡片1: 共性特征与问题节点/链路数据 ====================
+          // ==================== 1. 共性特征 TOP6 ====================
           let commonFeatures = [];
-          let problemSegments = [];
 
           if (isErp) {
             if (isAbnormal) {
               commonFeatures = [
-                {
-                  type: 'pop',
-                  label: '代理网关直连',
-                  filterKey: 'pop',
-                  filterVal: '代理网关',
-                  keyword: '代理网关',
-                  poorRatio: '87.5%',
-                  poorCount: 28,
-                  totalCount: 32,
-                  relevance: '高聚集'
-                },
-                {
-                  type: 'loc',
-                  label: '广东 深圳',
-                  filterKey: 'loc',
-                  filterVal: '中国 深圳',
-                  keyword: '深圳',
-                  poorRatio: '78.3%',
-                  poorCount: 18,
-                  totalCount: 23,
-                  relevance: '高聚集'
-                },
-                {
-                  type: 'dept',
-                  label: '财务中心 / 供应链',
-                  filterKey: 'dept',
-                  filterVal: '财务',
-                  keyword: '财务',
-                  poorRatio: '75.0%',
-                  poorCount: 15,
-                  totalCount: 20,
-                  relevance: '中聚集'
-                }
+                { type: 'pop', label: '代理网关', filterKey: 'pop', filterVal: '代理网关', keyword: '代理网关', affectedDesc: '28 人', relevance: '高聚集' },
+                { type: 'loc', label: '广东 深圳', filterKey: 'loc', filterVal: '中国 深圳', keyword: '深圳', affectedDesc: '16 人', relevance: '高聚集' },
+                { type: 'loc', label: '广东 广州', filterKey: 'loc', filterVal: '中国 广州', keyword: '广州', affectedDesc: '5 人', relevance: '高聚集' },
+                { type: 'loc', label: '北京', filterKey: 'loc', filterVal: '中国 北京', keyword: '北京', affectedDesc: '3 人', relevance: '中聚集' },
+                { type: 'loc', label: '上海', filterKey: 'loc', filterVal: '中国 上海', keyword: '上海', affectedDesc: '2 人', relevance: '中聚集' },
+                { type: 'loc', label: '四川 成都', filterKey: 'loc', filterVal: '中国 成都', keyword: '成都', affectedDesc: '2 人', relevance: '中聚集' }
               ];
-              problemSegments = [
-                {
-                  name: '用户终端 ➔ 代理网关段',
-                  type: 'link',
-                  level: 'error',
-                  anomalies: ['用户终端-代理网关段'],
-                  reason: '公网互联网侧传输劣化，丢包 2.8%，重传率 6.4%',
-                  affected: '28 人 / 1 个分支'
-                },
-                {
-                  name: '代理网关与组网网关集群',
-                  type: 'node',
-                  level: 'normal',
-                  anomalies: [],
-                  reason: '网关自身健康度 100%，内网互联通畅无拥塞',
-                  affected: '后端服务健康'
-                }
+            } else if (isFair) {
+              commonFeatures = [
+                { type: 'pop', label: '代理网关', filterKey: 'pop', filterVal: '代理网关', keyword: '代理网关', affectedDesc: '12 人', relevance: '健康优良' },
+                { type: 'loc', label: '广东 深圳', filterKey: 'loc', filterVal: '中国 深圳', keyword: '深圳', affectedDesc: '4 人', relevance: '健康优良' },
+                { type: 'loc', label: '上海', filterKey: 'loc', filterVal: '中国 上海', keyword: '上海', affectedDesc: '2 人', relevance: '健康优良' },
+                { type: 'loc', label: '北京', filterKey: 'loc', filterVal: '中国 北京', keyword: '北京', affectedDesc: '2 人', relevance: '健康优良' },
+                { type: 'loc', label: '四川 成都', filterKey: 'loc', filterVal: '中国 成都', keyword: '成都', affectedDesc: '1 人', relevance: '健康优良' },
+                { type: 'loc', label: '广东 广州', filterKey: 'loc', filterVal: '中国 广州', keyword: '广州', affectedDesc: '1 人', relevance: '健康优良' }
               ];
             } else {
               commonFeatures = [
-                {
-                  type: 'loc',
-                  label: '中国 上海 (正常率 100%)',
-                  filterKey: 'loc',
-                  filterVal: '中国 上海',
-                  keyword: '上海',
-                  poorRatio: '0.0%',
-                  poorCount: 0,
-                  totalCount: 12,
-                  relevance: '健康优良'
-                },
-                {
-                  type: 'pop',
-                  label: '代理网关直连 (正常率 100%)',
-                  filterKey: 'pop',
-                  filterVal: '代理网关',
-                  keyword: '代理网关',
-                  poorRatio: '0.0%',
-                  poorCount: 0,
-                  totalCount: 40,
-                  relevance: '健康优良'
-                }
+                { type: 'pop', label: '代理网关', filterKey: 'pop', filterVal: '代理网关', keyword: '代理网关', affectedDesc: '12 人', relevance: '健康优良' },
+                { type: 'loc', label: '广东 深圳', filterKey: 'loc', filterVal: '中国 深圳', keyword: '深圳', affectedDesc: '4 人', relevance: '健康优良' },
+                { type: 'loc', label: '上海', filterKey: 'loc', filterVal: '中国 上海', keyword: '上海', affectedDesc: '2 人', relevance: '健康优良' },
+                { type: 'loc', label: '北京', filterKey: 'loc', filterVal: '中国 北京', keyword: '北京', affectedDesc: '2 人', relevance: '健康优良' },
+                { type: 'loc', label: '四川 成都', filterKey: 'loc', filterVal: '中国 成都', keyword: '成都', affectedDesc: '1 人', relevance: '健康优良' },
+                { type: 'loc', label: '广东 广州', filterKey: 'loc', filterVal: '中国 广州', keyword: '广州', affectedDesc: '1 人', relevance: '健康优良' }
               ];
-              problemSegments = [];
             }
           } else {
             // OA 办公系统业务剧本
             if (isAbnormal) {
               commonFeatures = [
-                {
-                  type: 'loc',
-                  label: '菲律宾 马尼拉',
-                  filterKey: 'loc',
-                  filterVal: '菲律宾 马尼拉',
-                  keyword: '马尼拉',
-                  poorCount: 16,
-                  totalCount: 18,
-                  branchCount: 1,
-                  affectedDesc: '16 人 / 1 个分支',
-                  relevance: '高聚集'
-                },
-                {
-                  type: 'pop',
-                  label: '香港POP',
-                  filterKey: 'pop',
-                  filterVal: '香港POP',
-                  keyword: '香港POP',
-                  poorCount: 22,
-                  totalCount: 26,
-                  branchCount: 2,
-                  affectedDesc: '22 人 / 2 个分支',
-                  relevance: '高聚集'
-                },
-                {
-                  type: 'loc',
-                  label: '中国 香港',
-                  filterKey: 'loc',
-                  filterVal: '中国 香港',
-                  keyword: '香港',
-                  poorCount: 8,
-                  totalCount: 10,
-                  branchCount: 1,
-                  affectedDesc: '8 人 / 1 个分支',
-                  relevance: '高聚集'
-                }
-              ];
-              problemSegments = [
-                {
-                  name: '香港POP ➔ 总部01连接器',
-                  type: 'link',
-                  level: 'error',
-                  anomalies: ['POP', 'POP-连接器段'],
-                  reason: '跨境专线丢包 5.2%，RTT 抖动 48ms',
-                  affected: '22 人 / 2 个分支'
-                },
-                {
-                  name: '马尼拉分支AF网关 ➔ 香港POP',
-                  type: 'link',
-                  level: 'warning',
-                  anomalies: ['POP', '分支-POP段'],
-                  reason: '国际公网出口拥塞，丢包 3.6%',
-                  affected: '16 人 / 1 个分支'
-                },
-                {
-                  name: '香港POP接入集群',
-                  type: 'node',
-                  level: 'warning',
-                  anomalies: ['POP'],
-                  reason: '入口隧道重传率 4.8%，转发延时达 142ms',
-                  affected: '14 人 / 1 个分支'
-                }
+                { type: 'pop', label: '香港POP', filterKey: 'pop', filterVal: '香港POP', keyword: '香港POP', affectedDesc: '11 人 / 3 个分支', relevance: '高聚集' },
+                { type: 'loc', label: '中国 广州', filterKey: 'loc', filterVal: '中国 广州', keyword: '广州', affectedDesc: '8 人 / 1 个分支', relevance: '高聚集' },
+                { type: 'pop', label: '深圳POP', filterKey: 'pop', filterVal: '深圳POP', keyword: '深圳POP', affectedDesc: '6 人', relevance: '高聚集' },
+                { type: 'loc', label: '菲律宾 马尼拉', filterKey: 'loc', filterVal: '菲律宾 马尼拉', keyword: '马尼拉', affectedDesc: '5 人 / 1 个分支', relevance: '高聚集' },
+                { type: 'loc', label: '中国 香港', filterKey: 'loc', filterVal: '中国 香港', keyword: '香港', affectedDesc: '4 人 / 1 个分支', relevance: '高聚集' },
+                { type: 'pop', label: '马尼拉POP', filterKey: 'pop', filterVal: '马尼拉POP', keyword: '马尼拉POP', affectedDesc: '1 人', relevance: '中聚集' }
               ];
             } else if (isFair) {
               commonFeatures = [
-                {
-                  type: 'pop',
-                  label: '北京POP',
-                  filterKey: 'pop',
-                  filterVal: '北京POP',
-                  keyword: '北京POP',
-                  poorRatio: '42.1%',
-                  poorCount: 8,
-                  totalCount: 19,
-                  relevance: '轻度波动'
-                },
-                {
-                  type: 'loc',
-                  label: '中国 北京',
-                  filterKey: 'loc',
-                  filterVal: '中国 北京',
-                  keyword: '北京',
-                  poorRatio: '38.5%',
-                  poorCount: 5,
-                  totalCount: 13,
-                  relevance: '轻度波动'
-                }
-              ];
-              problemSegments = [
-                {
-                  name: '北京POP ➔ 华北专线链路',
-                  type: 'link',
-                  level: 'warning',
-                  anomalies: ['连接器'],
-                  reason: '运营商跨网轻微抖动，RTT 波动至 68ms',
-                  affected: '8 人 / 1 个分支'
-                }
+                { type: 'pop', label: '北京POP', filterKey: 'pop', filterVal: '北京POP', keyword: '北京POP', affectedDesc: '1 人 / 1 个分支', relevance: '轻度波动' },
+                { type: 'loc', label: '中国 北京', filterKey: 'loc', filterVal: '中国 北京', keyword: '北京', affectedDesc: '1 人 / 1 个分支', relevance: '轻度波动' },
+                { type: 'pop', label: '上海POP', filterKey: 'pop', filterVal: '上海POP', keyword: '上海POP', affectedDesc: '4 人 / 1 个分支', relevance: '健康优良' },
+                { type: 'loc', label: '中国 上海', filterKey: 'loc', filterVal: '中国 上海', keyword: '上海', affectedDesc: '4 人 / 1 个分支', relevance: '健康优良' },
+                { type: 'pop', label: '成都POP', filterKey: 'pop', filterVal: '成都POP', keyword: '成都POP', affectedDesc: '4 人 / 1 个分支', relevance: '健康优良' },
+                { type: 'loc', label: '中国 成都', filterKey: 'loc', filterVal: '中国 成都', keyword: '成都', affectedDesc: '4 人 / 1 个分支', relevance: '健康优良' }
               ];
             } else {
               // 正常健康状态
               commonFeatures = [
-                {
-                  type: 'loc',
-                  label: '中国 上海 (正常率 100%)',
-                  filterKey: 'loc',
-                  filterVal: '中国 上海',
-                  keyword: '上海',
-                  poorRatio: '0.0%',
-                  poorCount: 0,
-                  totalCount: 32,
-                  relevance: '健康优良'
-                },
-                {
-                  type: 'loc',
-                  label: '中国 广州 (正常率 99.6%)',
-                  filterKey: 'loc',
-                  filterVal: '中国 广州',
-                  keyword: '广州',
-                  poorRatio: '0.4%',
-                  poorCount: 0,
-                  totalCount: 28,
-                  relevance: '健康优良'
-                },
-                {
-                  type: 'pop',
-                  label: '上海POP (正常率 100%)',
-                  filterKey: 'pop',
-                  filterVal: '上海POP',
-                  keyword: '上海POP',
-                  poorRatio: '0.0%',
-                  poorCount: 0,
-                  totalCount: 35,
-                  relevance: '健康优良'
-                }
+                { type: 'pop', label: '上海POP', filterKey: 'pop', filterVal: '上海POP', keyword: '上海POP', affectedDesc: '4 人 / 1 个分支', relevance: '健康优良' },
+                { type: 'loc', label: '中国 上海', filterKey: 'loc', filterVal: '中国 上海', keyword: '上海', affectedDesc: '4 人 / 1 个分支', relevance: '健康优良' },
+                { type: 'pop', label: '成都POP', filterKey: 'pop', filterVal: '成都POP', keyword: '成都POP', affectedDesc: '4 人 / 1 个分支', relevance: '健康优良' },
+                { type: 'loc', label: '中国 成都', filterKey: 'loc', filterVal: '中国 成都', keyword: '成都', affectedDesc: '4 人 / 1 个分支', relevance: '健康优良' },
+                { type: 'pop', label: '深圳POP', filterKey: 'pop', filterVal: '深圳POP', keyword: '深圳POP', affectedDesc: '5 人', relevance: '健康优良' },
+                { type: 'loc', label: '中国 深圳', filterKey: 'loc', filterVal: '中国 深圳', keyword: '深圳', affectedDesc: '5 人', relevance: '健康优良' }
               ];
-              problemSegments = [];
             }
           }
 
-          // ==================== 2. 卡片2: TTFB 耗时信息 ====================
-          let ttfbInfo = {};
-          if (isAbnormal) {
-            ttfbInfo = {
-              realTtfb: isErp ? '1,680ms' : '1,420ms',
-              baselineTtfb: '45ms',
-              deterioration: isErp ? '恶化 +3633%' : '恶化 +3055%',
-              status: '严重延时',
-              statusColor: 'text-[#D9363E]',
-              probeTtfb: '32ms',
-              probeTip: isErp
-                ? '探针多源拨测平均仅 32ms，排除 ERP 服务器本身性能慢，耗时集中在用户公网接入段。'
-                : '多源主动探针综合平均仅 32ms，排除应用服务端自身故障，耗时主要消耗在跨境链路与握手等待。',
-              stages: [
-                { name: 'DNS 解析', duration: isErp ? '28ms' : '24ms', percent: 2, normal: '12ms', status: 'normal' },
-                { name: 'TCP 建连握手', duration: isErp ? '220ms' : '186ms', percent: 14, normal: '18ms', status: 'warning' },
-                { name: 'TLS 加密握手', duration: isErp ? '240ms' : '210ms', percent: 15, normal: '15ms', status: 'warning' },
-                { name: '首包等待响应', duration: isErp ? '1,192ms' : '1,000ms', percent: 69, normal: '28ms', status: 'error' }
-              ]
-            };
-          } else if (isFair) {
-            ttfbInfo = {
-              realTtfb: '88ms',
-              baselineTtfb: '45ms',
-              deterioration: '轻微偏高 +95%',
-              status: '轻度波动',
-              statusColor: 'text-[#FA8C16]',
-              probeTtfb: '34ms',
-              probeTip: '多源探针拨测 34ms 正常，部分跨网接入节点握手重传导致首包等待轻度上升。',
-              stages: [
-                { name: 'DNS 解析', duration: '16ms', percent: 18, normal: '12ms', status: 'normal' },
-                { name: 'TCP 建连握手', duration: '42ms', percent: 48, normal: '18ms', status: 'warning' },
-                { name: 'TLS 加密握手', duration: '30ms', percent: 34, normal: '15ms', status: 'normal' },
-                { name: '首包等待响应', duration: '110ms', percent: 42, normal: '28ms', status: 'warning' }
-              ]
-            };
-          } else {
-            ttfbInfo = {
-              realTtfb: '42ms',
-              baselineTtfb: '45ms',
-              deterioration: '优良 (-6.7%)',
-              status: '正常优良',
-              statusColor: 'text-[#12A679]',
-              probeTtfb: '30ms',
-              probeTip: '多源主动探针与真实流量全网平稳，各节点建连与首包响应耗时处于极佳状态。',
-              stages: [
-                { name: 'DNS 解析', duration: '12ms', percent: 28, normal: '12ms', status: 'normal' },
-                { name: 'TCP 建连握手', duration: '18ms', percent: 42, normal: '18ms', status: 'normal' },
-                { name: 'TLS 加密握手', duration: '15ms', percent: 35, normal: '15ms', status: 'normal' },
-                { name: '首包等待响应', duration: '28ms', percent: 66, normal: '28ms', status: 'normal' }
-              ]
-            };
-          }
+          // ==================== 2. 网络层质量指标（5 分钟窗口：均值 + 峰值） ====================
+          const avgDelay = Number(found?.avgDelay ?? (isAbnormal ? 78 : (isFair ? 56 : 45)));
+          const maxDelay = Number(found?.maxDelay ?? (isAbnormal ? 168 : (isFair ? 92 : 58)));
+          const avgLoss = Number(found?.avgLoss ?? (isAbnormal ? 3.6 : (isFair ? 1.2 : 0.2)));
+          const maxLoss = Number(found?.maxLoss ?? (isAbnormal ? 6.2 : (isFair ? 2.2 : 0.6)));
 
-          // ==================== 3. 卡片3: HTTP 错误率与服务健康度 ====================
-          let httpErrorInfo = {};
-          if (isAbnormal) {
-            httpErrorInfo = {
-              errorRate: isErp ? '4.6%' : '5.2%',
-              successRate: isErp ? '95.4%' : '94.8%',
-              totalRequests: isErp ? '65' : '58',
-              overallStatus: '轻度降级 (部分超时)',
-              overallStatusColor: 'bg-[#FFF2F0] text-[#D9363E] border-[#FFCCC7]',
-              overallConclusion: isErp
-                ? '应用服务端整体仍正常运行，无 500 后端系统崩溃错误；504 错误均由公网接入段丢包重传超时引起。'
-                : '应用服务端主进程健康在线（无 500 后端崩溃错误）；504 网关超时主要由香港/马尼拉跨境专线丢包阻塞引起。',
-              statusCodes: [
-                { code: '200 OK', count: isErp ? '62' : '55', percent: isErp ? 95.4 : 94.8, type: 'success', barColor: 'bg-[#12A679]' },
-                { code: '504 Gateway Timeout', count: isErp ? '2' : '2', percent: isErp ? 3.1 : 3.5, type: 'error', barColor: 'bg-[#D9363E]' },
-                { code: '502 Bad Gateway', count: isErp ? '1' : '1', percent: isErp ? 1.5 : 1.7, type: 'warning', barColor: 'bg-[#FA8C16]' }
-              ]
-            };
-          } else if (isFair) {
-            httpErrorInfo = {
-              errorRate: '2.5%',
-              successRate: '97.5%',
-              totalRequests: '52',
-              overallStatus: '服务正常 (轻微波动)',
-              overallStatusColor: 'bg-[#FFFBE6] text-[#FA8C16] border-[#FFE58F]',
-              overallConclusion: '应用服务端及网关运行正常；存在极少量客户端网络波动提前中断 (499) 或偶发网关重试超时。',
-              statusCodes: [
-                { code: '200 OK', count: '50', percent: 96.2, type: 'success', barColor: 'bg-[#12A679]' },
-                { code: '499 Client Closed', count: '75', percent: 1.8, type: 'warning', barColor: 'bg-[#FA8C16]' },
-                { code: '504 Gateway Timeout', count: '30', percent: 0.7, type: 'error', barColor: 'bg-[#D9363E]' }
-              ]
-            };
-          } else {
-            httpErrorInfo = {
-              errorRate: '0.0%',
-              successRate: '100.0%',
-              totalRequests: '46',
-              overallStatus: '整体正常 (全部可达)',
-              overallStatusColor: 'bg-[#F6FFED] text-[#12A679] border-[#B7EB8F]',
-              overallConclusion: '当前时刻 HTTP 状态码 100% 为 200 OK，HTTP 错误率为 0，应用服务端、网关与链路全程健康可达。',
-              statusCodes: [
-                { code: '200 OK', count: '46', percent: 100.0, type: 'success', barColor: 'bg-[#12A679]' }
-              ]
-            };
-          }
+          const networkInfo = {
+            avgDelay: avgDelay + 'ms',
+            maxDelay: maxDelay + 'ms',
+            avgLoss: avgLoss.toFixed(1) + '%',
+            maxLoss: maxLoss.toFixed(1) + '%',
+            avgDelayColor: this.getNetworkDelayClass(avgDelay),
+            maxDelayColor: this.getNetworkDelayClass(maxDelay),
+            avgLossColor: this.getNetworkLossClass(avgLoss),
+            maxLossColor: this.getNetworkLossClass(maxLoss)
+          };
 
           return {
             time: time,
@@ -1199,18 +974,10 @@
             hasRealTraffic: found?.hasRealTraffic ?? true,
             hasProbe: found?.hasProbe ?? true,
             sourceTip: found?.sourceTip || (dataSource === '真实访问' ? '当前时刻聚合了真实访问与主动探测，同时存在时以真实访问为主' : '当前时刻无真实用户访问，由主动探测拨测生成链路数据'),
-            avgTtfb: found?.avgTtfb || (isAbnormal ? '78ms' : '45ms'),
-            dnsDelay: isAbnormal ? '24ms' : (isFair ? '16ms' : '12ms'),
-            tcpDelay: isAbnormal ? '186ms' : (isFair ? '45ms' : '18ms'),
-            tlsDelay: isAbnormal ? '210ms' : (isFair ? '32ms' : '15ms'),
-            httpDelay: isAbnormal ? '1,403ms' : (isFair ? '120ms' : '28ms'),
-            successRate: found?.successRate || (isAbnormal ? '94.8%' : '99.8%'),
             status: found?.status || (isAbnormal ? '差' : '正常'),
             score: found?.score || (isAbnormal ? 32 : 95),
             commonFeatures: commonFeatures,
-            problemSegments: problemSegments,
-            ttfbInfo: ttfbInfo,
-            httpErrorInfo: httpErrorInfo
+            networkInfo: networkInfo
           };
         },
 
@@ -2229,36 +1996,48 @@
           }
           this.selectedFeature = feature.label;
           this.selectedFeatureKeyword = feature.keyword || '';
+          // 特征卡描述的是当前特征对应的体验群体，点击时同步体验筛选，避免健康/异常对象混在一起
+          const expForStatus = feature.relevance === '健康优良'
+            ? '正常'
+            : ((feature.relevance === '轻度波动' || feature.relevance === '基本稳定')
+              ? '一般'
+              : '差');
 
           // 联动设置对应筛选器选项 (保证分支明细与用户明细数量精确对应)
+          // ERP 分支表是组网网关层，共性特征只过滤用户侧，避免分支表被筛空
+          const skipBranchFilter = this.activeAppId === 'app_erp';
+          // 分支表中不存在该地区/POP 时，仅保留体验筛选，避免分支表出现空结果
+          const hasBranchLoc = (val) => this.branchList.some(b =>
+            b.location === val || b.location.includes(val) || val.includes(b.location.replace('中国 ', '').replace('日本 ', '').replace('菲律宾 ', '')));
+          const hasBranchPop = (val) => this.branchList.some(b => b.pop === val);
+
           if (feature.filterKey === 'loc') {
-            this.branchFilterLoc = feature.filterVal;
+            this.branchFilterLoc = (skipBranchFilter || !hasBranchLoc(feature.filterVal)) ? '' : feature.filterVal;
             this.branchFilterPop = '';
+            this.branchFilterExp = skipBranchFilter ? '' : expForStatus;
             this.userFilterPop = '';
             this.userFilterIsp = feature.keyword || '';
             this.userSearchQuery = '';
             this.branchSearchQuery = '';
+            this.userFilterExp = expForStatus;
           } else if (feature.filterKey === 'pop') {
-            this.branchFilterPop = feature.filterVal;
-            this.userFilterPop = feature.filterVal;
+            this.branchFilterPop = (skipBranchFilter || !hasBranchPop(feature.filterVal)) ? '' : feature.filterVal;
             this.branchFilterLoc = '';
+            this.branchFilterExp = skipBranchFilter ? '' : expForStatus;
+            this.userFilterPop = feature.filterVal;
             this.userFilterIsp = '';
             this.userSearchQuery = '';
             this.branchSearchQuery = '';
-          } else if (feature.filterKey === 'isp') {
-            this.branchFilterPop = '';
-            this.branchFilterLoc = '';
-            this.userFilterPop = '';
-            this.userFilterIsp = feature.keyword || feature.filterVal || '';
-            this.userSearchQuery = '';
-            this.branchSearchQuery = '';
-          } else if (feature.filterKey === 'dept') {
+            this.userFilterExp = expForStatus;
+          } else {
             this.userSearchQuery = feature.filterVal || feature.keyword || '';
             this.branchFilterLoc = '';
             this.branchFilterPop = '';
+            this.branchFilterExp = '';
             this.userFilterPop = '';
             this.userFilterIsp = '';
             this.branchSearchQuery = '';
+            this.userFilterExp = expForStatus;
           }
 
           this.branchFilterAnomalies = [];
@@ -2268,16 +2047,6 @@
           this.showToast(`已按共性特征【${feature.label}】筛选访问明细`);
         },
 
-        // 点击问题节点/链路：快速筛选对应异常链路分支和用户
-        filterByProblemSegment(seg) {
-          if (!seg || !seg.anomalies || seg.anomalies.length === 0) return;
-          this.branchFilterAnomalies = [...seg.anomalies];
-          this.userFilterAnomalies = [...seg.anomalies];
-          this.branchPage = 1;
-          this.userPage = 1;
-          this.showToast(`已按异常链路【${seg.name}】筛选访问明细`);
-        },
-
         clearFeatureFilter() {
           this.userFilterSegment = null;
           this.hoveredGwAppSegment = null;
@@ -2285,8 +2054,10 @@
           this.selectedFeatureKeyword = '';
           this.branchFilterLoc = '';
           this.branchFilterPop = '';
+          this.branchFilterExp = '';
           this.userFilterPop = '';
           this.userFilterIsp = '';
+          this.userFilterExp = '';
           this.userSearchQuery = '';
           this.branchSearchQuery = '';
           this.branchFilterAnomalies = [];
@@ -2301,6 +2072,22 @@
           if (exp === '差') return 'text-[#D9363E]';
           if (exp === '一般') return 'text-[#FA721B]';
           return 'text-[#12A679]';
+        },
+
+        // 网络时延阈值：≤50ms 正常，≤100ms 一般，>100ms 差
+        getNetworkDelayClass(val) {
+          const num = parseFloat(val) || 0;
+          if (num <= 50) return 'text-[#12A679]';
+          if (num <= 100) return 'text-[#FA721B]';
+          return 'text-[#D9363E]';
+        },
+
+        // 网络丢包阈值：≤0.5% 正常，≤2% 一般，>2% 差
+        getNetworkLossClass(val) {
+          const num = parseFloat(val) || 0;
+          if (num <= 0.5) return 'text-[#12A679]';
+          if (num <= 2.0) return 'text-[#FA721B]';
+          return 'text-[#D9363E]';
         },
 
         getAvailabilityClass(valStr) {
@@ -2350,10 +2137,24 @@
 
         // 分支访问表格搜索与筛选
         branchSearchQuery: '',
-        branchFilterExp: '',
-        branchFilterLoc: '',
-        branchFilterPop: '',
+        branchFilterExpList: [],
+        branchFilterLocList: [],
+        branchFilterPopList: [],
         branchFilterAnomalies: [],
+
+        // 兼容原有单值写法：赋值时自动转为数组
+        get branchFilterExp() { return this.branchFilterExpList; },
+        set branchFilterExp(v) { this.branchFilterExpList = Array.isArray(v) ? v : (v ? [v] : []); },
+        get branchFilterLoc() { return this.branchFilterLocList; },
+        set branchFilterLoc(v) { this.branchFilterLocList = Array.isArray(v) ? v : (v ? [v] : []); },
+        get branchFilterPop() { return this.branchFilterPopList; },
+        set branchFilterPop(v) { this.branchFilterPopList = Array.isArray(v) ? v : (v ? [v] : []); },
+
+        branchFilterConfigs: [
+          { key: 'branch-exp', selectedKey: 'branchFilterExpList', pageKey: 'branchPage', placeholder: '全部访问体验', options: ['差', '一般', '正常'], searchable: false },
+          { key: 'branch-loc', selectedKey: 'branchFilterLocList', pageKey: 'branchPage', placeholder: '全部地理位置', searchable: true, searchPlaceholder: '搜索地区', options: ['中国 上海', '日本 东京', '中国 成都', '中国 广州', '菲律宾 马尼拉', '中国 香港', '中国 北京', '中国 天津', '中国 深圳', '中国 南京', '中国 杭州', '中国 重庆', '中国 武汉', '中国 西安', '中国 长沙'] },
+          { key: 'branch-pop', selectedKey: 'branchFilterPopList', pageKey: 'branchPage', placeholder: '全部接入POP', searchable: true, searchPlaceholder: '搜索POP', options: ['深圳POP', '香港POP', '上海POP', '北京POP', '成都POP', '广州POP', '东京POP'] }
+        ],
 
         // 分支分页状态 (默认每页展示10条)
         branchPage: 1,
@@ -2393,17 +2194,14 @@
             const matchSearch = !this.branchSearchQuery ||
               item.name.toLowerCase().includes(this.branchSearchQuery.toLowerCase()) ||
               item.location.toLowerCase().includes(this.branchSearchQuery.toLowerCase()) ||
-              item.pop.toLowerCase().includes(this.branchSearchQuery.toLowerCase()) ||
-              (item.anomalies && item.anomalies.some(a => a.toLowerCase().includes(this.branchSearchQuery.toLowerCase())));
-            const matchExp = !this.branchFilterExp || item.exp === this.branchFilterExp;
-            const matchLoc = !this.branchFilterLoc || 
-              item.location === this.branchFilterLoc || 
-              item.location.includes(this.branchFilterLoc) || 
-              this.branchFilterLoc.includes(item.location.replace('中国 ', '').replace('日本 ', '').replace('菲律宾 ', ''));
-            const matchPop = !this.branchFilterPop || item.pop === this.branchFilterPop;
-            const matchAnomaly = this.branchFilterAnomalies.length === 0 ||
-              (item.anomalies && item.anomalies.some(a => this.branchFilterAnomalies.includes(a)));
-            return matchSearch && matchExp && matchLoc && matchPop && matchAnomaly;
+              item.pop.toLowerCase().includes(this.branchSearchQuery.toLowerCase());
+            const matchExp = this.branchFilterExpList.length === 0 || this.branchFilterExpList.includes(item.exp);
+            const matchLoc = this.branchFilterLocList.length === 0 || this.branchFilterLocList.some(v =>
+              item.location === v ||
+              item.location.includes(v) ||
+              v.includes(item.location.replace('中国 ', '').replace('日本 ', '').replace('菲律宾 ', '')));
+            const matchPop = this.branchFilterPopList.length === 0 || this.branchFilterPopList.includes(item.pop);
+            return matchSearch && matchExp && matchLoc && matchPop;
           });
 
           return filtered.sort((a, b) => {
@@ -2447,10 +2245,33 @@
 
         // 用户访问表格搜索与筛选
         userSearchQuery: '',
-        userFilterExp: '',
-        userFilterIsp: '',
-        userFilterPop: '',
+        userFilterExpList: [],
+        userFilterIspList: [],
+        userFilterPopList: [],
         userFilterAnomalies: [],
+
+        // 兼容原有单值写法：赋值时自动转为数组
+        get userFilterExp() { return this.userFilterExpList; },
+        set userFilterExp(v) { this.userFilterExpList = Array.isArray(v) ? v : (v ? [v] : []); },
+        get userFilterIsp() { return this.userFilterIspList; },
+        set userFilterIsp(v) { this.userFilterIspList = Array.isArray(v) ? v : (v ? [v] : []); },
+        get userFilterPop() { return this.userFilterPopList; },
+        set userFilterPop(v) { this.userFilterPopList = Array.isArray(v) ? v : (v ? [v] : []); },
+
+        userFilterConfigs: [
+          { key: 'user-exp', selectedKey: 'userFilterExpList', pageKey: 'userPage', placeholder: '全部访问体验', options: ['差', '一般', '正常'], searchable: false },
+          { key: 'user-loc', selectedKey: 'userFilterIspList', pageKey: 'userPage', placeholder: '全部IP归属地', searchable: true, searchPlaceholder: '搜索归属地', options: [
+            { value: '上海', label: '上海地区/电信' },
+            { value: '东京', label: '日本东京/NTT' },
+            { value: '四川', label: '四川地区/电信' },
+            { value: '广州', label: '广东广州/电信' },
+            { value: '深圳', label: '广东深圳/电信' },
+            { value: '香港', label: '香港 PCCW' },
+            { value: '马尼拉', label: '菲律宾 PLDT' },
+            { value: '北京', label: '北京联通/电信' }
+          ] },
+          { key: 'user-pop', selectedKey: 'userFilterPopList', pageKey: 'userPage', placeholder: '全部接入POP', searchable: true, searchPlaceholder: '搜索POP', options: ['深圳POP', '香港POP', '上海POP', '北京POP', '成都POP', '广州POP', '东京POP'] }
+        ],
 
         // 用户分页状态 (默认每页展示10条)
         userPage: 1,
@@ -2551,23 +2372,20 @@
               item.empId.toLowerCase().includes(this.userSearchQuery.toLowerCase()) ||
               item.name.toLowerCase().includes(this.userSearchQuery.toLowerCase()) ||
               item.dept.toLowerCase().includes(this.userSearchQuery.toLowerCase()) ||
-              item.pop.toLowerCase().includes(this.userSearchQuery.toLowerCase()) ||
-              (item.anomalies && item.anomalies.some(a => a.toLowerCase().includes(this.userSearchQuery.toLowerCase())));
-            const matchExp = !this.userFilterExp || item.exp === this.userFilterExp;
-            const matchIsp = !this.userFilterIsp || 
-              item.isp.includes(this.userFilterIsp) || 
-              (item.dept && item.dept.includes(this.userFilterIsp)) ||
-              (this.userFilterIsp === '东京' && (item.isp.includes('NTT') || item.dept.includes('海外'))) ||
-              (this.userFilterIsp === '马尼拉' && (item.isp.includes('PLDT') || item.dept.includes('马尼拉'))) ||
-              (this.userFilterIsp === '香港' && (item.isp.includes('PCCW') || item.dept.includes('香港'))) ||
-              (this.userFilterIsp === '广州' && (item.isp.includes('广东') || item.dept.includes('广州'))) ||
-              (this.userFilterIsp === '深圳' && (item.isp.includes('深圳') || item.dept.includes('深圳'))) ||
-              (this.userFilterIsp === '成都' && (item.isp.includes('四川') || item.dept.includes('成都'))) ||
-              (this.userFilterIsp.includes(' ') && item.isp.includes(this.userFilterIsp.split(' ')[1] || this.userFilterIsp));
-            const matchPop = !this.userFilterPop || item.pop === this.userFilterPop;
-            const matchAnomaly = this.userFilterAnomalies.length === 0 ||
-              (item.anomalies && item.anomalies.some(a => this.userFilterAnomalies.includes(a)));
-            return matchSearch && matchExp && matchIsp && matchPop && matchAnomaly;
+              item.pop.toLowerCase().includes(this.userSearchQuery.toLowerCase());
+            const matchExp = this.userFilterExpList.length === 0 || this.userFilterExpList.includes(item.exp);
+            const matchIsp = this.userFilterIspList.length === 0 || this.userFilterIspList.some(v =>
+              item.isp.includes(v) ||
+              (item.dept && item.dept.includes(v)) ||
+              (v === '东京' && (item.isp.includes('NTT') || item.dept.includes('海外'))) ||
+              (v === '马尼拉' && (item.isp.includes('PLDT') || item.dept.includes('马尼拉'))) ||
+              (v === '香港' && (item.isp.includes('PCCW') || item.dept.includes('香港'))) ||
+              (v === '广州' && (item.isp.includes('广东') || item.dept.includes('广州'))) ||
+              (v === '深圳' && (item.isp.includes('深圳') || item.dept.includes('深圳'))) ||
+              (v === '成都' && (item.isp.includes('四川') || item.dept.includes('成都'))) ||
+              (v.includes(' ') && item.isp.includes(v.split(' ')[1] || v)));
+            const matchPop = this.userFilterPopList.length === 0 || this.userFilterPopList.includes(item.pop);
+            return matchSearch && matchExp && matchIsp && matchPop;
           });
 
           return filtered.sort((a, b) => {
@@ -3965,7 +3783,7 @@
                   <div class="flex items-center gap-2">
                     <div class="w-1 h-3.5 bg-[#1C6EFF] rounded-full"></div>
                     <span class="text-xs font-bold text-[#1E293B]">全网应用访问质量时间线</span>
-                    <span class="text-[11px] text-[#64748B]">（点击图中采样点可联动研判此时刻群体特征、TTFB与HTTP健康度）</span>
+                    <span class="text-[11px] text-[#64748B]">（点击图中采样点可联动研判此时刻群体特征、时延与丢包）</span>
                   </div>
                   <!-- 图例 (圆点规范) -->
                   <div class="flex items-center gap-4 text-xs text-[#64748B]">
@@ -4067,7 +3885,7 @@
                       </div>
                     </template>
 
-                    <!-- 5. 悬浮 Tooltip (跟随鼠标 hover 的点定位，纯粹展示质量与TTFB指标) -->
+                    <!-- 5. 悬浮 Tooltip (跟随鼠标 hover 的点定位，展示网络时延与丢包) -->
                     <template x-if="hoveredTimelinePoint">
                       <div class="absolute -top-11 -translate-x-1/2 bg-[#1E293B] text-white text-[10px] px-2.5 py-1.5 rounded shadow-xl whitespace-nowrap z-30 pointer-events-none transition-all duration-75 border border-white/10 flex flex-col gap-0.5"
                            :style="`left: ${(hoveredTimelinePoint.x / 1000) * 100}%;`">
@@ -4078,8 +3896,8 @@
                                 x-text="hoveredTimelinePoint.status"></span>
                         </div>
                         <div class="flex items-center gap-2 text-[#CBD5E1] text-[10px]">
-                          <span>TTFB: <b class="text-white font-outfit" x-text="hoveredTimelinePoint.avgTtfb"></b></span>
-                          <span>成功率: <b class="text-white font-outfit" x-text="hoveredTimelinePoint.successRate"></b></span>
+                          <span>时延: <b class="text-white font-outfit" x-text="hoveredTimelinePoint.avgDelay + 'ms'"></b></span>
+                          <span>丢包: <b class="text-white font-outfit" x-text="hoveredTimelinePoint.avgLoss + '%'"></b></span>
                         </div>
                       </div>
                     </template>
@@ -4097,9 +3915,10 @@
                   </div>
               </div>
           </div>
+          </div>
 
           <!-- ========================================== -->
-          <!-- 3. 时刻质量归因与指标洞察 (4卡片等高均衡设计: TOP3分布收敛、自然呼吸感、真实单刻指标) -->
+          <!-- 3. 时刻质量归因与指标洞察 (2卡片: 网络质量指标 + 共性特征TOP6) -->
           <!-- ========================================== -->
           <div class="bg-white border border-[#EAEEF4] rounded-[8px] shadow-xs overflow-visible">
 
@@ -4125,205 +3944,50 @@
               </div>
             </div>
 
-            <!-- 四列高度完全对齐通栏 (等高、自然、不拥挤也不松散) -->
-            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-[#F1F5F9] p-3 gap-3 md:gap-0 items-stretch">
+            <!-- 两列布局：左侧网络质量指标，右侧共性特征 TOP6 -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 divide-y md:divide-y-0 md:divide-x divide-[#F1F5F9] px-3 pt-3 pb-0 gap-3 md:gap-0 items-stretch">
 
-              <!-- ==================== 卡片 1: 异常对象共性特征分布TOP3 ==================== -->
-              <div class="md:px-3 flex flex-col justify-between h-full">
+              <!-- ==================== 左侧卡片: 网络质量指标（含均值与5分钟峰值） ==================== -->
+              <div class="md:px-3 lg:col-span-5 flex flex-col h-full">
                 <!-- 头部 -->
                 <div class="flex items-center justify-between h-[24px] mb-2">
-                  <span class="text-xs font-bold text-[#1E293B]">异常对象共性特征分布TOP3</span>
+                  <span class="text-xs font-bold text-[#1E293B]">网络质量指标</span>
                 </div>
 
-                <!-- 列表：固定3行，超出区域优雅以 ... 省略截断，绝不溢出重叠 -->
-                <div class="h-[84px] flex flex-col justify-between">
-                  <template x-for="(feat, fIdx) in (currentGlobalSlice.commonFeatures || []).slice(0, 3)" :key="fIdx">
-                    <div @click="toggleFeatureFilter(feat)"
-                         class="group cursor-pointer px-2 py-1 rounded-[4px] transition-colors flex items-center justify-between text-xs gap-2"
-                         :class="selectedFeature === feat.label 
-                           ? 'bg-[#EFF6FF] text-[#1C6EFF] font-semibold' 
-                           : 'hover:bg-[#F8FAFC] text-[#334155]'">
-                      <div class="flex items-center gap-1.5 min-w-0 flex-1">
-                        <span class="px-1.5 py-0.2 text-[9.5px] rounded font-medium shrink-0 bg-[#F1F5F9] text-[#64748B] border border-[#E2E8F0]"
-                              x-text="feat.filterKey === 'loc' ? '同位置' : (feat.filterKey === 'pop' ? '同POP' : (feat.filterKey === 'isp' ? '同链路' : '同部门'))">
-                        </span>
-                        <span class="block truncate text-[11.5px] group-hover:text-[#1C6EFF] transition-colors" 
-                              x-text="feat.label.replace(/^同[^:：]+[:：]\s*/, '')"
-                              :title="feat.label.replace(/^同[^:：]+[:：]\s*/, '')"></span>
-                      </div>
-                      <div class="flex items-center gap-1 shrink-0 font-mono text-[10.5px] text-[#8C95A6] whitespace-nowrap">
-                        <span x-text="feat.affectedDesc || `${feat.poorCount} 人 / ${feat.branchCount || 1} 个分支`"></span>
-                        <svg x-show="selectedFeature === feat.label" class="w-3 h-3 text-[#1C6EFF]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
-                      </div>
-                    </div>
-                  </template>
-
-                  <!-- 空状态 -->
-                  <template x-if="!currentGlobalSlice.commonFeatures || currentGlobalSlice.commonFeatures.length === 0">
-                    <div class="h-full flex items-center justify-center text-xs text-[#64748B] gap-1.5">
-                      <svg class="w-3.5 h-3.5 text-[#12A679]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                      <span>全网无异常聚集群体</span>
-                    </div>
-                  </template>
-                </div>
-              </div>
-
-              <!-- ==================== 卡片 2: 异常定界分布TOP3 (文本 flex-1 严格截断，绝不与数量重叠) ==================== -->
-              <div class="md:px-3 flex flex-col justify-between h-full">
-                <!-- 头部 -->
-                <div class="flex items-center justify-between h-[24px] mb-2">
-                  <span class="text-xs font-bold text-[#1E293B]">异常定界分布TOP3</span>
-                </div>
-
-                <!-- 列表：flex-1 min-w-0 + block truncate，展示区域不足时优雅呈现 ...，鼠标悬停可看全称 -->
-                <div class="h-[84px] flex flex-col justify-between">
-                  <template x-for="(seg, sIdx) in (currentGlobalSlice.problemSegments || []).slice(0, 3)" :key="sIdx">
-                    <div @click="filterByProblemSegment(seg)"
-                         class="px-2 py-1 rounded-[4px] hover:bg-[#F8FAFC] cursor-pointer transition-colors group flex items-center justify-between text-xs text-[#334155] gap-2">
-                      <!-- 问题在哪儿：严格限制宽度，超出自动显示省略号 ... -->
-                      <div class="flex-1 min-w-0">
-                        <div class="truncate text-[11.5px] group-hover:text-[#1C6EFF] transition-colors" 
-                             x-text="seg.name" 
-                             :title="seg.name"></div>
-                      </div>
-                      <!-- 涉及多少对象：固定不折行、不被挤压 -->
-                      <span class="text-[10.5px] text-[#8C95A6] font-mono shrink-0 whitespace-nowrap" 
-                            x-text="seg.affected.replace('波及', '').replace('涉及', '').replace('位用户', '人').trim()"></span>
-                    </div>
-                  </template>
-
-                  <!-- 空状态 -->
-                  <template x-if="!currentGlobalSlice.problemSegments || currentGlobalSlice.problemSegments.length === 0">
-                    <div class="h-full flex items-center justify-center text-xs text-[#166534] gap-1.5">
-                      <svg class="w-3.5 h-3.5 text-[#16A34A]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                      <span>所有 POP 节点与专线链路运行正常</span>
-                    </div>
-                  </template>
-                </div>
-              </div>
-
-              <!-- ==================== 卡片 3: 当前时刻 TTFB 耗时监测 (小标题上移8px，数字下移4px) ==================== -->
-              <div class="md:px-3 flex flex-col justify-between h-full">
-                <!-- 头部 -->
-                <div class="flex items-center justify-between h-[24px] mb-2">
-                  <span class="text-xs font-bold text-[#1E293B]">TTFB 耗时监测</span>
-                </div>
-
-                <!-- 核心双指标平铺：小标题 -translate-y-2 (上移8px)，数字内容 translate-y-1 (下移4px)，间距拉开舒展 -->
                 <div class="h-[84px] flex flex-col justify-center">
-                  <div class="grid grid-cols-2 gap-2">
+                  <div class="grid grid-cols-2 gap-3">
 
-                    <!-- 1. 真实用户访问 TTFB -->
-                    <div class="relative" x-data="{ realTtfbHover: false, realTtfbTimeout: null }"
-                         @mouseenter="clearTimeout(realTtfbTimeout); realTtfbHover = true"
-                         @mouseleave="realTtfbTimeout = setTimeout(() => { realTtfbHover = false }, 200)">
-                      <!-- 小标题向上移动 8px (-translate-y-2) -->
-                      <div class="text-[11px] text-[#64748B] mb-1 truncate -translate-y-2">真实用户 TTFB</div>
-                      <!-- 数字内容向下移动 4px (translate-y-1) -->
-                      <div class="flex items-center gap-1 cursor-pointer group py-0.5 translate-y-1">
+                    <!-- 1. 时延 -->
+                    <div class="min-w-0">
+                      <div class="text-[11px] text-[#64748B] mb-1">时延</div>
+                      <div class="flex items-baseline gap-1">
                         <span class="text-[24px] font-black font-outfit tracking-tight leading-none"
-                              :class="currentGlobalSlice.ttfbInfo.statusColor"
-                              x-text="currentGlobalSlice.ttfbInfo.realTtfb"></span>
-                        <svg class="w-3.5 h-3.5 text-[#8A92A1] group-hover:text-[#1C6EFF] transition-transform duration-200"
-                             :class="realTtfbHover ? 'rotate-180 text-[#1C6EFF]' : ''"
-                             fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"></path>
-                        </svg>
+                              :class="currentGlobalSlice.networkInfo.avgDelayColor"
+                              x-text="currentGlobalSlice.networkInfo.avgDelay"></span>
+                        <span class="text-[10px] text-[#94A3B8]">均值</span>
                       </div>
-
-                      <!-- 悬浮弹窗：真实访问 TTFB 阶段耗时拆解浮层 -->
-                      <div x-show="realTtfbHover"
-                           x-transition:enter="transition ease-out duration-150"
-                           x-transition:enter-start="opacity-0 translate-y-1 scale-95"
-                           x-transition:enter-end="opacity-100 translate-y-0 scale-100"
-                           x-transition:leave="transition ease-in duration-100"
-                           x-transition:leave-start="opacity-100"
-                           x-transition:leave-end="opacity-0"
-                           class="absolute left-0 top-full mt-2.5 z-50 bg-white p-3 rounded-[6px] shadow-xl border border-[#CBD5E1] text-xs min-w-[280px] max-w-[320px] select-none"
-                           x-cloak>
-                        <div class="space-y-2 font-sans">
-                          <div class="flex items-center justify-between pb-1 border-b border-[#F1F5F9]">
-                            <span class="font-bold text-[#1E293B]">TTFB 阶段传输耗时拆解</span>
-                            <span class="text-[10.5px] font-mono text-[#8C95A6]" x-text="currentGlobalSlice.timeRange"></span>
-                          </div>
-                          <!-- 拆解指标列表 -->
-                          <div class="space-y-1.5 text-xs">
-                            <template x-for="(stg, sIdx) in currentGlobalSlice.ttfbInfo.stages" :key="sIdx">
-                              <div>
-                                <div class="flex items-center justify-between mb-0.5 text-[11px]">
-                                  <span class="text-[#475569]" x-text="stg.name"></span>
-                                  <div class="flex items-center gap-1.5 font-mono">
-                                    <span class="font-bold" :class="stg.status === 'error' ? 'text-[#D9363E]' : (stg.status === 'warning' ? 'text-[#FA8C16]' : 'text-[#1E293B]')"
-                                          x-text="stg.duration"></span>
-                                    <span class="text-[#94A3B8] text-[9.5px]" x-text="`基准 ${stg.normal}`"></span>
-                                  </div>
-                                </div>
-                                <div class="w-full h-1 bg-[#F1F5F9] rounded-full overflow-hidden">
-                                  <div class="h-full rounded-full"
-                                       :class="stg.status === 'error' ? 'bg-[#EF4444]' : (stg.status === 'warning' ? 'bg-[#F59E0B]' : 'bg-[#1C6EFF]')"
-                                       :style="`width: ${Math.min(100, Math.max(8, stg.percent))}%;`"></div>
-                                </div>
-                              </div>
-                            </template>
-                          </div>
-                          <div class="pt-1.5 border-t border-[#F1F5F9] text-[10.5px] text-[#64748B] leading-relaxed">
-                            <span x-text="currentGlobalSlice.status === '差' ? '首包等待响应耗时占比最高，网络链路存在传输阻塞与丢包重传。' : '各阶段延时平稳，处于健康基准区间。'"></span>
-                          </div>
-                        </div>
+                      <div class="mt-1.5 text-[10.5px] text-[#64748B] whitespace-nowrap">
+                        5分钟内峰值
+                        <b class="font-mono font-semibold ml-0.5"
+                           :class="currentGlobalSlice.networkInfo.maxDelayColor"
+                           x-text="currentGlobalSlice.networkInfo.maxDelay"></b>
                       </div>
                     </div>
 
-                    <!-- 2. 主动探测综合 TTFB -->
-                    <div class="relative pl-3 border-l border-[#F1F5F9]"
-                         x-data="{ probeTtfbHover: false, probeTtfbTimeout: null }"
-                         @mouseenter="clearTimeout(probeTtfbTimeout); probeTtfbHover = true"
-                         @mouseleave="probeTtfbTimeout = setTimeout(() => { probeTtfbHover = false }, 200)">
-                      <!-- 小标题向上移动 8px (-translate-y-2) -->
-                      <div class="text-[11px] text-[#64748B] mb-1 truncate -translate-y-2">主动探测 TTFB</div>
-                      <!-- 数字内容向下移动 4px (translate-y-1) -->
-                      <div class="flex items-center gap-1 cursor-pointer group py-0.5 translate-y-1">
-                        <span class="text-[24px] font-black font-outfit text-[#1E293B] tracking-tight leading-none"
-                              x-text="currentGlobalSlice.ttfbInfo.probeTtfb"></span>
-                        <svg class="w-3.5 h-3.5 text-[#8A92A1] group-hover:text-[#1C6EFF] transition-transform duration-200"
-                             :class="probeTtfbHover ? 'rotate-180 text-[#1C6EFF]' : ''"
-                             fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"></path>
-                        </svg>
+                    <!-- 2. 丢包 -->
+                    <div class="min-w-0 pl-3 border-l border-[#F1F5F9]">
+                      <div class="text-[11px] text-[#64748B] mb-1">丢包</div>
+                      <div class="flex items-baseline gap-1">
+                        <span class="text-[24px] font-black font-outfit tracking-tight leading-none"
+                              :class="currentGlobalSlice.networkInfo.avgLossColor"
+                              x-text="currentGlobalSlice.networkInfo.avgLoss"></span>
+                        <span class="text-[10px] text-[#94A3B8]">均值</span>
                       </div>
-
-                      <!-- 悬浮弹窗：主动探测多源探针详细分布浮层 -->
-                      <div x-show="probeTtfbHover"
-                           x-transition:enter="transition ease-out duration-150"
-                           x-transition:enter-start="opacity-0 translate-y-1 scale-95"
-                           x-transition:enter-end="opacity-100 translate-y-0 scale-100"
-                           x-transition:leave="transition ease-in duration-100"
-                           x-transition:leave-start="opacity-100"
-                           x-transition:leave-end="opacity-0"
-                           class="absolute right-0 top-full mt-2.5 z-50 bg-white p-3 rounded-[6px] shadow-xl border border-[#CBD5E1] text-xs min-w-[280px] max-w-[320px] select-none"
-                           x-cloak>
-                        <div class="space-y-2 font-sans">
-                          <div class="flex items-center justify-between pb-1 border-b border-[#F1F5F9]">
-                            <span class="font-bold text-[#1E293B]">主动探测探针分布 (15个节点)</span>
-                            <span class="text-[10px] text-[#12A679] font-medium">综合均值 32ms</span>
-                          </div>
-                          <div class="space-y-1 text-xs">
-                            <div class="flex items-center justify-between py-1 px-1.5 rounded bg-[#F8FAFC]">
-                              <span class="text-[#475569]">🏢 分支机构探针 (6 个分支)</span>
-                              <span class="font-mono text-[#12A679] font-semibold">35ms</span>
-                            </div>
-                            <div class="flex items-center justify-between py-1 px-1.5 rounded bg-[#F8FAFC]">
-                              <span class="text-[#475569]">🌐 边缘 POP 探针 (4 个接入点)</span>
-                              <span class="font-mono text-[#12A679] font-semibold">28ms</span>
-                            </div>
-                            <div class="flex items-center justify-between py-1 px-1.5 rounded bg-[#F8FAFC]">
-                              <span class="text-[#475569]">💻 客户终端探针 (5 台常驻)</span>
-                              <span class="font-mono text-[#12A679] font-semibold">34ms</span>
-                            </div>
-                          </div>
-                          <div class="pt-1.5 border-t border-[#F1F5F9] text-[10.5px] text-[#64748B] leading-relaxed">
-                            <span>探针首包响应仅 32ms，表明应用服务端本身健康，主要瓶颈在跨境专线握手与丢包传输。</span>
-                          </div>
-                        </div>
+                      <div class="mt-1.5 text-[10.5px] text-[#64748B] whitespace-nowrap">
+                        5分钟内峰值
+                        <b class="font-mono font-semibold ml-0.5"
+                           :class="currentGlobalSlice.networkInfo.maxLossColor"
+                           x-text="currentGlobalSlice.networkInfo.maxLoss"></b>
                       </div>
                     </div>
 
@@ -4331,97 +3995,54 @@
                 </div>
               </div>
 
-              <!-- ==================== 卡片 4: HTTP 错误率与服务健康度 (小标题上移8px，数字下移4px) ==================== -->
-              <div class="md:px-3 flex flex-col justify-between h-full">
+              <!-- ==================== 右侧卡片: 共性特征分布TOP6（两列三行） ==================== -->
+              <div class="md:px-3 lg:col-span-7 flex flex-col h-full">
                 <!-- 头部 -->
                 <div class="flex items-center justify-between h-[24px] mb-2">
-                  <span class="text-xs font-bold text-[#1E293B]">HTTP 错误率与可用性</span>
-                  <span class="text-[11px] font-mono text-[#8C95A6]" x-text="`会话: ${currentGlobalSlice.httpErrorInfo.totalRequests} 次`"></span>
+                  <span class="text-xs font-bold text-[#1E293B]"
+                        x-text="(currentGlobalSlice.commonFeatures || []).some(f => f.relevance !== '健康优良') ? '异常对象共性特征分布TOP6' : '健康对象共性特征分布TOP6'"></span>
                 </div>
 
-                <!-- 核心双指标平铺：小标题 -translate-y-2 (上移8px)，数字内容 translate-y-1 (下移4px) -->
-                <div class="h-[84px] flex flex-col justify-center">
-                  <div class="grid grid-cols-2 gap-2">
-
-                    <!-- 1. HTTP 错误率 -->
-                    <div class="relative" x-data="{ httpHover: false, httpTimeout: null }"
-                         @mouseenter="clearTimeout(httpTimeout); httpHover = true"
-                         @mouseleave="httpTimeout = setTimeout(() => { httpHover = false }, 200)">
-                      <!-- 小标题向上移动 8px (-translate-y-2) -->
-                      <div class="text-[11px] text-[#64748B] mb-1 truncate -translate-y-2">HTTP 错误率</div>
-                      <!-- 数字内容向下移动 4px (translate-y-1) -->
-                      <div class="flex items-center gap-1 cursor-pointer group py-0.5 translate-y-1">
-                        <span class="text-[24px] font-black font-outfit tracking-tight leading-none"
-                              :class="currentGlobalSlice.httpErrorInfo.errorRate === '0.0%' ? 'text-[#12A679]' : 'text-[#D9363E]'"
-                              x-text="currentGlobalSlice.httpErrorInfo.errorRate"></span>
-                        <svg class="w-3.5 h-3.5 text-[#8A92A1] group-hover:text-[#1C6EFF] transition-transform duration-200"
-                             :class="httpHover ? 'rotate-180 text-[#1C6EFF]' : ''"
-                             fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"></path>
-                        </svg>
+                <!-- 两列三行：第一列前3条，第二列后3条，中间竖线分隔 -->
+                <template x-if="currentGlobalSlice.commonFeatures && currentGlobalSlice.commonFeatures.length > 0">
+                  <div class="h-[84px] grid grid-cols-2 gap-x-4">
+                    <template x-for="col in [0, 1]" :key="col">
+                      <div class="h-[84px] flex flex-col justify-between"
+                           :class="col === 1 ? 'border-l border-[#F1F5F9] pl-4' : ''">
+                        <template x-for="(feat, fIdx) in (currentGlobalSlice.commonFeatures || []).slice(col * 3, col * 3 + 3)" :key="fIdx">
+                          <div @click="toggleFeatureFilter(feat)"
+                               class="group cursor-pointer px-1.5 py-1 rounded-[4px] transition-colors flex items-center justify-between text-xs gap-1.5"
+                               :class="selectedFeature === feat.label
+                                 ? 'bg-[#EFF6FF] text-[#1C6EFF] font-semibold'
+                                 : 'hover:bg-[#F8FAFC] text-[#334155]'">
+                            <div class="flex items-center gap-1.5 min-w-0 flex-1">
+                              <span class="px-1.5 py-0.2 text-[9.5px] rounded font-medium shrink-0 bg-[#F1F5F9] text-[#64748B] border border-[#E2E8F0]"
+                                    x-text="feat.filterKey === 'loc' ? '同地区' : '同POP'">
+                              </span>
+                              <span class="block truncate text-[11px] group-hover:text-[#1C6EFF] transition-colors"
+                                    x-text="feat.label.replace(/^同[^:：]+[:：]\s*/, '')"
+                                    :title="feat.label.replace(/^同[^:：]+[:：]\s*/, '')"></span>
+                            </div>
+                            <div class="flex items-center gap-1 shrink-0 font-mono text-[10px] text-[#8C95A6] whitespace-nowrap">
+                              <span x-text="feat.affectedDesc || `${feat.poorCount} 人 / ${feat.branchCount || 1} 个分支`"></span>
+                              <svg x-show="selectedFeature === feat.label" class="w-3 h-3 text-[#1C6EFF]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                            </div>
+                          </div>
+                        </template>
                       </div>
-
-                      <!-- 悬浮弹窗：HTTP 状态码分布明细 -->
-                      <div x-show="httpHover"
-                           x-transition:enter="transition ease-out duration-150"
-                           x-transition:enter-start="opacity-0 translate-y-1 scale-95"
-                           x-transition:enter-end="opacity-100 translate-y-0 scale-100"
-                           x-transition:leave="transition ease-in duration-100"
-                           x-transition:leave-start="opacity-100"
-                           x-transition:leave-end="opacity-0"
-                           class="absolute right-0 top-full mt-2.5 z-50 bg-white p-3 rounded-[6px] shadow-xl border border-[#CBD5E1] text-xs min-w-[280px] max-w-[320px] select-none"
-                           x-cloak>
-                        <div class="space-y-2 font-sans">
-                          <div class="flex items-center justify-between pb-1 border-b border-[#F1F5F9]">
-                            <span class="font-bold text-[#1E293B]">HTTP 状态码分布明细</span>
-                            <span class="text-[10px] text-[#64748B]">单时刻请求样本</span>
-                          </div>
-
-                          <!-- 堆叠分布条 -->
-                          <div class="w-full h-1.5 bg-[#F1F5F9] rounded-full overflow-hidden flex">
-                            <template x-for="(sc, scIdx) in currentGlobalSlice.httpErrorInfo.statusCodes" :key="scIdx">
-                              <div class="h-full" :class="sc.barColor" :style="`width: ${sc.percent}%;`"></div>
-                            </template>
-                          </div>
-
-                          <!-- 状态码列表 -->
-                          <div class="space-y-1">
-                            <template x-for="(sc, scIdx) in currentGlobalSlice.httpErrorInfo.statusCodes" :key="scIdx">
-                              <div class="flex items-center justify-between text-xs py-0.5 px-1.5 rounded bg-[#F8FAFC]">
-                                <div class="flex items-center gap-1.5">
-                                  <span class="w-1.5 h-1.5 rounded-full" :class="sc.barColor"></span>
-                                  <span class="font-mono text-[#1E293B]" x-text="sc.code"></span>
-                                </div>
-                                <div class="flex items-center gap-1.5 font-mono text-[11px]">
-                                  <span class="font-bold" :class="sc.type === 'error' ? 'text-[#D9363E]' : (sc.type === 'warning' ? 'text-[#FA8C16]' : 'text-[#12A679]')"
-                                        x-text="sc.percent + '%'"></span>
-                                  <span class="text-[#94A3B8] text-[9.5px]" x-text="`(${sc.count}次)`"></span>
-                                </div>
-                              </div>
-                            </template>
-                          </div>
-
-                          <div class="pt-1.5 border-t border-[#F1F5F9] text-[10.5px] text-[#64748B] leading-relaxed">
-                            <span x-text="currentGlobalSlice.httpErrorInfo.overallConclusion"></span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <!-- 2. 请求成功率 -->
-                    <div class="pl-3 border-l border-[#F1F5F9]">
-                      <!-- 小标题向上移动 8px (-translate-y-2) -->
-                      <div class="text-[11px] text-[#64748B] mb-1 truncate -translate-y-2">请求成功率</div>
-                      <!-- 数字内容向下移动 4px (translate-y-1) -->
-                      <div class="py-0.5 translate-y-1">
-                        <span class="text-[24px] font-black font-outfit text-[#12A679] tracking-tight leading-none"
-                              x-text="currentGlobalSlice.httpErrorInfo.successRate"></span>
-                      </div>
-                    </div>
-
+                    </template>
                   </div>
-                </div>
+                </template>
+
+                <!-- 空状态 -->
+                <template x-if="!currentGlobalSlice.commonFeatures || currentGlobalSlice.commonFeatures.length === 0">
+                  <div class="h-[84px] flex items-center justify-center text-xs text-[#64748B] gap-1.5">
+                    <svg class="w-3.5 h-3.5 text-[#12A679]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                    <span>当前时刻暂无共性特征数据</span>
+                  </div>
+                </template>
               </div>
+
 
             </div>
           </div>
@@ -4443,10 +4064,10 @@
             </div>
 
             <!-- Tab 内容区 -->
-            <div class="p-4">
+            <div class="px-4 pt-2 pb-4">
 
               <!-- Tab 1: 分支访问表格 -->
-              <div x-show="activeTab === 'branch'" class="space-y-3">
+              <div x-show="activeTab === 'branch'" class="flex flex-col gap-3">
 
                 <!-- 共性特征过滤激活通知栏 (联动卡片1) -->
                 <template x-if="selectedFeature">
@@ -4463,143 +4084,82 @@
                 </template>
 
                 <div class="flex items-center justify-between gap-3">
-                  <!-- 3个等宽 select 筛选项在左侧，带悬停一键快捷清除图标 -->
+                  <!-- 3个多选筛选项（支持多选、地区/POP搜索、hover替换清除） -->
                   <div class="flex items-center gap-2">
-                    <!-- 1. 访问体验 -->
-                    <div class="dem-select-wrapper group w-36">
-                      <select class="dem-select w-full" :class="!branchFilterExp ? 'text-[#8A92A1]' : 'text-[#2F3540]'"
-                        x-model="branchFilterExp" @change="branchPage = 1">
-                        <option value="" class="text-[#8A92A1]">全部访问体验</option>
-                        <option value="差" class="text-[#2F3540]">差</option>
-                        <option value="一般" class="text-[#2F3540]">一般</option>
-                        <option value="正常" class="text-[#2F3540]">正常</option>
-                      </select>
-                      <button type="button" x-show="branchFilterExp"
-                        @click.stop.prevent="branchFilterExp = ''; branchPage = 1" class="dem-clear-btn has-value"
-                        title="清除选择">
-                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
-                            d="M6 18L18 6M6 6l12 12"></path>
-                        </svg>
-                      </button>
-                    </div>
-
-                    <!-- 2. 地理位置 (与共性特征联动选中) -->
-                    <div class="dem-select-wrapper group w-36">
-                      <select class="dem-select w-full" :class="!branchFilterLoc ? 'text-[#8A92A1]' : 'text-[#2F3540]'"
-                        x-model="branchFilterLoc" @change="branchPage = 1">
-                        <option value="" class="text-[#8A92A1]">全部地理位置</option>
-                        <option value="中国 上海" class="text-[#2F3540]">中国 上海</option>
-                        <option value="日本 东京" class="text-[#2F3540]">日本 东京</option>
-                        <option value="中国 成都" class="text-[#2F3540]">中国 成都</option>
-                        <option value="中国 广州" class="text-[#2F3540]">中国 广州</option>
-                        <option value="菲律宾 马尼拉" class="text-[#2F3540]">菲律宾 马尼拉</option>
-                        <option value="中国 香港" class="text-[#2F3540]">中国 香港</option>
-                        <option value="中国 北京" class="text-[#2F3540]">中国 北京</option>
-                        <option value="中国 天津" class="text-[#2F3540]">中国 天津</option>
-                        <option value="中国 深圳" class="text-[#2F3540]">中国 深圳</option>
-                        <option value="中国 南京" class="text-[#2F3540]">中国 南京</option>
-                        <option value="中国 杭州" class="text-[#2F3540]">中国 杭州</option>
-                        <option value="中国 重庆" class="text-[#2F3540]">中国 重庆</option>
-                        <option value="中国 武汉" class="text-[#2F3540]">中国 武汉</option>
-                        <option value="中国 西安" class="text-[#2F3540]">中国 西安</option>
-                        <option value="中国 长沙" class="text-[#2F3540]">中国 长沙</option>
-                      </select>
-                      <button type="button" x-show="branchFilterLoc"
-                        @click.stop.prevent="branchFilterLoc = ''; branchPage = 1; if(selectedFeature && selectedFeature.includes('地区')) selectedFeature = null"
-                        class="dem-clear-btn has-value" title="清除选择">
-                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
-                            d="M6 18L18 6M6 6l12 12"></path>
-                        </svg>
-                      </button>
-                    </div>
-
-                    <!-- 3. 接入POP (与共性特征联动选中) -->
-                    <div class="dem-select-wrapper group w-36">
-                      <select class="dem-select w-full" :class="!branchFilterPop ? 'text-[#8A92A1]' : 'text-[#2F3540]'"
-                        x-model="branchFilterPop" @change="branchPage = 1">
-                        <option value="" class="text-[#8A92A1]">全部接入POP</option>
-                        <option value="深圳POP" class="text-[#2F3540]">深圳POP</option>
-                        <option value="香港POP" class="text-[#2F3540]">香港POP</option>
-                        <option value="上海POP" class="text-[#2F3540]">上海POP</option>
-                        <option value="北京POP" class="text-[#2F3540]">北京POP</option>
-                        <option value="成都POP" class="text-[#2F3540]">成都POP</option>
-                        <option value="广州POP" class="text-[#2F3540]">广州POP</option>
-                        <option value="东京POP" class="text-[#2F3540]">东京POP</option>
-                      </select>
-                      <button type="button" x-show="branchFilterPop"
-                        @click.stop.prevent="branchFilterPop = ''; branchPage = 1; if(selectedFeature && selectedFeature.includes('POP')) selectedFeature = null"
-                        class="dem-clear-btn has-value" title="清除选择">
-                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
-                            d="M6 18L18 6M6 6l12 12"></path>
-                        </svg>
-                      </button>
-                    </div>
-
-                    <!-- 4. 问题链路/节点 (多选下拉筛选，统一单选清除规范) -->
-                    <div class="relative inline-flex items-center group w-40" x-data="{ open: false }" @click.outside="open = false">
-                      <div @click="open = !open" 
-                           class="h-8 w-full px-2.5 bg-white border border-[#D3D7DE] rounded-[2px] hover:border-[#1C6EFF] transition-colors flex items-center justify-between cursor-pointer select-none text-xs">
-                        <!-- 未选状态 -->
-                        <template x-if="branchFilterAnomalies.length === 0">
-                          <span class="text-[#8A92A1] font-normal truncate">全部链路/节点</span>
-                        </template>
-                        <!-- 单选状态 -->
-                        <template x-if="branchFilterAnomalies.length === 1">
-                          <div class="flex items-center overflow-hidden">
-                            <span class="inline-flex items-center h-5 px-1.5 bg-[#EDF1F7] text-[#2F3540] text-xs rounded-[2px] max-w-[105px] truncate select-none"
-                                  x-text="branchFilterAnomalies[0]">
-                            </span>
-                          </div>
-                        </template>
-                        <!-- 多选状态：第1个 Tag + 折叠 +N Badge -->
-                        <template x-if="branchFilterAnomalies.length > 1">
-                          <div class="flex items-center gap-1 overflow-hidden">
-                            <span class="inline-flex items-center h-5 px-1.5 bg-[#EDF1F7] text-[#2F3540] text-xs rounded-[2px] max-w-[75px] truncate select-none"
-                                  x-text="branchFilterAnomalies[0]">
-                            </span>
-                            <span class="inline-flex items-center justify-center h-5 px-1 bg-[#EDF1F7] text-[#2F3540] text-[11px] font-normal rounded-[2px] flex-shrink-0 select-none"
-                                  :title="branchFilterAnomalies.join('、')"
-                                  x-text="`+${branchFilterAnomalies.length - 1}`">
-                            </span>
-                          </div>
-                        </template>
-                        
-                        <!-- 右侧图标区：平时显示下拉箭头；有值且悬浮时原位替换为圆形清除按钮 -->
-                        <div class="relative w-4 h-4 flex items-center justify-center ml-1 shrink-0">
-                          <!-- 下拉箭头 (默认显示，Hover 且有值时隐藏) -->
-                          <svg class="w-3.5 h-3.5 text-[#A1A7B3] transition-transform duration-150"
-                               :class="[open && 'rotate-180', branchFilterAnomalies.length > 0 ? 'group-hover:hidden' : '']"
-                               fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                          </svg>
-                          <!-- 一键清除按钮 (默认隐藏，有值且 group-hover 时在原位显示) -->
-                          <button type="button"
-                                  x-show="branchFilterAnomalies.length > 0"
-                                  @click.stop.prevent="branchFilterAnomalies = []; branchPage = 1; open = false"
-                                  class="hidden group-hover:flex absolute inset-0 w-4 h-4 rounded-full bg-white text-[#8A92A1] hover:text-[#1C6EFF] hover:bg-[#F0F5FF] items-center justify-center cursor-pointer transition-colors z-10"
-                                  title="清除选择">
-                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
+                    <template x-for="filter in branchFilterConfigs" :key="filter.key">
+                      <div class="relative inline-flex items-center group w-[188px]" @click.outside="openFilterKey === filter.key && filterClose()">
+                        <div @click="filterOpen(filter)"
+                             class="h-8 w-full px-2 bg-white border border-[#D3D7DE] rounded-[2px] hover:border-[#1C6EFF] transition-colors flex items-center justify-between cursor-pointer select-none text-xs">
+                          <!-- 未选状态 -->
+                          <template x-if="filterList(filter.selectedKey).length === 0">
+                            <span class="text-[#A1A7B3] font-normal truncate" x-text="filter.placeholder"></span>
+                          </template>
+                          <template x-if="filterList(filter.selectedKey).length > 0">
+                            <div class="flex items-center gap-1 overflow-hidden">
+                              <template x-for="value in filterVisibleValues(filter)" :key="value">
+                                <span class="inline-flex items-center gap-1 h-5 px-1.5 bg-[#EDF1F7] text-[#2F3540] text-xs rounded-[2px] max-w-[120px] min-w-0 shrink-0 select-none">
+                                  <span class="truncate" x-text="filterLabel(filter, value)"></span>
+                                  <button type="button"
+                                          @click.stop.prevent="filterRemove(filter, value)"
+                                          class="w-3 h-3 flex-shrink-0 text-[#8A92A1] hover:text-[#2F3540] inline-flex items-center justify-center rounded-[1px] hover:bg-[#D3D7DE] transition-colors cursor-pointer"
+                                          title="删除">
+                                    <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
+                                    </svg>
+                                  </button>
+                                </span>
+                              </template>
+                              <span x-show="filterHiddenCount(filter) > 0"
+                                    class="inline-flex items-center justify-center h-5 px-1.5 bg-[#EDF1F7] text-[#2F3540] text-xs font-normal rounded-[2px] flex-shrink-0 select-none"
+                                    :title="filterSelectedLabels(filter).join('、')"
+                                    x-text="`+${filterHiddenCount(filter)}`">
+                              </span>
+                            </div>
+                          </template>
+                          <!-- 右侧：hover 时有选中项则用清除按钮替换下拉箭头 -->
+                          <div class="relative w-4 h-4 flex items-center justify-center ml-1 shrink-0">
+                            <svg class="w-3.5 h-3.5 text-[#A1A7B3] transition-transform duration-150"
+                                 :class="[openFilterKey === filter.key && 'rotate-180', filterList(filter.selectedKey).length > 0 ? 'group-hover:hidden' : '']"
+                                 fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                             </svg>
-                          </button>
+                            <button type="button"
+                                    x-show="filterList(filter.selectedKey).length > 0"
+                                    @click.stop.prevent="filterClear(filter)"
+                                    class="hidden group-hover:flex absolute inset-0 w-4 h-4 rounded-full bg-white text-[#8A92A1] hover:text-[#1C6EFF] hover:bg-[#F0F5FF] items-center justify-center cursor-pointer transition-colors z-10"
+                                    title="清除选择">
+                              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+
+                        <!-- 下拉多选列表 -->
+                        <div x-show="openFilterKey === filter.key"
+                             x-cloak
+                             class="absolute left-0 top-full mt-1 min-w-[188px] max-h-[240px] overflow-y-auto bg-white border border-[#E1E5EB] shadow-lg rounded-[2px] py-1 z-50 text-xs text-[#2F3540] custom-scrollbar">
+                          <template x-if="filter.searchable">
+                            <div class="px-2 py-1.5 sticky top-0 bg-white z-10 border-b border-[#F1F5F9]">
+                              <input type="text" x-model="filterSearch" @click.stop
+                                     :placeholder="filter.searchPlaceholder || '搜索'"
+                                     class="h-7 w-full px-2 text-xs border border-[#D3D7DE] rounded-[2px] focus:outline-none focus:border-[#1C6EFF]">
+                            </div>
+                          </template>
+                          <template x-for="opt in filterOptions(filter)" :key="filterOptionValue(opt)">
+                            <label class="flex items-center gap-2 px-3 py-1.5 hover:bg-[#F4F6F9] cursor-pointer select-none">
+                              <input type="checkbox"
+                                     :value="filterOptionValue(opt)"
+                                     :checked="filterIsSelected(filter, filterOptionValue(opt))"
+                                     @change="filterToggle(filter, filterOptionValue(opt))"
+                                     class="rounded border-gray-300 text-[#1C6EFF] focus:ring-0 w-3.5 h-3.5">
+                              <span x-text="filterOptionLabel(opt)"></span>
+                            </label>
+                          </template>
+                          <div x-show="filterOptions(filter).length === 0" class="px-3 py-2 text-[#8A92A1] text-center">无匹配项</div>
                         </div>
                       </div>
-
-                      <!-- 下拉多选列表 -->
-                      <div x-show="open" 
-                           x-cloak 
-                           class="absolute left-0 top-full mt-1 w-52 max-h-[240px] overflow-y-auto bg-white border border-[#E1E5EB] shadow-lg rounded-[2px] py-1 z-50 text-xs text-[#2F3540] custom-scrollbar">
-                        <template x-for="opt in (activeAppId === 'app_erp' ? ['组网专线段', '组网网关'] : ['分支-POP段', 'POP-连接器段', 'POP', '连接器'])" :key="opt">
-                          <label class="flex items-center gap-2 px-3 py-1.5 hover:bg-[#F4F6F9] cursor-pointer select-none">
-                            <input type="checkbox" :value="opt" x-model="branchFilterAnomalies" @change="branchPage = 1" class="rounded border-gray-300 text-[#1C6EFF] focus:ring-0 w-3.5 h-3.5">
-                            <span x-text="opt"></span>
-                          </label>
-                        </template>
-                      </div>
-                    </div>
+                    </template>
                   </div>
 
                   <!-- 搜索框带快捷清除 -->
@@ -4630,7 +4190,6 @@
                         <th>IP 归属地</th>
                         <th>主要接入 POP</th>
                         <th class="num-col">受影响用户数</th>
-                        <th>问题链路/节点</th>
                         <th class="text-center w-16">操作</th>
                       </tr>
                     </thead>
@@ -4661,20 +4220,6 @@
                           <td class="text-[#2F3540]" x-text="item.pop"></td>
                           <td class="num-col font-mono"
                             x-text="item.affectedUsers > 0 ? item.affectedUsers + ' 人' : '-'"></td>
-                          <td>
-                            <template x-if="item.anomalies && item.anomalies.length > 0">
-                              <div class="flex flex-wrap items-center gap-1.5">
-                                <template x-for="(tag, tIdx) in item.anomalies" :key="tIdx">
-                                  <span class="inline-flex items-center px-2 py-0.5 text-[11px] font-medium rounded-[2px] whitespace-nowrap select-none"
-                                    :class="item.exp === '差' ? 'bg-[#D9363E]/10 text-[#D9363E]' : 'bg-[#FA721B]/10 text-[#FA721B]'"
-                                    x-text="tag"></span>
-                                </template>
-                              </div>
-                            </template>
-                            <template x-if="!item.anomalies || item.anomalies.length === 0">
-                              <span class="text-[#8A92A1] text-xs font-mono">-</span>
-                            </template>
-                          </td>
                           <td class="text-center">
                             <a :href="'./DEM-用户详情.html?type=分支&name=' + encodeURIComponent(item.name) + '&location=' + encodeURIComponent(item.location || '') + '&pop=' + encodeURIComponent(item.pop || '') + '&exp=' + encodeURIComponent(item.exp || '差') + '&totalApps=' + (item.affectedUsers || 12) + '&poorApps=' + (item.poorCount || 0) + '&fairApps=' + (item.fairCount || 0) + '&normalApps=' + (item.normalCount || 0)"
                               target="_blank"
@@ -4721,7 +4266,7 @@
 
 
               <!-- Tab 2: 用户访问表格 -->
-              <div x-show="activeTab === 'user'" class="space-y-3" x-cloak>
+              <div x-show="activeTab === 'user'" class="flex flex-col gap-3" x-cloak>
 
                 <!-- 共性特征过滤激活通知栏 (联动卡片1) -->
                 <template x-if="selectedFeature">
@@ -4738,136 +4283,82 @@
                 </template>
 
                 <div class="flex items-center justify-between gap-3">
-                  <!-- 3个等宽 select 筛选项在左侧，带悬停一键快捷清除图标 -->
+                  <!-- 3个多选筛选项（支持多选、归属地/POP搜索、hover替换清除） -->
                   <div class="flex items-center gap-2">
-                    <!-- 1. 访问体验 -->
-                    <div class="dem-select-wrapper group w-36">
-                      <select class="dem-select w-full" :class="!userFilterExp ? 'text-[#8A92A1]' : 'text-[#2F3540]'"
-                        x-model="userFilterExp" @change="userPage = 1">
-                        <option value="" class="text-[#8A92A1]">全部访问体验</option>
-                        <option value="差" class="text-[#2F3540]">差</option>
-                        <option value="一般" class="text-[#2F3540]">一般</option>
-                        <option value="正常" class="text-[#2F3540]">正常</option>
-                      </select>
-                      <button type="button" x-show="userFilterExp"
-                        @click.stop.prevent="userFilterExp = ''; userPage = 1" class="dem-clear-btn has-value"
-                        title="清除选择">
-                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
-                            d="M6 18L18 6M6 6l12 12"></path>
-                        </svg>
-                      </button>
-                    </div>
-
-                    <!-- 2. IP归属地 (与共性特征联动选中) -->
-                    <div class="dem-select-wrapper group w-44">
-                      <select class="dem-select w-full" :class="!userFilterIsp ? 'text-[#8A92A1]' : 'text-[#2F3540]'"
-                        x-model="userFilterIsp" @change="userPage = 1">
-                        <option value="" class="text-[#8A92A1]">全部IP归属地</option>
-                        <option value="上海" class="text-[#2F3540]">上海地区/电信</option>
-                        <option value="东京" class="text-[#2F3540]">日本东京/NTT</option>
-                        <option value="四川" class="text-[#2F3540]">四川地区/电信</option>
-                        <option value="广州" class="text-[#2F3540]">广东广州/电信</option>
-                        <option value="深圳" class="text-[#2F3540]">广东深圳/电信</option>
-                        <option value="香港" class="text-[#2F3540]">香港 PCCW</option>
-                        <option value="马尼拉" class="text-[#2F3540]">菲律宾 PLDT</option>
-                        <option value="北京" class="text-[#2F3540]">北京联通/电信</option>
-                      </select>
-                      <button type="button" x-show="userFilterIsp"
-                        @click.stop.prevent="userFilterIsp = ''; userPage = 1; if(selectedFeature && selectedFeature.includes('连接器')) selectedFeature = null"
-                        class="dem-clear-btn has-value" title="清除选择">
-                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
-                            d="M6 18L18 6M6 6l12 12"></path>
-                        </svg>
-                      </button>
-                    </div>
-
-                    <!-- 3. 接入POP (与共性特征联动选中) -->
-                    <div class="dem-select-wrapper group w-36">
-                      <select class="dem-select w-full" :class="!userFilterPop ? 'text-[#8A92A1]' : 'text-[#2F3540]'"
-                        x-model="userFilterPop" @change="userPage = 1">
-                        <option value="" class="text-[#8A92A1]">全部接入POP</option>
-                        <option value="深圳POP" class="text-[#2F3540]">深圳POP</option>
-                        <option value="香港POP" class="text-[#2F3540]">香港POP</option>
-                        <option value="上海POP" class="text-[#2F3540]">上海POP</option>
-                        <option value="北京POP" class="text-[#2F3540]">北京POP</option>
-                        <option value="成都POP" class="text-[#2F3540]">成都POP</option>
-                        <option value="广州POP" class="text-[#2F3540]">广州POP</option>
-                        <option value="东京POP" class="text-[#2F3540]">东京POP</option>
-                      </select>
-                      <button type="button" x-show="userFilterPop"
-                        @click.stop.prevent="userFilterPop = ''; userPage = 1; if(selectedFeature && selectedFeature.includes('POP')) selectedFeature = null"
-                        class="dem-clear-btn has-value" title="清除选择">
-                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
-                            d="M6 18L18 6M6 6l12 12"></path>
-                        </svg>
-                      </button>
-                    </div>
-
-                    <!-- 4. 问题链路/节点 (多选下拉筛选，统一单选清除规范) -->
-                    <div class="relative inline-flex items-center group w-40" x-data="{ open: false }" @click.outside="open = false">
-                      <div @click="open = !open" 
-                           class="h-8 w-full px-2.5 bg-white border border-[#D3D7DE] rounded-[2px] hover:border-[#1C6EFF] transition-colors flex items-center justify-between cursor-pointer select-none text-xs">
-                        <!-- 未选状态 -->
-                        <template x-if="userFilterAnomalies.length === 0">
-                          <span class="text-[#8A92A1] font-normal truncate">全部链路/节点</span>
-                        </template>
-                        <!-- 单选状态 -->
-                        <template x-if="userFilterAnomalies.length === 1">
-                          <div class="flex items-center overflow-hidden">
-                            <span class="inline-flex items-center h-5 px-1.5 bg-[#EDF1F7] text-[#2F3540] text-xs rounded-[2px] max-w-[105px] truncate select-none"
-                                  x-text="userFilterAnomalies[0]">
-                            </span>
-                          </div>
-                        </template>
-                        <!-- 多选状态：第1个 Tag + 折叠 +N Badge -->
-                        <template x-if="userFilterAnomalies.length > 1">
-                          <div class="flex items-center gap-1 overflow-hidden">
-                            <span class="inline-flex items-center h-5 px-1.5 bg-[#EDF1F7] text-[#2F3540] text-xs rounded-[2px] max-w-[75px] truncate select-none"
-                                  x-text="userFilterAnomalies[0]">
-                            </span>
-                            <span class="inline-flex items-center justify-center h-5 px-1 bg-[#EDF1F7] text-[#2F3540] text-[11px] font-normal rounded-[2px] flex-shrink-0 select-none"
-                                  :title="userFilterAnomalies.join('、')"
-                                  x-text="`+${userFilterAnomalies.length - 1}`">
-                            </span>
-                          </div>
-                        </template>
-                        
-                        <!-- 右侧图标区：平时显示下拉箭头；有值且悬浮时原位替换为圆形清除按钮 -->
-                        <div class="relative w-4 h-4 flex items-center justify-center ml-1 shrink-0">
-                          <!-- 下拉箭头 (默认显示，Hover 且有值时隐藏) -->
-                          <svg class="w-3.5 h-3.5 text-[#A1A7B3] transition-transform duration-150"
-                               :class="[open && 'rotate-180', userFilterAnomalies.length > 0 ? 'group-hover:hidden' : '']"
-                               fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                          </svg>
-                          <!-- 一键清除按钮 (默认隐藏，有值且 group-hover 时在原位显示) -->
-                          <button type="button"
-                                  x-show="userFilterAnomalies.length > 0"
-                                  @click.stop.prevent="userFilterAnomalies = []; userPage = 1; open = false"
-                                  class="hidden group-hover:flex absolute inset-0 w-4 h-4 rounded-full bg-white text-[#8A92A1] hover:text-[#1C6EFF] hover:bg-[#F0F5FF] items-center justify-center cursor-pointer transition-colors z-10"
-                                  title="清除选择">
-                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
+                    <template x-for="filter in userFilterConfigs" :key="filter.key">
+                      <div class="relative inline-flex items-center group w-[188px]" @click.outside="openFilterKey === filter.key && filterClose()">
+                        <div @click="filterOpen(filter)"
+                             class="h-8 w-full px-2 bg-white border border-[#D3D7DE] rounded-[2px] hover:border-[#1C6EFF] transition-colors flex items-center justify-between cursor-pointer select-none text-xs">
+                          <!-- 未选状态 -->
+                          <template x-if="filterList(filter.selectedKey).length === 0">
+                            <span class="text-[#A1A7B3] font-normal truncate" x-text="filter.placeholder"></span>
+                          </template>
+                          <template x-if="filterList(filter.selectedKey).length > 0">
+                            <div class="flex items-center gap-1 overflow-hidden">
+                              <template x-for="value in filterVisibleValues(filter)" :key="value">
+                                <span class="inline-flex items-center gap-1 h-5 px-1.5 bg-[#EDF1F7] text-[#2F3540] text-xs rounded-[2px] max-w-[120px] min-w-0 shrink-0 select-none">
+                                  <span class="truncate" x-text="filterLabel(filter, value)"></span>
+                                  <button type="button"
+                                          @click.stop.prevent="filterRemove(filter, value)"
+                                          class="w-3 h-3 flex-shrink-0 text-[#8A92A1] hover:text-[#2F3540] inline-flex items-center justify-center rounded-[1px] hover:bg-[#D3D7DE] transition-colors cursor-pointer"
+                                          title="删除">
+                                    <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
+                                    </svg>
+                                  </button>
+                                </span>
+                              </template>
+                              <span x-show="filterHiddenCount(filter) > 0"
+                                    class="inline-flex items-center justify-center h-5 px-1.5 bg-[#EDF1F7] text-[#2F3540] text-xs font-normal rounded-[2px] flex-shrink-0 select-none"
+                                    :title="filterSelectedLabels(filter).join('、')"
+                                    x-text="`+${filterHiddenCount(filter)}`">
+                              </span>
+                            </div>
+                          </template>
+                          <!-- 右侧：hover 时有选中项则用清除按钮替换下拉箭头 -->
+                          <div class="relative w-4 h-4 flex items-center justify-center ml-1 shrink-0">
+                            <svg class="w-3.5 h-3.5 text-[#A1A7B3] transition-transform duration-150"
+                                 :class="[openFilterKey === filter.key && 'rotate-180', filterList(filter.selectedKey).length > 0 ? 'group-hover:hidden' : '']"
+                                 fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                             </svg>
-                          </button>
+                            <button type="button"
+                                    x-show="filterList(filter.selectedKey).length > 0"
+                                    @click.stop.prevent="filterClear(filter)"
+                                    class="hidden group-hover:flex absolute inset-0 w-4 h-4 rounded-full bg-white text-[#8A92A1] hover:text-[#1C6EFF] hover:bg-[#F0F5FF] items-center justify-center cursor-pointer transition-colors z-10"
+                                    title="清除选择">
+                              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+
+                        <!-- 下拉多选列表 -->
+                        <div x-show="openFilterKey === filter.key"
+                             x-cloak
+                             class="absolute left-0 top-full mt-1 min-w-[188px] max-h-[240px] overflow-y-auto bg-white border border-[#E1E5EB] shadow-lg rounded-[2px] py-1 z-50 text-xs text-[#2F3540] custom-scrollbar">
+                          <template x-if="filter.searchable">
+                            <div class="px-2 py-1.5 sticky top-0 bg-white z-10 border-b border-[#F1F5F9]">
+                              <input type="text" x-model="filterSearch" @click.stop
+                                     :placeholder="filter.searchPlaceholder || '搜索'"
+                                     class="h-7 w-full px-2 text-xs border border-[#D3D7DE] rounded-[2px] focus:outline-none focus:border-[#1C6EFF]">
+                            </div>
+                          </template>
+                          <template x-for="opt in filterOptions(filter)" :key="filterOptionValue(opt)">
+                            <label class="flex items-center gap-2 px-3 py-1.5 hover:bg-[#F4F6F9] cursor-pointer select-none">
+                              <input type="checkbox"
+                                     :value="filterOptionValue(opt)"
+                                     :checked="filterIsSelected(filter, filterOptionValue(opt))"
+                                     @change="filterToggle(filter, filterOptionValue(opt))"
+                                     class="rounded border-gray-300 text-[#1C6EFF] focus:ring-0 w-3.5 h-3.5">
+                              <span x-text="filterOptionLabel(opt)"></span>
+                            </label>
+                          </template>
+                          <div x-show="filterOptions(filter).length === 0" class="px-3 py-2 text-[#8A92A1] text-center">无匹配项</div>
                         </div>
                       </div>
-
-                      <!-- 下拉多选列表 -->
-                      <div x-show="open" 
-                           x-cloak 
-                           class="absolute left-0 top-full mt-1 w-52 max-h-[240px] overflow-y-auto bg-white border border-[#E1E5EB] shadow-lg rounded-[2px] py-1 z-50 text-xs text-[#2F3540] custom-scrollbar">
-                        <template x-for="opt in (activeAppId === 'app_erp' ? ['用户终端-代理网关段'] : ['终端-POP段', 'POP-连接器段', 'POP', '连接器'])" :key="opt">
-                          <label class="flex items-center gap-2 px-3 py-1.5 hover:bg-[#F4F6F9] cursor-pointer select-none">
-                            <input type="checkbox" :value="opt" x-model="userFilterAnomalies" @change="userPage = 1" class="rounded border-gray-300 text-[#1C6EFF] focus:ring-0 w-3.5 h-3.5">
-                            <span x-text="opt"></span>
-                          </label>
-                        </template>
-                      </div>
-                    </div>
+                    </template>
                   </div>
 
                   <!-- 搜索框带快捷清除 -->
@@ -4895,7 +4386,6 @@
                         <th>访问体验</th>
                         <th>IP 归属地</th>
                         <th>接入 POP</th>
-                        <th>问题链路/节点</th>
                         <th class="text-center w-16">操作</th>
                       </tr>
                     </thead>
@@ -4922,20 +4412,6 @@
                             </div>
                           </td>
                           <td class="text-[#2F3540]" x-text="item.pop"></td>
-                          <td>
-                            <template x-if="item.anomalies && item.anomalies.length > 0">
-                              <div class="flex flex-wrap items-center gap-1.5">
-                                <template x-for="(tag, tIdx) in item.anomalies" :key="tIdx">
-                                  <span class="inline-flex items-center px-2 py-0.5 text-[11px] font-medium rounded-[2px] whitespace-nowrap select-none"
-                                    :class="item.exp === '差' ? 'bg-[#D9363E]/10 text-[#D9363E]' : 'bg-[#FA721B]/10 text-[#FA721B]'"
-                                    x-text="tag"></span>
-                                </template>
-                              </div>
-                            </template>
-                            <template x-if="!item.anomalies || item.anomalies.length === 0">
-                              <span class="text-[#8A92A1] text-xs font-mono">-</span>
-                            </template>
-                          </td>
                           <td class="text-center">
                             <a :href="'./DEM-用户详情.html?type=用户&empId=' + encodeURIComponent(item.empId) + '&name=' + encodeURIComponent(item.name) + '&dept=' + encodeURIComponent(item.dept) + '&pop=' + encodeURIComponent(item.pop || '') + '&exp=' + encodeURIComponent(item.exp || '差') + '&totalApps=' + (item.totalApps || 17) + '&poorApps=' + (item.poorCount || 0) + '&fairApps=' + (item.fairCount || 0) + '&normalApps=' + (item.normalCount || 0)"
                               target="_blank"

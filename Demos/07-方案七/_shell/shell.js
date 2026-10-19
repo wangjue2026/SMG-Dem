@@ -461,6 +461,144 @@
     }
   };
 
+  /* ──────────────────────────────────────────────
+     4. 统一多选筛选器 Mixin
+     页面数据对象通过 ...window.demFilterMixin 引入，
+     再定义 filterConfigs（selectedKey/pageKey/options 等）。
+     ────────────────────────────────────────────── */
+  /* 筛选 Tag 宽度测量（放在闭包内，避免 Canvas 上下文被 Alpine 代理） */
+  let _filterMeasureCtx = null;
+  const _filterTextWidthCache = {};
+  function _measureFilterText(text) {
+    try {
+      if (!_filterMeasureCtx) {
+        const canvas = document.createElement('canvas');
+        _filterMeasureCtx = canvas.getContext('2d');
+      }
+      _filterMeasureCtx.font = '12px Inter, system-ui, -apple-system, sans-serif';
+      return _filterMeasureCtx.measureText(String(text)).width;
+    } catch (e) {
+      return String(text).length * 12;
+    }
+  }
+
+  window.demFilterMixin = {
+    openFilterKey: null,
+    filterSearch: '',
+
+    filterList(key) {
+      return this[key] || [];
+    },
+
+    filterOptionValue(opt) {
+      return (opt && typeof opt === 'object') ? opt.value : opt;
+    },
+
+    filterOptionLabel(opt) {
+      return (opt && typeof opt === 'object') ? (opt.label || opt.value) : opt;
+    },
+
+    filterLabel(filter, value) {
+      const hit = (filter.options || []).find(o => this.filterOptionValue(o) === value);
+      return hit ? this.filterOptionLabel(hit) : value;
+    },
+
+    filterSelectedLabels(filter) {
+      return this.filterList(filter.selectedKey).map(v => this.filterLabel(filter, v));
+    },
+
+    filterTextWidth(text) {
+      const cacheKey = String(text);
+      if (_filterTextWidthCache[cacheKey] != null) return _filterTextWidthCache[cacheKey];
+      const width = _measureFilterText(cacheKey);
+      _filterTextWidthCache[cacheKey] = width;
+      return width;
+    },
+
+    filterTagWidth(filter, value) {
+      // px-1.5 左右 12px + 删除按钮 12px + 间距 4px = 28px
+      const textWidth = this.filterTextWidth(this.filterLabel(filter, value));
+      return Math.min(120, textWidth + 28);
+    },
+
+    filterVisibleValues(filter) {
+      const values = this.filterList(filter.selectedKey);
+      if (!values.length) return [];
+      const triggerWidth = filter.width || 188;
+      // px-2 左右 16px + 右侧箭头区域 20px，预留 2px 余量
+      const available = triggerWidth - 34;
+      const gap = 4;
+      const plusWidth = 28;
+      const widths = values.map(v => this.filterTagWidth(filter, v));
+      const total = widths.reduce((sum, w) => sum + w, 0) + gap * (values.length - 1);
+      if (total <= available) return values.slice();
+
+      const visible = [];
+      let used = 0;
+      for (let i = 0; i < values.length; i++) {
+        const remainingAfterThis = values.length - visible.length - 1;
+        const reserve = remainingAfterThis > 0 ? plusWidth + gap : 0;
+        const nextUsed = used + widths[i] + (visible.length ? gap : 0);
+        if (nextUsed + reserve > available) break;
+        visible.push(values[i]);
+        used = nextUsed;
+      }
+      if (visible.length === 0) visible.push(values[0]);
+      return visible;
+    },
+
+    filterHiddenCount(filter) {
+      return this.filterList(filter.selectedKey).length - this.filterVisibleValues(filter).length;
+    },
+
+    filterOptions(filter) {
+      const list = filter.options || [];
+      const kw = (this.filterSearch || '').trim().toLowerCase();
+      if (!filter.searchable || !kw) return list;
+      return list.filter(o => {
+        const label = String(this.filterOptionLabel(o)).toLowerCase();
+        const value = String(this.filterOptionValue(o)).toLowerCase();
+        return label.includes(kw) || value.includes(kw);
+      });
+    },
+
+    filterIsSelected(filter, value) {
+      return this.filterList(filter.selectedKey).includes(value);
+    },
+
+    filterToggle(filter, value) {
+      const key = filter.selectedKey;
+      if (!this[key]) this[key] = [];
+      const list = this[key];
+      const idx = list.indexOf(value);
+      if (idx >= 0) list.splice(idx, 1);
+      else list.push(value);
+      if (filter.pageKey) this[filter.pageKey] = 1;
+    },
+
+    filterRemove(filter, value) {
+      const list = this[filter.selectedKey] || [];
+      const idx = list.indexOf(value);
+      if (idx >= 0) list.splice(idx, 1);
+      if (filter.pageKey) this[filter.pageKey] = 1;
+    },
+
+    filterClear(filter) {
+      this[filter.selectedKey] = [];
+      if (filter.pageKey) this[filter.pageKey] = 1;
+    },
+
+    filterOpen(filter) {
+      this.openFilterKey = this.openFilterKey === filter.key ? null : filter.key;
+      this.filterSearch = '';
+    },
+
+    filterClose() {
+      this.openFilterKey = null;
+      this.filterSearch = '';
+    }
+  };
+
   // 自动执行注入
   window.DEM_SHELL_V2.inject();
 
