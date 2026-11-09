@@ -1140,6 +1140,15 @@
         getDetailTitle(item) {
           if (!item) return '';
           if (item.id === 'node_pop' && this.isPopAggregated) return '全球加速骨干网';
+          if (this.isPopAggregated) {
+            const topo = this.currentSlice?.topology || {};
+            if (item.id === 'seg_client_pop') {
+              return this.queryType === '分支' ? '分支AF-上车点POP' : '终端-上车点POP';
+            }
+            if (item.id === topo.segment2?.targetId) {
+              return this.queryType === '分支' ? '下车点POP-总部AF' : '下车点POP-代理网关';
+            }
+          }
           return this.formatItemName(item.name);
         },
 
@@ -1148,27 +1157,6 @@
           if (this.isRealApplicationNode(item) || this.isNeutralNode(item)) return 'bg-[#64748B]';
           if (item?.id === 'node_pop' && this.isPopAggregated) return this.getBackboneTone().dot;
           return (item?.status === '异常' || item?.status === '差') ? 'bg-[#CF171D]' : 'bg-[#12A679]';
-        },
-
-        // 按 id 取当前切片的分段/节点明细（用于合并进骨干网节点）
-        getDetailItemById(id) {
-          return (this.currentSlice?.segmentDetails || []).find(s => s.id === id) || null;
-        },
-
-        // 被合并进「全球加速骨干网」的两段：第一公里 + 最后一公里
-        getMergedKiloSegments() {
-          if (!this.isPopAggregated) return [];
-          const topo = this.currentSlice?.topology || {};
-          const firstId = topo.segment1?.targetId || 'seg_client_pop';
-          const lastId = topo.segment2?.targetId || 'seg_pop_gw';
-          const first = this.getDetailItemById(firstId);
-          const last = this.getDetailItemById(lastId);
-          const fromName = topo.client?.name || (this.queryType === '分支' ? '分支AF' : '终端');
-          const lastEnd = topo.gw?.name || topo.app?.name || (this.queryType === '分支' ? '总部AF' : '代理网关');
-          return [
-            first ? { id: firstId, role: 'first', title: '第一公里', sub: `${fromName} → ${this.getBranchIngressPopName()}`, data: first } : null,
-            last ? { id: lastId, role: 'last', title: '最后一公里', sub: `${this.getBranchEgressPopName()} → ${lastEnd}`, data: last } : null
-          ].filter(Boolean);
         },
 
         // 分支 POP 状态快速切换 Demo 辅助方法（方便同时对比正常与异常两种形态）
@@ -3884,22 +3872,13 @@
           });
 
           // 保持点-段-点物理链路原本的从左至右拓扑顺序
-          const sorted = list.sort((a, b) => a.order - b.order);
-          // 上下车聚合场景：第一公里 / 最后一公里统一收进「全球加速骨干网」节点内展示
-          const mergedIds = this.getMergedKiloSegments().map(seg => seg.id);
-          if (mergedIds.length === 0) return sorted;
-          return sorted.filter(item => !mergedIds.includes(item.id));
+          return list.sort((a, b) => a.order - b.order);
         },
 
         // 默认将异常项加入 openItemIds 优先展开，正常项默认保持折叠 (业务应用绝不作为异常项展开)
         autoExpandAbnormalItems() {
           const details = this.currentSliceDetails;
           const abnIds = details.filter(item => !this.isRealApplicationNode(item) && (item.status === '异常' || item.status === '差')).map(item => item.id);
-          // 合并进骨干网节点的第一公里 / 最后一公里异常时，直接展开骨干网节点，避免异常详情被折叠
-          if (this.isPopAggregated) {
-            const mergedAbnormal = this.getMergedKiloSegments().some(seg => seg.data?.status === '异常' || seg.data?.status === '差');
-            if (mergedAbnormal && !abnIds.includes('node_pop')) abnIds.push('node_pop');
-          }
           this.openItemIds = abnIds;
         },
 
@@ -4312,9 +4291,6 @@
         // 当前高亮被点击的链路元素 ID
         highlightedItemId: null,
 
-        // 骨干网节点内被定位的分组（first / last）
-        highlightedKiloRole: null,
-
         // 拓扑图节点与链路段点击联动 (自动展开 + 居中平滑滚动 + 蓝光高亮反馈)
         clickTopologyItem(type, targetId) {
           if (!targetId) return;
@@ -4328,34 +4304,6 @@
             }
           }, 2000);
           this.scrollToElement(targetId);
-        },
-
-        // 点击骨干网两侧连线：展开「全球加速骨干网」并定位到第一公里 / 最后一公里分组
-        focusBackboneSegment(role) {
-          if (!role) return;
-          if (!this.openItemIds.includes('node_pop')) {
-            this.openItemIds.push('node_pop');
-          }
-          this.highlightedKiloRole = role;
-          setTimeout(() => {
-            if (this.highlightedKiloRole === role) {
-              this.highlightedKiloRole = null;
-            }
-          }, 2200);
-          // 等手风琴展开动画结束后，把分组标题滚到容器顶部下方 12px 处
-          setTimeout(() => {
-            const container = this.$refs.detailScrollPanel;
-            if (!container) return;
-            const el = container.querySelector(`[data-kilo-role="${role}"]`);
-            if (!el) return;
-            const containerRect = container.getBoundingClientRect();
-            const elRect = el.getBoundingClientRect();
-            const targetScrollTop = container.scrollTop + (elRect.top - containerRect.top) - 12;
-            container.scrollTo({
-              top: Math.max(0, targetScrollTop),
-              behavior: 'smooth'
-            });
-          }, 420);
         },
 
         scrollToElement(id) {
@@ -5616,7 +5564,7 @@
 
                     <!-- 链路段 1: 终端 ➔ POP -->
                     <div class="flex-1 mx-3 flex flex-col items-center justify-center topo-clickable group relative"
-                         @click="isPopAggregated ? focusBackboneSegment('first') : clickTopologyItem('segment', getCurrentSegment1()?.targetId || 'seg_client_pop')">
+                         @click="clickTopologyItem('segment', getCurrentSegment1()?.targetId || 'seg_client_pop')">
                       <!-- 状态图标 (16px) + 右侧本段时延 / 丢包真实值 -->
                       <div class="flex items-center gap-1 mb-1.5">
                         <span class="w-4 h-4 rounded-full border flex items-center justify-center shrink-0"
@@ -5696,7 +5644,7 @@
                       <div class="contents">
                         <!-- 链路段 2: POP ➔ 连接器 -->
                         <div class="flex-1 mx-3 flex flex-col items-center justify-center topo-clickable group relative"
-                             @click="isPopAggregated ? focusBackboneSegment('last') : clickTopologyItem('segment', currentSlice.topology?.segment2?.targetId || 'seg_pop_gw')">
+                             @click="clickTopologyItem('segment', currentSlice.topology?.segment2?.targetId || 'seg_pop_gw')">
                           <!-- 状态图标 (16px) + 本段时延 / 丢包真实值 -->
                           <div class="flex items-center gap-1 mb-1.5">
                             <span class="w-4 h-4 rounded-full border flex items-center justify-center shrink-0"
@@ -5779,7 +5727,7 @@
                     <!-- 分支场景: GA上下车POP合并后直接由POP连接至总部AF网关 -->
                     <template x-if="queryType === '分支' || !currentSlice.topology?.gw">
                       <div class="flex-1 mx-3 flex flex-col items-center justify-center topo-clickable group relative"
-                           @click="isPopAggregated ? focusBackboneSegment('last') : clickTopologyItem('segment', currentSlice.topology?.segment2?.targetId || 'seg_gw_app')">
+                           @click="clickTopologyItem('segment', currentSlice.topology?.segment2?.targetId || 'seg_gw_app')">
                         <!-- 状态图标 (16px) + 本段时延 / 丢包真实值 -->
                         <div class="flex items-center gap-1 mb-1.5">
                           <span class="w-4 h-4 rounded-full border flex items-center justify-center shrink-0"
@@ -6048,7 +5996,6 @@
                                       <div class="mt-1 flex items-baseline gap-1">
                                         <span class="text-base font-bold font-outfit" :class="getMetricColor(isWifiAbnormal(item) ? 22.5 : (item.status === '异常' ? 92.4 : 24.5), 70)" x-text="isWifiAbnormal(item) ? '22.5%' : (item.status === '异常' ? '92.4%' : '24.5%')"></span>
                                       </div>
-                                      <span class="text-[10px]" :class="(isWifiAbnormal(item) || item.status !== '异常') ? 'text-[#64748B]' : 'text-[#F52727]'" x-text="(isWifiAbnormal(item) || item.status !== '异常') ? '正常 (< 70%)' : '高负荷排队 (基线 < 70%)'"></span>
                                     </div>
 
                                     <!-- ③ 内存利用率 -->
@@ -6057,7 +6004,6 @@
                                       <div class="mt-1 flex items-baseline gap-1">
                                         <span class="text-base font-bold font-outfit" :class="getMetricColor(isWifiAbnormal(item) ? 41.0 : (item.status === '异常' ? 88.6 : 68.2), 60)" x-text="isWifiAbnormal(item) ? '41.0%' : (item.status === '异常' ? '88.6%' : '68.2%')"></span>
                                       </div>
-                                      <span class="text-[10px]" :class="(isWifiAbnormal(item) || item.status !== '异常') ? 'text-[#64748B]' : 'text-[#FA721B]'" x-text="(isWifiAbnormal(item) || item.status !== '异常') ? '基线标准 < 60%' : '内存偏高 (基线 < 60%)'"></span>
                                     </div>
 
                                     <!-- ④ Wi-Fi 信号强度（数值按信号强弱着色：偏弱标红） -->
@@ -6095,7 +6041,6 @@
                                       <div class="mt-1 flex items-baseline gap-1">
                                         <span class="text-base font-bold font-outfit text-[#2F3540]" x-text="item.metrics?.find(m => m.label?.includes('CPU'))?.value || '41.0%'">41.0%</span>
                                       </div>
-                                      <span class="text-[10px] text-[#64748B]">正常 (&lt; 70%)</span>
                                     </div>
 
                                     <!-- ③ 内存利用率 -->
@@ -6104,7 +6049,6 @@
                                       <div class="mt-1 flex items-baseline gap-1">
                                         <span class="text-base font-bold font-outfit text-[#2F3540]" x-text="item.metrics?.find(m => m.label?.includes('内存'))?.value || '52.0%'">52.0%</span>
                                       </div>
-                                      <span class="text-[10px] text-[#64748B]">基线标准 &lt; 70%</span>
                                     </div>
                                   </div>
                                 </template>
@@ -6188,21 +6132,18 @@
                                               <div class="flex items-baseline gap-1">
                                                 <span class="font-medium font-outfit text-xs" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="currentSlice.topology?.segment1?.delay || '44ms'"></span>
                                               </div>
-                                              <div class="text-[10px] text-[#94A3B8] font-mono mt-0.5">基线 &lt; 50ms</div>
                                             </td>
                                             <!-- 丢包率 -->
                                             <td class="py-2.5 px-3">
                                               <div class="flex items-baseline gap-1">
                                                 <span class="font-medium font-outfit text-xs" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="currentSlice.topology?.segment1?.loss || '0.2%'"></span>
                                               </div>
-                                              <div class="text-[10px] text-[#94A3B8] font-mono mt-0.5">基线 &lt; 0.5%</div>
                                             </td>
                                             <!-- 抖动 -->
                                             <td class="py-2.5 px-3">
                                               <div class="flex items-baseline gap-1">
                                                 <span class="font-medium font-outfit text-xs" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="currentSlice.topology?.segment1?.jitter || '6ms'"></span>
                                               </div>
-                                              <div class="text-[10px] text-[#94A3B8] font-mono mt-0.5">基线 &lt; 15ms</div>
                                             </td>
                                             <!-- 吞吐 (无基线) -->
                                             <td class="py-2.5 px-3">
@@ -6260,21 +6201,18 @@
                                               <div class="flex items-baseline gap-1">
                                                 <span class="font-medium font-outfit text-xs" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="getSegment1Underlay(item).delay || '42ms'"></span>
                                               </div>
-                                              <div class="text-[10px] text-[#94A3B8] font-mono mt-0.5">基线 &lt; 50ms</div>
                                             </td>
                                             <!-- 丢包率 -->
                                             <td class="py-2.5 px-3">
                                               <div class="flex items-baseline gap-1">
                                                 <span class="font-medium font-outfit text-xs" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="getSegment1Underlay(item).loss || '0.2%'"></span>
                                               </div>
-                                              <div class="text-[10px] text-[#94A3B8] font-mono mt-0.5">基线 &lt; 0.5%</div>
                                             </td>
                                             <!-- 抖动 -->
                                             <td class="py-2.5 px-3">
                                               <div class="flex items-baseline gap-1">
                                                 <span class="font-medium font-outfit text-xs" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="getSegment1Underlay(item).jitter || '6ms'"></span>
                                               </div>
-                                              <div class="text-[10px] text-[#94A3B8] font-mono mt-0.5">基线 &lt; 15ms</div>
                                             </td>
                                             <!-- 吞吐 (无基线) -->
                                             <td class="py-2.5 px-3">
@@ -6348,353 +6286,39 @@
                             </template>
 
                             <!-- ==========================================
-                                 3. 全球加速骨干网 (node_pop) - 上下车点 + 骨干数值 + 第一/最后一公里分组
+                                 3. 全球加速骨干网 (node_pop) - 上下车点 + 骨干段数值
                                  ========================================== -->
                             <template x-if="item.id === 'node_pop'">
                               <div>
                                 <!-- ① 上下车聚合：全球加速骨干网 -->
                                 <template x-if="isPopAggregated">
                                   <div class="space-y-3">
-                                    <!-- 上车点 / 下车点 + 骨干段数值：单行展示，竖线分隔，只展示数值 -->
-                                    <div class="bg-white px-3 py-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex items-center flex-wrap gap-x-3 gap-y-2">
-                                      <div class="flex items-center gap-1.5">
-                                        <span class="text-[10px] text-[#8A92A1]">上车点</span>
-                                        <span class="text-sm font-semibold text-[#2F3540]" x-text="getBranchIngressPopName()"></span>
+                                    <!-- 上车点 / 下车点 / 骨干段数值：卡片样式与其他节点一致 -->
+                                    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
+                                      <div class="bg-white p-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
+                                        <span class="text-[11px] text-[#6F7785]">上车点</span>
+                                        <div class="mt-1"><span class="text-base font-bold text-[#2F3540] truncate" x-text="getBranchIngressPopName()"></span></div>
+                                        <span class="text-[10px] text-[#94A3B8]">上车 POP</span>
                                       </div>
-                                      <span class="w-[1px] h-3.5 bg-[#E1E5EB]"></span>
-                                      <div class="flex items-center gap-1.5">
-                                        <span class="text-[10px] text-[#8A92A1]">下车点</span>
-                                        <span class="text-sm font-semibold text-[#2F3540]" x-text="getBranchEgressPopName()"></span>
+                                      <div class="bg-white p-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
+                                        <span class="text-[11px] text-[#6F7785]">下车点</span>
+                                        <div class="mt-1"><span class="text-base font-bold text-[#2F3540] truncate" x-text="getBranchEgressPopName()"></span></div>
+                                        <span class="text-[10px] text-[#94A3B8]">下车 POP</span>
                                       </div>
-                                      <span class="w-[1px] h-3.5 bg-[#E1E5EB]"></span>
-                                      <div class="flex items-center gap-3 text-[11px] font-mono text-[#2F3540]">
-                                        <span>骨干时延 <b x-text="getBackboneMetrics().delay"></b></span>
-                                        <span>丢包 <b x-text="getBackboneMetrics().loss"></b></span>
-                                        <span>抖动 <b x-text="getBackboneMetrics().jitter"></b></span>
+                                      <div class="bg-white p-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
+                                        <span class="text-[11px] text-[#6F7785]">骨干时延</span>
+                                        <div class="mt-1"><span class="text-base font-bold font-outfit text-[#2F3540]" x-text="getBackboneMetrics().delay"></span></div>
                                       </div>
-                                    </div>
-
-                                    <!-- 第一公里 / 最后一公里：沿用原有分段样式，按分组直接呈现 -->
-                                    <template x-for="seg in getMergedKiloSegments()" :key="seg.id">
-                                      <div class="space-y-1.5 rounded-[2px] px-1 -mx-1 transition-colors"
-                                           :data-kilo-role="seg.role"
-                                           :class="highlightedKiloRole === seg.role ? 'bg-[#F0F6FF] ring-1 ring-[#1C6EFF]/40' : ''">
-                                        <div class="flex items-center gap-2">
-                                          <span class="w-1 h-3.5 bg-[#1C6EFF] rounded-full"></span>
-                                          <span class="text-xs font-medium text-[#2F3540]" x-text="seg.title"></span>
-                                          <span class="text-[10px] text-[#8A92A1]" x-text="seg.sub"></span>
-                                        </div>
-                                        <template x-for="item in [seg.data]" :key="'body-' + seg.id">
-                                          <div class="contents">
-                                            <template x-if="seg.role === 'first'">
-                                              <div class="space-y-3 mt-2">
-                                <div class="space-y-1.5">
-
-                                  <!-- 可视化表格 Body (无状态/定责列，VPN隧道置于物理链路之上) -->
-                                  <div class="bg-white rounded-[2px] border border-[#EAEEF4] shadow-xs overflow-hidden">
-                                    <div class="overflow-x-auto">
-                                      <table class="w-full text-left text-xs border-collapse">
-                                        <thead>
-                                          <tr class="bg-[#F8FAFC] border-b border-[#EAEEF4] text-[#5C6270] font-normal text-[11px]">
-                                            <th class="py-2.5 px-3 font-medium w-[32%]">路径示意</th>
-                                            <th class="py-2.5 px-3 font-medium w-[20%]">时延</th>
-                                            <th class="py-2.5 px-3 font-medium w-[18%]">丢包率</th>
-                                            <th class="py-2.5 px-3 font-medium w-[18%]">抖动</th>
-                                            <th class="py-2.5 px-3 font-medium w-[12%]">吞吐</th>
-                                          </tr>
-                                        </thead>
-                                        <tbody class="divide-y divide-[#F0F2F5] text-xs">
-                                          <!-- ① 终端 - POP 走隧道访问 (Overlay，置于首行) -->
-                                          <tr class="hover:bg-[#FAFBFD] transition-colors">
-                                            <td class="py-2.5 px-3">
-                                              <div class="flex items-center gap-2.5">
-                                                <div class="space-y-1">
-                                                  <div class="inline-flex items-center gap-1.5 px-2 py-0.8 bg-[#F1F5F9] rounded-[3px] border border-[#E2E8F0]">
-                                                    <!-- 分支AF/终端 图标（Overlay 行，根据 queryType 切换） -->
-                                                    <div class="flex items-center gap-1 text-[#2F3540] font-medium text-[11px]">
-                                                      <template x-if="queryType === '分支'">
-                                                        <svg class="w-3.5 h-3.5 text-[#1C6EFF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
-                                                        </svg>
-                                                      </template>
-                                                      <template x-if="queryType !== '分支'">
-                                                        <svg class="w-3.5 h-3.5 text-[#1C6EFF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2-2v10a2 2 0 002 2z"></path>
-                                                        </svg>
-                                                      </template>
-                                                      <span x-text="queryType === '分支' ? '分支AF' : '终端'"></span>
-                                                    </div>
-                                                    <!-- 隧道标识 -->
-                                                    <div class="flex items-center px-1">
-                                                      <div class="w-2 h-[1.5px] bg-[#1C6EFF]"></div>
-                                                      <div class="flex items-center gap-0.5 px-1 py-0.2 bg-[#1C6EFF]/10 text-[#1C6EFF] rounded text-[9px] font-mono font-medium">
-                                                        <svg class="w-2.5 h-2.5 text-[#1C6EFF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
-                                                        </svg>
-                                                        <span x-text="queryType === '分支' ? '专线隧道' : 'VPN隧道'"></span>
-                                                      </div>
-                                                      <div class="w-2 h-[1.5px] bg-[#1C6EFF]"></div>
-                                                      <svg class="w-2 h-2 text-[#1C6EFF] -ml-0.5" fill="currentColor" viewBox="0 0 6 8"><polygon points="0,0 6,4 0,8"/></svg>
-                                                    </div>
-                                                    <!-- POP 图标 -->
-                                                    <div class="flex items-center gap-1 text-[#2F3540] font-medium text-[11px]">
-                                                      <svg class="w-3.5 h-3.5 text-[#0EA5E9]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
-                                                      </svg>
-                                                      <span>POP节点</span>
-                                                    </div>
-                                                  </div>
-                                                  <div class="text-[10px] text-[#8A92A1] flex items-center gap-1.5">
-                                                    <span x-text="queryType === '分支' ? '分支AF-POP 专线/SD-WAN Overlay' : 'SASE / ZTNA 加密隧道 Overlay'"></span>
-                                                  </div>
-                                                </div>
-                                              </div>
-                                            </td>
-                                            <!-- 时延 -->
-                                            <td class="py-2.5 px-3">
-                                              <div class="flex items-baseline gap-1">
-                                                <span class="font-medium font-outfit text-xs" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="currentSlice.topology?.segment1?.delay || '44ms'"></span>
-                                              </div>
-                                              <div class="text-[10px] text-[#94A3B8] font-mono mt-0.5">基线 &lt; 50ms</div>
-                                            </td>
-                                            <!-- 丢包率 -->
-                                            <td class="py-2.5 px-3">
-                                              <div class="flex items-baseline gap-1">
-                                                <span class="font-medium font-outfit text-xs" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="currentSlice.topology?.segment1?.loss || '0.2%'"></span>
-                                              </div>
-                                              <div class="text-[10px] text-[#94A3B8] font-mono mt-0.5">基线 &lt; 0.5%</div>
-                                            </td>
-                                            <!-- 抖动 -->
-                                            <td class="py-2.5 px-3">
-                                              <div class="flex items-baseline gap-1">
-                                                <span class="font-medium font-outfit text-xs" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="currentSlice.topology?.segment1?.jitter || '6ms'"></span>
-                                              </div>
-                                              <div class="text-[10px] text-[#94A3B8] font-mono mt-0.5">基线 &lt; 15ms</div>
-                                            </td>
-                                            <!-- 吞吐 (无基线) -->
-                                            <td class="py-2.5 px-3">
-                                              <div class="flex items-baseline gap-1">
-                                                <span class="font-medium font-outfit text-xs" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="item.status === '异常' ? '6.2 Mbps' : '85 Mbps'"></span>
-                                              </div>
-                                            </td>
-                                          </tr>
-
-                                          <!-- ② 终端 - POP 物理链路直连 (Underlay) -->
-                                          <tr class="hover:bg-[#FAFBFD] transition-colors">
-                                            <td class="py-2.5 px-3">
-                                              <div class="flex items-center gap-2.5">
-                                                <div class="space-y-1">
-                                                  <div class="inline-flex items-center gap-1.5 px-2 py-0.8 bg-[#F1F5F9] rounded-[3px] border border-[#E2E8F0]">
-                                                    <!-- 分支AF/终端 图标（Underlay 行，根据 queryType 切换） -->
-                                                    <div class="flex items-center gap-1 text-[#2F3540] font-medium text-[11px]">
-                                                      <template x-if="queryType === '分支'">
-                                                        <svg class="w-3.5 h-3.5 text-[#1C6EFF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
-                                                        </svg>
-                                                      </template>
-                                                      <template x-if="queryType !== '分支'">
-                                                        <svg class="w-3.5 h-3.5 text-[#1C6EFF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2-2v10a2 2 0 002 2z"></path>
-                                                        </svg>
-                                                      </template>
-                                                      <span x-text="queryType === '分支' ? '分支AF' : '终端'"></span>
-                                                    </div>
-                                                    <!-- 公网直连线与云图标 -->
-                                                    <div class="flex items-center px-1">
-                                                      <div class="w-2.5 h-[1.5px] bg-[#94A3B8]"></div>
-                                                      <svg class="w-3 h-3 text-[#64748B] mx-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 00-9.78 2.096A4.001 4.001 0 003 15z"></path>
-                                                      </svg>
-                                                      <div class="w-2.5 h-[1.5px] bg-[#94A3B8]"></div>
-                                                      <svg class="w-2 h-2 text-[#94A3B8] -ml-0.5" fill="currentColor" viewBox="0 0 6 8"><polygon points="0,0 6,4 0,8"/></svg>
-                                                    </div>
-                                                    <!-- POP 图标 -->
-                                                    <div class="flex items-center gap-1 text-[#2F3540] font-medium text-[11px]">
-                                                      <svg class="w-3.5 h-3.5 text-[#0EA5E9]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
-                                                      </svg>
-                                                      <span>POP节点</span>
-                                                    </div>
-                                                  </div>
-                                                  <div class="text-[10px] text-[#8A92A1] flex items-center gap-1.5">
-                                                    <span x-text="queryType === '分支' ? '分支AF公网 Underlay 物理承载' : '公网 Underlay 物理承载直连'"></span>
-                                                  </div>
-                                                </div>
-                                              </div>
-                                            </td>
-                                            <!-- 时延 -->
-                                            <td class="py-2.5 px-3">
-                                              <div class="flex items-baseline gap-1">
-                                                <span class="font-medium font-outfit text-xs" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="getSegment1Underlay(item).delay || '42ms'"></span>
-                                              </div>
-                                              <div class="text-[10px] text-[#94A3B8] font-mono mt-0.5">基线 &lt; 50ms</div>
-                                            </td>
-                                            <!-- 丢包率 -->
-                                            <td class="py-2.5 px-3">
-                                              <div class="flex items-baseline gap-1">
-                                                <span class="font-medium font-outfit text-xs" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="getSegment1Underlay(item).loss || '0.2%'"></span>
-                                              </div>
-                                              <div class="text-[10px] text-[#94A3B8] font-mono mt-0.5">基线 &lt; 0.5%</div>
-                                            </td>
-                                            <!-- 抖动 -->
-                                            <td class="py-2.5 px-3">
-                                              <div class="flex items-baseline gap-1">
-                                                <span class="font-medium font-outfit text-xs" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="getSegment1Underlay(item).jitter || '6ms'"></span>
-                                              </div>
-                                              <div class="text-[10px] text-[#94A3B8] font-mono mt-0.5">基线 &lt; 15ms</div>
-                                            </td>
-                                            <!-- 吞吐 (无基线) -->
-                                            <td class="py-2.5 px-3">
-                                              <span class="text-xs text-[#94A3B8] font-mono">—</span>
-                                            </td>
-                                          </tr>
-                                        </tbody>
-                                      </table>
-                                    </div>
-                                  </div>
-                                </div>
-
-                                <!-- ② 客户端到 POP 逐跳链路诊断信息 (Hop-by-Hop Trace，小标题外置) -->
-                                <!-- 逐跳无数据：显式写原因，不显示成正常 -->
-                                <template x-if="Array.isArray(item.hopTraces) && item.hopTraces.length === 0">
-                                  <div class="space-y-1.5">
-                                    <div class="flex items-center gap-2">
-                                      <span class="text-xs font-normal text-[#2F3540]" x-text="queryType === '分支' ? '分支AF ➔ POP的逐跳链路诊断' : '终端 ➔ POP的逐跳链路诊断'"></span>
-                                    </div>
-                                    <div class="bg-white rounded-[2px] border border-[#EAEEF4] px-3 py-2 text-[11px] text-[#8A92A1]"
-                                         title="逐跳无数据：发起方不在线或隧道断开，或探测被屏蔽">
-                                      逐跳无数据（原因：发起方不在线或隧道断开，或该链路的探测被屏蔽）
-                                    </div>
-                                  </div>
-                                </template>
-                                <template x-if="item.hopTraces && item.hopTraces.length > 0">
-                                  <div class="space-y-1.5">
-                                    <!-- Header 外置 -->
-                                    <div class="flex items-center gap-2">
-                                      <span class="text-xs font-normal text-[#2F3540]" x-text="queryType === '分支' ? '分支AF ➔ POP的逐跳链路诊断' : '终端 ➔ POP的逐跳链路诊断'"></span>
-                                    </div>
-
-                                    <!-- 逐跳证据表格 (默认展示4跳，局部滚动，灰色tag，首跳无上一跳增量) -->
-                                    <div class="bg-white rounded-[2px] border border-[#EAEEF4] shadow-xs overflow-hidden">
-                                      <div class="overflow-x-auto max-h-[220px] overflow-y-auto">
-                                        <table class="w-full text-left text-xs border-collapse">
-                                          <thead class="sticky top-0 bg-[#FAFBFD] z-10">
-                                            <tr class="border-b border-[#E1E5EB] text-[#5C6270] font-normal text-[11px]">
-                                              <th class="py-1.5 px-2.5 w-12 text-center font-normal">跳数</th>
-                                              <th class="py-1.5 px-2.5 font-normal">到达节点</th>
-                                              <th class="py-1.5 px-2.5 font-normal">节点归属</th>
-                                              <th class="py-1.5 px-2.5 font-normal">往返RTT</th>
-                                              <th class="py-1.5 px-2.5 font-normal">丢包率</th>
-                                              <th class="py-1.5 px-2.5 font-normal">抖动</th>
-                                            </tr>
-                                          </thead>
-                                          <tbody class="divide-y divide-[#F1F5F9] text-[11px] font-mono font-normal">
-                                            <template x-for="(hop, hopIdx) in item.hopTraces" :key="hop.hop">
-                                              <tr class="hover:bg-[#FAFBFD]">
-                                                <td class="py-1.5 px-2.5 text-center font-normal text-[#334155]" x-text="hop.hop"></td>
-                                                <td class="py-1.5 px-2.5 font-mono font-normal text-[#334155]" x-text="hop.ip"></td>
-                                                <td class="py-1.5 px-2.5 font-sans font-normal">
-                                                  <div class="text-[#2F3540]" x-text="hop.tag || hop.asn || '-'"></div>
-                                                  <div class="mt-0.5 text-[10px] text-[#94A3B8] font-normal" x-show="hop.tag && hop.asn" x-text="hop.asn"></div>
-                                                  <div class="text-[10px] text-[#CF171D] font-sans mt-0.5" x-text="hop.jumpBadge"></div>
-                                                </td>
-                                                <td class="py-1.5 px-2.5 font-normal" :class="hopCellClass(item.hopTraces, hop, 'rtt')" x-text="hop.rtt"></td>
-                                                <td class="py-1.5 px-2.5 font-normal" :class="hopCellClass(item.hopTraces, hop, 'loss')" x-text="hop.loss"></td>
-                                                <td class="py-1.5 px-2.5 font-normal" :class="hopCellClass(item.hopTraces, hop, 'jitter')" x-text="hop.jitter"></td>
-                                              </tr>
-                                            </template>
-                                          </tbody>
-                                        </table>
+                                      <div class="bg-white p-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
+                                        <span class="text-[11px] text-[#6F7785]">骨干丢包</span>
+                                        <div class="mt-1"><span class="text-base font-bold font-outfit text-[#2F3540]" x-text="getBackboneMetrics().loss"></span></div>
+                                      </div>
+                                      <div class="bg-white p-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
+                                        <span class="text-[11px] text-[#6F7785]">骨干抖动</span>
+                                        <div class="mt-1"><span class="text-base font-bold font-outfit text-[#2F3540]" x-text="getBackboneMetrics().jitter"></span></div>
                                       </div>
                                     </div>
-                                  </div>
-                                </template>
-                                              </div>
-                                            </template>
-                                            <template x-if="seg.role === 'last'">
-                                              <div class="space-y-3 mt-2">
 
-                                <!-- 3 个指标卡片 (加细灰描边，已删除吞吐) -->
-                                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                                  <!-- 时延 -->
-                                  <div class="bg-white p-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
-                                    <span class="text-[11px] text-[#6F7785]">时延</span>
-                                    <div class="mt-1">
-                                      <span class="text-base font-bold font-outfit" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'"
-                                            x-text="item.metrics?.find(m => m.label?.includes('RTT') || m.label?.includes('时延'))?.value || (item.id === 'seg_af_oa' ? '12ms' : '22ms')"></span>
-                                    </div>
-                                    <span class="text-[10px] text-[#94A3B8] font-mono">基线 &lt; 50ms</span>
-                                  </div>
-
-                                  <!-- 丢包率 -->
-                                  <div class="bg-white p-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
-                                    <span class="text-[11px] text-[#6F7785]">丢包率</span>
-                                    <div class="mt-1">
-                                      <span class="text-base font-bold font-outfit" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'"
-                                            x-text="item.metrics?.find(m => m.label?.includes('丢包'))?.value || '0.0%'"></span>
-                                    </div>
-                                    <span class="text-[10px] text-[#94A3B8] font-mono">基线 &lt; 0.5%</span>
-                                  </div>
-
-                                  <!-- 抖动 -->
-                                  <div class="bg-white p-2.5 rounded-[2px] border border-[#EAEEF4] shadow-xs flex flex-col justify-between">
-                                    <span class="text-[11px] text-[#6F7785]">抖动</span>
-                                    <div class="mt-1">
-                                      <span class="text-base font-bold font-outfit" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'"
-                                            x-text="item.metrics?.find(m => m.label?.includes('抖动'))?.value || '1ms'"></span>
-                                    </div>
-                                    <span class="text-[10px] text-[#94A3B8] font-mono">基线 &lt; 15ms</span>
-                                  </div>
-                                </div>
-
-                                <!-- 逐跳链路诊断 (仅该段存在逐跳证据时展示) -->
-                                <template x-if="item.hopTraces && item.hopTraces.length > 0">
-                                  <div class="space-y-1.5">
-                                    <div class="flex items-center gap-2">
-                                      <span class="text-xs font-normal text-[#2F3540]" x-text="'下车POP ➔ ' + (currentSlice.topology?.gw?.name || '总部AF') + '的逐跳链路诊断'"></span>
-                                      <span class="text-[11px] text-[#8A92A1]" x-text="'由下车POP发起，目标为' + (currentSlice.topology?.gw?.name || '总部AF') + '公网地址'"></span>
-                                    </div>
-                                    <div class="bg-white rounded-[2px] border border-[#EAEEF4] shadow-xs overflow-hidden">
-                                      <div class="overflow-x-auto max-h-[220px] overflow-y-auto">
-                                        <table class="w-full text-left text-xs border-collapse">
-                                          <thead class="sticky top-0 bg-[#FAFBFD] z-10">
-                                            <tr class="border-b border-[#E1E5EB] text-[#5C6270] font-normal text-[11px]">
-                                              <th class="py-1.5 px-2.5 w-12 text-center font-normal">跳数</th>
-                                              <th class="py-1.5 px-2.5 font-normal">到达节点</th>
-                                              <th class="py-1.5 px-2.5 font-normal">节点归属</th>
-                                              <th class="py-1.5 px-2.5 font-normal">往返RTT</th>
-                                              <th class="py-1.5 px-2.5 font-normal">丢包率</th>
-                                              <th class="py-1.5 px-2.5 font-normal">抖动</th>
-                                            </tr>
-                                          </thead>
-                                          <tbody class="divide-y divide-[#F1F5F9] text-[11px] font-mono font-normal">
-                                            <template x-for="(hop, hopIdx) in item.hopTraces" :key="hop.hop">
-                                              <tr class="hover:bg-[#FAFBFD]">
-                                                <td class="py-1.5 px-2.5 text-center font-normal text-[#334155]" x-text="hop.hop"></td>
-                                                <td class="py-1.5 px-2.5 font-mono font-normal text-[#334155]" x-text="hop.ip"></td>
-                                                <td class="py-1.5 px-2.5 font-sans font-normal">
-                                                  <div class="text-[#2F3540]" x-text="hop.tag || hop.asn || '-'"></div>
-                                                  <div class="mt-0.5 text-[10px] text-[#94A3B8] font-normal" x-show="hop.tag && hop.asn" x-text="hop.asn"></div>
-                                                  <div class="text-[10px] text-[#CF171D] font-sans mt-0.5" x-text="hop.jumpBadge"></div>
-                                                </td>
-                                                <td class="py-1.5 px-2.5 font-normal" :class="hopCellClass(item.hopTraces, hop, 'rtt')" x-text="hop.rtt"></td>
-                                                <td class="py-1.5 px-2.5 font-normal" :class="hopCellClass(item.hopTraces, hop, 'loss')" x-text="hop.loss"></td>
-                                                <td class="py-1.5 px-2.5 font-normal" :class="hopCellClass(item.hopTraces, hop, 'jitter')" x-text="hop.jitter"></td>
-                                              </tr>
-                                            </template>
-                                          </tbody>
-                                        </table>
-                                      </div>
-                                    </div>
-                                    <p class="text-[11px] text-[#475569] leading-relaxed" x-text="item.hopConclusion"></p>
-                                  </div>
-                                </template>
-                                              </div>
-                                            </template>
-                                          </div>
-                                        </template>
-                                      </div>
-                                    </template>
                                   </div>
                                 </template>
 
@@ -6785,21 +6409,18 @@
                                               <div class="flex items-baseline gap-1">
                                                 <span class="font-medium font-outfit text-xs" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="currentSlice.topology?.segment2?.delay || '28ms'"></span>
                                               </div>
-                                              <div class="text-[10px] text-[#94A3B8] font-mono mt-0.5">基线 &lt; 40ms</div>
                                             </td>
                                             <!-- 丢包率 -->
                                             <td class="py-2.5 px-3">
                                               <div class="flex items-baseline gap-1">
                                                 <span class="font-medium font-outfit text-xs" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="currentSlice.topology?.segment2?.loss || '0.0%'"></span>
                                               </div>
-                                              <div class="text-[10px] text-[#94A3B8] font-mono mt-0.5">基线 &lt; 0.5%</div>
                                             </td>
                                             <!-- 抖动 -->
                                             <td class="py-2.5 px-3">
                                               <div class="flex items-baseline gap-1">
                                                 <span class="font-medium font-outfit text-xs" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="currentSlice.topology?.segment2?.jitter || '2ms'"></span>
                                               </div>
-                                              <div class="text-[10px] text-[#94A3B8] font-mono mt-0.5">基线 &lt; 5ms</div>
                                             </td>
                                             <!-- 吞吐 (无基线) -->
                                             <td class="py-2.5 px-3">
@@ -6850,21 +6471,18 @@
                                               <div class="flex items-baseline gap-1">
                                                 <span class="font-medium font-outfit text-xs" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="currentSlice.topology?.segment2?.delay || '26ms'"></span>
                                               </div>
-                                              <div class="text-[10px] text-[#94A3B8] font-mono mt-0.5">基线 &lt; 40ms</div>
                                             </td>
                                             <!-- 丢包率 -->
                                             <td class="py-2.5 px-3">
                                               <div class="flex items-baseline gap-1">
                                                 <span class="font-medium font-outfit text-xs" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="currentSlice.topology?.segment2?.loss || '0.0%'"></span>
                                               </div>
-                                              <div class="text-[10px] text-[#94A3B8] font-mono mt-0.5">基线 &lt; 0.5%</div>
                                             </td>
                                             <!-- 抖动 -->
                                             <td class="py-2.5 px-3">
                                               <div class="flex items-baseline gap-1">
                                                 <span class="font-medium font-outfit text-xs" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="currentSlice.topology?.segment2?.jitter || '2ms'"></span>
                                               </div>
-                                              <div class="text-[10px] text-[#94A3B8] font-mono mt-0.5">基线 &lt; 5ms</div>
                                             </td>
                                             <!-- 吞吐 (无基线) -->
                                             <td class="py-2.5 px-3">
@@ -6944,7 +6562,6 @@
                                     <div class="mt-1 flex items-baseline gap-1">
                                       <span class="text-base font-bold font-outfit" :class="getMetricColor(item.status === '异常' ? 89.2 : 47.3, 70)" x-text="item.status === '异常' ? '89.2%' : '47.3%'"></span>
                                     </div>
-                                    <span class="text-[10px] text-[#94A3B8] font-mono">基线标准&lt;70%</span>
                                   </div>
 
                                   <!-- 内存利用率 -->
@@ -6953,7 +6570,6 @@
                                     <div class="mt-1 flex items-baseline gap-1">
                                       <span class="text-base font-bold font-outfit" :class="getMetricColor(item.status === '异常' ? 76.5 : 35.1, 70)" x-text="item.status === '异常' ? '76.5%' : '35.1%'"></span>
                                     </div>
-                                    <span class="text-[10px] text-[#94A3B8] font-mono">基线标准&lt;70%</span>
                                   </div>
                                 </div>
                               </div>
@@ -6981,7 +6597,6 @@
                                       <span class="text-base font-bold font-outfit" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'"
                                             x-text="item.metrics?.find(m => m.label?.includes('RTT') || m.label?.includes('时延'))?.value || (item.id === 'seg_af_oa' ? '12ms' : '22ms')"></span>
                                     </div>
-                                    <span class="text-[10px] text-[#94A3B8] font-mono">基线 &lt; 50ms</span>
                                   </div>
 
                                   <!-- 丢包率 -->
@@ -6991,7 +6606,6 @@
                                       <span class="text-base font-bold font-outfit" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'"
                                             x-text="item.metrics?.find(m => m.label?.includes('丢包'))?.value || '0.0%'"></span>
                                     </div>
-                                    <span class="text-[10px] text-[#94A3B8] font-mono">基线 &lt; 0.5%</span>
                                   </div>
 
                                   <!-- 抖动 -->
@@ -7001,7 +6615,6 @@
                                       <span class="text-base font-bold font-outfit" :class="item.status === '异常' ? 'text-[#F52727]' : 'text-[#2F3540]'"
                                             x-text="item.metrics?.find(m => m.label?.includes('抖动'))?.value || '1ms'"></span>
                                     </div>
-                                    <span class="text-[10px] text-[#94A3B8] font-mono">基线 &lt; 15ms</span>
                                   </div>
                                 </div>
 
@@ -7072,7 +6685,6 @@
                                     <div class="mt-1 flex items-baseline gap-1">
                                       <span class="text-base font-bold font-outfit text-[#2F3540]" x-text="item.metrics?.find(m => m.label?.includes('CPU'))?.value || '38.0%'">38.0%</span>
                                     </div>
-                                    <span class="text-[10px] text-[#64748B]">正常 (&lt; 70%)</span>
                                   </div>
 
                                   <!-- ③ 内存利用率 -->
@@ -7081,7 +6693,6 @@
                                     <div class="mt-1 flex items-baseline gap-1">
                                       <span class="text-base font-bold font-outfit text-[#2F3540]" x-text="item.metrics?.find(m => m.label?.includes('内存'))?.value || '49.0%'">49.0%</span>
                                     </div>
-                                    <span class="text-[10px] text-[#64748B]">基线标准 &lt; 70%</span>
                                   </div>
                                 </div>
                               </div>
