@@ -899,6 +899,23 @@
           return this.currentSlice?.topology?.pop?.egressPop?.status || '正常';
         },
 
+        // POP 节点公网接入地址（示例数据：按城市固定映射，保证同一城市在不同场景下取到同一地址）
+        getPopIp(popName) {
+          const city = String(popName || '').replace(/POP/gi, '').replace(/[（(].*?[）)]/g, '').replace(/四川-|华东-|GA上车|GA下车|[0-9]+/g, '').trim();
+          const map = {
+            '香港': '183.23.2.22',
+            '深圳': '183.23.11.22',
+            '马尼拉': '183.23.4.26',
+            '新加坡': '183.23.2.11',
+            '东京': '183.23.6.18',
+            '北京': '183.23.1.20',
+            '上海': '183.23.8.10',
+            '广州': '183.23.12.9',
+            '成都': '183.23.9.31'
+          };
+          return map[city] || this.currentSlice?.topology?.pop?.ingressPop?.ip || '';
+        },
+
         getBranchAfIp() {
           return this.currentSlice?.topology?.client?.ip || '10.20.0.1';
         },
@@ -1130,10 +1147,10 @@
           return this.getStatusTone(this.getBackboneStatus());
         },
 
-        // 无法判断自身健康的节点（分支AF / 总部AF）：统一灰色，不参与状态着色
+        // 无法判断自身健康的节点（分支AF / 总部AF / 终端 / 代理网关）：中性淡蓝，不参与状态着色；应用节点保持中性灰
         isNeutralNode(item) {
-          if (!item || this.queryType !== '分支') return false;
-          return item.id === 'node_terminal' || item.id === 'node_app';
+          if (!item) return false;
+          return ['node_terminal', 'node_app', 'node_connector', 'node_final_app'].indexOf(item.id) > -1;
         },
 
         // 明细项标题：上下车聚合场景下 POP 统一表述为「全球加速骨干网」
@@ -1142,19 +1159,37 @@
           if (item.id === 'node_pop' && this.isPopAggregated) return '全球加速骨干网';
           if (this.isPopAggregated) {
             const topo = this.currentSlice?.topology || {};
-            if (item.id === 'seg_client_pop') {
-              return this.queryType === '分支' ? '分支AF-上车点POP' : '终端-上车点POP';
-            }
-            if (item.id === topo.segment2?.targetId) {
-              return this.queryType === '分支' ? '下车点POP-总部AF' : '下车点POP-代理网关';
-            }
+            if (item.id === 'seg_client_pop') return this.queryType === '分支' ? '分支AF-上车点POP' : '终端-上车点POP';
+            if (item.id === topo.segment2?.targetId) return this.queryType === '分支' ? '下车点POP-总部AF' : '下车点POP-代理网关';
           }
           return this.formatItemName(item.name);
         },
 
-        // 明细项头部圆点：中立节点灰点；骨干网节点按时延/丢包三档；其余保持原逻辑
+        // 链路段端点说明（辅助文案）：GA 上下车聚合场景补充「起点 地址—终点 地址」，便于取证时对应到具体设备
+        getDetailEndpointText(item) {
+          if (!item || !this.isPopAggregated) return '';
+          const topo = this.currentSlice?.topology || {};
+          const endpoint = (name, ip) => (ip ? `${name} ${ip}` : name);
+          const ingressPop = endpoint(this.getBranchIngressPopName(), this.getPopIp(this.getBranchIngressPopName()));
+          const egressPop = endpoint(this.getBranchEgressPopName(), this.getPopIp(this.getBranchEgressPopName()));
+          if (item.id === 'seg_client_pop') {
+            const srcName = this.queryType === '分支' ? (this.branchAfName || '分支AF') : this.getTerminalDisplayName();
+            const srcIp = this.queryType === '分支' ? this.getBranchAfIp() : (topo.client?.ip || '');
+            return `${endpoint(srcName, srcIp)}—${ingressPop}`;
+          }
+          if (item.id === topo.segment2?.targetId) {
+            if (this.queryType === '分支') {
+              return `${egressPop}—${endpoint(topo.app?.name || '总部AF', this.getHeadquarterAfIp())}`;
+            }
+            return `${egressPop}—${endpoint(topo.gw?.name || '代理网关', topo.gw?.ip || '')}`;
+          }
+          return '';
+        },
+
+        // 明细项头部圆点：应用节点灰点、中立节点淡蓝点；骨干网节点按时延/丢包三档；其余保持原逻辑
         getDetailDotClass(item) {
-          if (this.isRealApplicationNode(item) || this.isNeutralNode(item)) return 'bg-[#64748B]';
+          if (this.isRealApplicationNode(item)) return 'bg-[#64748B]';
+          if (this.isNeutralNode(item)) return 'bg-[#4A8FE0]';
           if (item?.id === 'node_pop' && this.isPopAggregated) return this.getBackboneTone().dot;
           return (item?.status === '异常' || item?.status === '差') ? 'bg-[#CF171D]' : 'bg-[#12A679]';
         },
@@ -4356,19 +4391,20 @@
           const text = `【DEM AI 诊断报告】\n` +
             `• 统计时段: ${analysis.period}\n` +
             `• AI 总结: ${(analysis.summary || '').replace(/<[^>]+>/g, '')}\n` +
-            `• 异常位置: ${analysis.abnormalPosition}\n` +
-            `• 影响范围: ${analysis.impactNature}，${analysis.impactRatio}\n` +
-            `  - 判定依据: ${analysis.impactBasis}\n` +
+            `• 异常位置（初步定位）: ${analysis.abnormalPosition}\n` +
+            `• 影响范围: ${this.aiImpactNatureText}，${analysis.impactRatio}\n` +
+            `  - 推断依据: ${analysis.impactBasis}\n` +
             `  - 同接入 POP 访问情况: ${analysis.samePopText}\n` +
             `  - ${analysis.sameLinkLabel}: ${analysis.sameLinkText}\n` +
             `  - 关键指标: ${analysis.metrics}\n` +
             `• 关键证据:\n` +
             analysis.evidences.map((e, idx) => `  - ${e.replace(/<[^>]+>/g, '')}`).join('\n') + `\n` +
-            `• 责任域: ${this.aiDomainLabel}\n` +
-            `  - 判定依据: ${analysis.domainBasis}\n` +
+            `• 责任域（初步推断）: ${this.aiDomainLabel}\n` +
+            `  - 推断依据: ${analysis.domainBasis}\n` +
             `• 处置建议 (协同: ${this.aiTeamText}):\n` +
             analysis.domains.map(d => `  - [${d.name}] ${d.advice}`).join('\n') +
-            (analysis.aiSteps.length ? `\n  AI 生成:\n` + analysis.aiSteps.map((s, idx) => `    ${idx + 1}. ${s}`).join('\n') : '');
+            (analysis.aiSteps.length ? `\n  AI 生成:\n` + analysis.aiSteps.map((s, idx) => `    ${idx + 1}. ${s}`).join('\n') : '') +
+            `\n\n注: 以上为系统基于探测数据的自动推断，存在不确定性，不构成最终定责结论，请结合现场核实。`;
 
           if (navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(text).then(() => {
@@ -4413,9 +4449,9 @@
                 status: '异常',
                 period: periodText,
                 isGroup: false,
-                summary: `用户 <b>${userDisplay}</b> 在 <b>${periodText}</b> 访问 <b>${appDisplay}</b> 体验差：客户端到 POP 第一公里（局域网网关）出现高时延与丢包，POP 之后各段正常。统计时段内经马尼拉 POP 的 10 名用户中仅 1 人体验差（10%），判定为个例问题；责任域：终端侧。`,
+                summary: `用户 <b>${userDisplay}</b> 在 <b>${periodText}</b> 访问 <b>${appDisplay}</b> 体验差：客户端到 POP 第一公里（局域网网关）出现高时延与丢包，POP 之后各段正常。统计时段内经马尼拉 POP 的 10 名用户中仅 1 人体验差（10%），更倾向个例问题（群体影响可能性低）；责任域初步推断为终端侧（局域网网关），仍需现场核实。`,
                 abnormalPosition: '客户端 → POP 第一公里（局域网网关）',
-                positionDetail: '异常落在局域网网关（酒店 Wi-Fi 接入）：首跳即出现时延与丢包上升，其后各跳只累积、无新增突变。',
+                positionDetail: '异常初步定位在局域网网关（酒店 Wi-Fi 接入）：首跳即出现时延与丢包上升，其后各跳只累积、无新增突变。',
                 impactNature: '个例问题',
                 impactRatio: '经马尼拉 POP 的 10 名用户中，1 人体验差（10%）',
                 impactBasis: '同局域网网关下仅当前终端体验差，同 POP 与其他用户访问正常，未构成群体影响。',
@@ -4432,7 +4468,7 @@
                 domains: [
                   { name: '终端侧', role: '主', advice: '请用户切换有线网络或其他 Wi-Fi；请终端网络管理员检查无线信号和局域网网关负载', team: '终端用户、终端网络管理员' }
                 ],
-                domainBasis: '首跳局域网网关即出现时延与丢包上升，POP 与后续各段无新增突变，两端设备正常，责任域收敛到终端侧。',
+                domainBasis: '首跳局域网网关即出现时延与丢包上升，POP 与后续各段无新增突变，两端设备正常，责任域初步收敛到终端侧，仍需现场核实。',
                 aiSteps: [
                   `切换网络：让 ${shortName} 改接有线网线或换用其他 Wi-Fi（优先 5GHz），规避当前信道的干扰。`,
                   '请办公室/酒店网络管理员检查该区域无线信号覆盖与网关负载，必要时调整 AP 信道与发射功率。'
@@ -4443,7 +4479,7 @@
                 status: '异常',
                 period: periodText,
                 isGroup: true,
-                summary: `用户 <b>${userDisplay}</b> 在 <b>${periodText}</b> 访问 <b>${appDisplay}</b> 体验差：办公室私网 Hop2 出现丢包与抖动，POP 侧流量达到租户限流。统计时段内同出口 46 名用户中 34 人体验差（73.9%），判定为群体问题；责任域：客户数据中心网络（主）、SASE 平台（次）。`,
+                summary: `用户 <b>${userDisplay}</b> 在 <b>${periodText}</b> 访问 <b>${appDisplay}</b> 体验差：办公室私网 Hop2 出现丢包与抖动，POP 侧流量达到租户限流。统计时段内同出口 46 名用户中 34 人体验差（73.9%），群体问题可能性高；责任域初步推断为客户数据中心网络（主）、SASE 平台（次）。`,
                 abnormalPosition: '办公室私网 → POP 节点',
                 positionDetail: '私网 Hop2 丢包 3.1% / 抖动 40ms；POP 侧总流量 10.4Gbps，触发租户限流。',
                 impactNature: '群体问题',
@@ -4457,13 +4493,13 @@
                   'Underlay 丢包 <b>3.1%</b>、抖动 <b>40ms</b>，Overlay 隧道有效吞吐由 50Mbps 降至 <b>20Mbps</b>。',
                   '第 2 个私网 Hop (10.10.0.1) 出现 <b>+2.9%</b> 丢包增量与 <b>+36ms</b> 抖动；公网出口后未见新增丢包。',
                   '马尼拉 POP 节点当前租户总吞吐达 <b>10.4 Gbps</b>，触发平台侧限速排队。',
-                  '飞书官方 SaaS 服务状态良好，全球探测可用性 <b>99.9%</b>，排除应用服务商服务端故障。'
+                  '飞书官方 SaaS 服务状态良好，全球探测可用性 <b>99.9%</b>，未见应用服务商服务端异常迹象。'
                 ],
                 domains: [
                   { name: '客户数据中心网络', role: '主', advice: '请客户网络管理员检查突变的局域网网关', team: '客户网络管理员' },
                   { name: 'SASE 平台', role: '次', advice: '联系 SASE 运营团队，提供分段指标，请其检查对应的 POP 线路或骨干网', team: 'SASE 运营团队' }
                 ],
-                domainBasis: '私网 Hop2 单跳丢包突变、出口后无新增丢包；POP 侧同时出现限流。主责任域为客户数据中心网络，次责任域为 SASE 平台。',
+                domainBasis: '私网 Hop2 单跳丢包突变、出口后无新增丢包；POP 侧同时出现限流。初步推断主责任域为客户数据中心网络、次责任域为 SASE 平台。',
                 aiSteps: [
                   '联系 SASE 运营团队对该租户马尼拉 POP 实施临时弹性扩容，缓解平台侧限流排队。',
                   '现场网络工程师排查私网交换机 Hop 2 端口队列与双工模式，消除物理误码。'
@@ -4474,13 +4510,13 @@
                 status: '异常',
                 period: periodText,
                 isGroup: true,
-                summary: `<b>${userDisplay}</b> 在 <b>${periodText}</b> 访问 <b>${appDisplay}</b> 体验差：下车POP → 总部AF 最后一公里公网段出现丢包与抖动，第一公里、全球加速骨干网、总部AF 与应用侧均正常。同一时段该分支 3 个总部应用全部同步劣化（3/3），判定为群体问题；责任域：运营商。`,
+                summary: `<b>${userDisplay}</b> 在 <b>${periodText}</b> 访问 <b>${appDisplay}</b> 体验差：下车POP → 总部AF 最后一公里公网段出现丢包与抖动，第一公里、全球加速骨干网、总部AF 与应用侧均正常。同一时段该分支 3 个总部应用全部同步劣化（3/3），群体问题可能性高；责任域初步推断为运营商（跨网段），建议与运营商逐跳核实。`,
                 abnormalPosition: '下车POP → 总部AF（最后一公里）',
                 positionDetail: '第 2→3 跳由中国电信 AS4134 切换到中国联通 AS4837，丢包 +2.3pp、抖动 +32ms 单跳突变，两端设备正常。',
                 impactNature: '群体问题',
                 impactRatio: '同一时段该分支 3 个总部应用全部同步劣化（3/3）',
                 impactBasis: '同一时段该分支 3 个总部应用同步劣化，且全部收敛在同一跳变点，超出单应用或单终端范围。',
-                samePopText: '统计时段内上车POP 与下车POP 自身运行正常（6ms / 18ms / 丢包 0%），排除 POP 节点问题。',
+                samePopText: '统计时段内上车POP 与下车POP 自身运行正常（6ms / 18ms / 丢包 0%），基本可排除 POP 节点自身问题。',
                 sameLinkLabel: '同链路访问情况',
                 sameLinkText: '同链路（下车POP → 总部AF）上 3 个总部应用同步劣化，链路外应用正常。',
                 metrics: '端到端 182ms / 丢包 3.3% · 跨网段 108ms / 3.1% / 抖动 48ms · 3 个总部应用同步劣化',
@@ -4493,10 +4529,10 @@
                 domains: [
                   { name: '运营商', role: '主', advice: '向运营商提供逐跳证据，请其检查突变节点所在线路；突变点前后归属不同的，可能是跨运营商导致线路变差，同时提供给两侧运营商', team: '运营商' }
                 ],
-                domainBasis: '跨网跳点两侧归属分别为中国电信与中国联通，单跳突变且其后无新增突变，两端设备与其余三段均正常，责任域收敛到运营商。',
+                domainBasis: '跨网跳点两侧归属分别为中国电信与中国联通，单跳突变且其后无新增突变，两端设备与其余三段均正常，责任域初步收敛到运营商，建议与两侧运营商逐跳核实。',
                 aiSteps: [
                   '切同运营商路线：确认总部AF 出口线路的运营商，让下车POP 走同运营商出口；或把 AF 连总部的对接地址切到与 POP 同运营商的那条线路。',
-                  '提工单：向中国电信与中国联通同时提交链路工单，并告知业务方这是运营商跨网问题，恢复时间以运营商处理为准。'
+                  '提工单：向中国电信与中国联通同时提交链路工单，并告知业务方初步判断为运营商跨网问题，恢复时间以运营商处理为准。'
                 ]
               };
             } else {
@@ -4505,7 +4541,7 @@
                 status: '异常',
                 period: periodText,
                 isGroup: true,
-                summary: `用户 <b>${userDisplay}</b> 在 <b>${periodText}</b> 访问 <b>${appDisplay}</b> 体验差：POP → 代理网关的骨干专线出现拥塞与丢包。统计时段内经深圳 POP 跨区访问的 31 名用户中 12 人体验差（38.2%），判定为群体问题；责任域：SASE 平台。`,
+                summary: `用户 <b>${userDisplay}</b> 在 <b>${periodText}</b> 访问 <b>${appDisplay}</b> 体验差：POP → 代理网关的骨干专线出现拥塞与丢包。统计时段内经深圳 POP 跨区访问的 31 名用户中 12 人体验差（38.2%），群体问题可能性高；责任域初步推断为 SASE 平台。`,
                 abnormalPosition: 'POP → 代理网关（骨干专线）',
                 positionDetail: '深圳 POP 出向专线队列拥塞，丢包 5.2%、抖动 48ms，拖慢真实访问响应。',
                 impactNature: '群体问题',
@@ -4518,13 +4554,13 @@
                 evidences: [
                   '深圳 POP 至代理网关专线丢包率 <b>5.2%</b>、抖动 <b>48ms</b>、RTT <b>145ms</b>。',
                   '第 1~2 跳接入段丢包 0%；第 3 跳深圳 POP 骨干出口出现丢包跳变 (<b>+4.8%</b>) 与抖动突增。',
-                  '代理网关与 OA 后端应用服务器探针时延仅 <b>12ms</b>，排除应用自身故障。',
+                  '代理网关与 OA 后端应用服务器探针时延仅 <b>12ms</b>，应用自身故障可能性较低。',
                   '经华东上海本地 POP 接入同应用的其余 180 名用户访问顺畅（平均时延 42ms），仅华南专线异常。'
                 ],
                 domains: [
                   { name: 'SASE 平台', role: '主', advice: '联系 SASE 运营团队，提供分段指标，请其检查对应的 POP 线路或骨干网', team: 'SASE 运营团队' }
                 ],
-                domainBasis: '丢包与抖动集中在深圳 POP 出向骨干专线，代理网关与 OA 后端探针正常，责任域收敛到 SASE 平台。',
+                domainBasis: '丢包与抖动集中在深圳 POP 出向骨干专线，代理网关与 OA 后端探针正常，责任域初步收敛到 SASE 平台。',
                 aiSteps: [
                   '在 SASE 策略控制台将受影响分支用户临时调度切换至其他本地 POP，绕行故障专线。',
                   '将第 3 跳逐跳丢包与抖动监控报告转派运营商工单系统，核查华南光缆传输质量。'
@@ -4536,7 +4572,7 @@
               status: '一般',
               period: periodText,
               isGroup: false,
-              summary: `用户 <b>${userDisplay}</b> 在 <b>${periodText}</b> 访问 <b>${appDisplay}</b> 体验一般：传输链路出现短时轻度拥塞与抖动。统计时段内同 POP 的 210 名用户中 2 人体验一般（0.9%），判定为个例问题；责任域：SASE 平台。`,
+              summary: `用户 <b>${userDisplay}</b> 在 <b>${periodText}</b> 访问 <b>${appDisplay}</b> 体验一般：传输链路出现短时轻度拥塞与抖动。统计时段内同 POP 的 210 名用户中 2 人体验一般（0.9%），更倾向个例问题（群体影响可能性低）；责任域初步推断为 SASE 平台。`,
               abnormalPosition: 'POP → 代理网关（传输链路）',
               positionDetail: '链路短时轻度拥塞，时延与丢包小幅抬升，未阻断业务。',
               impactNature: '个例问题',
@@ -4554,7 +4590,7 @@
               domains: [
                 { name: 'SASE 平台', role: '主', advice: '联系 SASE 运营团队，提供分段指标，请其检查对应的 POP 线路或骨干网', team: 'SASE 运营团队' }
               ],
-              domainBasis: '波动集中在 POP → 代理网关的传输链路上，终端与后端正常，责任域为 SASE 平台。',
+              domainBasis: '波动集中在 POP → 代理网关的传输链路上，终端与后端正常，责任域初步推断为 SASE 平台。',
               aiSteps: [
                 '保持高频采样观察指标是否自愈恢复，若持续 3 个周期劣化再升级告警。'
               ]
@@ -4564,7 +4600,7 @@
               status: '正常',
               period: periodText,
               isGroup: false,
-              summary: `用户 <b>${userDisplay}</b> 在 <b>${periodText}</b> 访问 <b>${appDisplay}</b> 体验正常：端到端时延与丢包均在正常范围，全链路各段无异常。责任域：无。`,
+              summary: `用户 <b>${userDisplay}</b> 在 <b>${periodText}</b> 访问 <b>${appDisplay}</b> 体验正常：端到端时延与丢包均在正常范围，全链路各段未见异常，初步看暂不推断责任域。`,
               abnormalPosition: '全链路',
               positionDetail: '统计时段内各段指标均处于正常范围，无异常落点。',
               impactNature: '无异常扩散',
@@ -4582,7 +4618,7 @@
               domains: [
                 { name: '无', role: '主', advice: '当前时段无需处置', team: '—' }
               ],
-              domainBasis: '全链路各段指标正常，无异常落点，责任域为无。',
+              domainBasis: '全链路各段指标正常，无异常落点，暂不推断责任域。',
               aiSteps: []
             };
           }
@@ -4602,17 +4638,33 @@
           return [...new Set(teams)].join('、') || '—';
         },
 
-        // 链路 AI 诊断概要 (2-3 句话：体验、异常位置、影响性质与责任域)
+        // 影响性质展示文案：只给倾向与可能性，不下定性结论
+        get aiImpactNatureText() {
+          const nature = this.currentAiAnalysis.impactNature;
+          if (nature === '群体问题') return '群体问题可能性高';
+          if (nature === '个例问题') return '更倾向个例问题';
+          if (nature === '无异常扩散') return '暂未见异常扩散';
+          return nature;
+        },
+
+        // 摘要责任域标签文案：显式标注为初步推断
+        get aiDomainChipText() {
+          const domains = this.currentAiAnalysis.domains || [];
+          if (!domains.length || !domains[0] || domains[0].name === '无') return '暂未发现异常责任域';
+          return '责任域初步推断：' + domains.map(d => d.name).join(' / ');
+        },
+
+        // 链路 AI 诊断概要 (2-3 句话：体验、异常位置、影响性质与责任域；措辞保持推断口径)
         get aiBriefSummary() {
           const analysis = this.currentAiAnalysis;
           const metrics = `端到端时延 ${this.endToEndMetrics.delay}、丢包 ${this.endToEndMetrics.loss}`;
 
           if (analysis.status === '正常') {
-            return `${analysis.period} 内链路体验正常，${metrics}，各段指标均在正常范围；同 POP 与同链路用户未见异常，暂不需要人工介入。`;
+            return `${analysis.period} 内链路体验正常，${metrics}，各段指标均在正常范围；同 POP 与同链路用户未见异常，初步看暂不需要人工介入。`;
           }
 
           const statusText = analysis.status === '异常' ? '体验差' : '体验一般';
-          return `${analysis.period} 内链路${statusText}，${metrics}；异常位置在${analysis.abnormalPosition}，${analysis.impactRatio}，判定为${analysis.impactNature}；责任域：${this.aiDomainLabel}。`;
+          return `${analysis.period} 内链路${statusText}，${metrics}；异常位置初步定位在${analysis.abnormalPosition}，${analysis.impactRatio}，${this.aiImpactNatureText}；责任域初步推断为：${this.aiDomainLabel}（AI 推断，建议结合现场核实）。`;
         },
 
         // AI 诊断详情抽屉中的验证方式
@@ -5463,7 +5515,7 @@
                               </div>
                               <div class="flex items-start gap-1.5">
                                 <span class="mt-[5px] w-1 h-1 rounded-full bg-[#94A3B8] shrink-0"></span>
-                                <span>节点只展示采集到的数值，不给健康结论</span>
+                                <span>终端、分支AF、总部AF、代理网关为中性蓝节点，应用为中性灰节点，都只代表链路位置、不代表健康；只有全球加速骨干网按时延与丢包着色</span>
                               </div>
                             </div>
                           </div>
@@ -5512,11 +5564,10 @@
                     <!-- 节点 1: 终端 / 起点分支AF -->
                     <div class="flex flex-col items-center text-center topo-clickable z-10 group relative"
                          @click="clickTopologyItem('node', 'node_terminal')">
-                      <div class="w-11 h-11 rounded-full bg-white border-2 flex items-center justify-center shadow-xs group-hover:border-[#1C6EFF] transition-colors"
-                           :class="queryType === '分支' ? 'border-[#CBD5E1]' : ((getCurrentClient()?.status === '异常' || getCurrentClient()?.status === '差') ? 'border-[#F52727]' : 'border-[#12A679]')">
-                        <!-- 分支AF：自身健康无法判定，统一中性灰，不参与状态着色 -->
+                      <div class="w-11 h-11 rounded-full bg-white border-2 border-[#7FB2F5] flex items-center justify-center shadow-xs group-hover:border-[#1C6EFF] transition-colors">
+                        <!-- 分支AF / 终端：自身健康无法判定，统一中性淡蓝，不参与状态着色 -->
                         <template x-if="queryType === '分支'">
-                          <svg class="w-5 h-5 text-[#64748B]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <svg class="w-5 h-5 text-[#2E77D0]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
                           </svg>
                         </template>
@@ -5524,13 +5575,13 @@
                           <div>
                             <!-- 手机图标 -->
                             <template x-if="getActiveTerminal()?.type === 'mobile'">
-                              <svg class="w-5 h-5" :class="(getCurrentClient()?.status === '异常' || getCurrentClient()?.status === '差') ? 'text-[#F52727]' : 'text-[#12A679]'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg class="w-5 h-5 text-[#2E77D0]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
                               </svg>
                             </template>
                             <!-- 电脑图标 -->
                             <template x-if="getActiveTerminal()?.type !== 'mobile'">
-                              <svg class="w-5 h-5" :class="(getCurrentClient()?.status === '异常' || getCurrentClient()?.status === '差') ? 'text-[#F52727]' : 'text-[#12A679]'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg class="w-5 h-5 text-[#2E77D0]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2-2v10a2 2 0 002 2z"></path>
                               </svg>
                             </template>
@@ -5672,10 +5723,9 @@
                         <!-- 节点 3: GW 连接器 -->
                         <div class="flex flex-col items-center text-center topo-clickable z-10 group relative"
                              @click="clickTopologyItem('node', 'node_connector')">
-                          <div class="w-11 h-11 rounded-full bg-white border-2 flex items-center justify-center shadow-xs group-hover:border-[#1C6EFF] transition-colors"
-                               :class="currentSlice.topology?.gw?.status === '异常' ? 'border-[#F52727]' : 'border-[#12A679]'">
-                            <!-- 连接器/网关设备图标 -->
-                            <svg class="w-5 h-5" :class="currentSlice.topology?.gw?.status === '异常' ? 'text-[#F52727]' : 'text-[#12A679]'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <div class="w-11 h-11 rounded-full bg-white border-2 border-[#7FB2F5] flex items-center justify-center shadow-xs group-hover:border-[#1C6EFF] transition-colors">
+                            <!-- 代理网关/连接器：自身健康无法判定，统一中性淡蓝，不参与状态着色 -->
+                            <svg class="w-5 h-5 text-[#2E77D0]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
                             </svg>
                           </div>
@@ -5757,10 +5807,10 @@
                     <div class="flex flex-col items-center text-center topo-clickable z-10 group relative"
                          @click="clickTopologyItem('node', 'node_app')">
                       <div class="w-11 h-11 rounded-full bg-white flex items-center justify-center shadow-xs group-hover:border-[#1C6EFF] border-2 transition-colors"
-                           :class="queryType === '分支' ? 'border-[#CBD5E1]' : ((currentSlice.topology?.finalApp) ? ((currentSlice.topology?.app?.status === '异常' || currentSlice.topology?.app?.status === '差') ? 'border-[#F52727]' : 'border-[#12A679]') : 'border-[#CBD5E1]')">
-                        <!-- 分支场景：总部AF 安全网关（自身健康无法判定，统一中性灰） -->
+                           :class="queryType === '分支' ? 'border-[#7FB2F5]' : 'border-[#CBD5E1]'">
+                        <!-- 分支场景：总部AF 安全网关（自身健康无法判定，统一中性淡蓝） -->
                         <template x-if="queryType === '分支' || currentSlice.topology?.finalApp">
-                          <svg class="w-5 h-5" :class="queryType === '分支' ? 'text-[#64748B]' : ((currentSlice.topology?.app?.status === '异常' || currentSlice.topology?.app?.status === '差') ? 'text-[#F52727]' : 'text-[#12A679]')" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <svg class="w-5 h-5" :class="queryType === '分支' ? 'text-[#2E77D0]' : 'text-[#64748B]'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
                           </svg>
                         </template>
@@ -5849,13 +5899,13 @@
                             </svg>
                           </div>
                           <span class="text-xs font-semibold text-[#1E293B]">AI 诊断解读</span>
-                          <!-- 标签只显示责任域与影响性质，不再使用根因与概率 -->
+                          <!-- 标签只显示责任域与影响性质的倾向判断（保守表述，不做定性定论） -->
                           <span class="px-2 py-0.5 rounded-[2px] text-[11px] font-medium"
                                 :class="currentAiAnalysis.status === '异常' ? 'bg-[#FFF1F0] text-[#F52727] border border-[#FFA39E]' : (currentAiAnalysis.status === '一般' ? 'bg-[#FFF7E6] text-[#FA721B] border border-[#FFD591]' : 'bg-[#E6F8F2] text-[#12A679] border border-[#B7EB8F]')"
-                                x-text="currentAiAnalysis.domains[0]?.name || '无'"></span>
+                                x-text="aiDomainChipText"></span>
                           <span class="px-2 py-0.5 rounded-[2px] text-[11px] font-medium"
                                 :class="currentAiAnalysis.impactNature === '群体问题' ? 'bg-[#FFF1F0] text-[#F52727] border border-[#FFA39E]' : (currentAiAnalysis.impactNature === '无异常扩散' ? 'bg-[#E6F8F2] text-[#12A679] border border-[#B7EB8F]' : 'bg-[#F8FAFC] text-[#475569] border border-[#CBD5E1]')"
-                                x-text="currentAiAnalysis.impactNature"></span>
+                                x-text="aiImpactNatureText"></span>
                         </div>
                         <p class="mt-2 text-xs text-[#334155] leading-relaxed" x-text="aiBriefSummary"></p>
                       </div>
@@ -5886,11 +5936,17 @@
                              class="p-3 flex items-center justify-between cursor-pointer select-none accordion-header"
                              :class="isItemOpen(item.id) ? 'bg-[#F8FAFC] border-b border-[#E1E5EB]' : ''">
 
-                          <div class="flex items-center gap-2">
-                            <!-- 圆点：应用/中立节点统一灰色；骨干网节点按时延/丢包着色；其余链路段绿/红 -->
+                          <div class="flex items-center gap-2 min-w-0">
+                            <!-- 圆点：应用节点灰、中立节点淡蓝；骨干网节点按时延/丢包着色；其余链路段绿/红 -->
                             <span class="w-[5px] h-[5px] rounded-full flex-shrink-0"
                                   :class="getDetailDotClass(item)"></span>
-                            <span class="text-xs font-medium text-[#2F3540]" x-text="getDetailTitle(item)"></span>
+                            <div class="flex items-baseline gap-1 min-w-0">
+                              <span class="text-xs font-medium text-[#2F3540] shrink-0" x-text="getDetailTitle(item)"></span>
+                              <!-- 端点说明：辅助字体（不加粗、11px、辅助色），仅 GA 上下车聚合链路段展示；过长省略 -->
+                              <span class="text-[11px] font-normal text-[#8A92A1] truncate"
+                                    x-show="getDetailEndpointText(item)"
+                                    x-text="getDetailEndpointText(item) ? '（' + getDetailEndpointText(item) + '）' : ''"></span>
+                            </div>
                             <span class="text-xs text-[#6F7785] px-2 py-0.5 bg-[#6F7785]/10 rounded-[2px] font-normal shrink-0 whitespace-nowrap" x-text="item.itemType === 'segment' ? '链路段' : '节点'"></span>
                           </div>
 
@@ -6780,7 +6836,7 @@
                   <div class="flex items-center justify-between gap-3">
                     <div class="flex items-center gap-1.5">
                       <span class="w-1 h-3.5 bg-[#1C6EFF] rounded-full"></span>
-                      <h3 class="text-xs font-semibold text-[#1E293B]">AI 总结</h3>
+                      <h3 class="text-xs font-semibold text-[#1E293B]">AI 总结（初步推断）</h3>
                     </div>
                     <span class="text-[10px] text-[#8A92A1]" x-text="'统计时段：' + currentAiAnalysis.period"></span>
                   </div>
@@ -6794,6 +6850,13 @@
                               x-text="'当前体验：' + (currentPoint?.experience || currentAiAnalysis.status)"></span>
                       </div>
                       <div class="mt-2 text-xs text-[#475569] leading-relaxed" x-html="currentAiAnalysis.summary"></div>
+                      <!-- 结论可信度声明：明确 AI 结果为推断，不是最终定责 -->
+                      <div class="mt-2.5 pt-2 border-t border-[#F0F2F5] flex items-start gap-1.5 text-[10px] text-[#8A92A1] leading-relaxed">
+                        <svg class="w-3 h-3 mt-[1px] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        <span>以上为系统基于统计时段内探测与逐跳数据自动生成的推断，存在不确定性，不构成最终定责结论；请结合现场与运营商侧信息核实后再处置。</span>
+                      </div>
                     </div>
                   </div>
                 </section>
@@ -6802,11 +6865,11 @@
                 <section class="space-y-2">
                   <div class="flex items-center gap-1.5">
                     <span class="w-1 h-3.5 bg-[#1C6EFF] rounded-full"></span>
-                    <h3 class="text-xs font-semibold text-[#1E293B]">异常位置</h3>
+                    <h3 class="text-xs font-semibold text-[#1E293B]">异常位置（初步定位）</h3>
                   </div>
                   <div class="px-3.5 py-2.5 rounded-[3px] bg-white space-y-1.5">
                     <div class="flex items-center gap-2">
-                      <span class="text-[11px] text-[#64748B]">位置：</span>
+                      <span class="text-[11px] text-[#64748B]">推断位置：</span>
                       <span class="text-xs font-semibold"
                             :class="currentAiAnalysis.status === '异常' ? 'text-[#F52727]' : (currentAiAnalysis.status === '一般' ? 'text-[#FA721B]' : 'text-[#12A679]')"
                             x-text="currentAiAnalysis.abnormalPosition"></span>
@@ -6828,13 +6891,13 @@
                     <div class="flex items-center gap-2 flex-wrap">
                       <span class="px-2 py-0.5 rounded-[2px] text-[11px] font-medium"
                             :class="currentAiAnalysis.impactNature === '群体问题' ? 'bg-[#FDE8E8] text-[#C81E1E]' : (currentAiAnalysis.impactNature === '无异常扩散' ? 'bg-[#E3F7EC] text-[#0F7B57]' : 'bg-[#EEF2F7] text-[#475569]')"
-                            x-text="currentAiAnalysis.impactNature"></span>
+                            x-text="aiImpactNatureText"></span>
                       <span class="text-[11px] text-[#64748B]" x-text="currentAiAnalysis.impactRatio"></span>
                     </div>
                     <div class="space-y-1.5 text-[11px] text-[#334155] leading-relaxed">
                       <div class="flex items-start gap-2">
                         <span class="text-[#94A3B8] font-mono text-[10px] select-none mt-0.5">&bull;</span>
-                        <div><span class="font-medium text-[#1E293B]">群体 / 个例判定依据：</span><span x-text="currentAiAnalysis.impactBasis"></span></div>
+                        <div><span class="font-medium text-[#1E293B]">群体 / 个例推断依据：</span><span x-text="currentAiAnalysis.impactBasis"></span></div>
                       </div>
                       <div class="flex items-start gap-2">
                         <span class="text-[#94A3B8] font-mono text-[10px] select-none mt-0.5">&bull;</span>
@@ -6874,11 +6937,11 @@
                 <section class="space-y-2">
                   <div class="flex items-center gap-1.5">
                     <span class="w-1 h-3.5 bg-[#1C6EFF] rounded-full"></span>
-                    <h3 class="text-xs font-semibold text-[#1E293B]">责任域与判定依据</h3>
+                    <h3 class="text-xs font-semibold text-[#1E293B]">责任域初步推断与依据</h3>
                   </div>
                   <div class="px-3.5 py-2.5 rounded-[3px] bg-white space-y-2">
                     <div class="flex items-center gap-2 flex-wrap">
-                      <span class="text-[11px] text-[#64748B]">责任域：</span>
+                      <span class="text-[11px] text-[#64748B]">初步推断责任域：</span>
                       <template x-for="d in currentAiAnalysis.domains" :key="'domain-' + d.name + d.role">
                         <span class="px-2 py-0.5 rounded-[2px] text-[11px] font-medium bg-[#EEF2F7] text-[#334155]"
                               x-text="currentAiAnalysis.domains.length > 1 ? d.name + '（' + d.role + '）' : d.name"></span>
@@ -6886,7 +6949,7 @@
                     </div>
                     <div class="flex items-start gap-2 text-[11px] text-[#334155] leading-relaxed">
                       <span class="text-[#94A3B8] font-mono text-[10px] select-none mt-0.5">&bull;</span>
-                      <div><span class="font-medium text-[#1E293B]">判定依据：</span><span x-text="currentAiAnalysis.domainBasis"></span></div>
+                      <div><span class="font-medium text-[#1E293B]">推断依据：</span><span x-text="currentAiAnalysis.domainBasis"></span></div>
                     </div>
                   </div>
                 </section>
@@ -6916,7 +6979,7 @@
                       <div class="pt-2 border-t border-[#F1F5F9] space-y-1.5">
                         <div class="flex items-center gap-1.5">
                           <span class="inline-flex items-center h-4 px-1 rounded-[2px] bg-[#E6F4FF] text-[10px] font-normal text-[#1C6EFF]">AI 生成</span>
-                          <span class="text-[10px] text-[#8A92A1]">基于上述结论展开的具体建议</span>
+                          <span class="text-[10px] text-[#8A92A1]">基于上述推断展开的参考建议，请确认后再执行</span>
                         </div>
                         <div class="space-y-1.5 text-[11px] text-[#475569] leading-relaxed">
                           <template x-for="(step, sIdx) in currentAiAnalysis.aiSteps" :key="'ai-' + sIdx">
