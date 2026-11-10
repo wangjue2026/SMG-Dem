@@ -2018,12 +2018,17 @@
           if (!p) return '';
           return type === '分支' ? `${p} — 总部AF` : `${p} — 代理网关`;
         },
-        // 链路筛选可选项（与列内容一致）
+        // 体验差的链路：对象体验为“差”时，其接入链路视为体验差的链路；体验正常 / 一般无差链路
+        getPoorObjectLink(item, type) {
+          if (!item || item.exp !== '差') return '';
+          return this.getObjectLink(item.pop, type);
+        },
+        // 链路筛选可选项（与列内容一致：仅列出体验差的链路）
         get branchLinkOptions() {
-          return [...new Set((this.branchList || []).map(b => this.getObjectLink(b.pop, '分支')).filter(Boolean))];
+          return [...new Set((this.branchList || []).filter(b => b.exp === '差').map(b => this.getPoorObjectLink(b, '分支')).filter(Boolean))];
         },
         get userLinkOptions() {
-          return [...new Set((this.userList || []).map(u => this.getObjectLink(u.pop, '用户')).filter(Boolean))];
+          return [...new Set((this.userList || []).filter(u => u.exp === '差').map(u => this.getPoorObjectLink(u, '用户')).filter(Boolean))];
         },
         // 分支所在地：'中国 香港' -> '香港'
         getBranchCity(b) {
@@ -2235,7 +2240,7 @@
               item.location.includes(v) ||
               v.includes(item.location.replace('中国 ', '').replace('日本 ', '').replace('菲律宾 ', '')));
             const matchPop = this.branchFilterPopList.length === 0 || this.branchFilterPopList.includes(item.pop);
-            const matchLink = this.branchSelectedLink.length === 0 || this.branchSelectedLink.includes(this.getObjectLink(item.pop, '分支'));
+            const matchLink = this.branchSelectedLink.length === 0 || this.branchSelectedLink.includes(this.getPoorObjectLink(item, '分支'));
             const ff = this.featureFilter;
             const matchFeature = !ff || (item.exp === '差' && this.getFeatureAttr(item, '分支', ff.group) === ff.value);
             return matchSearch && matchExp && matchLoc && matchPop && matchLink && matchFeature;
@@ -2423,7 +2428,7 @@
               (v === '成都' && (item.isp.includes('四川') || item.dept.includes('成都'))) ||
               (v.includes(' ') && item.isp.includes(v.split(' ')[1] || v)));
             const matchPop = this.userFilterPopList.length === 0 || this.userFilterPopList.includes(item.pop);
-            const matchLink = this.userSelectedLink.length === 0 || this.userSelectedLink.includes(this.getObjectLink(item.pop, '用户'));
+            const matchLink = this.userSelectedLink.length === 0 || this.userSelectedLink.includes(this.getPoorObjectLink(item, '用户'));
             const ff = this.featureFilter;
             const matchFeature = !ff || (item.exp === '差' && this.getFeatureAttr(item, '用户', ff.group) === ff.value);
             return matchSearch && matchExp && matchIsp && matchPop && matchLink && matchFeature;
@@ -4214,12 +4219,12 @@
                       </div>
                     </template>
 
-                    <!-- 链路多选（接入链路两端节点描述，不做好坏定性） -->
+                    <!-- 体验差的链路多选（仅列举访问过程中体验为差的链路） -->
                     <div class="relative inline-flex items-center group w-[188px] shrink-0" x-data="{ open: false }" @click.outside="open = false">
                       <div @click="open = !open"
                            class="h-8 w-full px-2 bg-white border border-[#D3D7DE] rounded-[2px] hover:border-[#1C6EFF] transition-colors flex items-center justify-between cursor-pointer select-none text-xs">
                         <template x-if="branchSelectedLink.length === 0">
-                          <span class="text-[#A1A7B3] font-normal truncate">全部链路</span>
+                          <span class="text-[#A1A7B3] font-normal truncate">全部体验差的链路</span>
                         </template>
                         <template x-if="branchSelectedLink.length > 0">
                           <div class="flex items-center gap-1 overflow-hidden">
@@ -4294,7 +4299,7 @@
                         <th class="whitespace-nowrap">访问体验</th>
                         <th class="whitespace-nowrap">IP 归属地</th>
                         <th class="whitespace-nowrap">主要接入 POP</th>
-                        <th class="whitespace-nowrap">链路</th>
+                        <th class="whitespace-nowrap">体验差的链路</th>
                         <th class="text-center w-16 dem-col-frozen">操作</th>
                       </tr>
                     </thead>
@@ -4323,9 +4328,9 @@
                             </div>
                           </td>
                           <td class="text-[#2F3540]" x-text="item.pop"></td>
-                          <!-- 链路（纯描述，不做好坏定性） -->
+                          <!-- 体验差的链路（仅展示访问过程中体验为差的链路） -->
                           <td>
-                            <span class="text-xs text-[#2F3540] whitespace-nowrap" x-text="getObjectLink(item.pop, '分支') || '-'"></span>
+                            <span class="text-xs whitespace-nowrap" :class="getPoorObjectLink(item, '分支') ? 'text-[#2F3540]' : 'text-[#8A92A1]'" x-text="getPoorObjectLink(item, '分支') || '-'"></span>
                           </td>
                           <td class="text-center dem-col-frozen">
                             <a :href="'./DEM-用户详情.html?type=分支&name=' + encodeURIComponent(item.name) + '&location=' + encodeURIComponent(item.location || '') + '&pop=' + encodeURIComponent(item.pop || '') + '&exp=' + encodeURIComponent(item.exp || '差') + '&totalApps=' + (item.affectedUsers || 12) + '&poorApps=' + (item.poorCount || 0) + '&fairApps=' + (item.fairCount || 0) + '&normalApps=' + (item.normalCount || 0)"
@@ -4467,12 +4472,12 @@
                       </div>
                     </template>
 
-                    <!-- 链路多选（接入链路两端节点描述，不做好坏定性） -->
+                    <!-- 体验差的链路多选（仅列举访问过程中体验为差的链路） -->
                     <div class="relative inline-flex items-center group w-[188px] shrink-0" x-data="{ open: false }" @click.outside="open = false">
                       <div @click="open = !open"
                            class="h-8 w-full px-2 bg-white border border-[#D3D7DE] rounded-[2px] hover:border-[#1C6EFF] transition-colors flex items-center justify-between cursor-pointer select-none text-xs">
                         <template x-if="userSelectedLink.length === 0">
-                          <span class="text-[#A1A7B3] font-normal truncate">全部链路</span>
+                          <span class="text-[#A1A7B3] font-normal truncate">全部体验差的链路</span>
                         </template>
                         <template x-if="userSelectedLink.length > 0">
                           <div class="flex items-center gap-1 overflow-hidden">
@@ -4545,7 +4550,7 @@
                         <th class="whitespace-nowrap">访问体验</th>
                         <th class="whitespace-nowrap">IP 归属地</th>
                         <th class="whitespace-nowrap">接入 POP</th>
-                        <th class="whitespace-nowrap">链路</th>
+                        <th class="whitespace-nowrap">体验差的链路</th>
                         <th class="text-center w-16 dem-col-frozen">操作</th>
                       </tr>
                     </thead>
@@ -4572,9 +4577,9 @@
                             </div>
                           </td>
                           <td class="text-[#2F3540]" x-text="item.pop"></td>
-                          <!-- 链路（纯描述，不做好坏定性） -->
+                          <!-- 体验差的链路（仅展示访问过程中体验为差的链路） -->
                           <td>
-                            <span class="text-xs text-[#2F3540] whitespace-nowrap" x-text="getObjectLink(item.pop, '用户') || '-'"></span>
+                            <span class="text-xs whitespace-nowrap" :class="getPoorObjectLink(item, '用户') ? 'text-[#2F3540]' : 'text-[#8A92A1]'" x-text="getPoorObjectLink(item, '用户') || '-'"></span>
                           </td>
                           <td class="text-center dem-col-frozen">
                             <a :href="'./DEM-用户详情.html?type=用户&empId=' + encodeURIComponent(item.empId) + '&name=' + encodeURIComponent(item.name) + '&dept=' + encodeURIComponent(item.dept) + '&pop=' + encodeURIComponent(item.pop || '') + '&exp=' + encodeURIComponent(item.exp || '差') + '&totalApps=' + (item.totalApps || 17) + '&poorApps=' + (item.poorCount || 0) + '&fairApps=' + (item.fairCount || 0) + '&normalApps=' + (item.normalCount || 0)"
