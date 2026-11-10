@@ -278,11 +278,11 @@
         aiBarCollapsed: false,
         aiPopoverOpen: false,
 
-        // 体验异常对象集中位置：只统计体验为“差”的对象，按 IP 归属地 / 接入POP / 接入链路三种位置口径聚合，取 TOP6
+        // 体验异常对象集中位置：只统计体验为“差”的对象，按 同归属地 / 同接入POP / 同链路 三种位置口径聚合，取 TOP6
         featureTopDim: '全部',
         featureTopOpen: false,
         featurePage: 1,
-        featureTopOptions: ['全部', '同链路', '同POP', '同归属地'],
+        featureTopOptions: ['全部', '同归属地', '同接入POP', '同链路'],
         featureFilter: null, // { group, value } 点击某个集中位置后，下方分支表 / 用户表同步只显示该位置下体验为差的对象
         // 接入链路：两端节点 = 接入POP — 代理网关（分支场景为 接入POP — 总部AF）
         getObjectLink(o, type) {
@@ -290,11 +290,27 @@
           if (!pop) return '';
           return type === '分支' ? `${pop} — 总部AF` : `${pop} — 代理网关`;
         },
-        // 一个对象可能经多条接入链路，主要一条在前
-        getObjectLinks(o, type) {
-          if (o && Array.isArray(o.links) && o.links.length) return o.links.slice();
+        // 链路使用记录：一个对象可能经多条链路，按使用频次降序；未提供明细时按主要接入POP推导单条
+        getObjectLinkUsages(o, type) {
+          if (o && Array.isArray(o.linkUsages) && o.linkUsages.length) {
+            return o.linkUsages
+              .map(item => ({
+                name: item.name,
+                hits: item.hits || 1,
+                experience: item.experience || ((o && o.experience === '差') ? '差' : '正常')
+              }))
+              .sort((a, b) => (b.hits || 0) - (a.hits || 0));
+          }
           const single = this.getObjectLink(o, type);
-          return single ? [single] : [];
+          if (!single) return [];
+          return [{ name: single, hits: 1, experience: (o && o.experience === '差') ? '差' : '正常' }];
+        },
+        // 体验差的链路：对象访问过程中体验为“差”的链路，按使用频次降序
+        getPoorLinkUsages(o, type) {
+          return this.getObjectLinkUsages(o, type).filter(item => item.experience === '差');
+        },
+        getObjectLinks(o, type) {
+          return this.getObjectLinkUsages(o, type).map(item => item.name);
         },
         getObjectCity(o) {
           if (!o) return '';
@@ -306,16 +322,24 @@
         },
         getObjectAttr(o, type, group) {
           if (group === '同归属地') return this.getObjectCity(o);
-          if (group === '同POP') return (o && o.pop) ? String(o.pop).trim() : '';
-          if (group === '同链路') return this.getObjectLink(o, type);
+          if (group === '同接入POP') return (o && o.pop) ? String(o.pop).trim() : '';
           return '';
+        },
+        // 集中位置筛选命中判定：同链路按“体验差的链路”多值匹配，其余按单值口径匹配
+        matchFeatureFilter(o, type, ff) {
+          if (!ff) return true;
+          if (!o || o.experience !== '差') return false;
+          if (ff.group === '同链路') {
+            return this.getPoorLinkUsages(o, type).some(item => item.name === ff.value);
+          }
+          return this.getObjectAttr(o, type, ff.group) === ff.value;
         },
         // TOP6 数据源：仅体验为“差”的分支 / 用户，按三种位置口径分组统计
         get featureItems() {
           const poorBranches = (this.branches || []).filter(b => b.experience === '差');
           const poorUsers = (this.users || []).filter(u => u.experience === '差');
           const items = [];
-          ['同归属地', '同POP', '同链路'].forEach(group => {
+          ['同归属地', '同接入POP', '同链路'].forEach(group => {
             const map = new Map();
             const bump = (value, field) => {
               if (!value) return;
@@ -323,8 +347,17 @@
               cur[field] += 1;
               map.set(value, cur);
             };
-            poorBranches.forEach(b => bump(this.getObjectAttr(b, '分支', group), 'branches'));
-            poorUsers.forEach(u => bump(this.getObjectAttr(u, '用户', group), 'users'));
+            // 同链路：按对象访问过程中“体验差的链路”聚合，一条差链路计一次；无差链路的对象不计入该维度
+            const add = (obj, type, field) => {
+              if (group === '同链路') {
+                const names = [...new Set(this.getPoorLinkUsages(obj, type).map(item => item.name))];
+                names.forEach(name => bump(name, field));
+              } else {
+                bump(this.getObjectAttr(obj, type, group), field);
+              }
+            };
+            poorBranches.forEach(b => add(b, '分支', 'branches'));
+            poorUsers.forEach(u => add(u, '用户', 'users'));
             map.forEach((stat, value) => {
               items.push({ key: `${group}-${value}`, group: group, typeLabel: group, value: value, users: stat.users, branches: stat.branches });
             });
@@ -731,14 +764,25 @@
           // AI 体验巡检条默认展开，不读取历史收起状态
           const designUsers = [
             { id: "usr_hezong", userName: "45232（Maria）", isVip: true, department: "Digiplus / 马尼拉办公室 / 运营中心", ipLocation: "203.177.12.8 (菲律宾-马尼拉)", experience: "差", terminals: ["MacBook Pro"], pop: "马尼拉POP01", appCount: 16, fairApps: 0, degradedApps: ["OA系统", "BI 系统"] },
-            { id: "usr_d1", userName: "14810（郝星伍）", isVip: false, department: "/本地用户/安全BG/零信任", ipLocation: "202.108.22.5 (电信-长沙)", experience: "差", terminals: ["WIN-DESK-88--WIN-YZ", "iPhone 15 Pro"], pop: "POP (香港)", appCount: 9, degradedApps: ["Salesforce"] },
-            { id: "usr_d2", userName: "63728（王浩）", isVip: false, department: "/本地用户/安全BG/零信任", ipLocation: "183.14.5.12 (移动-深圳)", experience: "差", terminals: ["WIN-DESK-62--OKP"], pop: "POP (新加坡)", appCount: 15, degradedApps: ["Salesforce", "Teams", "Yahoo"] },
-            { id: "usr_d3", userName: "84261（柯特）", isVip: false, department: "/国内市场体系/华东区", ipLocation: "119.12.8.20 (联通-深圳)", experience: "差", terminals: ["WIN-DESK-97JUA-OKP"], pop: "POP (新加坡)", appCount: 11, degradedApps: ["Yahoo", "内部 CRM 系统", "OA审批平台"] },
+            { id: "usr_d1", userName: "14810（郝星伍）", isVip: false, department: "/本地用户/安全BG/零信任", ipLocation: "202.108.22.5 (电信-长沙)", experience: "差", terminals: ["WIN-DESK-88--WIN-YZ", "iPhone 15 Pro", "MacBook Air"], terminalUsages: [{ name: "WIN-DESK-88--WIN-YZ", hits: 14 }, { name: "iPhone 15 Pro", hits: 6 }, { name: "MacBook Air", hits: 2 }], ipUsages: [{ ip: "202.108.22.5", location: "电信-长沙", hits: 16 }, { ip: "10.24.8.31", location: "企业内网-长沙", hits: 5 }], pop: "POP (香港)", popUsages: [{ name: "POP (香港)", hits: 15 }, { name: "POP (新加坡)", hits: 7 }], linkUsages: [{ name: "POP (香港) — GW 连接器", hits: 15, experience: "差" }, { name: "POP (新加坡) — GW 连接器", hits: 7, experience: "正常" }], appCount: 9, probeAppCount: 9, degradedApps: ["Salesforce"] },
+            { id: "usr_d2", userName: "63728（王浩）", isVip: false, department: "/本地用户/安全BG/零信任", ipLocation: "183.14.5.12 (移动-深圳)", experience: "差", terminals: ["WIN-DESK-62--OKP", "iPad Air", "Mate 60 Pro"], terminalUsages: [{ name: "WIN-DESK-62--OKP", hits: 11 }, { name: "iPad Air", hits: 4 }, { name: "Mate 60 Pro", hits: 3 }], ipUsages: [{ ip: "183.14.5.12", location: "移动-深圳", hits: 13 }, { ip: "112.90.7.88", location: "联通-深圳", hits: 4 }], pop: "POP (新加坡)", popUsages: [{ name: "POP (新加坡)", hits: 12 }, { name: "POP (深圳)", hits: 6 }], linkUsages: [{ name: "华南-深圳POP01 — GW 连接器01", hits: 9, experience: "差" }, { name: "POP (新加坡) — GW 连接器01", hits: 8, experience: "一般" }], appCount: 15, probeAppCount: 15, degradedApps: ["Salesforce", "Teams", "Yahoo"] },
+            { id: "usr_d3", userName: "84261（柯特）", isVip: false, department: "/国内市场体系/华东区", ipLocation: "119.12.8.20 (联通-深圳)", experience: "差", terminals: ["WIN-DESK-97JUA-OKP"], pop: "POP (新加坡)", linkUsages: [{ name: "华南-深圳POP01 — GW 连接器01", hits: 10, experience: "差" }, { name: "华东-上海POP02 — GW 连接器02", hits: 5, experience: "差" }], appCount: 11, probeAppCount: 11, degradedApps: ["Yahoo", "内部 CRM 系统", "OA审批平台"] },
             { id: "usr_d4", userName: "35627（黎维祁）", isVip: false, department: "/本地用户/安全BG/零信任", ipLocation: "202.108.22.8 (电信-长沙)", experience: "一般", terminals: ["MacBook Air"], pop: "POP (成都)", appCount: 7, degradedApps: ["Yahoo"] },
             { id: "usr_d5", userName: "15628（文惠辰）", isVip: false, department: "/本地用户/安全BG/零信任", ipLocation: "202.108.22.9 (电信-长沙)", experience: "一般", terminals: ["WIN-DESK-243JUA-OKP"], pop: "POP (新加坡)", appCount: 14, degradedApps: [] }
           ];
 
-          if (window.initDemBranchData) this.branches = window.initDemBranchData();
+          // 分支链路明细：一个分支可能经多条链路，used 次数 + 该链路自身体验（体验差的链路才会进“体验差的链路”列）
+          const branchLinks = {
+            br_000: [{ name: '马尼拉POP — 总部AF', hits: 14, experience: '差' }, { name: '新加坡POP — 总部AF', hits: 6, experience: '一般' }],
+            br_001: [{ name: '西安POP — 总部AF', hits: 18, experience: '差' }, { name: '北京POP — 总部AF', hits: 4, experience: '正常' }],
+            br_002: [{ name: '西安POP — 总部AF', hits: 16, experience: '差' }, { name: '武汉POP — 总部AF', hits: 3, experience: '差' }],
+            br_003: [{ name: '广州POP — 总部AF', hits: 12, experience: '差' }, { name: '深圳POP — 总部AF', hits: 6, experience: '差' }]
+          };
+          if (window.initDemBranchData) {
+            this.branches = window.initDemBranchData().map(b => (
+              branchLinks[b.id] ? { ...b, linkUsages: branchLinks[b.id] } : b
+            ));
+          }
           let baseUsers = window.initDemUserData ? window.initDemUserData() : [];
 
           // 45232 与 23422 身份互换：名字 / 部门 / 终端 / IP / POP 随人名走，应用数与排障剧本保持原样
@@ -758,7 +802,21 @@
           ));
 
           this.users = [...designUsers, ...baseUsers];
-          if (window.initDemAppData) this.apps = window.initDemAppData();
+
+          // 应用维度的体验差用户 / 分支对象清单：数量与表格数字严格一致，供数字悬浮查看
+          const degradedUserPool = ['10082（张伟）', '10245（李娜）', '10892（王强）', '10118（钱芳）', '10443（吴刚）', '10689（郑洋）', '10920（陈磊）', '14810（郝星伍）', '63728（王浩）', '84261（柯特）', '45232（Maria）', '15628（文惠辰）'];
+          const degradedBranchPool = ['西安研发中心', '武汉分公司', '广州分公司', '深圳分公司', '上海分公司', '成都运营中心', '南京分公司', '杭州分公司', '北京总部', '天津办事处', '青岛分公司', '长沙运营中心'];
+          const pickNames = (pool, count) => {
+            const total = Math.max(0, Number(count) || 0);
+            return Array.from({ length: total }, (_, i) => pool[i % pool.length]);
+          };
+          if (window.initDemAppData) {
+            this.apps = window.initDemAppData().map(a => ({
+              ...a,
+              degradedUserNames: pickNames(degradedUserPool, a.degradedUsers),
+              degradedBranchNames: pickNames(degradedBranchPool, a.degradedBranches)
+            }));
+          }
 
           this.contentTab = '分支'; // 默认进入“站点分支”tab
 
@@ -796,14 +854,15 @@
               (b.location && b.location.toLowerCase().includes(query)) ||
               (b.city && b.city.toLowerCase().includes(query)) ||
               (b.egressIp && b.egressIp.toLowerCase().includes(query)) ||
-              (b.pop && b.pop.toLowerCase().includes(query));
+              (b.pop && b.pop.toLowerCase().includes(query)) ||
+              this.getObjectLinkUsages(b, '分支').some(t => (t.name || '').toLowerCase().includes(query));
 
             const matchExp = this.branchSelectedExp.length === 0 || this.branchSelectedExp.includes(b.experience);
             const matchLoc = this.branchSelectedLoc.length === 0 || this.branchSelectedLoc.some(loc => (b.location && b.location.includes(loc)) || (b.city && b.city.includes(loc)));
             const matchPop = this.branchSelectedPop.length === 0 || this.branchSelectedPop.some(pop => b.pop && b.pop.includes(pop));
-            const matchLink = this.branchSelectedLink.length === 0 || this.branchSelectedLink.includes(this.getObjectLink(b, '分支'));
+            const matchLink = this.branchSelectedLink.length === 0 || this.getPoorLinkUsages(b, '分支').some(item => this.branchSelectedLink.includes(item.name));
             const ff = this.featureFilter;
-            const matchFeature = !ff || (b.experience === '差' && this.getObjectAttr(b, '分支', ff.group) === ff.value);
+            const matchFeature = this.matchFeatureFilter(b, '分支', ff);
 
             return matchSearch && matchExp && matchLoc && matchPop && matchLink && matchFeature;
           });
@@ -840,20 +899,26 @@
 
           const list = (this.users || []).filter(u => {
             const query = (this.userSearchQuery || '').trim().toLowerCase();
+            const multiTexts = []
+              .concat((u.terminalUsages || []).map(t => t.name))
+              .concat((u.ipUsages || []).map(t => `${t.ip} ${t.location || ''}`))
+              .concat((u.popUsages || []).map(t => t.name))
+              .concat(this.getObjectLinkUsages(u, '用户').map(t => t.name));
             const matchSearch = !query || 
               (u.userName && u.userName.toLowerCase().includes(query)) ||
               (u.department && u.department.toLowerCase().includes(query)) ||
               (u.ipLocation && u.ipLocation.toLowerCase().includes(query)) ||
               (u.pop && u.pop.toLowerCase().includes(query)) ||
               (u.terminals && u.terminals.some(t => t.toLowerCase().includes(query))) ||
-              (u.degradedApps && u.degradedApps.some(a => a.toLowerCase().includes(query)));
+              (u.degradedApps && u.degradedApps.some(a => a.toLowerCase().includes(query))) ||
+              multiTexts.some(t => t.toLowerCase().includes(query));
 
             const matchExp = this.userSelectedExp.length === 0 || this.userSelectedExp.includes(u.experience);
-            const matchLoc = this.userSelectedLoc.length === 0 || this.userSelectedLoc.some(loc => (u.ipLocation && u.ipLocation.includes(loc)) || (u.city && u.city.includes(loc)));
-            const matchPop = this.userSelectedPop.length === 0 || this.userSelectedPop.some(pop => u.pop && u.pop.includes(pop));
-            const matchLink = this.userSelectedLink.length === 0 || this.userSelectedLink.includes(this.getObjectLink(u, '用户'));
+            const matchLoc = this.userSelectedLoc.length === 0 || this.userSelectedLoc.some(loc => (u.ipLocation && u.ipLocation.includes(loc)) || (u.city && u.city.includes(loc)) || (u.ipUsages || []).some(item => (item.location || '').includes(loc)));
+            const matchPop = this.userSelectedPop.length === 0 || this.userSelectedPop.some(pop => (u.pop && u.pop.includes(pop)) || (u.popUsages || []).some(item => (item.name || '').includes(pop)));
+            const matchLink = this.userSelectedLink.length === 0 || this.getPoorLinkUsages(u, '用户').some(item => this.userSelectedLink.includes(item.name));
             const ff = this.featureFilter;
-            const matchFeature = !ff || (u.experience === '差' && this.getObjectAttr(u, '用户', ff.group) === ff.value);
+            const matchFeature = this.matchFeatureFilter(u, '用户', ff);
 
             return matchSearch && matchExp && matchLoc && matchPop && matchLink && matchFeature;
           });
@@ -879,12 +944,14 @@
           }
         },
 
-        // 表头筛选可选项（与列内容一致）
+        // 表头筛选可选项（与列内容一致：仅列出体验差的链路）
         get branchLinkOptions() {
-          return [...new Set((this.branches || []).map(b => this.getObjectLink(b, '分支')).filter(Boolean))];
+          const names = (this.branches || []).flatMap(b => this.getPoorLinkUsages(b, '分支').map(item => item.name));
+          return [...new Set(names.filter(Boolean))];
         },
         get userLinkOptions() {
-          return [...new Set((this.users || []).map(u => this.getObjectLink(u, '用户')).filter(Boolean))];
+          const names = (this.users || []).flatMap(u => this.getPoorLinkUsages(u, '用户').map(item => item.name));
+          return [...new Set(names.filter(Boolean))];
         },
 
         formatIpLocation(ipLoc) {
@@ -1023,6 +1090,110 @@
             showMore: true, 
             fullText: apps.join('、') 
           };
+        },
+
+        // --- 多值字段渲染：默认最高频项 + 其余以 +N 收起，悬浮提示按频次降序列出全部对象（前三项标注为高频） ---
+        formatUsageTitle(usages, labelFn) {
+          return (usages || []).map((item, idx) => {
+            const label = labelFn ? labelFn(item) : item.name;
+            const flag = (idx < 3 && usages.length > 3) ? '【高频】' : '';
+            return `${flag}${label} ×${item.hits || 1}`;
+          }).join('\n');
+        },
+        getUserTerminalCell(u) {
+          const list = (u && Array.isArray(u.terminalUsages) && u.terminalUsages.length)
+            ? u.terminalUsages
+            : ((u && Array.isArray(u.terminals) && u.terminals.length)
+                ? u.terminals.map((name, idx) => ({ name: name, hits: u.terminals.length - idx }))
+                : []);
+          if (!list.length) {
+            const single = (u && u.terminalName) ? u.terminalName : '-';
+            return { text: single, rest: 0, title: single };
+          }
+          const sorted = list.slice().sort((a, b) => (b.hits || 0) - (a.hits || 0));
+          return {
+            text: sorted[0].name,
+            rest: sorted.length - 1,
+            title: this.formatUsageTitle(sorted)
+          };
+        },
+        getUserIpCell(u) {
+          const list = (u && Array.isArray(u.ipUsages) && u.ipUsages.length)
+            ? u.ipUsages
+            : ((u && u.ipLocation) ? [Object.assign({ hits: 1 }, this.formatIpLocation(u.ipLocation))] : []);
+          if (!list.length) return { ip: '-', location: '', rest: 0, title: '-' };
+          const sorted = list.slice().sort((a, b) => (b.hits || 0) - (a.hits || 0));
+          const first = sorted[0];
+          return {
+            ip: first.ip || '-',
+            location: first.location || '',
+            rest: sorted.length - 1,
+            title: this.formatUsageTitle(sorted, item => `${item.ip || '-'}${item.location ? ' ' + item.location : ''}`)
+          };
+        },
+        getUserPopCell(u) {
+          const list = (u && Array.isArray(u.popUsages) && u.popUsages.length)
+            ? u.popUsages
+            : ((u && u.pop) ? [{ name: u.pop, hits: 1 }] : []);
+          if (!list.length) return { text: '-', rest: 0, title: '-' };
+          const sorted = list.slice().sort((a, b) => (b.hits || 0) - (a.hits || 0));
+          return {
+            text: this.formatCityName(sorted[0].name) || '-',
+            rest: sorted.length - 1,
+            title: this.formatUsageTitle(sorted, item => this.formatCityName(item.name))
+          };
+        },
+        // 体验差的链路列：首条 + 其余 +N，悬浮列出全部差链路及使用频次
+        getPoorLinkCell(o, type) {
+          const list = this.getPoorLinkUsages(o, type);
+          if (!list.length) return { text: '-', rest: 0, title: '无体验差的链路', empty: true };
+          return {
+            text: list[0].name,
+            rest: list.length - 1,
+            title: this.formatUsageTitle(list),
+            empty: false
+          };
+        },
+        // 对象清单悬浮提示：最多列 8 个，其余以“等 N 个”收尾
+        formatObjectNameTitle(names, unit) {
+          const list = (names || []).filter(Boolean);
+          if (!list.length) return '';
+          const head = list.slice(0, 8);
+          const lines = head.slice();
+          if (list.length > head.length) lines.push(`等 ${list.length} 个${unit}`);
+          return lines.join('\n');
+        },
+
+        // --- 表格悬浮提示：自定义即时浮层（不使用浏览器原生 title，避免 1s+ 延迟） ---
+        hoverTip: { show: false, text: '', x: 0, y: 0 },
+        showHoverTip(e, text) {
+          if (!text) return;
+          this.hoverTip.text = text;
+          this.hoverTip.x = e.clientX + 14;
+          this.hoverTip.y = e.clientY + 18;
+          this.hoverTip.show = true;
+          this.$nextTick(() => this.clampHoverTip(e.clientX, e.clientY));
+        },
+        moveHoverTip(e) {
+          if (!this.hoverTip.show) return;
+          this.hoverTip.x = e.clientX + 14;
+          this.hoverTip.y = e.clientY + 18;
+          this.clampHoverTip(e.clientX, e.clientY);
+        },
+        // 按浮层实测宽高做边界修正：右侧放不下翻到左侧，底部放不下翻到上方
+        clampHoverTip(cx, cy) {
+          const el = [...document.querySelectorAll('.dem-hover-tip')].find(node => getComputedStyle(node).display !== 'none');
+          if (!el) return;
+          const r = el.getBoundingClientRect();
+          let x = cx + 14;
+          let y = cy + 18;
+          if (x + r.width > window.innerWidth - 8) x = cx - r.width - 14;
+          if (y + r.height > window.innerHeight - 8) y = cy - r.height - 10;
+          this.hoverTip.x = Math.max(8, x);
+          this.hoverTip.y = Math.max(8, y);
+        },
+        hideHoverTip() {
+          this.hoverTip.show = false;
         },
 
         goToVipDetail(itemOrName, type) {
@@ -1491,10 +1662,10 @@
                   <span class="text-[12px] font-bold text-[#262626] whitespace-nowrap">体验异常对象集中位置</span>
                     <span class="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border border-[#1C6EFF] text-[9px] leading-none text-[#1C6EFF] cursor-help select-none flex-shrink-0" title="查看维度口径说明">i</span>
                     <!-- 悬浮解释：维度口径 -->
-                    <div class="hidden group-hover/featinfo:block absolute left-0 top-[22px] z-50 w-[320px] p-2.5 bg-white border border-[#E2E8F0] rounded-[4px] shadow-lg text-[11px] leading-[18px] text-[#5C6E86] font-normal whitespace-normal">
-                      <div><span class="font-medium text-[#262626]">同链路</span>：体验差的对象共用同一条接入链路</div>
-                      <div class="mt-1"><span class="font-medium text-[#262626]">同 POP</span>：体验差的对象从同一个 POP 接入</div>
-                      <div class="mt-1"><span class="font-medium text-[#262626]">同归属地</span>：体验差的对象 IP 归属地相同</div>
+                    <div class="hidden group-hover/featinfo:block absolute left-0 top-[22px] z-50 w-[340px] p-2.5 bg-white border border-[#E2E8F0] rounded-[4px] shadow-lg text-[11px] leading-[18px] text-[#5C6E86] font-normal whitespace-normal">
+                      <div><span class="font-medium text-[#262626]">同归属地</span>：体验差的对象 IP 归属地相同</div>
+                      <div class="mt-1"><span class="font-medium text-[#262626]">同接入POP</span>：体验差的对象从同一个 POP 接入</div>
+                      <div class="mt-1"><span class="font-medium text-[#262626]">同链路</span>：体验差的对象在访问过程中经过同一条体验差的链路（同一对象经过多条体验差的链路时，每条各计一次）</div>
                     </div>
                   </div>
 
@@ -1551,7 +1722,7 @@
                          class="h-[30px] px-2.5 rounded-[4px] flex items-center gap-2 min-w-0 cursor-pointer transition-colors"
                          :class="isFeatureActive(item) ? 'bg-[#E6F4FF] ring-1 ring-[#1C6EFF]' : 'bg-[#F7F9FC] hover:bg-[#F0F5FF]'"
                          :title="(isFeatureActive(item) ? '再次点击取消筛选：' : '点击筛出该位置下体验为差的对象：') + item.typeLabel + ' ' + item.value + '（' + item.users + ' 人 / ' + item.branches + ' 个分支）'">
-                      <span class="h-4 w-[52px] px-1 inline-flex items-center justify-center rounded-[2px] bg-[#EEF2F7] text-[10px] text-[#64748B] flex-shrink-0" x-text="item.typeLabel"></span>
+                      <span class="h-4 w-[68px] px-1 inline-flex items-center justify-center rounded-[2px] bg-[#EEF2F7] text-[10px] text-[#64748B] flex-shrink-0" x-text="item.typeLabel"></span>
                       <span class="text-[12px] text-[#262626] truncate flex-1 min-w-0" x-text="item.value"></span>
                       <span class="text-[12px] text-[#A1A7B3] whitespace-nowrap flex-shrink-0">
                         <span class="font-outfit" x-text="item.users"></span>人/<span class="font-outfit" x-text="item.branches"></span>分支
@@ -1956,12 +2127,12 @@
                     </div>
                   </div>
 
-                  <!-- 4. 链路多选（接入链路两端节点描述，不做好坏定性） -->
+                  <!-- 4. 体验差的链路多选（仅列举访问过程中体验为差的链路） -->
                   <div class="relative inline-flex items-center group w-[188px]" x-data="{ open: false }" @click.outside="open = false">
                     <div @click="open = !open"
                          class="h-8 w-full px-2 bg-white border border-[#D3D7DE] rounded-[2px] hover:border-[#1C6EFF] transition-colors flex items-center justify-between cursor-pointer select-none text-xs">
                       <template x-if="branchSelectedLink.length === 0">
-                        <span class="text-[#A1A7B3] font-normal truncate">全部链路</span>
+                        <span class="text-[#A1A7B3] font-normal truncate">全部体验差的链路</span>
                       </template>
                       <template x-if="branchSelectedLink.length > 0">
                         <div class="flex items-center gap-1 overflow-hidden">
@@ -2047,9 +2218,9 @@
                         </div>
                       </th>
                       <th class="w-24">主要接入POP</th>
-                      <th class="w-48">链路</th>
-                      <th class="w-24 num-col">访问应用数</th>
-                      <th class="w-36">体验受损应用</th>
+                      <th class="w-48">体验差的链路</th>
+                      <th class="w-36">体验差的应用</th>
+                      <th class="w-24 num-col">探测应用数</th>
                       <th class="w-16 text-center">操作</th>
                     </tr>
                   </thead>
@@ -2068,19 +2239,23 @@
                         <td><span :class="getExpBadgeClass(branch.experience)"><span x-text="branch.experience"></span></span></td>
                         <!-- 6. 主要接入POP -->
                         <td><span class="text-[#2F3540] font-normal text-xs" x-text="branch.pop || formatCityName(branch.pop)"></span></td>
-                        <!-- 7. 链路（纯描述：接入链路两端节点，不做好坏定性） -->
-                        <td>
-                          <div class="flex items-center gap-1 min-w-0" :title="getObjectLinks(branch, '分支').join('\n')">
-                            <span class="text-xs text-[#2F3540] whitespace-nowrap truncate max-w-[172px]" x-text="getObjectLinks(branch, '分支')[0] || '-'"></span>
-                            <span class="text-[10px] text-[#8A92A1] font-outfit flex-shrink-0" x-show="getObjectLinks(branch, '分支').length > 1"
-                                  x-text="'+' + (getObjectLinks(branch, '分支').length - 1)"></span>
+                        <!-- 7. 体验差的链路（仅展示访问过程中体验为差的链路，首条 + 其余 +N） -->
+                        <td x-data="getPoorLinkCell(branch, '分支')">
+                          <div class="flex items-center gap-1 min-w-0 cursor-help"
+                               @mouseenter="showHoverTip($event, title)"
+                               @mousemove="moveHoverTip($event)"
+                               @mouseleave="hideHoverTip()">
+                            <span class="text-xs whitespace-nowrap truncate max-w-[168px]" :class="empty ? 'text-[#8A92A1]' : 'text-[#2F3540]'" x-text="text"></span>
+                            <span class="inline-flex items-center justify-center h-4 px-1 rounded-[2px] bg-[#F0F2F5] text-[10px] text-[#64748B] font-outfit flex-shrink-0"
+                                  x-show="rest > 0" x-text="'+' + rest"></span>
                           </div>
                         </td>
-                        <!-- 8. 访问应用数 -->
-                        <td class="num-col font-outfit font-normal text-[#2F3540] text-xs" x-text="branch.appCount || 12"></td>
-                        <!-- 8. 体验受损应用 -->
+                        <!-- 8. 体验差的应用 -->
                         <td>
-                          <div class="truncate max-w-[140px]" :title="formatDegradedApps(branch.degradedApps).fullText">
+                          <div class="truncate max-w-[140px] cursor-help"
+                               @mouseenter="showHoverTip($event, formatObjectNameTitle(branch.degradedApps, '应用'))"
+                               @mousemove="moveHoverTip($event)"
+                               @mouseleave="hideHoverTip()">
                             <template x-if="!formatDegradedApps(branch.degradedApps).isDegraded"><span class="text-[#8A92A1]">-</span></template>
                             <template x-if="formatDegradedApps(branch.degradedApps).isDegraded">
                               <span class="text-[#2F3540] font-normal text-xs">
@@ -2092,6 +2267,8 @@
                             </template>
                           </div>
                         </td>
+                        <!-- 9. 探测应用数 -->
+                        <td class="num-col font-outfit font-normal text-[#2F3540] text-xs" x-text="branch.probeAppCount || branch.appCount || 12"></td>
                         <!-- 10. 操作 -->
                         <td class="text-center"><a href="javascript:void(0)" @click="goToBranchDetail(branch)" class="dem-table-action-link">详情</a></td>
                       </tr>
@@ -2346,7 +2523,7 @@
                     <div x-show="open" 
                          x-cloak 
                          class="absolute left-0 top-full mt-1 min-w-[188px] max-h-[220px] overflow-y-auto bg-white border border-[#E1E5EB] shadow-lg rounded-[2px] py-1 z-50 text-xs text-[#2F3540] custom-scrollbar">
-                      <template x-for="opt in ['POP (香港)', 'POP (新加坡)', 'POP (成都)', '马尼拉POP01', '华北-北京POP01', '华东-上海POP02', '华南-深圳POP01', '华南-广州POP01', '西南-成都POP01', '西北-西安POP01', '华东-南京POP01', '华中-武汉POP01']" :key="opt">
+                      <template x-for="opt in ['POP (香港)', 'POP (新加坡)', 'POP (成都)', 'POP (深圳)', '马尼拉POP01', '华北-北京POP01', '华东-上海POP02', '华南-深圳POP01', '华南-广州POP01', '西南-成都POP01', '西北-西安POP01', '华东-南京POP01', '华中-武汉POP01']" :key="opt">
                         <label class="flex items-center gap-2 px-3 py-1.5 hover:bg-[#F4F6F9] cursor-pointer select-none">
                           <input type="checkbox" :value="opt" x-model="userSelectedPop" @change="userCurrentPage = 1" class="rounded border-gray-300 text-[#1C6EFF] focus:ring-0 w-3.5 h-3.5">
                           <span x-text="opt"></span>
@@ -2355,12 +2532,12 @@
                     </div>
                   </div>
 
-                  <!-- 4. 链路多选（接入链路两端节点描述，不做好坏定性） -->
+                  <!-- 4. 体验差的链路多选（仅列举访问过程中体验为差的链路） -->
                   <div class="relative inline-flex items-center group w-[188px]" x-data="{ open: false }" @click.outside="open = false">
                     <div @click="open = !open"
                          class="h-8 w-full px-2 bg-white border border-[#D3D7DE] rounded-[2px] hover:border-[#1C6EFF] transition-colors flex items-center justify-between cursor-pointer select-none text-xs">
                       <template x-if="userSelectedLink.length === 0">
-                        <span class="text-[#A1A7B3] font-normal truncate">全部链路</span>
+                        <span class="text-[#A1A7B3] font-normal truncate">全部体验差的链路</span>
                       </template>
                       <template x-if="userSelectedLink.length > 0">
                         <div class="flex items-center gap-1 overflow-hidden">
@@ -2430,15 +2607,14 @@
 
               <!-- 数据表格 -->
               <div class="dem-table-xscroll pl-[2px]">
-                <table class="dem-table min-w-[1260px]">
+                <table class="dem-table min-w-[1300px]">
                   <thead>
                     <tr>
                       <th class="w-32 whitespace-nowrap">用户</th>
                       <th class="w-40">所属组织架构</th>
-                      <th class="w-36">最近使用终端</th>
+                      <th class="w-40">最近使用终端</th>
                       <th class="w-36">IP 归属地</th>
-                      <th class="w-24">最近接入 POP</th>
-                      <th class="w-48">链路</th>
+                      <th class="w-28">最近接入 POP</th>
                       <th class="w-20 cursor-pointer select-none hover:text-[#1C6EFF] transition-colors" @click="toggleUserExpSort()">
                         <div class="inline-flex items-center gap-1.5">
                           <span>访问体验</span>
@@ -2448,16 +2624,9 @@
                           </div>
                         </div>
                       </th>
-                      <th class="w-24 num-col cursor-pointer select-none hover:text-[#1C6EFF] transition-colors" @click="toggleUserExpSort()">
-                        <div class="inline-flex items-center justify-end gap-1.5 w-full">
-                          <span>访问应用数</span>
-                          <div class="inline-flex flex-col gap-[2px] flex-shrink-0">
-                            <svg class="w-2 h-1.5 text-[#A1A7B3]" viewBox="0 0 8 6" fill="currentColor"><path d="M4 0L8 6H0L4 0Z"/></svg>
-                            <svg class="w-2 h-1.5 text-[#A1A7B3]" viewBox="0 0 8 6" fill="currentColor"><path d="M4 6L0 0H8L4 6Z"/></svg>
-                          </div>
-                        </div>
-                      </th>
-                      <th class="w-36">体验受损应用</th>
+                      <th class="w-48">体验差的链路</th>
+                      <th class="w-36">体验差的应用</th>
+                      <th class="w-24 num-col">探测应用数</th>
                       <th class="w-16 text-center dem-col-frozen">操作</th>
                     </tr>
                   </thead>
@@ -2469,35 +2638,66 @@
                           <a href="javascript:void(0)" @click="goToUserDetail(user)" class="dem-table-action-link font-normal text-xs" x-text="user.userName"></a>
                         </td>
                         <!-- 2. 所属组织架构 -->
-                        <td><div class="truncate max-w-[156px] text-xs text-[#3D3D3D] whitespace-nowrap block" :title="user.department" x-text="user.department"></div></td>
-                        <!-- 3. 最近使用终端 -->
-                        <td><div class="truncate max-w-[130px] text-xs font-mono text-[#3D3D3D] whitespace-nowrap block" :title="user.terminals ? user.terminals.join('、') : (user.terminalName || 'WIN-DESK-88--WIN-YZ')" x-text="user.terminals ? user.terminals.join('、') : (user.terminalName || 'WIN-DESK-88--WIN-YZ')"></div></td>
-                        <!-- 4. IP 归属地 -->
-                        <td>
-                          <div class="flex flex-col justify-center leading-snug py-0.5">
-                            <span class="font-mono text-xs text-[#2F3540]" x-text="formatIpLocation(user.ipLocation).ip"></span>
-                            <template x-if="formatIpLocation(user.ipLocation).location">
-                              <span class="text-[11px] text-[#8C8C8C] leading-tight mt-0.5" x-text="formatIpLocation(user.ipLocation).location"></span>
-                            </template>
+                        <td><div class="truncate max-w-[156px] text-xs text-[#3D3D3D] whitespace-nowrap block cursor-help"
+                                   @mouseenter="showHoverTip($event, user.department)"
+                                   @mousemove="moveHoverTip($event)"
+                                   @mouseleave="hideHoverTip()"
+                                   x-text="user.department"></div></td>
+                        <!-- 3. 最近使用终端（多值：默认最高频，其余 +N，悬浮查看全部） -->
+                        <td x-data="getUserTerminalCell(user)">
+                          <div class="flex items-center gap-1 min-w-0 w-full cursor-help"
+                               @mouseenter="showHoverTip($event, title)"
+                               @mousemove="moveHoverTip($event)"
+                               @mouseleave="hideHoverTip()">
+                            <span class="truncate flex-1 min-w-0 text-xs font-mono text-[#3D3D3D] whitespace-nowrap" x-text="text"></span>
+                            <span class="inline-flex items-center justify-center h-4 px-1 rounded-[2px] bg-[#F0F2F5] text-[10px] text-[#64748B] font-outfit flex-shrink-0"
+                                  x-show="rest > 0" x-text="'+' + rest"></span>
                           </div>
                         </td>
-                        <!-- 5. 最近接入 POP -->
-                        <td><span class="text-[#3D3D3D] font-normal text-xs" x-text="formatCityName(user.pop)"></span></td>
-                        <!-- 5.1 链路（纯描述：接入链路两端节点，不做好坏定性） -->
-                        <td>
-                          <div class="flex items-center gap-1 min-w-0" :title="getObjectLinks(user, '用户').join('\n')">
-                            <span class="text-xs text-[#3D3D3D] whitespace-nowrap truncate max-w-[172px]" x-text="getObjectLinks(user, '用户')[0] || '-'"></span>
-                            <span class="text-[10px] text-[#8A92A1] font-outfit flex-shrink-0" x-show="getObjectLinks(user, '用户').length > 1"
-                                  x-text="'+' + (getObjectLinks(user, '用户').length - 1)"></span>
+                        <!-- 4. IP 归属地（多值：默认最高频，其余 +N，悬浮查看全部） -->
+                        <td x-data="getUserIpCell(user)">
+                          <div class="flex flex-col justify-center leading-snug py-0.5 cursor-help"
+                               @mouseenter="showHoverTip($event, title)"
+                               @mousemove="moveHoverTip($event)"
+                               @mouseleave="hideHoverTip()">
+                            <span class="flex items-center gap-1 min-w-0">
+                              <span class="font-mono text-xs text-[#2F3540] truncate" x-text="ip"></span>
+                              <span class="inline-flex items-center justify-center h-4 px-1 rounded-[2px] bg-[#F0F2F5] text-[10px] text-[#64748B] font-outfit flex-shrink-0"
+                                    x-show="rest > 0" x-text="'+' + rest"></span>
+                            </span>
+                            <span x-show="location" class="text-[11px] text-[#8C8C8C] leading-tight mt-0.5" x-text="location"></span>
+                          </div>
+                        </td>
+                        <!-- 5. 最近接入 POP（多值：默认最高频，其余 +N，悬浮查看全部） -->
+                        <td x-data="getUserPopCell(user)">
+                          <div class="flex items-center gap-1 min-w-0 cursor-help"
+                               @mouseenter="showHoverTip($event, title)"
+                               @mousemove="moveHoverTip($event)"
+                               @mouseleave="hideHoverTip()">
+                            <span class="truncate text-[#3D3D3D] font-normal text-xs" x-text="text"></span>
+                            <span class="inline-flex items-center justify-center h-4 px-1 rounded-[2px] bg-[#F0F2F5] text-[10px] text-[#64748B] font-outfit flex-shrink-0"
+                                  x-show="rest > 0" x-text="'+' + rest"></span>
                           </div>
                         </td>
                         <!-- 6. 访问体验 -->
                         <td><span :class="getExpBadgeClass(user.experience)"><span x-text="user.experience"></span></span></td>
-                        <!-- 7. 访问应用数 -->
-                        <td class="num-col font-outfit font-normal text-[#2F3540]" x-text="user.appCount || (user.degradedApps ? user.degradedApps.length + 5 : 8)"></td>
-                        <!-- 8. 体验受损应用 (精简宽度, 首个应用 + 等 X 个) -->
+                        <!-- 7. 体验差的链路（仅展示访问过程中体验为差的链路，首条 + 其余 +N） -->
+                        <td x-data="getPoorLinkCell(user, '用户')">
+                          <div class="flex items-center gap-1 min-w-0 cursor-help"
+                               @mouseenter="showHoverTip($event, title)"
+                               @mousemove="moveHoverTip($event)"
+                               @mouseleave="hideHoverTip()">
+                            <span class="text-xs whitespace-nowrap truncate max-w-[168px]" :class="empty ? 'text-[#8A92A1]' : 'text-[#3D3D3D]'" x-text="text"></span>
+                            <span class="inline-flex items-center justify-center h-4 px-1 rounded-[2px] bg-[#F0F2F5] text-[10px] text-[#64748B] font-outfit flex-shrink-0"
+                                  x-show="rest > 0" x-text="'+' + rest"></span>
+                          </div>
+                        </td>
+                        <!-- 8. 体验差的应用 (精简宽度, 首个应用 + 等 X 个，悬浮查看对象清单) -->
                         <td>
-                          <div class="truncate max-w-[140px]" :title="formatDegradedApps(user.degradedApps).fullText">
+                          <div class="truncate max-w-[140px] cursor-help"
+                               @mouseenter="showHoverTip($event, formatObjectNameTitle(user.degradedApps, '应用'))"
+                               @mousemove="moveHoverTip($event)"
+                               @mouseleave="hideHoverTip()">
                             <template x-if="!formatDegradedApps(user.degradedApps).isDegraded">
                               <span class="text-[#5C6270]">-</span>
                             </template>
@@ -2511,6 +2711,8 @@
                             </template>
                           </div>
                         </td>
+                        <!-- 9. 探测应用数 -->
+                        <td class="num-col font-outfit font-normal text-[#2F3540]" x-text="user.probeAppCount || user.appCount || (user.degradedApps ? user.degradedApps.length + 5 : 8)"></td>
                         <!-- 9. 操作 (一目了然) -->
                         <td class="text-center dem-col-frozen"><a href="javascript:void(0)" @click="goToUserDetail(user)" class="dem-table-action-link">详情</a></td>
                       </tr>
@@ -2811,8 +3013,8 @@
                           </div>
                         </div>
                       </th>
-                      <th class="w-32">受损/活跃用户</th>
-                      <th class="w-28">受损/活跃分支</th>
+                      <th class="w-28 num-col">体验差的用户</th>
+                      <th class="w-24 num-col">体验差的分支</th>
                       <th class="w-16 text-center">操作</th>
                     </tr>
                   </thead>
@@ -2831,21 +3033,23 @@
                         <td><span class="text-xs text-[#2F3540]" x-text="app.region || '-'"></span></td>
                         <!-- 5. 访问体验 -->
                         <td><span :class="getExpBadgeClass(app.experience)"><span x-text="app.experience"></span></span></td>
-                        <!-- 6. 受损/活跃用户 -->
-                        <td>
+                        <!-- 6. 体验差的用户（右对齐，悬浮查看具体用户对象） -->
+                        <td class="num-col cursor-help"
+                            @mouseenter="showHoverTip($event, formatObjectNameTitle(app.degradedUserNames, '用户'))"
+                            @mousemove="moveHoverTip($event)"
+                            @mouseleave="hideHoverTip()">
                           <span class="text-xs">
                             <span :class="app.degradedUsers > 0 ? 'text-[#FF5752] font-semibold' : 'text-[#2F3540]'" x-text="app.degradedUsers"></span>
-                            <span class="text-[#8A92A1]"> / </span>
-                            <span class="text-[#2F3540]" x-text="app.activeUsers"></span>
                             <span class="text-[#8A92A1] ml-0.5">人</span>
                           </span>
                         </td>
-                        <!-- 7. 受损/活跃分支 -->
-                        <td>
+                        <!-- 7. 体验差的分支（右对齐，悬浮查看具体分支对象） -->
+                        <td class="num-col cursor-help"
+                            @mouseenter="showHoverTip($event, formatObjectNameTitle(app.degradedBranchNames, '分支'))"
+                            @mousemove="moveHoverTip($event)"
+                            @mouseleave="hideHoverTip()">
                           <span class="text-xs">
                             <span :class="app.degradedBranches > 0 ? 'text-[#FF5752] font-semibold' : 'text-[#2F3540]'" x-text="app.degradedBranches"></span>
-                            <span class="text-[#8A92A1]"> / </span>
-                            <span class="text-[#2F3540]" x-text="app.activeBranches || 8"></span>
                             <span class="text-[#8A92A1] ml-0.5">个</span>
                           </span>
                         </td>
@@ -3506,6 +3710,13 @@
           </div>
         </div>
       </div>
+      <!-- 悬浮提示浮层：teleport 到 body，避免被表格横向滚动容器裁剪 -->
+      <template x-teleport="body">
+        <div x-show="hoverTip.show" x-cloak
+             class="dem-hover-tip fixed z-[9999] pointer-events-none max-w-[300px] px-2.5 py-1.5 rounded-[4px] bg-[#1F2733] text-[11px] leading-[18px] text-white whitespace-pre-line shadow-[0_6px_16px_rgba(0,0,0,0.22)]"
+             :style="`left:${hoverTip.x}px; top:${hoverTip.y}px;`"
+             x-text="hoverTip.text"></div>
+      </template>
     </div>
     </template>
   </div>
