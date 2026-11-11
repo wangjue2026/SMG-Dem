@@ -284,6 +284,7 @@
         featurePage: 1,
         featureTopOptions: ['全部', '同归属地', '同接入POP', '同链路'],
         featureFilter: null, // { group, value } 点击某个集中位置后，下方分支表 / 用户表同步只显示该位置下体验为差的对象
+        featureFilterTarget: '全部', // '全部' 整行点击 = 两个清单都筛；'用户' / '分支' = 数字单独点击，只筛对应清单
         // 接入链路：两端节点 = 接入POP — 代理网关（分支场景为 接入POP — 总部AF）
         getObjectLink(o, type) {
           const pop = (o && o.pop ? String(o.pop) : '').trim();
@@ -334,6 +335,7 @@
           }
           return this.getObjectAttr(o, type, ff.group) === ff.value;
         },
+        // （集中位置的位置条件已回填到工具栏筛选器，过滤以工具栏为准）
         // TOP6 数据源：仅体验为“差”的分支 / 用户，按三种位置口径分组统计
         get featureItems() {
           const poorBranches = (this.branches || []).filter(b => b.experience === '差');
@@ -365,12 +367,24 @@
           return items;
         },
         toggleFeatureFilter(item) {
-          const cur = this.featureFilter;
-          const clearing = !!(cur && cur.group === item.group && cur.value === item.value);
+          this.applyFeatureFilter(item, '全部');
+        },
+        // 数字单独点击：只对“用户”或“分支”其中一个清单生效
+        toggleFeatureCount(item, target) {
+          if (!item) return;
+          const count = target === '用户' ? (item.users || 0) : (item.branches || 0);
+          if (!count) return;
+          this.applyFeatureFilter(item, target);
+        },
+        applyFeatureFilter(item, target) {
+          const cur = this.activeFeatureFilter;
+          const sameTarget = this.featureFilterTarget === target;
+          const clearing = !!(cur && cur.group === item.group && cur.value === item.value && sameTarget);
           this.featureFilter = clearing ? null : { group: item.group, value: item.value };
+          this.featureFilterTarget = clearing ? '全部' : target;
 
           // 应用位置筛选时同步清掉两个清单里会与之冲突的工具栏筛选与搜索，
-          // 保证清单行数与集中位置上的数字一致，不会因为残留筛选项而出现空表
+          // 再把本次口径回填到对应工具栏筛选器，保证清单行数与集中位置上的数字一致
           if (!clearing) {
             this.branchSelectedExp = [];
             this.branchSelectedLoc = [];
@@ -382,13 +396,62 @@
             this.userSelectedPop = [];
             this.userSelectedLink = [];
             this.userSearchQuery = '';
+            this.applyFeatureToToolbar(item, target);
+          } else {
+            this.clearFeatureToolbar(item);
           }
 
           this.branchCurrentPage = 1;
           this.userCurrentPage = 1;
           this.appCurrentPage = 1;
 
-          if (!clearing) this.focusFeatureDataTab(item);
+          if (clearing) return;
+
+          if (target === '用户' || target === '分支') {
+            this.contentTab = target;
+            this.$nextTick(() => {
+              const el = document.getElementById('home-bottom-content-area');
+              if (el) el.scrollIntoView({ behavior: 'smooth' });
+            });
+          } else {
+            this.focusFeatureDataTab(item);
+          }
+        },
+        clearFeatureFilterState() {
+          const cur = this.activeFeatureFilter;
+          if (cur) this.clearFeatureToolbar(cur);
+          this.featureFilter = null;
+          this.featureFilterTarget = '全部';
+          this.branchCurrentPage = 1;
+          this.userCurrentPage = 1;
+        },
+        // 把集中位置口径回填到工具栏筛选器（只回填本次作用的那一侧）
+        applyFeatureToToolbar(item, target) {
+          if (!item) return;
+          const toBranch = target !== '用户';
+          const toUser = target !== '分支';
+          if (item.group === '同归属地') {
+            if (toBranch) this.branchSelectedLoc = [item.value];
+            if (toUser) this.userSelectedLoc = [item.value];
+          } else if (item.group === '同接入POP') {
+            if (toBranch) this.branchSelectedPop = [item.value];
+            if (toUser) this.userSelectedPop = [item.value];
+          } else if (item.group === '同链路') {
+            if (toBranch) this.branchSelectedLink = [item.value];
+            if (toUser) this.userSelectedLink = [item.value];
+          }
+        },
+        // 取消集中位置筛选时，同步移除工具栏里由它回填的条件
+        clearFeatureToolbar(item) {
+          if (!item) return;
+          const targets = ({
+            '同归属地': [['branchSelectedLoc', 'userSelectedLoc']],
+            '同接入POP': [['branchSelectedPop', 'userSelectedPop']],
+            '同链路': [['branchSelectedLink', 'userSelectedLink']]
+          }[item.group] || [])[0] || [];
+          targets.forEach(key => {
+            this[key] = (this[key] || []).filter(v => v !== item.value);
+          });
         },
         // 点击集中位置后自动跳到有数据的 Tab（分支 / 用户），避免筛选后停在空清单上
         focusFeatureDataTab(item) {
@@ -402,13 +465,35 @@
             this.contentTab = '用户';
           }
         },
-        isFeatureActive(item) {
+        // 该侧（分支 / 用户）的工具栏是否仍带着集中位置回填的条件
+        isFeatureAppliedSide(side) {
           const cur = this.featureFilter;
-          return !!(cur && cur.group === item.group && cur.value === item.value);
+          if (!cur) return false;
+          const pair = ({
+            '同归属地': { '分支': this.branchSelectedLoc, '用户': this.userSelectedLoc },
+            '同接入POP': { '分支': this.branchSelectedPop, '用户': this.userSelectedPop },
+            '同链路': { '分支': this.branchSelectedLink, '用户': this.userSelectedLink }
+          }[cur.group]);
+          if (!pair) return false;
+          return ((side === '分支' ? pair['分支'] : pair['用户']) || []).indexOf(cur.value) > -1;
+        },
+        // 仍生效的集中位置筛选：任一侧工具栏条件还在才算激活，用户清空工具栏后自动失效
+        get activeFeatureFilter() {
+          const cur = this.featureFilter;
+          if (!cur) return null;
+          return (this.isFeatureAppliedSide('分支') || this.isFeatureAppliedSide('用户')) ? cur : null;
+        },
+        isFeatureActive(item, target) {
+          const cur = this.activeFeatureFilter;
+          if (!cur || cur.group !== item.group || cur.value !== item.value) return false;
+          return !target || this.featureFilterTarget === target;
         },
         get featureFilterLabel() {
-          const cur = this.featureFilter;
-          return cur ? `${cur.group} ${cur.value}` : '';
+          const cur = this.activeFeatureFilter;
+          if (!cur) return '';
+          if (this.featureFilterTarget === '用户') return `${cur.group} ${cur.value}，仅用户`;
+          if (this.featureFilterTarget === '分支') return `${cur.group} ${cur.value}，仅分支`;
+          return `${cur.group} ${cur.value}`;
         },
         get featureTopList() {
           const pool = this.featureTopDim === '全部'
@@ -861,8 +946,8 @@
             const matchLoc = this.branchSelectedLoc.length === 0 || this.branchSelectedLoc.some(loc => (b.location && b.location.includes(loc)) || (b.city && b.city.includes(loc)));
             const matchPop = this.branchSelectedPop.length === 0 || this.branchSelectedPop.some(pop => b.pop && b.pop.includes(pop));
             const matchLink = this.branchSelectedLink.length === 0 || this.getPoorLinkUsages(b, '分支').some(item => this.branchSelectedLink.includes(item.name));
-            const ff = this.featureFilter;
-            const matchFeature = this.matchFeatureFilter(b, '分支', ff);
+            // 位置条件已回填到工具栏筛选器，这里只需保证集中位置筛选生效时只保留体验为差的对象
+            const matchFeature = !this.isFeatureAppliedSide('分支') || b.experience === '差';
 
             return matchSearch && matchExp && matchLoc && matchPop && matchLink && matchFeature;
           });
@@ -917,8 +1002,8 @@
             const matchLoc = this.userSelectedLoc.length === 0 || this.userSelectedLoc.some(loc => (u.ipLocation && u.ipLocation.includes(loc)) || (u.city && u.city.includes(loc)) || (u.ipUsages || []).some(item => (item.location || '').includes(loc)));
             const matchPop = this.userSelectedPop.length === 0 || this.userSelectedPop.some(pop => (u.pop && u.pop.includes(pop)) || (u.popUsages || []).some(item => (item.name || '').includes(pop)));
             const matchLink = this.userSelectedLink.length === 0 || this.getPoorLinkUsages(u, '用户').some(item => this.userSelectedLink.includes(item.name));
-            const ff = this.featureFilter;
-            const matchFeature = this.matchFeatureFilter(u, '用户', ff);
+            // 位置条件已回填到工具栏筛选器，这里只需保证集中位置筛选生效时只保留体验为差的对象
+            const matchFeature = !this.isFeatureAppliedSide('用户') || u.experience === '差';
 
             return matchSearch && matchExp && matchLoc && matchPop && matchLink && matchFeature;
           });
@@ -944,6 +1029,23 @@
           }
         },
 
+        // 工具栏筛选选项：固定项 + 数据中出现的值 + 当前已选，保证集中位置回填的条件能在下拉中正常勾选
+        get branchLocOptions() {
+          const base = ['马尼拉', '长沙', '深圳', '北京', '上海', '广州', '成都', '西安', '南京', '武汉', '杭州', '天津', '重庆', '青岛'];
+          return [...new Set([...base, ...(this.branchSelectedLoc || []), ...(this.branches || []).map(b => b.city).filter(Boolean)])];
+        },
+        get branchPopOptions() {
+          const base = ['马尼拉POP', '西安POP', '武汉POP', '广州POP', '深圳POP', '上海POP', '北京POP', '成都POP', '南京POP', '香港POP'];
+          return [...new Set([...base, ...(this.branchSelectedPop || []), ...(this.branches || []).map(b => b.pop).filter(Boolean)])];
+        },
+        get userLocOptions() {
+          const base = ['马尼拉', '长沙', '深圳', '北京', '上海', '广州', '成都', '西安', '南京', '武汉', '杭州'];
+          return [...new Set([...base, ...(this.userSelectedLoc || []), ...(this.users || []).map(u => u.city).filter(Boolean)])];
+        },
+        get userPopOptions() {
+          const base = ['POP (香港)', 'POP (新加坡)', 'POP (成都)', 'POP (深圳)', '马尼拉POP01', '华北-北京POP01', '华东-上海POP02', '华南-深圳POP01', '华南-广州POP01', '西南-成都POP01', '西北-西安POP01', '华东-南京POP01', '华中-武汉POP01'];
+          return [...new Set([...base, ...(this.userSelectedPop || []), ...(this.users || []).map(u => u.pop).filter(Boolean)])];
+        },
         // 表头筛选可选项（与列内容一致：仅列出体验差的链路）
         get branchLinkOptions() {
           const names = (this.branches || []).flatMap(b => this.getPoorLinkUsages(b, '分支').map(item => item.name));
@@ -1328,6 +1430,23 @@
           window.location.href = `./DEM-应用详情.html?appId=${targetId}`;
         },
 
+        // 体验预警摘要条目 → 直接进入对应对象的详情（不再跳转体验预警模块）
+        openAlertTarget(type, keyword) {
+          const kw = String(keyword || '');
+          if (type === '应用') {
+            const app = (this.apps || []).find(a => String(a.appName || '').includes(kw)) || { id: 'app_oa', appName: kw };
+            this.goToAppDetail(app);
+            return;
+          }
+          if (type === '分支') {
+            const branch = (this.branches || []).find(b => String(b.branchName || '').includes(kw)) || { branchName: kw, experience: '差' };
+            this.goToBranchDetail(branch);
+            return;
+          }
+          const user = (this.users || []).find(u => String(u.userName || '').includes(kw)) || { userName: kw, experience: '差' };
+          this.goToUserDetail(user);
+        },
+
         // ---- AI 体验巡检：收起(胶囊) / 展开(完整条) / 悬浮浮层 ----
         // 每次进入页面都默认展开（不记忆上次选择）；收起态：胶囊点击 = 展开完整条
         collapseAiBar() {
@@ -1626,30 +1745,30 @@
                   </button>
                 </div>
 
-                <!-- 摘要：3 条待处理预警（与体验预警页的真实告警信息同源，格式：对象类型（对象名）访问体验质量差，已持续 xxx） -->
+                <!-- 摘要：3 条待处理预警（格式：对象类型（对象名）访问体验质量差，已持续 xxx；点击直接进入对应对象详情） -->
                 <div class="mt-1.5 flex flex-col gap-[4px]">
-                  <div @click="navigateTo('体验预警')"
+                  <div @click="openAlertTarget('分支', '马尼拉')"
                        class="h-[30px] px-2.5 rounded-[4px] bg-[#F7F9FC] hover:bg-[#F0F5FF] flex items-center gap-2 cursor-pointer group"
-                       title="应用（OA系统）访问体验质量差，已持续 191 小时（2026-08-26 15:10 起），影响 12 名用户 / 3 个分支">
-                    <span class="inline-flex items-center h-4 px-1 rounded-[2px] text-[10px] bg-[#FFECE8] text-[#F53F3F] flex-shrink-0">紧急</span>
-                    <span class="text-[12px] text-[#262626] truncate flex-1 group-hover:text-[#1C6EFF]">应用（OA系统）访问体验质量差，已持续 191 小时</span>
-                    <span class="text-[12px] text-[#A1A7B3] font-outfit flex-shrink-0">08-26 15:10</span>
+                       title="分支（马尼拉办公室）访问体验质量差，已持续 319 小时（2026-08-21 07:40 起），影响 46 名用户 / 15 个应用；点击查看分支详情">
+                    <span class="inline-flex items-center h-4 px-1 rounded-[2px] text-[10px] bg-[#FFF7E8] text-[#FF7D00] flex-shrink-0">重要</span>
+                    <span class="text-[12px] text-[#262626] truncate flex-1 group-hover:text-[#1C6EFF]">分支（马尼拉办公室）访问体验质量差，已持续 319 小时</span>
+                    <span class="text-[12px] text-[#A1A7B3] font-outfit flex-shrink-0">08-21 07:40</span>
                   </div>
 
-                  <div @click="navigateTo('体验预警')"
+                  <div @click="openAlertTarget('用户', '45232')"
                        class="h-[30px] px-2.5 rounded-[4px] bg-[#F7F9FC] hover:bg-[#F0F5FF] flex items-center gap-2 cursor-pointer group"
-                       title="用户（45232 Maria）访问体验质量差，已持续 185 小时（2026-08-26 21:15 起），影响 4 个关键应用">
+                       title="用户（45232 Maria）访问体验质量差，已持续 185 小时（2026-08-26 21:15 起），影响 4 个关键应用；点击查看用户详情">
                     <span class="inline-flex items-center h-4 px-1 rounded-[2px] text-[10px] bg-[#FFECE8] text-[#F53F3F] flex-shrink-0">紧急</span>
                     <span class="text-[12px] text-[#262626] truncate flex-1 group-hover:text-[#1C6EFF]">用户（45232 Maria）访问体验质量差，已持续 185 小时</span>
                     <span class="text-[12px] text-[#A1A7B3] font-outfit flex-shrink-0">08-26 21:15</span>
                   </div>
 
-                  <div @click="navigateTo('体验预警')"
+                  <div @click="openAlertTarget('应用', 'OA系统')"
                        class="h-[30px] px-2.5 rounded-[4px] bg-[#F7F9FC] hover:bg-[#F0F5FF] flex items-center gap-2 cursor-pointer group"
-                       title="分支（上海办事处）访问体验质量差，已持续 319 小时（2026-08-21 07:40 起），影响 5 名用户 / 6 个应用">
-                    <span class="inline-flex items-center h-4 px-1 rounded-[2px] text-[10px] bg-[#FFF7E8] text-[#FF7D00] flex-shrink-0">重要</span>
-                    <span class="text-[12px] text-[#262626] truncate flex-1 group-hover:text-[#1C6EFF]">分支（上海办事处）访问体验质量差，已持续 319 小时</span>
-                    <span class="text-[12px] text-[#A1A7B3] font-outfit flex-shrink-0">08-21 07:40</span>
+                       title="应用（OA系统）访问体验质量差，已持续 191 小时（2026-08-26 15:10 起），影响 12 名用户 / 3 个分支；点击查看应用详情">
+                    <span class="inline-flex items-center h-4 px-1 rounded-[2px] text-[10px] bg-[#FFECE8] text-[#F53F3F] flex-shrink-0">紧急</span>
+                    <span class="text-[12px] text-[#262626] truncate flex-1 group-hover:text-[#1C6EFF]">应用（OA系统）访问体验质量差，已持续 191 小时</span>
+                    <span class="text-[12px] text-[#A1A7B3] font-outfit flex-shrink-0">08-26 15:10</span>
                   </div>
                 </div>
               </div>
@@ -1665,7 +1784,7 @@
                     <div class="hidden group-hover/featinfo:block absolute left-0 top-[22px] z-50 w-[340px] p-2.5 bg-white border border-[#E2E8F0] rounded-[4px] shadow-lg text-[11px] leading-[18px] text-[#5C6E86] font-normal whitespace-normal">
                       <div><span class="font-medium text-[#262626]">同归属地</span>：体验差的对象 IP 归属地相同</div>
                       <div class="mt-1"><span class="font-medium text-[#262626]">同接入POP</span>：体验差的对象从同一个 POP 接入</div>
-                      <div class="mt-1"><span class="font-medium text-[#262626]">同链路</span>：体验差的对象在访问过程中经过同一条体验差的链路（同一对象经过多条体验差的链路时，每条各计一次）</div>
+                      <div class="mt-1"><span class="font-medium text-[#262626]">同链路</span>：在当前时间范围内，探测分支 / 用户访问不同业务时识别到的体验差的链路</div>
                     </div>
                   </div>
 
@@ -1701,10 +1820,10 @@
                 <!-- 副标题 + 局部切页（样式对齐 VIP 对象体验） -->
                 <div class="flex items-center justify-between text-[12px] mb-2 font-normal">
                   <span class="text-[#8C8C8C] truncate"
-                        :class="featureFilter ? 'cursor-pointer hover:text-[#1C6EFF]' : ''"
-                        :title="featureFilter ? '点击取消筛选' : ''"
-                        @click="if (featureFilter) { featureFilter = null; branchCurrentPage = 1; userCurrentPage = 1; }"
-                        x-text="featureFilter ? '当前筛选：' + featureFilterLabel + '（点击取消）' : '体验为差的对象集中在哪些位置'"></span>
+                        :class="activeFeatureFilter ? 'cursor-pointer hover:text-[#1C6EFF]' : ''"
+                        :title="activeFeatureFilter ? '点击取消筛选' : ''"
+                        @click="if (activeFeatureFilter) { clearFeatureFilterState(); }"
+                        x-text="activeFeatureFilter ? '当前筛选：' + featureFilterLabel + '（点击取消）' : '体验为差的对象集中在哪些位置'"></span>
                   <div class="flex items-center gap-1 text-[11px] text-[#8C8C8C] select-none flex-shrink-0">
                     <button @click="prevFeaturePage()" :disabled="featurePage <= 1" :class="featurePage <= 1 ? 'opacity-30 cursor-not-allowed text-[#BFBFBF]' : 'hover:text-[#1890FF] hover:bg-[#F0F2F5] cursor-pointer text-[#595959]'" class="w-4 h-4 rounded flex items-center justify-center transition-all" title="上一页">
                       <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
@@ -1724,8 +1843,19 @@
                          :title="(isFeatureActive(item) ? '再次点击取消筛选：' : '点击筛出该位置下体验为差的对象：') + item.typeLabel + ' ' + item.value + '（' + item.users + ' 人 / ' + item.branches + ' 个分支）'">
                       <span class="h-4 w-[68px] px-1 inline-flex items-center justify-center rounded-[2px] bg-[#EEF2F7] text-[10px] text-[#64748B] flex-shrink-0" x-text="item.typeLabel"></span>
                       <span class="text-[12px] text-[#262626] truncate flex-1 min-w-0" x-text="item.value"></span>
-                      <span class="text-[12px] text-[#A1A7B3] whitespace-nowrap flex-shrink-0">
-                        <span class="font-outfit" x-text="item.users"></span>人/<span class="font-outfit" x-text="item.branches"></span>分支
+                      <!-- 数值：人 / 分支 分别可点击，只筛对应清单 -->
+                      <span class="text-[12px] text-[#3D3D3D] whitespace-nowrap flex-shrink-0 font-outfit leading-none">
+                        <span class="inline-flex items-center h-4 px-1 rounded-[2px] transition-colors"
+                              :class="item.users > 0 ? (isFeatureActive(item, '用户') ? 'text-[#1C6EFF] bg-[#E6F4FF] font-medium cursor-pointer' : 'cursor-pointer hover:text-[#1C6EFF] hover:bg-[#E6F4FF]') : 'text-[#A1A7B3] cursor-default'"
+                              :title="item.users > 0 ? '点击筛出该位置下体验为差的用户' : '该位置无体验差的用户'"
+                              @click.stop="toggleFeatureCount(item, '用户')"
+                              x-text="item.users + ' 人'"></span>
+                        <span class="text-[#D9DEE6] mx-0.5">|</span>
+                        <span class="inline-flex items-center h-4 px-1 rounded-[2px] transition-colors"
+                              :class="item.branches > 0 ? (isFeatureActive(item, '分支') ? 'text-[#1C6EFF] bg-[#E6F4FF] font-medium cursor-pointer' : 'cursor-pointer hover:text-[#1C6EFF] hover:bg-[#E6F4FF]') : 'text-[#A1A7B3] cursor-default'"
+                              :title="item.branches > 0 ? '点击筛出该位置下体验为差的分支' : '该位置无体验差的分支'"
+                              @click.stop="toggleFeatureCount(item, '分支')"
+                              x-text="item.branches + ' 分支'"></span>
                       </span>
                     </div>
                   </template>
@@ -2043,7 +2173,7 @@
                     <div x-show="open" 
                          x-cloak 
                          class="absolute left-0 top-full mt-1 min-w-[188px] max-h-[220px] overflow-y-auto bg-white border border-[#E1E5EB] shadow-lg rounded-[2px] py-1 z-50 text-xs text-[#2F3540] custom-scrollbar">
-                      <template x-for="opt in ['菲律宾 马尼拉', '中国 西安', '中国 武汉', '中国 广州', '中国 深圳', '中国 上海', '中国 北京', '中国 成都', '中国 南京', '中国 杭州']" :key="opt">
+                      <template x-for="opt in branchLocOptions" :key="opt">
                         <label class="flex items-center gap-2 px-3 py-1.5 hover:bg-[#F4F6F9] cursor-pointer select-none">
                           <input type="checkbox" :value="opt" x-model="branchSelectedLoc" @change="branchCurrentPage = 1" class="rounded border-gray-300 text-[#1C6EFF] focus:ring-0 w-3.5 h-3.5">
                           <span x-text="opt"></span>
@@ -2118,7 +2248,7 @@
                     <div x-show="open" 
                          x-cloak 
                          class="absolute left-0 top-full mt-1 min-w-[188px] max-h-[220px] overflow-y-auto bg-white border border-[#E1E5EB] shadow-lg rounded-[2px] py-1 z-50 text-xs text-[#2F3540] custom-scrollbar">
-                      <template x-for="opt in ['马尼拉POP', '西安POP', '武汉POP', '广州POP', '深圳POP', '上海POP', '北京POP', '成都POP', '南京POP', '香港POP']" :key="opt">
+                      <template x-for="opt in branchPopOptions" :key="opt">
                         <label class="flex items-center gap-2 px-3 py-1.5 hover:bg-[#F4F6F9] cursor-pointer select-none">
                           <input type="checkbox" :value="opt" x-model="branchSelectedPop" @change="branchCurrentPage = 1" class="rounded border-gray-300 text-[#1C6EFF] focus:ring-0 w-3.5 h-3.5">
                           <span x-text="opt"></span>
@@ -2245,7 +2375,8 @@
                                @mouseenter="showHoverTip($event, title)"
                                @mousemove="moveHoverTip($event)"
                                @mouseleave="hideHoverTip()">
-                            <span class="text-xs whitespace-nowrap truncate max-w-[168px]" :class="empty ? 'text-[#8A92A1]' : 'text-[#2F3540]'" x-text="text"></span>
+                            <span class="w-1.5 h-1.5 rounded-full bg-[#F52727] flex-shrink-0" x-show="!empty"></span>
+                            <span class="text-xs whitespace-nowrap truncate max-w-[164px]" :class="empty ? 'text-[#8A92A1]' : 'text-[#2F3540]'" x-text="text"></span>
                             <span class="inline-flex items-center justify-center h-4 px-1 rounded-[2px] bg-[#F0F2F5] text-[10px] text-[#64748B] font-outfit flex-shrink-0"
                                   x-show="rest > 0" x-text="'+' + rest"></span>
                           </div>
@@ -2448,7 +2579,7 @@
                     <div x-show="open" 
                          x-cloak 
                          class="absolute left-0 top-full mt-1 min-w-[188px] max-h-[220px] overflow-y-auto bg-white border border-[#E1E5EB] shadow-lg rounded-[2px] py-1 z-50 text-xs text-[#2F3540] custom-scrollbar">
-                      <template x-for="opt in ['马尼拉', '长沙', '深圳', '北京', '上海', '广州', '成都', '西安', '南京', '武汉', '杭州']" :key="opt">
+                      <template x-for="opt in userLocOptions" :key="opt">
                         <label class="flex items-center gap-2 px-3 py-1.5 hover:bg-[#F4F6F9] cursor-pointer select-none">
                           <input type="checkbox" :value="opt" x-model="userSelectedLoc" @change="userCurrentPage = 1" class="rounded border-gray-300 text-[#1C6EFF] focus:ring-0 w-3.5 h-3.5">
                           <span x-text="opt"></span>
@@ -2523,7 +2654,7 @@
                     <div x-show="open" 
                          x-cloak 
                          class="absolute left-0 top-full mt-1 min-w-[188px] max-h-[220px] overflow-y-auto bg-white border border-[#E1E5EB] shadow-lg rounded-[2px] py-1 z-50 text-xs text-[#2F3540] custom-scrollbar">
-                      <template x-for="opt in ['POP (香港)', 'POP (新加坡)', 'POP (成都)', 'POP (深圳)', '马尼拉POP01', '华北-北京POP01', '华东-上海POP02', '华南-深圳POP01', '华南-广州POP01', '西南-成都POP01', '西北-西安POP01', '华东-南京POP01', '华中-武汉POP01']" :key="opt">
+                      <template x-for="opt in userPopOptions" :key="opt">
                         <label class="flex items-center gap-2 px-3 py-1.5 hover:bg-[#F4F6F9] cursor-pointer select-none">
                           <input type="checkbox" :value="opt" x-model="userSelectedPop" @change="userCurrentPage = 1" class="rounded border-gray-300 text-[#1C6EFF] focus:ring-0 w-3.5 h-3.5">
                           <span x-text="opt"></span>
@@ -2687,7 +2818,8 @@
                                @mouseenter="showHoverTip($event, title)"
                                @mousemove="moveHoverTip($event)"
                                @mouseleave="hideHoverTip()">
-                            <span class="text-xs whitespace-nowrap truncate max-w-[168px]" :class="empty ? 'text-[#8A92A1]' : 'text-[#3D3D3D]'" x-text="text"></span>
+                            <span class="w-1.5 h-1.5 rounded-full bg-[#F52727] flex-shrink-0" x-show="!empty"></span>
+                            <span class="text-xs whitespace-nowrap truncate max-w-[164px]" :class="empty ? 'text-[#8A92A1]' : 'text-[#3D3D3D]'" x-text="text"></span>
                             <span class="inline-flex items-center justify-center h-4 px-1 rounded-[2px] bg-[#F0F2F5] text-[10px] text-[#64748B] font-outfit flex-shrink-0"
                                   x-show="rest > 0" x-text="'+' + rest"></span>
                           </div>
