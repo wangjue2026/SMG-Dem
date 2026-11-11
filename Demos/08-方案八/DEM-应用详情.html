@@ -3972,7 +3972,9 @@
           <!-- ========================================== -->
           <!-- 3. 时刻质量归因与指标洞察 (2卡片: 综合探测质量 + 共性特征TOP6) -->
           <!-- ========================================== -->
-          <div class="bg-white border border-[#EAEEF4] rounded-[8px] shadow-xs overflow-visible">
+          <div class="relative bg-white border border-[#EAEEF4] rounded-[8px] shadow-xs overflow-visible">
+            <!-- 顶部分割线：加深并左移，作为该区块与上方卡片的分界 -->
+            <div class="pointer-events-none absolute -top-px -left-3 right-0 h-[1.5px] bg-[#D3D7DE]"></div>
 
             <!-- 顶栏：时刻综合诊断快报条 (极简克制，仅保留时间点与联动状态) -->
             <div class="px-3.5 py-2 bg-[#F8FAFC] border-b border-[#F1F5F9] rounded-t-[8px] flex items-center justify-between flex-wrap gap-2 text-xs min-h-[36px]">
@@ -4020,7 +4022,7 @@
                     </div>
 
                     <!-- 2. 丢包（所选时刻均值，均值口径说明统一置于数值下方） -->
-                    <div class="min-w-0 pl-3 border-l border-[#F1F5F9]">
+                    <div class="min-w-0 pl-3">
                       <div class="text-[11px] text-[#64748B] mb-1">丢包</div>
                       <div class="text-[24px] font-black font-outfit tracking-tight leading-none truncate"
                            :class="currentGlobalSlice.networkInfo.avgLossColor"
@@ -4328,9 +4330,12 @@
                             </div>
                           </td>
                           <td class="text-[#2F3540]" x-text="item.pop"></td>
-                          <!-- 体验差的链路（仅展示访问过程中体验为差的链路） -->
+                          <!-- 体验差的链路（仅展示访问过程中体验为差的链路，左侧圆点标记链路体验异常） -->
                           <td>
-                            <span class="text-xs whitespace-nowrap" :class="getPoorObjectLink(item, '分支') ? 'text-[#2F3540]' : 'text-[#8A92A1]'" x-text="getPoorObjectLink(item, '分支') || '-'"></span>
+                            <div class="flex items-center gap-1.5">
+                              <span class="w-1.5 h-1.5 rounded-full bg-[#F52727] flex-shrink-0" x-show="getPoorObjectLink(item, '分支')"></span>
+                              <span class="text-xs whitespace-nowrap" :class="getPoorObjectLink(item, '分支') ? 'text-[#2F3540]' : 'text-[#8A92A1]'" x-text="getPoorObjectLink(item, '分支') || '-'"></span>
+                            </div>
                           </td>
                           <td class="text-center dem-col-frozen">
                             <a :href="'./DEM-用户详情.html?type=分支&name=' + encodeURIComponent(item.name) + '&location=' + encodeURIComponent(item.location || '') + '&pop=' + encodeURIComponent(item.pop || '') + '&exp=' + encodeURIComponent(item.exp || '差') + '&totalApps=' + (item.affectedUsers || 12) + '&poorApps=' + (item.poorCount || 0) + '&fairApps=' + (item.fairCount || 0) + '&normalApps=' + (item.normalCount || 0)"
@@ -4577,9 +4582,12 @@
                             </div>
                           </td>
                           <td class="text-[#2F3540]" x-text="item.pop"></td>
-                          <!-- 体验差的链路（仅展示访问过程中体验为差的链路） -->
+                          <!-- 体验差的链路（仅展示访问过程中体验为差的链路，左侧圆点标记链路体验异常） -->
                           <td>
-                            <span class="text-xs whitespace-nowrap" :class="getPoorObjectLink(item, '用户') ? 'text-[#2F3540]' : 'text-[#8A92A1]'" x-text="getPoorObjectLink(item, '用户') || '-'"></span>
+                            <div class="flex items-center gap-1.5">
+                              <span class="w-1.5 h-1.5 rounded-full bg-[#F52727] flex-shrink-0" x-show="getPoorObjectLink(item, '用户')"></span>
+                              <span class="text-xs whitespace-nowrap" :class="getPoorObjectLink(item, '用户') ? 'text-[#2F3540]' : 'text-[#8A92A1]'" x-text="getPoorObjectLink(item, '用户') || '-'"></span>
+                            </div>
                           </td>
                           <td class="text-center dem-col-frozen">
                             <a :href="'./DEM-用户详情.html?type=用户&empId=' + encodeURIComponent(item.empId) + '&name=' + encodeURIComponent(item.name) + '&dept=' + encodeURIComponent(item.dept) + '&pop=' + encodeURIComponent(item.pop || '') + '&exp=' + encodeURIComponent(item.exp || '差') + '&totalApps=' + (item.totalApps || 17) + '&poorApps=' + (item.poorCount || 0) + '&fairApps=' + (item.fairCount || 0) + '&normalApps=' + (item.normalCount || 0)"
