@@ -1,2 +1,6 @@
 .DS_Store
 *.DS_Store
+
+# 本地/个人内容，不纳入版本管理
+.agents/
+竞品分析/

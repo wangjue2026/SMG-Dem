@@ -520,7 +520,7 @@
         vipUserPage: 1,
         vipAppPage: 1,
         vipUsersList: [
-          { id: '1', userName: '45232（Maria）', nameOnly: 'Maria', department: 'Digiplus / 马尼拉办公室 / 运营中心', experience: '差', appCount: 16, primaryApp: 'OA系统', degradedCount: 2, ipLocation: '203.177.12.8 (菲律宾-马尼拉)', pop: '马尼拉POP01' },
+          { id: '1', userName: '45232（Maria）', nameOnly: 'Maria', department: '国际市场部 / 东南亚区 / VIP 监控组', experience: '差', appCount: 16, primaryApp: 'OA系统', degradedCount: 2, ipLocation: '203.177.12.8 (菲律宾-马尼拉)', pop: '马尼拉POP01' },
           { id: '2', userName: '23222（李达）', nameOnly: '李达', department: '/深信服/总经办', experience: '差', appCount: 45, primaryApp: '企业微信', degradedCount: 35, ipLocation: '183.14.5.12 (移动-深圳)', pop: 'POP (深圳)' },
           { id: '3', userName: '45452（吴刚）', nameOnly: '吴刚', department: '/深信服/总经办', experience: '差', appCount: 45, primaryApp: '内部OA', degradedCount: 35, ipLocation: '119.12.8.20 (联通-深圳)', pop: 'POP (深圳)' },
           { id: '4', userName: '31201（陈董）', nameOnly: '陈董', department: '/深信服/董事会', experience: '差', appCount: 12, primaryApp: '腾讯会议', degradedCount: 3, ipLocation: '114.242.25.20 (北京办事处)', pop: 'POP (北京)' },
@@ -848,11 +848,12 @@
         init() {
           // AI 体验巡检条默认展开，不读取历史收起状态
           const designUsers = [
-            { id: "usr_hezong", userName: "45232（Maria）", isVip: true, department: "Digiplus / 马尼拉办公室 / 运营中心", ipLocation: "203.177.12.8 (菲律宾-马尼拉)", experience: "差", terminals: ["MacBook Pro"], pop: "马尼拉POP01", appCount: 16, fairApps: 0, degradedApps: ["OA系统", "BI 系统"] },
+            { id: "usr_hezong", userName: "45232（Maria）", isVip: true, department: "国际市场部 / 东南亚区 / VIP 监控组", ipLocation: "203.177.12.8 (菲律宾-马尼拉)", experience: "差", terminals: ["MacBook Pro"], pop: "马尼拉POP01", appCount: 16, fairApps: 0, degradedApps: ["OA系统", "BI 系统"] },
             { id: "usr_carlo", userName: "63432（Carlo）", isVip: false, department: "Digiplus / 马尼拉办公室 / 海外销售组", ipLocation: "112.198.45.67 (菲律宾-马尼拉)", experience: "差", terminals: ["CARLO-WIN-01"], pop: "", appCount: 8, probeAppCount: 8, fairApps: 0, degradedApps: ["销管系统", "OA系统"] },
             { id: "usr_d1", userName: "14810（郝星伍）", isVip: false, department: "/本地用户/安全BG/零信任", ipLocation: "202.108.22.5 (电信-长沙)", experience: "差", terminals: ["WIN-DESK-88--WIN-YZ", "iPhone 15 Pro", "MacBook Air"], terminalUsages: [{ name: "WIN-DESK-88--WIN-YZ", hits: 14 }, { name: "iPhone 15 Pro", hits: 6 }, { name: "MacBook Air", hits: 2 }], ipUsages: [{ ip: "202.108.22.5", location: "电信-长沙", hits: 16 }, { ip: "10.24.8.31", location: "企业内网-长沙", hits: 5 }], pop: "POP (香港)", popUsages: [{ name: "POP (香港)", hits: 15 }, { name: "POP (新加坡)", hits: 7 }], linkUsages: [{ name: "POP (香港) — GW 连接器", hits: 15, experience: "差" }, { name: "POP (新加坡) — GW 连接器", hits: 7, experience: "正常" }], appCount: 9, probeAppCount: 9, degradedApps: ["Salesforce"] },
             { id: "usr_d2", userName: "63728（王浩）", isVip: false, department: "/本地用户/安全BG/零信任", ipLocation: "183.14.5.12 (移动-深圳)", experience: "差", terminals: ["WIN-DESK-62--OKP", "iPad Air", "Mate 60 Pro"], terminalUsages: [{ name: "WIN-DESK-62--OKP", hits: 11 }, { name: "iPad Air", hits: 4 }, { name: "Mate 60 Pro", hits: 3 }], ipUsages: [{ ip: "183.14.5.12", location: "移动-深圳", hits: 13 }, { ip: "112.90.7.88", location: "联通-深圳", hits: 4 }], pop: "POP (新加坡)", popUsages: [{ name: "POP (新加坡)", hits: 12 }, { name: "POP (深圳)", hits: 6 }], linkUsages: [{ name: "华南-深圳POP01 — GW 连接器01", hits: 9, experience: "差" }, { name: "POP (新加坡) — GW 连接器01", hits: 8, experience: "一般" }], appCount: 15, probeAppCount: 15, degradedApps: ["Salesforce", "Teams", "Yahoo"] },
             { id: "usr_d3", userName: "84261（柯特）", isVip: false, department: "/国内市场体系/华东区", ipLocation: "119.12.8.20 (联通-深圳)", experience: "差", terminals: ["WIN-DESK-97JUA-OKP"], pop: "POP (新加坡)", linkUsages: [{ name: "华南-深圳POP01 — GW 连接器01", hits: 10, experience: "差" }, { name: "华东-上海POP02 — GW 连接器02", hits: 5, experience: "差" }], appCount: 11, probeAppCount: 11, degradedApps: ["Yahoo", "内部 CRM 系统", "OA审批平台"] },
+            { id: "usr_liuyang", userName: "2024106（刘洋）", isVip: false, department: "深信服科技 / 研发中心 / DEM产品部", ipLocation: "183.14.5.12 (移动-深圳)", experience: "差", terminals: ["ThinkPad T14 (研发专用)"], pop: "深圳POP", appCount: 18, probeAppCount: 18, fairApps: 2, degradedApps: ["OA系统", "企业微信", "Salesforce", "腾讯会议", "内部 CRM 系统", "BI 系统", "文件共享", "邮箱系统"] },
             { id: "usr_d4", userName: "35627（黎维祁）", isVip: false, department: "/本地用户/安全BG/零信任", ipLocation: "202.108.22.8 (电信-长沙)", experience: "一般", terminals: ["MacBook Air"], pop: "POP (成都)", appCount: 7, degradedApps: ["Yahoo"] },
             { id: "usr_d5", userName: "15628（文惠辰）", isVip: false, department: "/本地用户/安全BG/零信任", ipLocation: "202.108.22.9 (电信-长沙)", experience: "一般", terminals: ["WIN-DESK-243JUA-OKP"], pop: "POP (新加坡)", appCount: 14, degradedApps: [] }
           ];
@@ -903,6 +904,39 @@
               degradedBranchNames: pickNames(degradedBranchPool, a.degradedBranches)
             }));
           }
+
+          // 体验分布配额（与概览、下方表格同源）：
+          //   分支 25 = 差 3 / 一般 4 / 正常 18
+          //   用户 57 = 差 8 / 一般 6 / 正常 43
+          //   应用 37 = 差 5 / 一般 4 / 正常 28
+          // 优先保留有详情剧本的对象（马尼拉/西安/武汉、45232 Maria 等、OA/Salesforce/ERP 及几个剧本应用），
+          // 其余统一归到「正常」，不删除对象、不改名称与剧本数据
+          const applyQuota = (list, badTarget, badKeep, midTarget, midKeep) => {
+            const arr = (list || []).map(o => ({ ...o }));
+            const bads = arr.filter(o => o.experience === '差');
+            const mids = arr.filter(o => o.experience === '一般');
+
+            const badSet = new Set(badKeep.filter(id => bads.some(b => b.id === id)));
+            for (const b of bads) {
+              if (badSet.size >= badTarget) break;
+              badSet.add(b.id);
+            }
+            const midSet = new Set(midKeep.filter(id => mids.some(m => m.id === id)));
+            for (const m of mids) {
+              if (midSet.size >= midTarget) break;
+              midSet.add(m.id);
+            }
+
+            return arr.map(o => {
+              if (badSet.has(o.id)) return { ...o, experience: '差' };
+              if (midSet.has(o.id)) return { ...o, experience: '一般' };
+              return { ...o, experience: '正常' };
+            });
+          };
+
+          this.branches = applyQuota(this.branches, 3, ['br_000', 'br_001', 'br_002'], 4, ['br_003', 'br_004', 'br_005']);
+          this.users = applyQuota(this.users, 8, ['usr_hezong', 'usr_d1', 'usr_d2', 'usr_d3'], 6, ['usr_d4', 'usr_d5', 'usr_004', 'usr_005']);
+          this.apps = applyQuota(this.apps, 5, ['app_oa', 'app_001', 'app_002'], 4, ['app_006', 'app_007', 'app_008']);
 
           this.contentTab = '分支'; // 默认进入“站点分支”tab
 
@@ -1765,10 +1799,10 @@
 
                   <div @click="openAlertTarget('用户', '45232')"
                        class="h-[30px] px-2.5 rounded-[4px] bg-[#F7F9FC] hover:bg-[#F0F5FF] flex items-center gap-2 cursor-pointer group"
-                       title="用户（45232 Maria）访问体验质量差，已持续 1.8 小时（2026-11-06 07:26 起），影响 4 个关键应用；点击查看用户详情">
+                       title="用户（45232 Maria）访问体验质量差，已持续 4 小时 30 分（2026-11-06 15:30 起），影响 2 个关键应用；点击查看用户详情">
                     <span class="inline-flex items-center h-4 px-1 rounded-[2px] text-[10px] bg-[#FFECE8] text-[#F53F3F] flex-shrink-0">紧急</span>
-                    <span class="text-[12px] text-[#262626] truncate flex-1 group-hover:text-[#1C6EFF]">用户（45232 Maria）访问体验质量差，已持续 1.8 小时</span>
-                    <span class="text-[12px] text-[#A1A7B3] font-outfit flex-shrink-0">11-06 07:26</span>
+                    <span class="text-[12px] text-[#262626] truncate flex-1 group-hover:text-[#1C6EFF]">用户（45232 Maria）访问体验质量差，已持续 4 小时 30 分</span>
+                    <span class="text-[12px] text-[#A1A7B3] font-outfit flex-shrink-0">11-06 15:30</span>
                   </div>
 
                   <div @click="openAlertTarget('分支', '马尼拉')"
