@@ -558,6 +558,39 @@
     const STATIC_LATEST_POOR_TIME = (STATIC_TIMELINE_SLICES.filter(p => p.isPoor).pop() || {}).time || '15:55';
 
     const STATIC_TREND_POLYLINE_POINTS = STATIC_TIMELINE_SLICES.map(p => `${p.x},${p.y}`).join(' ');
+
+    // 连续差时段：相邻异常点连成红色劣化线段；孤立异常点不连线，仅靠圆点突出
+    const STATIC_POOR_SEGMENTS = (() => {
+      const segs = [];
+      let cur = [];
+      STATIC_TIMELINE_SLICES.forEach(p => {
+        if (p.isPoor) {
+          cur.push(p);
+        } else if (cur.length) {
+          segs.push(cur);
+          cur = [];
+        }
+      });
+      if (cur.length) segs.push(cur);
+      return segs.filter(s => s.length >= 2);
+    })();
+
+    // 连续段路径（多段用 M 断开，避免跨段连线）
+    const STATIC_POOR_SEGMENT_PATH = STATIC_POOR_SEGMENTS
+      .map(s => 'M ' + s.map(p => `${p.x},${p.y}`).join(' L '))
+      .join(' ');
+
+    // 每段最新一个异常点（落圆点用），含孤立单点异常
+    const STATIC_POOR_TAIL_TIMES = (() => {
+      const tails = [];
+      STATIC_TIMELINE_SLICES.forEach((p, i) => {
+        if (!p.isPoor) return;
+        const next = STATIC_TIMELINE_SLICES[i + 1];
+        if (!next || !next.isPoor) tails.push(p.time);
+      });
+      return tails;
+    })();
+
     const STATIC_POOR_SEGMENT_POINTS = STATIC_TIMELINE_SLICES.filter(p => p.minute >= 440 && p.minute <= 475).map(p => `${p.x},${p.y}`).join(' ');
     const STATIC_NORMAL_TREND_POLYLINE_POINTS = STATIC_NORMAL_TIMELINE_SLICES.map(p => `${p.x},${p.y}`).join(' ');
 
@@ -937,9 +970,14 @@
           return STATIC_TREND_POLYLINE_POINTS;
         },
 
-        // 15:20~15:55 连续差区域加粗红线段 (SVG polyline points)
-        get poorSegmentPolylinePoints() {
-          return STATIC_POOR_SEGMENT_POINTS;
+        // 连续差区域加粗红线（SVG path，多段用 M 断开）
+        get poorSegmentPath() {
+          return STATIC_POOR_SEGMENT_PATH;
+        },
+
+        // 连续差段的最新异常点集合：连续段只在段尾落圆点，孤立异常点同样落点
+        get timelinePoorTails() {
+          return STATIC_POOR_TAIL_TIMES;
         },
 
         // 当前选中的采样点
@@ -4061,8 +4099,8 @@
                       <!-- 2. 正常时段全天绿色折线 (突显正常运行健康基线) -->
                       <polyline :points="trendPolylinePoints" fill="none" stroke="#12A679" stroke-width="1.5" opacity="0.85"/>
 
-                      <!-- 3. 15:20~15:55 连续差时段专属加粗红色实线连线 (突显连续恶化故障段) -->
-                      <polyline :points="poorSegmentPolylinePoints" fill="none" stroke="#F52727" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.95"/>
+                      <!-- 3. 连续差时段专属加粗红色实线 (相邻异常点连线，突显连续恶化故障段) -->
+                      <path :d="poorSegmentPath" fill="none" stroke="#F52727" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.95"/>
                     </svg>
 
                     <!-- 2. 左侧 Y 轴纯灰色文字刻度 -->
@@ -4089,9 +4127,9 @@
                       </div>
                     </template>
 
-                    <!-- 4. 真实访问散点与重点标记层 (与用户详情时间线一致：正常点不主动显示，仅异常点、当前定位点、悬浮点落圆点) -->
+                    <!-- 4. 真实访问散点与重点标记层 (与用户详情时间线一致：连续异常点由红色连线表达，仅段尾最新异常点 + 孤立异常点 + 当前定位点 + 悬浮点落圆点) -->
                     <template x-for="(pt, idx) in globalTimelineSlices" :key="pt.time">
-                      <template x-if="!pt.isNormal || pt.time === selectedGlobalSliceTime || idx === hoveredTimelineIdx">
+                      <template x-if="(!pt.isNormal && !pt.isPoor) || timelinePoorTails.includes(pt.time) || pt.time === selectedGlobalSliceTime || idx === hoveredTimelineIdx">
                         <div class="absolute -translate-x-1/2 -translate-y-1/2 z-20 w-5 h-5 flex items-center justify-center pointer-events-none select-none"
                              :style="`left: ${(pt.x / 1000) * 100}%; top: ${(pt.y / 142) * 100}%;`">
 
