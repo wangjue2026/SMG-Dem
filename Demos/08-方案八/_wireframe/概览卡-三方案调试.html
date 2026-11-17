@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>首页概览卡 · 三种样式调试台</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- 与 DEM-首页.html 保持一致的 Tailwind 依赖（无 Alpine：本页不依赖任何 JS 框架，离线也能看到内容） -->
+  <link rel="stylesheet" href="../../assets/css/css-overrides.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="../../assets/js/tailwind-config.js"></script>
+  <link rel="stylesheet" href="../../assets/css/ai-dem.css" />
+  <link rel="stylesheet" href="../_shell/shell.css" />
+
+  <style>
+    :root{--stage:1920px}
+    body{background:#EDF1F7;font-family:Inter,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif}
+
+    /* 卡片宽度：跟随 --stage（1920 / 1440 / 100%） */
+    .ov-scroll{overflow-x:auto}
+    .ov-stage{width:var(--stage);max-width:100%}
+
+    /* 右列三块之间的短竖线（不通高） */
+    .ov-blk{position:relative;container-type:inline-size}
+    /* 窄块（1440 视口）收起百分比，只留数值，避免三列重叠 */
+    @container (max-width:268px){
+      .ov-opt{display:none}
+    }
+
+    /* 点击反馈 */
+    .ov-toast{
+      position:fixed;right:24px;bottom:24px;z-index:99;
+      background:#1F2733;color:#fff;font-size:12px;line-height:1.5;
+      padding:8px 12px;border-radius:3px;box-shadow:0 6px 20px rgba(15,23,42,.24);
+      max-width:460px;opacity:0;transform:translateY(6px);pointer-events:none;
+      transition:opacity .16s,transform .16s;
+    }
+    .ov-toast.show{opacity:1;transform:translateY(0)}
+
+    /* CDN 未加载时的兜底：至少让内容可读（不追求还原 Tailwind） */
+    .no-tw .ov-fallback{border:1px solid #d9e0ea;background:#fff;padding:12px;margin-bottom:16px}
+  </style>
+</head>
+<body>
+
+<div class="p-6 min-h-screen">
+
+  <!-- ================= 头部 ================= -->
+  <div class="ov-stage">
+    <h1 class="text-[16px] font-bold text-[#262626] m-0">首页概览卡 · 三种样式调试台</h1>
+    <p class="mt-1.5 text-[12px] leading-[1.75] text-[#5C6270]">
+      左列「体验预警事件」与右列三块均取自 <span class="font-mono text-[11px] bg-white px-1 rounded-[2px] border border-[#E2E8F0]">DEM-首页.html</span> 概览区，Tailwind 类写法与首页一致。<br>
+      本页<b>不使用 Alpine</b>，所有内容静态渲染，CDN 只影响样式、不会导致空白；确认某方案后，取该卡「右列」整段替换首页概览区的模块 2 + 模块 3，并把列宽改为 <span class="font-mono text-[11px]">2fr 3fr</span>。
+    </p>
+
+    <div id="cdn-warn" class="hidden mt-2 bg-[#FFECE8] border border-[#FFC9C2] rounded-[3px] px-3 py-2 text-[11px] leading-[1.7] text-[#B42318]">
+      Tailwind CDN 未加载成功，页面样式会退化（内容仍完整可见）。请检查网络或代理后刷新。
+    </div>
+
+    <div class="mt-3 flex items-center gap-2 flex-wrap">
+      <span class="text-[11px] text-[#8C8C8C]">模拟视口宽度：</span>
+      <div class="inline-flex bg-[#DDE4EE] p-[2px] rounded-[3px]">
+        <button type="button" data-w="1920px" class="ov-wbtn px-2.5 py-1 text-[11px] rounded-[2px] cursor-pointer transition-colors">1920</button>
+        <button type="button" data-w="1440px" class="ov-wbtn px-2.5 py-1 text-[11px] rounded-[2px] cursor-pointer transition-colors">1440</button>
+        <button type="button" data-w="100%" class="ov-wbtn px-2.5 py-1 text-[11px] rounded-[2px] cursor-pointer transition-colors">自适应</button>
+      </div>
+      <span class="text-[11px] text-[#94A3B8]">右列每块约 370px（1920）/ 260px（1440），用来看极小占比段与三列文字是否挤。也可用 <span class="font-mono">?w=1440</span> 直接打开。</span>
+    </div>
+
+    <div class="mt-3 bg-[#FFF7E8] border border-[#FFE3B0] rounded-[3px] px-3 py-2 text-[11px] leading-[1.7] text-[#8A5A00]">
+      <b>数据口径提示：</b>首页概览「分支」行现为 24 个（正常 22 / 一般 2 / 差 2），三者合计 26 与总数 24 不符，进度条宽度也写的 70/15/15。
+      本调试台按 <b>22 / 1 / 1</b>（合计 24）自洽呈现；用户 268/11/7=286、应用 30/2/4=36 与首页一致。回写时请一并修正分支行数字与条宽。
+    </div>
+  </div>
+
+  <!-- ================================================================
+       方案 1：构成条
+       ================================================================ -->
+  <section class="mt-7">
+    <div class="ov-stage flex items-baseline gap-2.5 flex-wrap mb-2">
+      <span class="inline-flex items-center h-5 px-1.5 rounded-[2px] bg-[#E6F4FF] text-[#1C6EFF] text-[11px] font-semibold">方案 1</span>
+      <span class="text-[13px] font-semibold text-[#262626]">构成条</span>
+      <span class="text-[12px] text-[#5C6270]">顶行 维度+总数+差占比 · 中间 10px 三段条 · 底行三列数值与占比 · 底部「差的对象」一行</span>
+    </div>
+
+    <div class="ov-scroll">
+      <div class="ov-stage">
+        <div class="bg-white border border-[#E2E8F0] rounded-[4px] shadow-2xs p-4 grid divide-x divide-[#F0F0F0] box-border min-h-[184px]" style="grid-template-columns: 2fr 3fr;">
+
+          <!-- 左列：体验预警事件 -->
+          <div class="pr-4 flex flex-col select-none h-full min-w-0">
+            <div class="flex items-center mb-2">
+              <span class="text-[12px] font-bold text-[#262626] whitespace-nowrap">体验预警事件</span>
+            </div>
+
+            <div class="flex items-end gap-3">
+              <div class="flex items-baseline gap-1">
+                <span class="text-[22px] font-bold text-[#F53F3F] font-outfit leading-none">4</span>
+                <span class="text-[11px] text-[#8C8C8C]">紧急</span>
+              </div>
+              <span class="w-px h-6 bg-[#EDF0F4] mb-0.5" aria-hidden="true"></span>
+              <div class="flex items-baseline gap-1">
+                <span class="text-[22px] font-bold text-[#FF7D00] font-outfit leading-none">12</span>
+                <span class="text-[11px] text-[#8C8C8C]">重要</span>
+              </div>
+              <button type="button" data-act="体验预警|页" class="ml-auto mb-0.5 inline-flex items-center gap-0.5 text-[11px] text-[#8C8C8C] hover:text-[#1C6EFF] hover:underline cursor-pointer flex-shrink-0">
+                <span>查看更多</span>
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                </svg>
+              </button>
+            </div>
+
+            <div class="mt-1.5 flex flex-col gap-[4px]">
+              <div data-act="分支|马尼拉" class="h-[30px] px-2.5 rounded-[4px] bg-[#F7F9FC] hover:bg-[#F0F5FF] flex items-center gap-2 cursor-pointer group"
+                   title="分支（马尼拉办公室）访问体验质量差，已持续 319 小时，影响 46 名用户 / 15 个应用">
+                <span class="inline-flex items-center h-4 px-1 rounded-[2px] text-[10px] bg-[#FFF7E8] text-[#FF7D00] flex-shrink-0">重要</span>
+                <span class="text-[12px] text-[#262626] truncate flex-1 group-hover:text-[#1C6EFF]">分支（马尼拉办公室）访问体验质量差，已持续 319 小时</span>
+                <span class="text-[12px] text-[#A1A7B3] font-outfit flex-shrink-0">08-21 07:40</span>
+              </div>
+              <div data-act="用户|45232" class="h-[30px] px-2.5 rounded-[4px] bg-[#F7F9FC] hover:bg-[#F0F5FF] flex items-center gap-2 cursor-pointer group"
+                   title="用户（45232 Maria）访问体验质量差，已持续 185 小时，影响 4 个关键应用">
+                <span class="inline-flex items-center h-4 px-1 rounded-[2px] text-[10px] bg-[#FFECE8] text-[#F53F3F] flex-shrink-0">紧急</span>
+                <span class="text-[12px] text-[#262626] truncate flex-1 group-hover:text-[#1C6EFF]">用户（45232 Maria）访问体验质量差，已持续 185 小时</span>
+                <span class="text-[12px] text-[#A1A7B3] font-outfit flex-shrink-0">08-26 21:15</span>
+              </div>
+              <div data-act="应用|OA系统" class="h-[30px] px-2.5 rounded-[4px] bg-[#F7F9FC] hover:bg-[#F0F5FF] flex items-center gap-2 cursor-pointer group"
+                   title="应用（OA系统）访问体验质量差，已持续 191 小时，影响 12 名用户 / 3 个分支">
+                <span class="inline-flex items-center h-4 px-1 rounded-[2px] text-[10px] bg-[#FFECE8] text-[#F53F3F] flex-shrink-0">紧急</span>
+                <span class="text-[12px] text-[#262626] truncate flex-1 group-hover:text-[#1C6EFF]">应用（OA系统）访问体验质量差，已持续 191 小时</span>
+                <span class="text-[12px] text-[#A1A7B3] font-outfit flex-shrink-0">08-26 15:10</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 右列：监控对象体验质量 · 三块（回写时取这一段） -->
+          <div class="pl-4 flex flex-col min-w-0">
+            <div class="flex items-center mb-2">
+              <span class="text-[12px] font-bold text-[#262626] whitespace-nowrap">监控对象体验质量</span>
+            </div>
+            <div class="flex items-stretch flex-1 min-w-0 gap-6">
+
+            <!-- 块 1：分支 -->
+                                                            <div class="ov-blk flex-1 min-w-0">
+
+              <!-- 整块底色容器：统计 / 分布 / 图例 / 虚线 / 异常对象 -->
+              <div class="h-full bg-[#F7F9FC] rounded-[4px] px-3 py-2.5 flex flex-col">
+
+                <!-- ① 统计个数 + 差占比 -->
+                <div class="flex items-baseline">
+                  <span class="text-[22px] font-bold text-[#262626] font-outfit leading-none">24</span>
+                  <span class="text-[11px] text-[#8C8C8C] ml-1">个分支</span>
+                  <span class="ml-auto text-[11px] text-[#8C8C8C] whitespace-nowrap">差 <b class="text-[#262626] font-medium font-outfit text-[12px]">4.2%</b></span>
+                </div>
+
+                <!-- ② 分布条 -->
+                <div class="flex gap-[3px] h-[12px] mt-2 rounded-full overflow-hidden">
+                  <span class="bg-[#39C317] min-w-[4px] rounded-full cursor-pointer hover:opacity-80 transition-opacity" style="flex:91.7 1 0" data-act="分支|正常" title="正常 22 个（点击筛出）"></span>
+                  <span class="bg-[#FF9245] min-w-[4px] rounded-full cursor-pointer hover:opacity-80 transition-opacity" style="flex:4.2 1 0" data-act="分支|一般" title="一般 1 个（点击筛出）"></span>
+                  <span class="bg-[#FF5752] min-w-[4px] rounded-full cursor-pointer hover:opacity-80 transition-opacity" style="flex:4.2 1 0" data-act="分支|差" title="差 1 个（点击筛出）"></span>
+                </div>
+
+                <!-- ② 图例 -->
+                <div class="flex items-center mt-2 text-[11px] text-[#8C8C8C]">
+                  <span class="flex-1 inline-flex items-center gap-1.5 cursor-pointer hover:text-[#1C6EFF] " data-act="分支|正常">
+                    <i class="w-1.5 h-1.5 rounded-full bg-[#39C317] inline-block"></i>正常
+                    <b class="text-[#262626] font-medium font-outfit text-[12px]">22</b>
+                  </span>
+                  <span class="flex-1 inline-flex items-center gap-1.5 cursor-pointer hover:text-[#1C6EFF] justify-center" data-act="分支|一般">
+                    <i class="w-1.5 h-1.5 rounded-full bg-[#FF9245] inline-block"></i>一般
+                    <b class="text-[#262626] font-medium font-outfit text-[12px]">1</b>
+                  </span>
+                  <span class="flex-1 inline-flex items-center gap-1.5 cursor-pointer hover:text-[#1C6EFF] justify-end" data-act="分支|差">
+                    <i class="w-1.5 h-1.5 rounded-full bg-[#FF5752] inline-block"></i>差
+                    <b class="text-[#262626] font-medium font-outfit text-[12px]">1</b>
+                  </span>
+                </div>
+
+                <!-- 虚线分割 -->
+                <div class="mt-2.5 border-t border-dashed border-[#DDE3EA]"></div>
+
+                <!-- ③ 异常对象 -->
+                <div class="ov-tags mt-2 flex-1 flex items-center gap-1.5 min-w-0 overflow-hidden">
+                <span class="ov-tag inline-flex items-center gap-1 h-[22px] max-w-[130px] px-2 rounded-[3px] bg-[#EDF0F4] text-[11px] text-[#41505F] cursor-pointer hover:text-[#1C6EFF] hover:bg-[#E6F4FF] transition-colors truncate flex-shrink-0" data-act="detail|分支|马尼拉办公室" title="马尼拉办公室（点击进入详情）"><i class="w-1 h-1 rounded-full bg-[#F53F3F] inline-block flex-shrink-0"></i>马尼拉办公室</span>
+                <span class="ov-tag-more inline-flex items-center h-[22px] px-2 rounded-[3px] bg-[#EDF0F4] text-[11px] text-[#8C8C8C] cursor-pointer flex-shrink-0" style="display:none" data-act="more|分支" data-list="马尼拉办公室"></span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 块 2：用户 -->
+                                                            <div class="ov-blk flex-1 min-w-0">
+
+              <!-- 整块底色容器：统计 / 分布 / 图例 / 虚线 / 异常对象 -->
+              <div class="h-full bg-[#F7F9FC] rounded-[4px] px-3 py-2.5 flex flex-col">
+
+                <!-- ① 统计个数 + 差占比 -->
+                <div class="flex items-baseline">
+                  <span class="text-[22px] font-bold text-[#262626] font-outfit leading-none">286</span>
+                  <span class="text-[11px] text-[#8C8C8C] ml-1">个用户</span>
+                  <span class="ml-auto text-[11px] text-[#8C8C8C] whitespace-nowrap">差 <b class="text-[#262626] font-medium font-outfit text-[12px]">2.4%</b></span>
+                </div>
+
+                <!-- ② 分布条 -->
+                <div class="flex gap-[3px] h-[12px] mt-2 rounded-full overflow-hidden">
+                  <span class="bg-[#39C317] min-w-[4px] rounded-full cursor-pointer hover:opacity-80 transition-opacity" style="flex:93.7 1 0" data-act="用户|正常" title="正常 268 个（点击筛出）"></span>
+                  <span class="bg-[#FF9245] min-w-[4px] rounded-full cursor-pointer hover:opacity-80 transition-opacity" style="flex:3.8 1 0" data-act="用户|一般" title="一般 11 个（点击筛出）"></span>
+                  <span class="bg-[#FF5752] min-w-[4px] rounded-full cursor-pointer hover:opacity-80 transition-opacity" style="flex:2.4 1 0" data-act="用户|差" title="差 7 个（点击筛出）"></span>
+                </div>
+
+                <!-- ② 图例 -->
+                <div class="flex items-center mt-2 text-[11px] text-[#8C8C8C]">
+                  <span class="flex-1 inline-flex items-center gap-1.5 cursor-pointer hover:text-[#1C6EFF] " data-act="用户|正常">
+                    <i class="w-1.5 h-1.5 rounded-full bg-[#39C317] inline-block"></i>正常
+                    <b class="text-[#262626] font-medium font-outfit text-[12px]">268</b>
+                  </span>
+                  <span class="flex-1 inline-flex items-center gap-1.5 cursor-pointer hover:text-[#1C6EFF] justify-center" data-act="用户|一般">
+                    <i class="w-1.5 h-1.5 rounded-full bg-[#FF9245] inline-block"></i>一般
+                    <b class="text-[#262626] font-medium font-outfit text-[12px]">11</b>
+                  </span>
+                  <span class="flex-1 inline-flex items-center gap-1.5 cursor-pointer hover:text-[#1C6EFF] justify-end" data-act="用户|差">
+                    <i class="w-1.5 h-1.5 rounded-full bg-[#FF5752] inline-block"></i>差
+                    <b class="text-[#262626] font-medium font-outfit text-[12px]">7</b>
+                  </span>
+                </div>
+
+                <!-- 虚线分割 -->
+                <div class="mt-2.5 border-t border-dashed border-[#DDE3EA]"></div>
+
+                <!-- ③ 异常对象 -->
+                <div class="ov-tags mt-2 flex-1 flex items-center gap-1.5 min-w-0 overflow-hidden">
+                <span class="ov-tag inline-flex items-center gap-1 h-[22px] max-w-[130px] px-2 rounded-[3px] bg-[#EDF0F4] text-[11px] text-[#41505F] cursor-pointer hover:text-[#1C6EFF] hover:bg-[#E6F4FF] transition-colors truncate flex-shrink-0" data-act="detail|用户|45232（Maria）" title="45232（Maria）（点击进入详情）"><i class="w-1 h-1 rounded-full bg-[#F53F3F] inline-block flex-shrink-0"></i>45232（Maria）</span>                <span class="ov-tag inline-flex items-center gap-1 h-[22px] max-w-[130px] px-2 rounded-[3px] bg-[#EDF0F4] text-[11px] text-[#41505F] cursor-pointer hover:text-[#1C6EFF] hover:bg-[#E6F4FF] transition-colors truncate flex-shrink-0" data-act="detail|用户|14810（郝星伍）" title="14810（郝星伍）（点击进入详情）"><i class="w-1 h-1 rounded-full bg-[#F53F3F] inline-block flex-shrink-0"></i>14810（郝星伍）</span>                <span class="ov-tag inline-flex items-center gap-1 h-[22px] max-w-[130px] px-2 rounded-[3px] bg-[#EDF0F4] text-[11px] text-[#41505F] cursor-pointer hover:text-[#1C6EFF] hover:bg-[#E6F4FF] transition-colors truncate flex-shrink-0" data-act="detail|用户|63728（王浩）" title="63728（王浩）（点击进入详情）"><i class="w-1 h-1 rounded-full bg-[#F53F3F] inline-block flex-shrink-0"></i>63728（王浩）</span>                <span class="ov-tag inline-flex items-center gap-1 h-[22px] max-w-[130px] px-2 rounded-[3px] bg-[#EDF0F4] text-[11px] text-[#41505F] cursor-pointer hover:text-[#1C6EFF] hover:bg-[#E6F4FF] transition-colors truncate flex-shrink-0" data-act="detail|用户|84261（柯特）" title="84261（柯特）（点击进入详情）"><i class="w-1 h-1 rounded-full bg-[#F53F3F] inline-block flex-shrink-0"></i>84261（柯特）</span>                <span class="ov-tag inline-flex items-center gap-1 h-[22px] max-w-[130px] px-2 rounded-[3px] bg-[#EDF0F4] text-[11px] text-[#41505F] cursor-pointer hover:text-[#1C6EFF] hover:bg-[#E6F4FF] transition-colors truncate flex-shrink-0" data-act="detail|用户|35627（黎维祁）" title="35627（黎维祁）（点击进入详情）"><i class="w-1 h-1 rounded-full bg-[#F53F3F] inline-block flex-shrink-0"></i>35627（黎维祁）</span>                <span class="ov-tag inline-flex items-center gap-1 h-[22px] max-w-[130px] px-2 rounded-[3px] bg-[#EDF0F4] text-[11px] text-[#41505F] cursor-pointer hover:text-[#1C6EFF] hover:bg-[#E6F4FF] transition-colors truncate flex-shrink-0" data-act="detail|用户|90317（张启明）" title="90317（张启明）（点击进入详情）"><i class="w-1 h-1 rounded-full bg-[#F53F3F] inline-block flex-shrink-0"></i>90317（张启明）</span>                <span class="ov-tag inline-flex items-center gap-1 h-[22px] max-w-[130px] px-2 rounded-[3px] bg-[#EDF0F4] text-[11px] text-[#41505F] cursor-pointer hover:text-[#1C6EFF] hover:bg-[#E6F4FF] transition-colors truncate flex-shrink-0" data-act="detail|用户|11802（孙嘉禾）" title="11802（孙嘉禾）（点击进入详情）"><i class="w-1 h-1 rounded-full bg-[#F53F3F] inline-block flex-shrink-0"></i>11802（孙嘉禾）</span>
+                <span class="ov-tag-more inline-flex items-center h-[22px] px-2 rounded-[3px] bg-[#EDF0F4] text-[11px] text-[#8C8C8C] cursor-pointer flex-shrink-0" style="display:none" data-act="more|用户" data-list="45232（Maria）、14810（郝星伍）、63728（王浩）、84261（柯特）、35627（黎维祁）、90317（张启明）、11802（孙嘉禾）"></span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 块 3：应用 -->
+                                                            <div class="ov-blk flex-1 min-w-0">
+
+              <!-- 整块底色容器：统计 / 分布 / 图例 / 虚线 / 异常对象 -->
+              <div class="h-full bg-[#F7F9FC] rounded-[4px] px-3 py-2.5 flex flex-col">
+
+                <!-- ① 统计个数 + 差占比 -->
+                <div class="flex items-baseline">
+                  <span class="text-[22px] font-bold text-[#262626] font-outfit leading-none">36</span>
+                  <span class="text-[11px] text-[#8C8C8C] ml-1">个应用</span>
+                  <span class="ml-auto text-[11px] text-[#8C8C8C] whitespace-nowrap">差 <b class="text-[#262626] font-medium font-outfit text-[12px]">11.1%</b></span>
+                </div>
+
+                <!-- ② 分布条 -->
+                <div class="flex gap-[3px] h-[12px] mt-2 rounded-full overflow-hidden">
+                  <span class="bg-[#39C317] min-w-[4px] rounded-full cursor-pointer hover:opacity-80 transition-opacity" style="flex:83.3 1 0" data-act="应用|正常" title="正常 30 个（点击筛出）"></span>
+                  <span class="bg-[#FF9245] min-w-[4px] rounded-full cursor-pointer hover:opacity-80 transition-opacity" style="flex:5.6 1 0" data-act="应用|一般" title="一般 2 个（点击筛出）"></span>
+                  <span class="bg-[#FF5752] min-w-[4px] rounded-full cursor-pointer hover:opacity-80 transition-opacity" style="flex:11.1 1 0" data-act="应用|差" title="差 4 个（点击筛出）"></span>
+                </div>
+
+                <!-- ② 图例 -->
+                <div class="flex items-center mt-2 text-[11px] text-[#8C8C8C]">
+                  <span class="flex-1 inline-flex items-center gap-1.5 cursor-pointer hover:text-[#1C6EFF] " data-act="应用|正常">
+                    <i class="w-1.5 h-1.5 rounded-full bg-[#39C317] inline-block"></i>正常
+                    <b class="text-[#262626] font-medium font-outfit text-[12px]">30</b>
+                  </span>
+                  <span class="flex-1 inline-flex items-center gap-1.5 cursor-pointer hover:text-[#1C6EFF] justify-center" data-act="应用|一般">
+                    <i class="w-1.5 h-1.5 rounded-full bg-[#FF9245] inline-block"></i>一般
+                    <b class="text-[#262626] font-medium font-outfit text-[12px]">2</b>
+                  </span>
+                  <span class="flex-1 inline-flex items-center gap-1.5 cursor-pointer hover:text-[#1C6EFF] justify-end" data-act="应用|差">
+                    <i class="w-1.5 h-1.5 rounded-full bg-[#FF5752] inline-block"></i>差
+                    <b class="text-[#262626] font-medium font-outfit text-[12px]">4</b>
+                  </span>
+                </div>
+
+                <!-- 虚线分割 -->
+                <div class="mt-2.5 border-t border-dashed border-[#DDE3EA]"></div>
+
+                <!-- ③ 异常对象 -->
+                <div class="ov-tags mt-2 flex-1 flex items-center gap-1.5 min-w-0 overflow-hidden">
+                <span class="ov-tag inline-flex items-center gap-1 h-[22px] max-w-[130px] px-2 rounded-[3px] bg-[#EDF0F4] text-[11px] text-[#41505F] cursor-pointer hover:text-[#1C6EFF] hover:bg-[#E6F4FF] transition-colors truncate flex-shrink-0" data-act="detail|应用|OA系统" title="OA系统（点击进入详情）"><i class="w-1 h-1 rounded-full bg-[#F53F3F] inline-block flex-shrink-0"></i>OA系统</span>                <span class="ov-tag inline-flex items-center gap-1 h-[22px] max-w-[130px] px-2 rounded-[3px] bg-[#EDF0F4] text-[11px] text-[#41505F] cursor-pointer hover:text-[#1C6EFF] hover:bg-[#E6F4FF] transition-colors truncate flex-shrink-0" data-act="detail|应用|BI 系统" title="BI 系统（点击进入详情）"><i class="w-1 h-1 rounded-full bg-[#F53F3F] inline-block flex-shrink-0"></i>BI 系统</span>                <span class="ov-tag inline-flex items-center gap-1 h-[22px] max-w-[130px] px-2 rounded-[3px] bg-[#EDF0F4] text-[11px] text-[#41505F] cursor-pointer hover:text-[#1C6EFF] hover:bg-[#E6F4FF] transition-colors truncate flex-shrink-0" data-act="detail|应用|Salesforce" title="Salesforce（点击进入详情）"><i class="w-1 h-1 rounded-full bg-[#F53F3F] inline-block flex-shrink-0"></i>Salesforce</span>                <span class="ov-tag inline-flex items-center gap-1 h-[22px] max-w-[130px] px-2 rounded-[3px] bg-[#EDF0F4] text-[11px] text-[#41505F] cursor-pointer hover:text-[#1C6EFF] hover:bg-[#E6F4FF] transition-colors truncate flex-shrink-0" data-act="detail|应用|Teams" title="Teams（点击进入详情）"><i class="w-1 h-1 rounded-full bg-[#F53F3F] inline-block flex-shrink-0"></i>Teams</span>
+                <span class="ov-tag-more inline-flex items-center h-[22px] px-2 rounded-[3px] bg-[#EDF0F4] text-[11px] text-[#8C8C8C] cursor-pointer flex-shrink-0" style="display:none" data-act="more|应用" data-list="OA系统、BI 系统、Salesforce、Teams"></span>
+                </div>
+              </div>
+            </div>
+
+          </div></div>
+        </div>
+      </div>
+    </div>
+
+    <ul class="ov-stage text-[11px] leading-[1.85] text-[#5C6270] pl-4 m-0 mt-1.5">
+      <li>整块 <span class="font-mono">#F7F9FC</span> 容器承载「统计 + 分布条 + 图例 + 异常对象」，虚线分隔上下两段；数字 22px bold、单位 11px 灰，与左列「4 紧急」同规格并顶对齐。</li>
+      <li>三段条与底行数字都是点击入口，条段按实际占比绘制，极小段有 4px 兜底；异常对象用灰色 tag，溢出收成 +N。</li>
+      <li>底部「差：xxx」把宽出来的空间变成下钻路径，而不是纯留白。</li>
+    </ul>
+  </section>
+
+  <!-- ================================================================
+       方案 2：小圆环 + 图例
+       ================================================================ -->
+  <section class="mt-7">
+    <div class="ov-stage flex items-baseline gap-2.5 flex-wrap mb-2">
+      <span class="inline-flex items-center h-5 px-1.5 rounded-[2px] bg-[#E6F4FF] text-[#1C6EFF] text-[11px] font-semibold">方案 2</span>
+      <span class="text-[13px] font-semibold text-[#262626]">小圆环 + 图例</span>
+      <span class="text-[12px] text-[#5C6270]">左 92px 三色环（环心总数）· 右三行图例 值 + 占比</span>
+    </div>
+
+    <div class="ov-scroll">
+      <div class="ov-stage">
+        <div class="bg-white border border-[#E2E8F0] rounded-[4px] shadow-2xs p-4 grid divide-x divide-[#F0F0F0] box-border min-h-[184px]" style="grid-template-columns: 2fr 3fr;">
+
+          <!-- 左列同方案 1（省略重复内容，正式回写时建议抽出公共片段） -->
+          <div class="pr-4 flex flex-col select-none h-full min-w-0">
+            <div class="flex items-center mb-2">
+              <span class="text-[12px] font-bold text-[#262626] whitespace-nowrap">体验预警事件</span>
+            </div>
+            <div class="flex items-end gap-3">
+              <div class="flex items-baseline gap-1">
+                <span class="text-[22px] font-bold text-[#F53F3F] font-outfit leading-none">4</span>
+                <span class="text-[11px] text-[#8C8C8C]">紧急</span>
+              </div>
+              <span class="w-px h-6 bg-[#EDF0F4] mb-0.5" aria-hidden="true"></span>
+              <div class="flex items-baseline gap-1">
+                <span class="text-[22px] font-bold text-[#FF7D00] font-outfit leading-none">12</span>
+                <span class="text-[11px] text-[#8C8C8C]">重要</span>
+              </div>
+              <button type="button" data-act="体验预警|页" class="ml-auto mb-0.5 inline-flex items-center gap-0.5 text-[11px] text-[#8C8C8C] hover:text-[#1C6EFF] hover:underline cursor-pointer flex-shrink-0">
+                <span>查看更多</span>
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                </svg>
+              </button>
+            </div>
+            <div class="mt-1.5 flex flex-col gap-[4px]">
+              <div data-act="分支|马尼拉" class="h-[30px] px-2.5 rounded-[4px] bg-[#F7F9FC] hover:bg-[#F0F5FF] flex items-center gap-2 cursor-pointer group">
+                <span class="inline-flex items-center h-4 px-1 rounded-[2px] text-[10px] bg-[#FFF7E8] text-[#FF7D00] flex-shrink-0">重要</span>
+                <span class="text-[12px] text-[#262626] truncate flex-1 group-hover:text-[#1C6EFF]">分支（马尼拉办公室）访问体验质量差，已持续 319 小时</span>
+                <span class="text-[12px] text-[#A1A7B3] font-outfit flex-shrink-0">08-21 07:40</span>
+              </div>
+              <div data-act="用户|45232" class="h-[30px] px-2.5 rounded-[4px] bg-[#F7F9FC] hover:bg-[#F0F5FF] flex items-center gap-2 cursor-pointer group">
+                <span class="inline-flex items-center h-4 px-1 rounded-[2px] text-[10px] bg-[#FFECE8] text-[#F53F3F] flex-shrink-0">紧急</span>
+                <span class="text-[12px] text-[#262626] truncate flex-1 group-hover:text-[#1C6EFF]">用户（45232 Maria）访问体验质量差，已持续 185 小时</span>
+                <span class="text-[12px] text-[#A1A7B3] font-outfit flex-shrink-0">08-26 21:15</span>
+              </div>
+              <div data-act="应用|OA系统" class="h-[30px] px-2.5 rounded-[4px] bg-[#F7F9FC] hover:bg-[#F0F5FF] flex items-center gap-2 cursor-pointer group">
+                <span class="inline-flex items-center h-4 px-1 rounded-[2px] text-[10px] bg-[#FFECE8] text-[#F53F3F] flex-shrink-0">紧急</span>
+                <span class="text-[12px] text-[#262626] truncate flex-1 group-hover:text-[#1C6EFF]">应用（OA系统）访问体验质量差，已持续 191 小时</span>
+                <span class="text-[12px] text-[#A1A7B3] font-outfit flex-shrink-0">08-26 15:10</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 右列（回写时取这一段） -->
+          <div class="pl-4 flex flex-col min-w-0">
+            <div class="flex items-center mb-2">
+              <span class="text-[12px] font-bold text-[#262626] whitespace-nowrap">监控对象体验质量</span>
+            </div>
+            <div class="flex items-stretch flex-1 min-w-0">
+
+            <!-- 块 1：分支 -->
+            <div class="ov-blk flex-1 min-w-0 px-4 flex items-center gap-3">
+              <div class="relative w-[84px] h-[84px] flex-shrink-0">
+                <svg class="w-[84px] h-[84px] -rotate-90" viewBox="0 0 42 42">
+                  <circle cx="21" cy="21" r="16" fill="none" stroke="#F0F2F5" stroke-width="5"></circle>
+                  <circle cx="21" cy="21" r="16" fill="none" stroke="#39C317" stroke-width="5" stroke-dasharray="92.19 100.5" stroke-dashoffset="0"></circle>
+                  <circle cx="21" cy="21" r="16" fill="none" stroke="#FF9245" stroke-width="5" stroke-dasharray="4.22 100.5" stroke-dashoffset="-92.19"></circle>
+                  <circle cx="21" cy="21" r="16" fill="none" stroke="#FF5752" stroke-width="5" stroke-dasharray="4.22 100.5" stroke-dashoffset="-96.41"></circle>
+                </svg>
+                <div class="absolute inset-0 flex flex-col items-center justify-center leading-none pointer-events-none">
+                  <span class="text-[16px] font-semibold text-[#262626] font-outfit">24</span>
+                  <span class="text-[10px] text-[#8C8C8C] mt-0.5">个分支</span>
+                </div>
+              </div>
+              <div class="flex flex-col justify-center flex-1 min-w-0">
+                <div class="flex items-center justify-between h-[20px]">
+                  <span class="text-[13px] text-[#262626]">分支</span>
+                </div>
+
+                <div class="flex items-center gap-1.5 h-[22px] text-[11px] text-[#8C8C8C] cursor-pointer hover:text-[#1C6EFF]" data-act="分支|正常">
+                  <i class="w-1.5 h-1.5 rounded-full bg-[#39C317] inline-block flex-shrink-0"></i>
+                  <span>正常</span>
+                  <b class="text-[12px] text-[#595959] font-medium font-outfit">22</b>
+                  <em class="ov-opt ml-auto not-italic text-[#A1A7B3] font-outfit">91.7%</em>
+                </div>
+                <div class="flex items-center gap-1.5 h-[22px] text-[11px] text-[#8C8C8C] cursor-pointer hover:text-[#1C6EFF]" data-act="分支|一般">
+                  <i class="w-1.5 h-1.5 rounded-full bg-[#FF9245] inline-block flex-shrink-0"></i>
+                  <span>一般</span>
+                  <b class="text-[12px] text-[#595959] font-medium font-outfit">1</b>
+                  <em class="ov-opt ml-auto not-italic text-[#A1A7B3] font-outfit">4.2%</em>
+                </div>
+                <div class="flex items-center gap-1.5 h-[22px] text-[11px] text-[#8C8C8C] cursor-pointer hover:text-[#1C6EFF]" data-act="分支|差">
+                  <i class="w-1.5 h-1.5 rounded-full bg-[#FF5752] inline-block flex-shrink-0"></i>
+                  <span>差</span>
+                  <b class="text-[12px] text-[#595959] font-medium font-outfit">1</b>
+                  <em class="ov-opt ml-auto not-italic text-[#A1A7B3] font-outfit">4.2%</em>
+                </div>
+                              <div class="mt-0.5 text-[11px] text-[#8C8C8C] truncate" title="马尼拉办公室">差：马尼拉办公室</div>
+              </div>
+            </div>
+
+            <!-- 块 2：用户 -->
+            <div class="ov-blk flex-1 min-w-0 px-4 flex items-center gap-3">
+              <div class="relative w-[84px] h-[84px] flex-shrink-0">
+                <svg class="w-[84px] h-[84px] -rotate-90" viewBox="0 0 42 42">
+                  <circle cx="21" cy="21" r="16" fill="none" stroke="#F0F2F5" stroke-width="5"></circle>
+                  <circle cx="21" cy="21" r="16" fill="none" stroke="#39C317" stroke-width="5" stroke-dasharray="94.20 100.5" stroke-dashoffset="0"></circle>
+                  <circle cx="21" cy="21" r="16" fill="none" stroke="#FF9245" stroke-width="5" stroke-dasharray="3.82 100.5" stroke-dashoffset="-94.20"></circle>
+                  <circle cx="21" cy="21" r="16" fill="none" stroke="#FF5752" stroke-width="5" stroke-dasharray="2.41 100.5" stroke-dashoffset="-98.02"></circle>
+                </svg>
+                <div class="absolute inset-0 flex flex-col items-center justify-center leading-none pointer-events-none">
+                  <span class="text-[16px] font-semibold text-[#262626] font-outfit">286</span>
+                  <span class="text-[10px] text-[#8C8C8C] mt-0.5">个用户</span>
+                </div>
+              </div>
+              <div class="flex flex-col justify-center flex-1 min-w-0">
+                <div class="flex items-center justify-between h-[20px]">
+                  <span class="text-[13px] text-[#262626]">用户</span>
+                </div>
+
+                <div class="flex items-center gap-1.5 h-[22px] text-[11px] text-[#8C8C8C] cursor-pointer hover:text-[#1C6EFF]" data-act="用户|正常">
+                  <i class="w-1.5 h-1.5 rounded-full bg-[#39C317] inline-block flex-shrink-0"></i>
+                  <span>正常</span>
+                  <b class="text-[12px] text-[#595959] font-medium font-outfit">268</b>
+                  <em class="ov-opt ml-auto not-italic text-[#A1A7B3] font-outfit">93.7%</em>
+                </div>
+                <div class="flex items-center gap-1.5 h-[22px] text-[11px] text-[#8C8C8C] cursor-pointer hover:text-[#1C6EFF]" data-act="用户|一般">
+                  <i class="w-1.5 h-1.5 rounded-full bg-[#FF9245] inline-block flex-shrink-0"></i>
+                  <span>一般</span>
+                  <b class="text-[12px] text-[#595959] font-medium font-outfit">11</b>
+                  <em class="ov-opt ml-auto not-italic text-[#A1A7B3] font-outfit">3.8%</em>
+                </div>
+                <div class="flex items-center gap-1.5 h-[22px] text-[11px] text-[#8C8C8C] cursor-pointer hover:text-[#1C6EFF]" data-act="用户|差">
+                  <i class="w-1.5 h-1.5 rounded-full bg-[#FF5752] inline-block flex-shrink-0"></i>
+                  <span>差</span>
+                  <b class="text-[12px] text-[#595959] font-medium font-outfit">7</b>
+                  <em class="ov-opt ml-auto not-italic text-[#A1A7B3] font-outfit">2.4%</em>
+                </div>
+                              <div class="mt-0.5 text-[11px] text-[#8C8C8C] truncate" title="45232 Maria 等 7 人">差：45232 Maria 等 7 人</div>
+              </div>
+            </div>
+
+            <!-- 块 3：应用 -->
+            <div class="ov-blk flex-1 min-w-0 px-4 flex items-center gap-3">
+              <div class="relative w-[84px] h-[84px] flex-shrink-0">
+                <svg class="w-[84px] h-[84px] -rotate-90" viewBox="0 0 42 42">
+                  <circle cx="21" cy="21" r="16" fill="none" stroke="#F0F2F5" stroke-width="5"></circle>
+                  <circle cx="21" cy="21" r="16" fill="none" stroke="#39C317" stroke-width="5" stroke-dasharray="83.74 100.5" stroke-dashoffset="0"></circle>
+                  <circle cx="21" cy="21" r="16" fill="none" stroke="#FF9245" stroke-width="5" stroke-dasharray="5.63 100.5" stroke-dashoffset="-83.74"></circle>
+                  <circle cx="21" cy="21" r="16" fill="none" stroke="#FF5752" stroke-width="5" stroke-dasharray="11.16 100.5" stroke-dashoffset="-89.37"></circle>
+                </svg>
+                <div class="absolute inset-0 flex flex-col items-center justify-center leading-none pointer-events-none">
+                  <span class="text-[16px] font-semibold text-[#262626] font-outfit">36</span>
+                  <span class="text-[10px] text-[#8C8C8C] mt-0.5">个应用</span>
+                </div>
+              </div>
+              <div class="flex flex-col justify-center flex-1 min-w-0">
+                <div class="flex items-center justify-between h-[20px]">
+                  <span class="text-[13px] text-[#262626]">应用</span>
+                </div>
+
+                <div class="flex items-center gap-1.5 h-[22px] text-[11px] text-[#8C8C8C] cursor-pointer hover:text-[#1C6EFF]" data-act="应用|正常">
+                  <i class="w-1.5 h-1.5 rounded-full bg-[#39C317] inline-block flex-shrink-0"></i>
+                  <span>正常</span>
+                  <b class="text-[12px] text-[#595959] font-medium font-outfit">30</b>
+                  <em class="ov-opt ml-auto not-italic text-[#A1A7B3] font-outfit">83.3%</em>
+                </div>
+                <div class="flex items-center gap-1.5 h-[22px] text-[11px] text-[#8C8C8C] cursor-pointer hover:text-[#1C6EFF]" data-act="应用|一般">
+                  <i class="w-1.5 h-1.5 rounded-full bg-[#FF9245] inline-block flex-shrink-0"></i>
+                  <span>一般</span>
+                  <b class="text-[12px] text-[#595959] font-medium font-outfit">2</b>
+                  <em class="ov-opt ml-auto not-italic text-[#A1A7B3] font-outfit">5.6%</em>
+                </div>
+                <div class="flex items-center gap-1.5 h-[22px] text-[11px] text-[#8C8C8C] cursor-pointer hover:text-[#1C6EFF]" data-act="应用|差">
+                  <i class="w-1.5 h-1.5 rounded-full bg-[#FF5752] inline-block flex-shrink-0"></i>
+                  <span>差</span>
+                  <b class="text-[12px] text-[#595959] font-medium font-outfit">4</b>
+                  <em class="ov-opt ml-auto not-italic text-[#A1A7B3] font-outfit">11.1%</em>
+                </div>
+                              <div class="mt-0.5 text-[11px] text-[#8C8C8C] truncate" title="OA系统、BI 系统、Salesforce、Teams">差：OA系统、BI 系统、Salesforce、Teams</div>
+              </div>
+            </div>
+
+          </div></div>
+        </div>
+      </div>
+    </div>
+
+    <ul class="ov-stage text-[11px] leading-[1.85] text-[#5C6270] pl-4 m-0 mt-1.5">
+      <li>块内 = 环 + 维度名 + 三档数值/占比 + 「差：对象」一行，比纯三个环信息完整，底部不再空。</li>
+      <li>极端偏斜时环上几乎全是正常色（用户 93.7%），差与一般只剩一小截弧，实际靠右侧图例读数；窄块会收起百分比，只剩数值。</li>
+      <li>环色沿用 #39C317 时对比过强，正式用建议正常档降饱和，否则环会抢走「差」的注意力。</li>
+    </ul>
+  </section>
+
+  <!-- ================================================================
+       方案 3：三段微型条
+       ================================================================ -->
+  <section class="mt-7">
+    <div class="ov-stage flex items-baseline gap-2.5 flex-wrap mb-2">
+      <span class="inline-flex items-center h-5 px-1.5 rounded-[2px] bg-[#E6F4FF] text-[#1C6EFF] text-[11px] font-semibold">方案 3</span>
+      <span class="text-[13px] font-semibold text-[#262626]">三段微型条</span>
+      <span class="text-[12px] text-[#5C6270]">块内 3 行，每行 档位名 + 独立条（按自身占比）+ 数值</span>
+    </div>
+
+    <div class="ov-scroll">
+      <div class="ov-stage">
+        <div class="bg-white border border-[#E2E8F0] rounded-[4px] shadow-2xs p-4 grid divide-x divide-[#F0F0F0] box-border min-h-[184px]" style="grid-template-columns: 2fr 3fr;">
+
+          <div class="pr-4 flex flex-col select-none h-full min-w-0">
+            <div class="flex items-center mb-2">
+              <span class="text-[12px] font-bold text-[#262626] whitespace-nowrap">体验预警事件</span>
+            </div>
+            <div class="flex items-end gap-3">
+              <div class="flex items-baseline gap-1">
+                <span class="text-[22px] font-bold text-[#F53F3F] font-outfit leading-none">4</span>
+                <span class="text-[11px] text-[#8C8C8C]">紧急</span>
+              </div>
+              <span class="w-px h-6 bg-[#EDF0F4] mb-0.5" aria-hidden="true"></span>
+              <div class="flex items-baseline gap-1">
+                <span class="text-[22px] font-bold text-[#FF7D00] font-outfit leading-none">12</span>
+                <span class="text-[11px] text-[#8C8C8C]">重要</span>
+              </div>
+              <button type="button" data-act="体验预警|页" class="ml-auto mb-0.5 inline-flex items-center gap-0.5 text-[11px] text-[#8C8C8C] hover:text-[#1C6EFF] hover:underline cursor-pointer flex-shrink-0">
+                <span>查看更多</span>
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                </svg>
+              </button>
+            </div>
+            <div class="mt-1.5 flex flex-col gap-[4px]">
+              <div data-act="分支|马尼拉" class="h-[30px] px-2.5 rounded-[4px] bg-[#F7F9FC] hover:bg-[#F0F5FF] flex items-center gap-2 cursor-pointer group">
+                <span class="inline-flex items-center h-4 px-1 rounded-[2px] text-[10px] bg-[#FFF7E8] text-[#FF7D00] flex-shrink-0">重要</span>
+                <span class="text-[12px] text-[#262626] truncate flex-1 group-hover:text-[#1C6EFF]">分支（马尼拉办公室）访问体验质量差，已持续 319 小时</span>
+                <span class="text-[12px] text-[#A1A7B3] font-outfit flex-shrink-0">08-21 07:40</span>
+              </div>
+              <div data-act="用户|45232" class="h-[30px] px-2.5 rounded-[4px] bg-[#F7F9FC] hover:bg-[#F0F5FF] flex items-center gap-2 cursor-pointer group">
+                <span class="inline-flex items-center h-4 px-1 rounded-[2px] text-[10px] bg-[#FFECE8] text-[#F53F3F] flex-shrink-0">紧急</span>
+                <span class="text-[12px] text-[#262626] truncate flex-1 group-hover:text-[#1C6EFF]">用户（45232 Maria）访问体验质量差，已持续 185 小时</span>
+                <span class="text-[12px] text-[#A1A7B3] font-outfit flex-shrink-0">08-26 21:15</span>
+              </div>
+              <div data-act="应用|OA系统" class="h-[30px] px-2.5 rounded-[4px] bg-[#F7F9FC] hover:bg-[#F0F5FF] flex items-center gap-2 cursor-pointer group">
+                <span class="inline-flex items-center h-4 px-1 rounded-[2px] text-[10px] bg-[#FFECE8] text-[#F53F3F] flex-shrink-0">紧急</span>
+                <span class="text-[12px] text-[#262626] truncate flex-1 group-hover:text-[#1C6EFF]">应用（OA系统）访问体验质量差，已持续 191 小时</span>
+                <span class="text-[12px] text-[#A1A7B3] font-outfit flex-shrink-0">08-26 15:10</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 右列（回写时取这一段） -->
+          <div class="pl-4 flex flex-col min-w-0">
+            <div class="flex items-center mb-2">
+              <span class="text-[12px] font-bold text-[#262626] whitespace-nowrap">监控对象体验质量</span>
+            </div>
+            <div class="flex items-stretch flex-1 min-w-0">
+
+            <!-- 块 1：分支 -->
+            <div class="ov-blk flex-1 min-w-0 px-4 flex flex-col">
+              <div class="flex items-baseline gap-1.5">
+                <span class="text-[13px] text-[#262626]">分支</span>
+                <span class="text-[20px] font-semibold text-[#262626] font-outfit leading-none">24</span>
+                <span class="text-[11px] text-[#8C8C8C]">个</span>
+                <span class="ml-auto text-[11px] text-[#8C8C8C] whitespace-nowrap">差 <span class="text-[#F53F3F] font-medium font-outfit">1</span></span>
+              </div>
+              <div class="mt-2 flex flex-col justify-center flex-1">
+                <div class="flex items-center gap-2 h-[24px] text-[11px] text-[#8C8C8C] cursor-pointer hover:text-[#1C6EFF]" data-act="分支|正常">
+                  <span class="w-[26px] flex-shrink-0">正常</span>
+                  <span class="flex-1 min-w-0 h-[6px] bg-[#F0F0F0] rounded-full overflow-hidden">
+                    <span class="block h-full bg-[#39C317] rounded-full" style="width:91.7%"></span>
+                  </span>
+                  <b class="w-[34px] text-right text-[12px] text-[#595959] font-medium font-outfit">22</b>
+                  <em class="ov-opt w-[40px] text-right not-italic text-[10px] text-[#A1A7B3] font-outfit">91.7%</em>
+                </div>
+                <div class="flex items-center gap-2 h-[24px] text-[11px] text-[#8C8C8C] cursor-pointer hover:text-[#1C6EFF]" data-act="分支|一般">
+                  <span class="w-[26px] flex-shrink-0">一般</span>
+                  <span class="flex-1 min-w-0 h-[6px] bg-[#F0F0F0] rounded-full overflow-hidden">
+                    <span class="block h-full bg-[#FF9245] rounded-full" style="width:4.2%"></span>
+                  </span>
+                  <b class="w-[34px] text-right text-[12px] text-[#595959] font-medium font-outfit">1</b>
+                  <em class="ov-opt w-[40px] text-right not-italic text-[10px] text-[#A1A7B3] font-outfit">4.2%</em>
+                </div>
+                <div class="flex items-center gap-2 h-[24px] text-[11px] text-[#8C8C8C] cursor-pointer hover:text-[#1C6EFF]" data-act="分支|差">
+                  <span class="w-[26px] flex-shrink-0">差</span>
+                  <span class="flex-1 min-w-0 h-[6px] bg-[#F0F0F0] rounded-full overflow-hidden">
+                    <span class="block h-full bg-[#FF5752] rounded-full" style="width:4.2%"></span>
+                  </span>
+                  <b class="w-[34px] text-right text-[12px] text-[#595959] font-medium font-outfit">1</b>
+                  <em class="ov-opt w-[40px] text-right not-italic text-[10px] text-[#A1A7B3] font-outfit">4.2%</em>
+                </div>
+              </div>
+            </div>
+
+            <!-- 块 2：用户 -->
+            <div class="ov-blk flex-1 min-w-0 px-4 flex flex-col">
+              <div class="flex items-baseline gap-1.5">
+                <span class="text-[13px] text-[#262626]">用户</span>
+                <span class="text-[20px] font-semibold text-[#262626] font-outfit leading-none">286</span>
+                <span class="text-[11px] text-[#8C8C8C]">个</span>
+                <span class="ml-auto text-[11px] text-[#8C8C8C] whitespace-nowrap">差 <span class="text-[#F53F3F] font-medium font-outfit">7</span></span>
+              </div>
+              <div class="mt-2 flex flex-col justify-center flex-1">
+                <div class="flex items-center gap-2 h-[24px] text-[11px] text-[#8C8C8C] cursor-pointer hover:text-[#1C6EFF]" data-act="用户|正常">
+                  <span class="w-[26px] flex-shrink-0">正常</span>
+                  <span class="flex-1 min-w-0 h-[6px] bg-[#F0F0F0] rounded-full overflow-hidden">
+                    <span class="block h-full bg-[#39C317] rounded-full" style="width:93.7%"></span>
+                  </span>
+                  <b class="w-[34px] text-right text-[12px] text-[#595959] font-medium font-outfit">268</b>
+                  <em class="ov-opt w-[40px] text-right not-italic text-[10px] text-[#A1A7B3] font-outfit">93.7%</em>
+                </div>
+                <div class="flex items-center gap-2 h-[24px] text-[11px] text-[#8C8C8C] cursor-pointer hover:text-[#1C6EFF]" data-act="用户|一般">
+                  <span class="w-[26px] flex-shrink-0">一般</span>
+                  <span class="flex-1 min-w-0 h-[6px] bg-[#F0F0F0] rounded-full overflow-hidden">
+                    <span class="block h-full bg-[#FF9245] rounded-full" style="width:3.8%"></span>
+                  </span>
+                  <b class="w-[34px] text-right text-[12px] text-[#595959] font-medium font-outfit">11</b>
+                  <em class="ov-opt w-[40px] text-right not-italic text-[10px] text-[#A1A7B3] font-outfit">3.8%</em>
+                </div>
+                <div class="flex items-center gap-2 h-[24px] text-[11px] text-[#8C8C8C] cursor-pointer hover:text-[#1C6EFF]" data-act="用户|差">
+                  <span class="w-[26px] flex-shrink-0">差</span>
+                  <span class="flex-1 min-w-0 h-[6px] bg-[#F0F0F0] rounded-full overflow-hidden">
+                    <span class="block h-full bg-[#FF5752] rounded-full" style="width:2.4%"></span>
+                  </span>
+                  <b class="w-[34px] text-right text-[12px] text-[#595959] font-medium font-outfit">7</b>
+                  <em class="ov-opt w-[40px] text-right not-italic text-[10px] text-[#A1A7B3] font-outfit">2.4%</em>
+                </div>
+              </div>
+            </div>
+
+            <!-- 块 3：应用 -->
+            <div class="ov-blk flex-1 min-w-0 px-4 flex flex-col">
+              <div class="flex items-baseline gap-1.5">
+                <span class="text-[13px] text-[#262626]">应用</span>
+                <span class="text-[20px] font-semibold text-[#262626] font-outfit leading-none">36</span>
+                <span class="text-[11px] text-[#8C8C8C]">个</span>
+                <span class="ml-auto text-[11px] text-[#8C8C8C] whitespace-nowrap">差 <span class="text-[#F53F3F] font-medium font-outfit">4</span></span>
+              </div>
+              <div class="mt-2 flex flex-col justify-center flex-1">
+                <div class="flex items-center gap-2 h-[24px] text-[11px] text-[#8C8C8C] cursor-pointer hover:text-[#1C6EFF]" data-act="应用|正常">
+                  <span class="w-[26px] flex-shrink-0">正常</span>
+                  <span class="flex-1 min-w-0 h-[6px] bg-[#F0F0F0] rounded-full overflow-hidden">
+                    <span class="block h-full bg-[#39C317] rounded-full" style="width:83.3%"></span>
+                  </span>
+                  <b class="w-[34px] text-right text-[12px] text-[#595959] font-medium font-outfit">30</b>
+                  <em class="ov-opt w-[40px] text-right not-italic text-[10px] text-[#A1A7B3] font-outfit">83.3%</em>
+                </div>
+                <div class="flex items-center gap-2 h-[24px] text-[11px] text-[#8C8C8C] cursor-pointer hover:text-[#1C6EFF]" data-act="应用|一般">
+                  <span class="w-[26px] flex-shrink-0">一般</span>
+                  <span class="flex-1 min-w-0 h-[6px] bg-[#F0F0F0] rounded-full overflow-hidden">
+                    <span class="block h-full bg-[#FF9245] rounded-full" style="width:5.6%"></span>
+                  </span>
+                  <b class="w-[34px] text-right text-[12px] text-[#595959] font-medium font-outfit">2</b>
+                  <em class="ov-opt w-[40px] text-right not-italic text-[10px] text-[#A1A7B3] font-outfit">5.6%</em>
+                </div>
+                <div class="flex items-center gap-2 h-[24px] text-[11px] text-[#8C8C8C] cursor-pointer hover:text-[#1C6EFF]" data-act="应用|差">
+                  <span class="w-[26px] flex-shrink-0">差</span>
+                  <span class="flex-1 min-w-0 h-[6px] bg-[#F0F0F0] rounded-full overflow-hidden">
+                    <span class="block h-full bg-[#FF5752] rounded-full" style="width:11.1%"></span>
+                  </span>
+                  <b class="w-[34px] text-right text-[12px] text-[#595959] font-medium font-outfit">4</b>
+                  <em class="ov-opt w-[40px] text-right not-italic text-[10px] text-[#A1A7B3] font-outfit">11.1%</em>
+                </div>
+              </div>
+            </div>
+
+          </div></div>
+        </div>
+      </div>
+    </div>
+
+    <ul class="ov-stage text-[11px] leading-[1.85] text-[#5C6270] pl-4 m-0 mt-1.5">
+      <li>三档分列而非堆叠，天然不会被跨块横向比较；三行高度一致，扫描成本低。</li>
+      <li>9 根条并排后「正常」永远满长，视觉偏碎，且 184px 里下方留白最多。</li>
+      <li>适合放进抽屉或二级面板做「体检表」，不建议直接占概览卡主位。</li>
+    </ul>
+  </section>
+
+  <!-- 通用建议 -->
+  <div class="ov-stage mt-8 bg-white border border-[#E2E8F0] rounded-[4px] p-4 ov-fallback">
+    <div class="text-[12px] font-bold text-[#262626] mb-2">三个方案都要遵守的规则</div>
+    <ul class="text-[11px] leading-[1.9] text-[#5C6270] pl-4 m-0">
+      <li>三块基数差一个量级（24 / 286 / 36），<b>条形与环都只能表达块内构成</b>，块标题不得暗示跨块比较。</li>
+      <li>极小占比要兜底：用户「差」2.4%，1440 视口下段宽只有 3–4px，需最小段宽（本页 4px）或外置标记，否则等于没画。</li>
+      <li>窄块（每块 &lt; 268px）收起百分比，只留数值——本页用容器查询 <span class="font-mono text-[11px]">.ov-opt</span> 实现，回写时一并带上。</li>
+      <li>正常档建议从 <span class="font-mono text-[11px]">#39C317</span> 降到中性灰绿（如 <span class="font-mono text-[11px]">#93AC9F</span>），让「一般 / 差」成为唯一色彩焦点；本页保留原色便于对比形式差异。</li>
+      <li>点击区域：档位数字与条段都可点，但需保证最小 20×20，避免误触。</li>
+    </ul>
+  </div>
+
+  <!-- 点击反馈 -->
+  <div id="toast" class="ov-toast"></div>
+</div>
+
+<script>
+  (function () {
+    /* ---------- 0. 初始宽度（支持 ?w=1440） ---------- */
+    var stage = (function () {
+      var q = new URLSearchParams(location.search).get('w');
+      if (!q) return '1920px';
+      return q === '100' ? '100%' : q + 'px';
+    })();
+
+    /* ---------- 1. 差对象 tag 溢出折叠：放不下就收成 +N ---------- */
+    function layoutTags(box) {
+      var tags = Array.prototype.slice.call(box.querySelectorAll('.ov-tag'));
+      var more = box.querySelector('.ov-tag-more');
+      if (!more || !tags.length) return;
+
+      tags.forEach(function (t) { t.style.display = ''; });
+      more.style.display = 'none';
+      more.textContent = '';
+
+      var avail = box.clientWidth;
+      if (!avail) return;
+
+      var GAP = 4;
+      var widths = tags.map(function (t) { return t.offsetWidth; });
+      var total = widths.reduce(function (a, b, i) { return a + b + (i ? GAP : 0); }, 0);
+      if (total <= avail) return;
+
+      more.style.display = 'inline-flex';
+      more.textContent = '+0';
+      var mw = more.offsetWidth + GAP;
+
+      var visible = tags.length;
+      var sum = total;
+      while (visible > 0) {
+        sum -= widths[visible - 1] + (visible > 1 ? GAP : 0);
+        visible--;
+        more.textContent = '+' + (tags.length - visible);
+        mw = more.offsetWidth + GAP;
+        if (sum + mw <= avail) break;
+      }
+
+      var hiddenN = tags.length - visible;
+      tags.forEach(function (t, i) { t.style.display = i < visible ? '' : 'none'; });
+      if (hiddenN > 0) {
+        more.textContent = '+' + hiddenN;
+        more.style.display = 'inline-flex';
+      } else {
+        more.style.display = 'none';
+      }
+    }
+
+    function layoutAllTags() {
+      document.querySelectorAll('.ov-tags').forEach(function (b) { layoutTags(b); });
+    }
+
+    /* ---------- 2. 宽度切换 ---------- */
+    function paintButtons() {
+      document.querySelectorAll('.ov-wbtn').forEach(function (b) {
+        var on = b.dataset.w === stage;
+        b.className = 'ov-wbtn px-2.5 py-1 text-[11px] rounded-[2px] cursor-pointer transition-colors ' +
+          (on ? 'bg-white text-[#1C6EFF] font-semibold shadow-2xs' : 'text-[#41505F] hover:text-[#1C6EFF]');
+      });
+    }
+
+    function applyStage(w) {
+      stage = w;
+      document.documentElement.style.setProperty('--stage', w);
+      paintButtons();
+      requestAnimationFrame(layoutAllTags);
+      setTimeout(layoutAllTags, 120);
+    }
+
+    document.querySelectorAll('.ov-wbtn').forEach(function (b) {
+      b.addEventListener('click', function () { applyStage(b.dataset.w); });
+    });
+    applyStage(stage);
+
+    /* 首屏测量兜底：Tailwind 生成样式、字体就绪后各补一次 */
+    setTimeout(layoutAllTags, 300);
+    setTimeout(layoutAllTags, 800);
+    window.addEventListener('load', layoutAllTags);
+    if (document.fonts && document.fonts.ready) { document.fonts.ready.then(layoutAllTags); }
+    window.addEventListener('resize', layoutAllTags);
+    if (window.ResizeObserver) {
+      var ro = new ResizeObserver(function (es) {
+        es.forEach(function (e) { layoutTags(e.target); });
+      });
+      document.querySelectorAll('.ov-tags').forEach(function (b) { ro.observe(b); });
+    }
+
+    /* ---------- 3. 点击回显 ---------- */
+    var toast = document.getElementById('toast');
+    var timer = null;
+    function showToast(msg) {
+      toast.textContent = msg;
+      toast.classList.add('show');
+      clearTimeout(timer);
+      timer = setTimeout(function () { toast.classList.remove('show'); }, 2600);
+    }
+
+    document.addEventListener('click', function (e) {
+      var el = e.target.closest('[data-act]');
+      if (!el) return;
+      var parts = el.dataset.act.split('|');
+      var type = parts[0], exp = parts[1];
+
+      if (type === 'more') {
+        showToast('全部差' + exp + '对象：' + (el.dataset.list || ''));
+        return;
+      }
+      if (type === 'detail') {
+        showToast("openObjectDetail('" + exp + "', '" + parts[2] + "') —— 进入" + exp + "详情");
+        return;
+      }
+      if (type === '体验预警') {
+        showToast("navigateTo('体验预警')");
+        return;
+      }
+      if (exp === '马尼拉' || exp === '45232' || exp === 'OA系统') {
+        showToast("openAlertTarget('" + type + "', '" + exp + "') —— 进入" + type + "详情");
+        return;
+      }
+      showToast("navigateToDimension('" + type + "', '" + exp + "') —— 切到「" + type + "」Tab 并筛选 体验 = " + exp);
+    });
+
+    /* ---------- 4. CDN 检测 ---------- */
+    window.addEventListener('load', function () {
+      if (typeof window.tailwind === 'undefined') {
+        document.getElementById('cdn-warn').classList.remove('hidden');
+        document.body.classList.add('no-tw');
+      }
+    });
+  })();
+</script>
+
+</body>
+</html>
