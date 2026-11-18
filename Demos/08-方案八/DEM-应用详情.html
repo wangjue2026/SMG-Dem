@@ -2243,6 +2243,24 @@
           if (!p) return '';
           return type === '分支' ? `${p} — 总部AF` : `${p} — 代理网关`;
         },
+
+        // ==========================================
+        // 全局加速骨干网（GA）
+        // 应用（OA / ERP）均部署在国内总部（深圳落地）；仅跨境访问的对象需要走 GA 加速，
+        // 展示「上车点（对象所在地）—下车点（应用落地城市）」；国内直连的对象该字段为 "-"
+        // ==========================================
+        gaLandingCity: '深圳',
+        gaOverseasCities: ['香港', '澳门', '台湾', '台北', '马尼拉', '菲律宾', '东京', '日本', '新加坡', '首尔', '韩国', '洛杉矶', '法兰克福'],
+        gaCityAlias: { '菲律宾': '马尼拉', '日本': '东京', '韩国': '首尔' },
+
+        getGaBackbone(item, type) {
+          const text = `${item?.location || ''} ${item?.isp || ''} ${item?.dept || ''}`;
+          const hit = this.gaOverseasCities.find(c => text.includes(c));
+          if (!hit) return '';
+          const from = this.gaCityAlias[hit] || hit;
+          return `上车点（${from}）—下车点（${this.gaLandingCity}）`;
+        },
+
         // 体验差的链路：对象体验为“差”时，其接入链路视为体验差的链路；体验正常 / 一般无差链路
         getPoorObjectLink(item, type) {
           if (!item || item.exp !== '差') return '';
@@ -2417,7 +2435,7 @@
         branchFilterConfigs: [
           { key: 'branch-exp', selectedKey: 'branchFilterExpList', pageKey: 'branchPage', placeholder: '全部访问体验', options: ['差', '一般', '正常'], searchable: false },
           { key: 'branch-loc', selectedKey: 'branchFilterLocList', pageKey: 'branchPage', placeholder: '全部IP归属地', searchable: true, searchPlaceholder: '搜索地区', options: ['中国 上海', '日本 东京', '中国 成都', '中国 广州', '菲律宾 马尼拉', '中国 香港', '中国 北京', '中国 天津', '中国 深圳', '中国 南京', '中国 杭州', '中国 重庆', '中国 武汉', '中国 西安', '中国 长沙'] },
-          { key: 'branch-pop', selectedKey: 'branchFilterPopList', pageKey: 'branchPage', placeholder: '全部接入POP', searchable: true, searchPlaceholder: '搜索POP', options: ['深圳POP', '香港POP', '上海POP', '北京POP', '成都POP', '广州POP', '东京POP'] }
+          { key: 'branch-pop', selectedKey: 'branchFilterPopList', pageKey: 'branchPage', placeholder: '全部POP', searchable: true, searchPlaceholder: '搜索POP', options: ['深圳POP', '香港POP', '上海POP', '北京POP', '成都POP', '广州POP', '东京POP'] }
         ],
 
         // 分支分页状态 (默认每页展示10条)
@@ -2538,7 +2556,7 @@
             { value: '马尼拉', label: '菲律宾 PLDT' },
             { value: '北京', label: '北京联通/电信' }
           ] },
-          { key: 'user-pop', selectedKey: 'userFilterPopList', pageKey: 'userPage', placeholder: '全部接入POP', searchable: true, searchPlaceholder: '搜索POP', options: ['深圳POP', '香港POP', '上海POP', '北京POP', '成都POP', '广州POP', '东京POP'] }
+          { key: 'user-pop', selectedKey: 'userFilterPopList', pageKey: 'userPage', placeholder: '全部POP', searchable: true, searchPlaceholder: '搜索POP', options: ['深圳POP', '香港POP', '上海POP', '北京POP', '成都POP', '广州POP', '东京POP'] }
         ],
 
         // 用户分页状态 (默认每页展示10条)
@@ -4338,7 +4356,7 @@
             </div>
           </div>
 
-          <!-- 4. 访问对象明细模块（2 Tab: 分支探测质量、用户探测质量） -->
+          <!-- 4. 访问对象明细模块（2 Tab: 分支、用户） -->
 
           <div class="bg-white border border-[#EAEEF4] rounded-[6px] shadow-xs flex flex-col">
 
@@ -4346,10 +4364,10 @@
             <div class="border-b border-[#F1F5F9] px-4 flex items-center justify-between bg-white h-[44px]">
               <div class="flex items-center gap-2">
                 <button class="tab-btn" :class="activeTab === 'branch' && 'active'" @click="activeTab = 'branch'">
-                  分支质量
+                  分支
                 </button>
                 <button class="tab-btn" :class="activeTab === 'user' && 'active'" @click="activeTab = 'user'">
-                  用户质量
+                  用户
                 </button>
               </div>
             </div>
@@ -4452,63 +4470,12 @@
                       </div>
                     </template>
 
-                    <!-- 体验差的链路多选（仅列举访问过程中体验为差的链路） -->
-                    <div class="relative inline-flex items-center group w-[188px] shrink-0" x-data="{ open: false }" @click.outside="open = false">
-                      <div @click="open = !open"
-                           class="h-8 w-full px-2 bg-white border border-[#D3D7DE] rounded-[2px] hover:border-[#1C6EFF] transition-colors flex items-center justify-between cursor-pointer select-none text-xs">
-                        <template x-if="branchSelectedLink.length === 0">
-                          <span class="text-[#A1A7B3] font-normal truncate">全部体验差的链路</span>
-                        </template>
-                        <template x-if="branchSelectedLink.length > 0">
-                          <div class="flex items-center gap-1 overflow-hidden">
-                            <span class="inline-flex items-center gap-1 h-5 px-1.5 bg-[#EDF1F7] text-[#2F3540] text-xs rounded-[2px] max-w-[96px] truncate select-none">
-                              <span class="truncate" x-text="branchSelectedLink[0]"></span>
-                              <button type="button"
-                                      @click.stop.prevent="branchSelectedLink.splice(0, 1); branchPage = 1"
-                                      class="w-3 h-3 flex-shrink-0 text-[#8A92A1] hover:text-[#2F3540] inline-flex items-center justify-center rounded-[1px] hover:bg-[#D3D7DE] transition-colors cursor-pointer"
-                                      title="删除">
-                                <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
-                                </svg>
-                              </button>
-                            </span>
-                            <span x-show="branchSelectedLink.length > 1" class="inline-flex items-center justify-center h-5 px-1.5 bg-[#EDF1F7] text-[#2F3540] text-xs font-normal rounded-[2px] flex-shrink-0 select-none"
-                                  :title="branchSelectedLink.join('、')"
-                                  x-text="`+${branchSelectedLink.length - 1}`"></span>
-                          </div>
-                        </template>
-                        <div class="flex items-center gap-1 ml-1 flex-shrink-0">
-                          <template x-if="branchSelectedLink.length > 0">
-                            <span @click.stop.prevent="branchSelectedLink = []; branchPage = 1"
-                                  class="w-3.5 h-3.5 rounded-full hover:bg-gray-200 inline-flex items-center justify-center text-[#8A92A1] hover:text-[#5C6270] transition-colors cursor-pointer"
-                                  title="全部清除">
-                              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
-                              </svg>
-                            </span>
-                          </template>
-                          <svg class="w-3.5 h-3.5 text-[#A1A7B3] transition-transform duration-150" :class="open && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                          </svg>
-                        </div>
-                      </div>
-                      <div x-show="open" x-cloak
-                           class="absolute left-0 top-full mt-1 min-w-[220px] max-h-[240px] overflow-y-auto bg-white border border-[#E1E5EB] shadow-lg rounded-[2px] py-1 z-50 text-xs text-[#2F3540] custom-scrollbar">
-                        <template x-for="opt in branchLinkOptions" :key="opt">
-                          <label class="flex items-center gap-2 px-3 py-1.5 hover:bg-[#F4F6F9] cursor-pointer select-none">
-                            <input type="checkbox" :value="opt" x-model="branchSelectedLink" @change="branchPage = 1"
-                                   class="rounded border-gray-300 text-[#1C6EFF] focus:ring-0 w-3.5 h-3.5">
-                            <span x-text="opt"></span>
-                          </label>
-                        </template>
-                      </div>
-                    </div>
                   </div>
 
                   <!-- 搜索框带快捷清除 -->
                   <div class="relative inline-flex items-center group w-80 flex-shrink-0">
                     <input type="text" x-model="branchSearchQuery" @input="branchPage = 1"
-                      placeholder="搜索分支 / 所在地 / POP / 链路..."
+                      placeholder="搜索分支 / 所在地..."
                       class="h-8 pl-3 pr-7 text-xs border border-[#D3D7DE] rounded-[2px] w-full focus:outline-none focus:border-[#1C6EFF]">
                     <button type="button" x-show="branchSearchQuery" @click="branchSearchQuery = ''; branchPage = 1"
                       class="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full text-[#8A92A1] hover:text-[#1C6EFF] hover:bg-[#F0F5FF] flex items-center justify-center cursor-pointer"
@@ -4522,7 +4489,7 @@
                 </div>
 
                 <div class="dem-table-container dem-table-xscroll">
-                  <table class="dem-table w-full min-w-[980px]">
+                  <table class="dem-table w-full min-w-[1120px]">
                     <thead>
                       <tr>
                         <th class="whitespace-nowrap">分支名称</th>
@@ -4531,7 +4498,7 @@
                         <th class="whitespace-nowrap">所在地</th>
                         <th class="whitespace-nowrap">访问体验</th>
                         <th class="whitespace-nowrap">IP 归属地</th>
-                        <th class="whitespace-nowrap">主要接入 POP</th>
+                        <th class="whitespace-nowrap">全局加速骨干网</th>
                         <th class="text-center w-16 dem-col-frozen">操作</th>
                       </tr>
                     </thead>
@@ -4559,7 +4526,12 @@
                                 x-text="item.isp || '-'"></span>
                             </div>
                           </td>
-                          <td class="text-[#2F3540]" x-text="item.pop"></td>
+                          <!-- 全局加速骨干网：跨境对象展示上车点→下车点 POP，国内直连显示 - -->
+                          <td>
+                            <span class="text-xs whitespace-nowrap"
+                                  :class="getGaBackbone(item, '分支') ? 'text-[#2F3540]' : 'text-[#8A92A1]'"
+                                  x-text="getGaBackbone(item, '分支') || '-'"></span>
+                          </td>
                           <td class="text-center dem-col-frozen">
                             <a :href="'./DEM-用户详情.html?type=分支&name=' + encodeURIComponent(item.name) + '&location=' + encodeURIComponent(item.location || '') + '&pop=' + encodeURIComponent(item.pop || '') + '&exp=' + encodeURIComponent(item.exp || '差') + '&totalApps=' + (item.affectedUsers || 12) + '&poorApps=' + (item.poorCount || 0) + '&fairApps=' + (item.fairCount || 0) + '&normalApps=' + (item.normalCount || 0)"
                               target="_blank"
@@ -4700,62 +4672,11 @@
                       </div>
                     </template>
 
-                    <!-- 体验差的链路多选（仅列举访问过程中体验为差的链路） -->
-                    <div class="relative inline-flex items-center group w-[188px] shrink-0" x-data="{ open: false }" @click.outside="open = false">
-                      <div @click="open = !open"
-                           class="h-8 w-full px-2 bg-white border border-[#D3D7DE] rounded-[2px] hover:border-[#1C6EFF] transition-colors flex items-center justify-between cursor-pointer select-none text-xs">
-                        <template x-if="userSelectedLink.length === 0">
-                          <span class="text-[#A1A7B3] font-normal truncate">全部体验差的链路</span>
-                        </template>
-                        <template x-if="userSelectedLink.length > 0">
-                          <div class="flex items-center gap-1 overflow-hidden">
-                            <span class="inline-flex items-center gap-1 h-5 px-1.5 bg-[#EDF1F7] text-[#2F3540] text-xs rounded-[2px] max-w-[96px] truncate select-none">
-                              <span class="truncate" x-text="userSelectedLink[0]"></span>
-                              <button type="button"
-                                      @click.stop.prevent="userSelectedLink.splice(0, 1); userPage = 1"
-                                      class="w-3 h-3 flex-shrink-0 text-[#8A92A1] hover:text-[#2F3540] inline-flex items-center justify-center rounded-[1px] hover:bg-[#D3D7DE] transition-colors cursor-pointer"
-                                      title="删除">
-                                <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
-                                </svg>
-                              </button>
-                            </span>
-                            <span x-show="userSelectedLink.length > 1" class="inline-flex items-center justify-center h-5 px-1.5 bg-[#EDF1F7] text-[#2F3540] text-xs font-normal rounded-[2px] flex-shrink-0 select-none"
-                                  :title="userSelectedLink.join('、')"
-                                  x-text="`+${userSelectedLink.length - 1}`"></span>
-                          </div>
-                        </template>
-                        <div class="flex items-center gap-1 ml-1 flex-shrink-0">
-                          <template x-if="userSelectedLink.length > 0">
-                            <span @click.stop.prevent="userSelectedLink = []; userPage = 1"
-                                  class="w-3.5 h-3.5 rounded-full hover:bg-gray-200 inline-flex items-center justify-center text-[#8A92A1] hover:text-[#5C6270] transition-colors cursor-pointer"
-                                  title="全部清除">
-                              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
-                              </svg>
-                            </span>
-                          </template>
-                          <svg class="w-3.5 h-3.5 text-[#A1A7B3] transition-transform duration-150" :class="open && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                          </svg>
-                        </div>
-                      </div>
-                      <div x-show="open" x-cloak
-                           class="absolute left-0 top-full mt-1 min-w-[220px] max-h-[240px] overflow-y-auto bg-white border border-[#E1E5EB] shadow-lg rounded-[2px] py-1 z-50 text-xs text-[#2F3540] custom-scrollbar">
-                        <template x-for="opt in userLinkOptions" :key="opt">
-                          <label class="flex items-center gap-2 px-3 py-1.5 hover:bg-[#F4F6F9] cursor-pointer select-none">
-                            <input type="checkbox" :value="opt" x-model="userSelectedLink" @change="userPage = 1"
-                                   class="rounded border-gray-300 text-[#1C6EFF] focus:ring-0 w-3.5 h-3.5">
-                            <span x-text="opt"></span>
-                          </label>
-                        </template>
-                      </div>
-                    </div>
                   </div>
 
                   <!-- 搜索框带快捷清除 -->
                   <div class="relative inline-flex items-center group w-80 flex-shrink-0">
-                    <input type="text" x-model="userSearchQuery" @input="userPage = 1" placeholder="搜索工号 / 姓名 / 组织架构 / 终端 / IP / 链路"
+                    <input type="text" x-model="userSearchQuery" @input="userPage = 1" placeholder="搜索工号 / 姓名 / 组织架构 / 终端 / IP"
                       class="h-8 pl-3 pr-7 text-xs border border-[#D3D7DE] rounded-[2px] w-full focus:outline-none focus:border-[#1C6EFF]">
                     <button type="button" x-show="userSearchQuery"
                       @click="userSearchQuery = ''; userPage = 1; if(selectedFeature && selectedFeature.includes('部门')) selectedFeature = null"
@@ -4770,14 +4691,14 @@
                 </div>
 
                 <div class="dem-table-container dem-table-xscroll">
-                  <table class="dem-table w-full min-w-[860px]">
+                  <table class="dem-table w-full min-w-[1060px]">
                     <thead>
                       <tr>
                         <th class="whitespace-nowrap">用户</th>
                         <th class="whitespace-nowrap">所属组织架构</th>
                         <th class="whitespace-nowrap">访问体验</th>
                         <th class="whitespace-nowrap">IP 归属地</th>
-                        <th class="whitespace-nowrap">接入 POP</th>
+                        <th class="whitespace-nowrap">全局加速骨干网</th>
                         <th class="text-center w-16 dem-col-frozen">操作</th>
                       </tr>
                     </thead>
@@ -4803,7 +4724,12 @@
                                 x-text="item.isp || '-'"></span>
                             </div>
                           </td>
-                          <td class="text-[#2F3540]" x-text="item.pop"></td>
+                          <!-- 全局加速骨干网：跨境对象展示上车点→下车点 POP，国内直连显示 - -->
+                          <td>
+                            <span class="text-xs whitespace-nowrap"
+                                  :class="getGaBackbone(item, '用户') ? 'text-[#2F3540]' : 'text-[#8A92A1]'"
+                                  x-text="getGaBackbone(item, '用户') || '-'"></span>
+                          </td>
                           <td class="text-center dem-col-frozen">
                             <a :href="'./DEM-用户详情.html?type=用户&empId=' + encodeURIComponent(item.empId) + '&name=' + encodeURIComponent(item.name) + '&dept=' + encodeURIComponent(item.dept) + '&pop=' + encodeURIComponent(item.pop || '') + '&exp=' + encodeURIComponent(item.exp || '差') + '&totalApps=' + (item.totalApps || 17) + '&poorApps=' + (item.poorCount || 0) + '&fairApps=' + (item.fairCount || 0) + '&normalApps=' + (item.normalCount || 0)"
                               target="_blank"

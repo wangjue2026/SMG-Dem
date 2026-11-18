@@ -799,12 +799,12 @@
             return `应用（${appName}）服务可达性：${this.getAppReachabilityStatus(item)}。${this.getAppReachabilityInferenceText(item)}`;
           }
 
-          // 直连探测虚拟段：描述直连与经 GA 的差异
+          // 直连探测虚拟段：描述直连与经全球加速骨干网的差异
           if (item.id === 'seg_direct_gw') {
             const c = this.directProbeCompare;
             return c.gain.isDirectBetter
-              ? `直连探测 ${c.direct.delay} / ${c.direct.loss}，优于经 GA 的 ${c.ga.delay} / ${c.ga.loss}，该时段 GA 路径并非最优。`
-              : `直连探测 ${c.direct.delay} / ${c.direct.loss}，经 GA 为 ${c.ga.delay} / ${c.ga.loss}，GA 降低时延 ${c.gain.delay}ms。`;
+              ? `直连探测 ${c.direct.delay} / ${c.direct.loss}，优于经全球加速骨干网的 ${c.ga.delay} / ${c.ga.loss}，该时段全球加速骨干网路径并非最优。`
+              : `直连探测 ${c.direct.delay} / ${c.direct.loss}，经全球加速骨干网为 ${c.ga.delay} / ${c.ga.loss}，全球加速骨干网降低时延 ${c.gain.delay}ms。`;
           }
 
           return `链路状态：${item.status || '正常'}，各核心指标运行稳定。`;
@@ -1617,7 +1617,7 @@
                       { hop: 3, ip: '202.97.33.12', tag: '骨干路由', tagType: 'default', asn: 'AS4134 中国电信', loc: '中国·上海', rtt: '10ms', diffRtt: '+4ms', loss: '0.0%', diffLoss: '0%', jitter: '1ms', diffJitter: '0ms', status: '正常' },
                       { hop: 4, ip: '10.240.12.1', tag: 'POP接入点', tagType: 'default', asn: 'SASE 深圳POP', loc: '中国·深圳', rtt: '12ms', diffRtt: '+2ms', loss: '0.0%', diffLoss: '0%', jitter: '1ms', diffJitter: '0ms', status: '正常' }
                     ],
-                    hopConclusion: '终端至深圳POP接入段全链路 RTT 12ms，0 丢包，接入侧健康。'
+                    hopConclusion: '',
                   },
                   {
                     id: 'seg_pop_gw',
@@ -1636,7 +1636,7 @@
                       { hop: 2, ip: '10.200.8.22', tag: '专线中间跳', tagType: 'default', asn: '华南骨干专线', loc: '专线传输', rtt: '98ms', diffRtt: '+86ms', loss: '4.8%', diffLoss: '+4.8%', jitter: '42ms', diffJitter: '+41ms', status: '异常' },
                       { hop: 3, ip: '10.23.22.23', tag: '总部连接器', tagType: 'default', asn: '总部01连接器', loc: '总部机房', rtt: '145ms', diffRtt: '+47ms', loss: '5.2%', diffLoss: '+0.4%', jitter: '48ms', diffJitter: '+6ms', status: '异常' }
                     ],
-                    hopConclusion: '从专线传输跳点开始突发 4.8% 丢包与 42ms 抖动，最终到达总部连接器累计丢包 5.2%，异常明确收敛于 POP-连接器专线传输段。'
+                    hopConclusion: '',
                   },
                   {
                     id: 'seg_gw_app',
@@ -2154,7 +2154,7 @@
             this.loadLiuYangOaScriptData('2024106（刘洋）', '深信服科技 / 研发中心 / DEM产品部 (接入深圳POP)', '2024106', '深圳POP');
           }
 
-          // 顶部筛选与时间线对齐：快捷项按剧本演示当前时刻重算区间
+          // 顶部筛选与时间线对齐：快捷项按剧本演示当前时刻重算区间（默认「今天」，与其它剧本一致）
           const scForRange = this.dateShortcut || '今天';
           if (['今天', '近24小时', '近3天', '近7天', '近30天'].includes(scForRange)) {
             this.dateFilterState.shortcut = scForRange;
@@ -2215,9 +2215,9 @@
               { slot: 5, minute: 120, exp: '正常', score: 96, ttfb: 70, loss: '0.0%', sr: '100%' },  // 14:00
               { slot: 8, minute: 190, exp: '正常', score: 90, ttfb: 69, loss: '0.1%', sr: '99.8%' }  // 15:10
             ];
-            // === 15:30 起酒店 Wi-Fi 变差：终端 → 上车点POP 持续劣化（每 15 分钟一个锚点，保证劣化带连续、可看到 4 小时以上） ===
-            for (let m = 210; m <= 510; m += 15) {
-              const k = (m - 210) / 15;
+            // === 15:30 起酒店 Wi-Fi 变差：终端 → 上车点POP 持续劣化（每 10 分钟一个锚点，保证「今天」5 分钟粒度下劣化带连续不断裂） ===
+            for (let m = 210; m <= 510; m += 10) {
+              const k = (m - 210) / 10;
               const wob = Math.round(Math.sin(k * 1.7) * 4);
               const isMain = m === 480;
               const poor = isPoorApp;
@@ -2607,15 +2607,15 @@
             const isWorkday = d.getDay() >= 1 && d.getDay() <= 5;
             const dayActive = this.timelineRepeatDaily ? isWorkday : (dayKey === scenarioDateKey);
 
-            // 聚合窗口 (t-lookback, t]：取窗口内最差基准点，1 小时粒度也能体现短时故障
+            // 聚合窗口 (t-lookback, t]：取窗口内最新的一个实测锚点，1 小时粒度也能体现短时故障；
+            // 取最新而非「优先取差」，避免恢复时刻被窗口内的历史差锚点拖住（如 20:35 恢复点被判为仍差）
             let hit = null;
             if (isPoorApp && dayActive) {
               const stepMin = Math.max(1, Math.round(step / 60000));
               const lookback = Math.max(stepMin, 10);
               const windowStart = minuteOfDay - lookback;
               const inWindow = base.filter(b => b.minuteOfDay > windowStart && b.minuteOfDay <= minuteOfDay);
-              hit = inWindow.find(b => b.experience === '差')
-                || (inWindow.length ? inWindow[inWindow.length - 1] : null);
+              hit = inWindow.length ? inWindow[inWindow.length - 1] : null;
             }
 
             const abnormal = !!(hit && hit.experience === '差');
@@ -2952,7 +2952,7 @@
                         { hop: 4, ip: '203.177.12.8', tag: '运营商节点', asn: 'AS9299 菲律宾长途电话公司 PLDT（菲律宾 · 马尼拉）', loc: '菲律宾·马尼拉', rtt: '77ms', diffRtt: '+5ms', loss: '3.1%', diffLoss: '+0.0%', jitter: '40ms', diffJitter: '+0ms', status: '正常' },
                         { hop: 5, ip: '10.255.0.1', tag: 'POP 入口节点', asn: '马尼拉POP01 · 10.255.0.0/16 内网', loc: '-', rtt: '82ms', diffRtt: '+5ms', loss: '3.1%', diffLoss: '+0.0%', jitter: '40ms', diffJitter: '+0ms', status: '正常' }
                       ],
-                      hopConclusion: '第 1 跳局域网网关正常，从第 2 跳（办公室二级网关 10.10.0.1）开始出现丢包与抖动突增，第 3 跳时延进一步上升；到达运营商节点后 RTT、丢包和抖动均无新增突增，责任收敛到客户办公室私网。'
+                      hopConclusion: '',
                     },
                     {
                       id: 'seg_pop_gw',
@@ -3210,7 +3210,7 @@
                         { hop: 4, ip: '61.144.10.1', tag: '运营商节点', asn: 'AS4134 中国电信（中国 · 广东 广州）', loc: '中国·广东', rtt: '96ms', diffRtt: '+14ms', loss: '2.6%', diffLoss: '+0.2%', jitter: '37ms', diffJitter: '+3ms', status: '正常' },
                         { hop: 5, ip: '10.20.30.1', tag: '总部AF接入节点', asn: '总部网关-AF Cluster（企业内网）', loc: '-', rtt: '108ms', diffRtt: '+12ms', loss: '2.6%', diffLoss: '+0.0%', jitter: '38ms', diffJitter: '+1ms', status: '正常' }
                       ],
-                      hopConclusion: 'POP 出口节点与总部AF接入节点两端均正常；丢包与抖动在第 2→3 跳（电信 AS4134 → 联通 AS4837）单跳突增，第 3 跳之后仅累积、无新增突增。责任收敛到中国电信与中国联通之间的跨网段，最早突增的跳点用于举证提交运营商排查。'
+                      hopConclusion: '',
                     },
                     {
                       id: 'seg_af_oa',
@@ -3358,8 +3358,6 @@
           const displayName = String(this.userName).replace(/^[0-9]+[（(]/, '').replace(/[）)]$/, '').trim() || 'Maria';
           this.timelineStartHour = 12; // 晚间剧本：时间轴 12:00 ~ 22:00
           this.demoNow = '21:00';
-          // 剧本动作：进入对象后把时间范围拉到「近 24 小时」
-          this.dateShortcut = '近24小时';
           this.overallExperience = '差';
           this.totalApps = 16;
           this.poorApps = 2;
@@ -3456,7 +3454,7 @@
                   summary: `终端到上车点POP 这条上车段异常：终端 → 上车点POP ${segDelay} / 丢包 ${segLoss} / 抖动 ${segJitter}；其中第 1 跳局域网网关（Wi-Fi 网关）即 ${c.hops[0][0]}ms / ${pct(c.hops[0][1])}，问题在终端所在的本地网络。`,
                   cause: `终端处于酒店 Wi-Fi 信号弱区（信号强度 ${c.rssi}），第 1 跳局域网网关（Wi-Fi 网关）即 ${c.hops[0][0]}ms / ${pct(c.hops[0][1])}，此后各跳仅小幅累积、无新增突变。`,
                   hopTraces: hopTraces,
-                  hopConclusion: `从第 1 跳（局域网网关 ${hopDefs[0].ip}）即出现 ${c.hops[0][0]}ms 时延与 ${pct(c.hops[0][1])} 丢包，出口网关之后各跳只是小幅累积（${c.hops[4][0]}ms / ${pct(c.hops[4][1])}），未产生新增突变，责任明确收敛于终端所在的本地网络（酒店 Wi-Fi）与第 1 跳之间。`
+                  hopConclusion: '',
                 },
                 {
                   id: 'seg_pop_gw',
@@ -3678,7 +3676,7 @@
                               { hop: 3, ip: '202.97.45.18', tag: '省际骨干', tagType: 'default', asn: 'ChinaNet 骨干网', loc: '广州', rtt: '68ms', diffRtt: '+50ms', loss: '1.2%', diffLoss: '+1.1%', jitter: '12ms', diffJitter: '+10ms', status: '异常' },
                               { hop: 4, ip: '203.88.32.1', tag: 'POP香港接入点', tagType: 'default', asn: 'SASE ' + targetPop, loc: '香港', rtt: '240ms', diffRtt: '+172ms', loss: '4.8%', diffLoss: '+3.6%', jitter: '32ms', diffJitter: '+20ms', status: '异常' }
                             ],
-                            hopConclusion: '出口进入跨网路由段发生集中丢包 (+3.6%) 与高延时 (+172ms)。'
+                            hopConclusion: '',
                           }
                         ],
                         nodeDetails: [
@@ -3722,7 +3720,7 @@
                               { hop: 2, ip: '120.196.12.1', tag: 'CMNET骨干', tagType: 'default', asn: '中国移动骨干', loc: '广州', rtt: '18ms', diffRtt: '+10ms', loss: '0.0%', diffLoss: '0%', jitter: '1ms', diffJitter: '0ms', status: '正常' },
                               { hop: 3, ip: '203.88.32.1', tag: 'POP香港接入点', tagType: 'default', asn: 'SASE ' + targetPop, loc: '香港', rtt: '35ms', diffRtt: '+17ms', loss: '0.0%', diffLoss: '0%', jitter: '2ms', diffJitter: '+1ms', status: '正常' }
                             ],
-                            hopConclusion: '手机移动 5G 直达香港POP接入段质量优异，零丢包。'
+                            hopConclusion: '',
                           }
                         ],
                         nodeDetails: [
@@ -4055,7 +4053,7 @@
                   { label: 'Overlay 隧道有效吞吐', value: c.seg1Throughput || '8 Mbps', baseline: '50 Mbps', isAbnormal: true }
                 ],
                 hopTraces: mkHopTraces(true),
-                hopConclusion: '第 3 跳（14ms / 0.2%）→ 第 4 跳（198ms / 4.2%）单跳突变（+184ms / +4.0pp），其后仅累积；突变点两侧归属由 PLDT 菲律宾变为中国电信广东，属跨境互联段问题。'
+                hopConclusion: '',
               },
               {
                 id: 'seg_gw_app',
@@ -4238,7 +4236,7 @@
                 { hop: 5, ip: '202.97.66.9', tag: '运营商节点', tagType: 'default', asn: 'AS4134 中国电信', loc: '中国-广东', rtt: '22ms', diffRtt: '+4ms', loss: '0.2%', diffLoss: '0%', jitter: '3ms', diffJitter: '0ms', status: '正常' },
                 { hop: 6, ip: '119.147.10.1', tag: '代理网关接入节点', tagType: 'default', asn: 'AS4134 中国电信', loc: '中国-广东', rtt: '26ms', diffRtt: '+4ms', loss: '0.2%', diffLoss: '0%', jitter: '3ms', diffJitter: '0ms', status: '正常' }
               ],
-              hopConclusion: '全 6 跳时延 26ms 以内、丢包 0.2% 以内，跨境公网段健康。'
+              hopConclusion: '',
             },
             {
               id: 'seg_gw_app',
@@ -4389,7 +4387,7 @@
                         { hop: 3, ip: '202.97.33.12', tag: '骨干路由', tagType: 'default', asn: '骨干网络', loc: '运营商骨干', rtt: '10ms', diffRtt: '+4ms', loss: '0.0%', diffLoss: '0%', jitter: '1ms', diffJitter: '0ms', status: '正常' },
                         { hop: 4, ip: '10.240.12.1', tag: 'POP接入点', tagType: 'default', asn: 'SASE ' + targetPop, loc: targetPop, rtt: '12ms', diffRtt: '+2ms', loss: '0.0%', diffLoss: '0%', jitter: '1ms', diffJitter: '0ms', status: '正常' }
                       ],
-                      hopConclusion: `终端至${targetPop}接入段全链路 RTT 12ms，0 丢包，接入侧健康。`
+                      hopConclusion: '',
                     },
                     {
                       id: 'seg_pop_gw',
@@ -4408,7 +4406,7 @@
                         { hop: 2, ip: '10.200.8.22', tag: '专线中间跳', tagType: 'default', asn: '骨干专线链路', loc: '专线传输', rtt: '98ms', diffRtt: '+86ms', loss: '4.8%', diffLoss: '+4.8%', jitter: '42ms', diffJitter: '+41ms', status: '异常' },
                         { hop: 3, ip: '10.23.22.23', tag: '总部连接器', tagType: 'default', asn: '总部01连接器', loc: '总部机房', rtt: '145ms', diffRtt: '+47ms', loss: '5.2%', diffLoss: '+0.4%', jitter: '48ms', diffJitter: '+6ms', status: '异常' }
                       ],
-                      hopConclusion: '从专线传输跳点开始突发 4.8% 丢包与 42ms 抖动，最终到达总部连接器累计丢包 5.2%，异常明确收敛于 POP-连接器专线传输段。'
+                      hopConclusion: '',
                     },
                     {
                       id: 'seg_gw_app',
@@ -4703,6 +4701,8 @@
             list.push({ ...seg, itemType: 'segment', order: itemOrderMap[seg.id] || 99 });
           });
           nodeDetails.forEach(node => {
+            // 应用业务节点（个人场景的应用 / 分支场景的代码仓库）不再进入链路明细；拓扑图上的应用节点保留，仍可点击跳转应用详情
+            if (this.isRealApplicationNode(node)) return;
             list.push({ ...node, itemType: 'node', order: itemOrderMap[node.id] || 99 });
           });
 
@@ -5429,7 +5429,7 @@
                 status: '异常',
                 period: periodText,
                 isGroup: false,
-                summary: `用户 <b>${userDisplay}</b> 在 <b>${periodText}</b> 访问 <b>${appDisplay}</b> 体验差：原因是终端所在的本地网络（Wi-Fi 网关）已经出现高时延和丢包。异常位置在终端与第 1 跳（局域网网关）之间，全球加速骨干网、代理网关与 OA 各段均正常，aTrust 与 GA 侧没有一处异常；同一时刻同样经马尼拉上车 POP 接入的其余 30 名被探测用户体验正常，判断为个体问题，责任域初步推断为「用户或分支本地」。`,
+                summary: `用户 <b>${userDisplay}</b> 在 <b>${periodText}</b> 访问 <b>${appDisplay}</b> 体验差：原因是终端所在的本地网络（Wi-Fi 网关）已经出现高时延和丢包。异常位置在终端与第 1 跳（局域网网关）之间；aTrust 与全球加速骨干网，以及代理网关、OA 各段都没有一处异常；同一时刻同样经马尼拉上车 POP 接入的其余 30 名被探测用户体验正常，判断为个体问题，责任域初步推断为「用户或分支本地」。`,
                 briefImpact: '个体问题，其余 30 名经马尼拉上车 POP 接入用户正常',
                 abnormalPosition: '终端与第 1 跳（局域网网关）之间',
                 positionDetail: '终端 → 上车点POP 140ms / 丢包 5.3% / 抖动 41ms；第 1 跳局域网网关（Wi-Fi 网关）即 96ms / 丢包 4.8%，其后各跳只是小幅累积（至 140ms / 5.3%），无新增突变。',
@@ -5443,7 +5443,7 @@
                 evidences: [
                   'Wi-Fi 信号强度 <b>-78 dBm</b>，信号不好。',
                   '逐跳第 1 跳（局域网网关）<b>96ms</b> / 丢包 <b>4.8%</b> / 抖动 <b>38ms</b>，其后各跳只是小幅累积（至第 5 跳 140ms / 5.3% / 41ms），无新增突变。',
-                  '全球加速骨干网 <b>42ms / 0.0% / 2ms</b>、下车点POP → 代理网关 <b>18ms / 0.0% / 2ms</b>、代理网关 → OA系统 <b>22ms / 0.0% / 2ms</b> 均正常，aTrust 与 GA 侧无异常。'
+                  '全球加速骨干网 <b>42ms / 0.0% / 2ms</b>、下车点POP → 代理网关 <b>18ms / 0.0% / 2ms</b>、代理网关 → OA系统 <b>22ms / 0.0% / 2ms</b> 均正常，aTrust 与全球加速骨干网侧无异常。'
                 ],
                 domains: [
                   { name: '用户或分支本地', role: '主', advice: `请 ${shortName} 切换到有线网络或其他 Wi-Fi（比如手机热点），并请酒店检查无线网络`, team: '终端用户、酒店网络管理员' }
@@ -6796,8 +6796,8 @@
                     <!-- 右侧：单探测端时展示端到端丢包与时延；多端探测时统一移到拓扑图下方按端展示 -->
                     <div class="flex items-center gap-2">
                       <div x-show="!hasMultipleTerminalsInCurrentSlice()"
-                           class="flex items-center gap-2 py-0.5 px-2 rounded-[3px] bg-[#F8FAFC] border border-[#E2E8F0]" title="由终端主动探测应用获取的端到端质量数据">
-                        <span class="text-[11px] text-[#6F7785] whitespace-nowrap">端到端探测</span>
+                           class="flex items-center gap-2 py-0.5 px-2 rounded-[3px] bg-[#F8FAFC] border border-[#E2E8F0]" title="由各分段指标聚合得到的端到端体验数据">
+                        <span class="text-[11px] text-[#6F7785] whitespace-nowrap">端到端体验</span>
                         <span class="text-[#E0E0E0]">|</span>
                         <span class="text-xs text-[#6F7785] font-sans whitespace-nowrap">时延:</span>
                         <span class="text-xs font-bold font-mono font-outfit"
@@ -6876,10 +6876,10 @@
                           </template>
                         </div>
 
-                        <!-- 右侧：仅展示当前选中终端的端到端探测结果，切换终端随之变化 -->
+                        <!-- 右侧：仅展示当前选中终端的端到端体验结果，切换终端随之变化 -->
                         <div class="flex items-center gap-2 py-0.5 px-2 rounded-[3px] bg-white border border-[#E2E8F0]"
-                             title="由当前选中终端主动探测应用获取的端到端质量数据">
-                          <span class="text-[11px] text-[#6F7785] whitespace-nowrap">端到端探测</span>
+                             title="由各分段指标聚合得到的端到端体验数据">
+                          <span class="text-[11px] text-[#6F7785] whitespace-nowrap">端到端体验</span>
                           <span class="text-[#E0E0E0]">|</span>
                           <span class="text-xs text-[#6F7785] font-sans whitespace-nowrap">时延:</span>
                           <span class="text-xs font-bold font-mono font-outfit"
@@ -7488,7 +7488,7 @@
                                               <div class="flex items-center justify-between pb-2 border-b border-[#F1F5F9] mb-2">
                                                 <div class="flex items-center gap-1.5">
                                                   <span class="w-1.5 h-3.5 bg-[#1C6EFF] rounded-full"></span>
-                                                  <span class="text-xs font-semibold text-[#2F3540]">边缘 POP 节点连通性</span>
+                                                  <span class="text-xs font-semibold text-[#2F3540]">POP 节点连通性</span>
                                                 </div>
                                                 <span class="text-[10px] text-[#94A3B8]">客户端主动探测</span>
                                               </div>
@@ -7514,9 +7514,8 @@
                                               </div>
 
                                               <!-- 底部汇总提示 -->
-                                              <div class="mt-2 pt-2 border-t border-[#F1F5F9] flex items-center justify-between text-[10px] text-[#64748B]">
+                                              <div class="mt-2 pt-2 border-t border-[#F1F5F9] flex items-center text-[10px] text-[#64748B]">
                                                 <span>探测总结：<strong class="text-[#12A679]">全部节点连通 (5/5)</strong></span>
-                                                <span>动态最优选路中</span>
                                               </div>
                                             </div>
                                           </div>
@@ -7798,7 +7797,6 @@
                                         <div class="mt-1">
                                           <span class="text-base font-bold font-outfit" :class="getSegment1Underlay(item).isAbnormal ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="getSegment1Underlay(item).jitter"></span>
                                         </div>
-                                        <span class="text-[10px] text-[#94A3B8]">基线 &lt; 15 ms</span>
                                       </div>
                                     </div>
                                   </div>
@@ -8102,7 +8100,6 @@
                                         <div class="mt-1">
                                           <span class="text-base font-bold font-outfit" :class="getSegment2Underlay(item).isAbnormal ? 'text-[#F52727]' : 'text-[#2F3540]'" x-text="getSegment2Underlay(item).jitter"></span>
                                         </div>
-                                        <span class="text-[10px] text-[#94A3B8]">基线 &lt; 15 ms</span>
                                       </div>
                                     </div>
                                   </div>
@@ -8196,7 +8193,7 @@
                                 <div class="space-y-1.5">
                                   <div class="flex items-center gap-2 flex-wrap">
                                     <span class="w-1 h-3.5 bg-[#1C6EFF] rounded-full"></span>
-                                    <span class="text-xs font-medium text-[#2F3540]">终端/分支—代理网关路径探测对比</span>
+                                    <span class="text-xs font-medium text-[#2F3540]" x-text="queryType === '分支' ? '分支AF—总部AF路径探测对比' : '终端—代理网关路径探测对比'">终端—代理网关路径探测对比</span>
                                   </div>
 
                                   <div class="bg-white rounded-[2px] border border-[#EAEEF4] shadow-xs overflow-hidden">
@@ -8230,7 +8227,7 @@
                                                         <svg class="w-2.5 h-2.5 text-[#1C6EFF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
                                                         </svg>
-                                                        <span>GA 隧道</span>
+                                                        <span>全球加速骨干网</span>
                                                       </div>
                                                       <div class="w-2 h-[1.5px] bg-[#1C6EFF]"></div>
                                                       <svg class="w-2 h-2 text-[#1C6EFF] -ml-0.5" fill="currentColor" viewBox="0 0 6 8"><polygon points="0,0 6,4 0,8"/></svg>
@@ -8242,7 +8239,7 @@
                                                       <span x-text="queryType === '分支' ? '总部AF' : '代理网关'"></span>
                                                     </div>
                                                   </div>
-                                                  <div class="text-[10px] text-[#8A92A1]">经 GA 加密隧道（Overlay）</div>
+                                                  <div class="text-[10px] text-[#8A92A1]">经全球加速骨干网加密隧道（Overlay）</div>
                                                 </div>
                                               </div>
                                             </td>
@@ -8408,7 +8405,6 @@
                                         </table>
                                       </div>
                                     </div>
-                                    <p class="text-[11px] text-[#475569] leading-relaxed" x-text="item.hopConclusion"></p>
                                   </div>
                                 </template>
                               </div>
